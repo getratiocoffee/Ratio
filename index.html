@@ -11,15 +11,11 @@
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%;overscroll-behavior:none}
   body{background:var(--bg);color:var(--ink);font-family:-apple-system,"Segoe UI",system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column}
-  .glance{padding:calc(env(safe-area-inset-top,0px) + 30px) 24px 0;text-align:center;user-select:none}
-  .board .logo{width:46px;height:46px;display:block}
-  .clock{font-size:50px;font-weight:500;line-height:1;font-family:Georgia,"Times New Roman",serif}
-  .date{margin-top:8px;font-size:14px;color:var(--muted)}
-  .spacer{flex:1}
   .board{flex:1;margin:calc(env(safe-area-inset-top,0px) + 16px) 16px 16px;border:1px solid rgba(50,43,42,0.16);border-radius:28px;overflow:hidden;display:flex;flex-direction:column;background:var(--surface)}
   .bhead{background:#49423A;display:flex;align-items:center;justify-content:space-between;padding:9px 18px;color:#F4ECEA}
   .bhead svg path{fill:#F4ECEA}
-  .bhead .logo{width:40px;height:40px}
+  .bhead .logo{width:40px;height:40px;display:block}
+  .bhead .logo svg{width:100%;height:100%;display:block}
   .htime{text-align:right;line-height:1}
   .htime .clock{font-size:15px;font-weight:600;font-family:-apple-system,system-ui,sans-serif;color:#F4ECEA}
   .htime .date{font-size:10px;color:rgba(244,236,234,.65);margin-top:2px}
@@ -32,7 +28,7 @@
   .mtext{font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .mtime{font-size:11px;color:var(--muted);flex:0 0 auto;margin-top:1px}
   .bar{display:flex;align-items:flex-start;justify-content:space-between;gap:0;padding:0 16px calc(env(safe-area-inset-bottom,0px) - 18px)}
-  .cluster{display:flex;flex-direction:column;align-items:center;gap:6px}
+  .cluster{display:flex;flex-direction:column;align-items:center;gap:6px;transition:opacity .16s ease,transform .16s ease}
   .cname{font-size:12px;font-weight:600;color:var(--muted)}
   .pill{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:15px;border-radius:30px;background:var(--surface);border:.5px solid var(--line)}
   .item{display:flex;flex-direction:column;align-items:center;gap:4px;width:62px;cursor:pointer;transition:transform .12s ease}
@@ -46,10 +42,7 @@
   .folder{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer}
   .fgrid{width:44px;height:44px;border-radius:13px;background:var(--surface);border:.5px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:5px}
   .fgrid span{background:var(--accent);border-radius:2px;opacity:.85}
-  .folder .lbl{font-size:9px;color:var(--muted)}
-  #power{width:44px;height:44px;border-radius:13px;background:var(--surface);border:.5px solid var(--line);display:grid;place-items:center;color:#5FA45C;cursor:pointer;padding:0}
-  .cluster{transition:opacity .16s ease,transform .16s ease}
-  #power{transition:color .2s ease}
+  #power{width:44px;height:44px;border-radius:13px;background:var(--surface);border:.5px solid var(--line);display:grid;place-items:center;color:#5FA45C;cursor:pointer;padding:0;transition:color .2s ease}
   @keyframes press-pf{0%{transform:scale(1)}30%{transform:scale(.84);background:var(--tint)}60%{transform:scale(1.1);background:var(--tint)}100%{transform:scale(1)}}
   .pressing{animation:press-pf .42s ease}
   .item[data-id="beans"] .ic svg{transform:scale(.7)}
@@ -187,8 +180,7 @@ fill="#6F4A36" stroke="none">
 
   function fill(side,arr){const el=document.querySelector(`.pill[data-side="${side}"]`);el.innerHTML='';
     arr.forEach(([ic,lb])=>{const d=document.createElement('div');d.className='item';d.dataset.id=ic;
-      d.innerHTML=`<div class="ic">${I[ic]}</div><div class="lbl">${lb}</div>`;
-      d.addEventListener('click',()=>onOpen(ic));el.appendChild(d);});}
+      d.innerHTML=`<div class="ic">${I[ic]}</div><div class="lbl">${lb}</div>`;el.appendChild(d);});}
   fill('shop',shop);fill('roastery',roastery);
   document.getElementById('fgrid').innerHTML=folder.slice(0,8).map(()=>'<span></span>').join('')+'<span style="opacity:.3"></span>';
   document.getElementById('pgrid').innerHTML=folder.map(([ic,lb])=>`<div class="item" onclick="onOpen('${ic}')"><div class="ic">${I[ic]}</div><div class="lbl">${lb}</div></div>`).join('');
@@ -199,6 +191,7 @@ fill="#6F4A36" stroke="none">
   alignCenter();window.addEventListener('resize',alignCenter);setTimeout(alignCenter,300);
   function press(el){el.classList.remove('pressing');void el.offsetWidth;el.classList.add('pressing');}
   document.querySelector('.bar').addEventListener('pointerdown',e=>{const t=e.target.closest('.ic,.fgrid,#power');if(t)press(t);});
+  document.querySelector('.bar').addEventListener('click',e=>{const it=e.target.closest('.item');if(it&&it.dataset.id)onOpen(it.dataset.id);});
 
   const messages=[
     ['New order #1042','2 bags · Ethiopia Yirgacheffe','2m',1],
