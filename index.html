@@ -32,10 +32,10 @@
   .fgrid{width:44px;height:44px;border-radius:13px;background:var(--surface);border:.5px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:5px}
   .fgrid span{background:var(--accent);border-radius:2px;opacity:.85}
   .folder .lbl{font-size:9px;color:var(--muted)}
-  .folder{transition:transform .12s ease}
-  #power{width:44px;height:44px;border-radius:13px;background:var(--surface);border:.5px solid var(--line);display:grid;place-items:center;color:#5FA45C;cursor:pointer;padding:0;transition:transform .12s ease,color .2s ease}
+  #power{width:44px;height:44px;border-radius:13px;background:var(--surface);border:.5px solid var(--line);display:grid;place-items:center;color:#5FA45C;cursor:pointer;padding:0}
   .cluster{transition:opacity .16s ease,transform .16s ease}
-  .item:active,.swap:active,.folder:active,#power:active{transform:scale(.9)}
+  .ic,.fgrid,#power{box-shadow:0 4px 0 rgba(80,64,52,.13);transition:transform .1s ease,box-shadow .1s ease,color .2s ease}
+  .item:active .ic,.folder:active .fgrid,#power:active{transform:translateY(4px);box-shadow:0 0 0 rgba(80,64,52,0)}
   .item[data-id="beans"] .ic svg{transform:scale(.7)}
   .item[data-id="roast"] .ic svg{transform:translateY(3px) scale(1.2)}
   .item[data-id="tools"] .ic svg{transform:scale(1.2)}
