@@ -12,10 +12,14 @@
   html,body{margin:0;height:100%;overscroll-behavior:none}
   body{background:var(--bg);color:var(--ink);font-family:-apple-system,"Segoe UI",system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column}
   .glance{padding:calc(env(safe-area-inset-top,0px) + 30px) 24px 0;text-align:center;user-select:none}
-  .glance .logo{width:46px;height:46px;display:inline-block;margin:0 0 14px}
+  .board .logo{width:46px;height:46px;display:block}
   .clock{font-size:50px;font-weight:500;line-height:1;font-family:Georgia,"Times New Roman",serif}
   .date{margin-top:8px;font-size:14px;color:var(--muted)}
   .spacer{flex:1}
+  .board{flex:1;margin:calc(env(safe-area-inset-top,0px) + 16px) 16px 16px;border:1px solid rgba(50,43,42,0.16);border-radius:28px;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;align-items:center;text-align:center}
+  .bhead{width:100%;background:#49423A;display:flex;align-items:center;justify-content:flex-start;padding:6px 18px}
+  .bhead svg path{fill:#F4ECEA}
+  .time{padding-bottom:32px}
   .bar{display:flex;align-items:flex-start;justify-content:space-between;gap:0;padding:0 16px calc(env(safe-area-inset-bottom,0px) + 6px)}
   .cluster{display:flex;flex-direction:column;align-items:center;gap:6px}
   .cname{font-size:12px;font-weight:600;color:var(--muted)}
@@ -53,8 +57,8 @@
 </style>
 </head>
 <body>
-  <header class="glance">
-    <span class="logo"><svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+  <div class="board">
+    <header class="bhead"><span class="logo"><svg version="1.0" xmlns="http://www.w3.org/2000/svg"
  width="46" height="46" viewBox="0 0 2921.000000 2921.000000"
  preserveAspectRatio="xMidYMid meet">
 <metadata>
@@ -105,12 +109,12 @@ l-22 -150 -3 -7340 c-3 -8016 -7 -7459 53 -7812 146 -865 592 -1688 1235
 221 310 389 535 455 611 522 706 686 980 241 402 425 792 624 1323 48 129 86
 217 90 210 4 -7 46 -116 94 -243z"/>
 </g>
-</svg></span>
-    <div class="clock" id="clock">9:41</div>
-    <div class="date" id="date">—</div>
-  </header>
-
-  <div class="spacer"></div>
+</svg></span></header>
+    <div class="time">
+      <div class="clock" id="clock">9:41</div>
+      <div class="date" id="date">—</div>
+    </div>
+  </div>
 
   <div class="bar">
     <div class="cluster"><div class="pill" data-side="shop"></div><div class="cname">Shop</div></div>
