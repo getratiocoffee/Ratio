@@ -16,7 +16,7 @@
   .clock{font-size:50px;font-weight:500;line-height:1;font-family:Georgia,"Times New Roman",serif}
   .date{margin-top:8px;font-size:14px;color:var(--muted)}
   .spacer{flex:1}
-  .bar{display:flex;align-items:flex-start;justify-content:space-between;gap:0;padding:0 16px calc(env(safe-area-inset-bottom,0px) + 18px)}
+  .bar{display:flex;align-items:flex-start;justify-content:space-between;gap:0;padding:0 16px calc(env(safe-area-inset-bottom,0px) + 6px)}
   .cluster{display:flex;flex-direction:column;align-items:center;gap:6px}
   .cname{font-size:12px;font-weight:600;color:var(--muted)}
   .pill{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:15px;border-radius:30px;background:var(--surface);border:.5px solid var(--line)}
@@ -34,8 +34,9 @@
   .folder .lbl{font-size:9px;color:var(--muted)}
   #power{width:44px;height:44px;border-radius:13px;background:var(--surface);border:.5px solid var(--line);display:grid;place-items:center;color:#5FA45C;cursor:pointer;padding:0}
   .cluster{transition:opacity .16s ease,transform .16s ease}
-  .ic,.fgrid,#power{box-shadow:0 4px 0 rgba(80,64,52,.13);transition:transform .1s ease,box-shadow .1s ease,color .2s ease}
-  .item:active .ic,.folder:active .fgrid,#power:active{transform:translateY(4px);box-shadow:0 0 0 rgba(80,64,52,0)}
+  #power{transition:color .2s ease}
+  @keyframes press-pf{0%{transform:scale(1)}30%{transform:scale(.84);background:var(--tint)}60%{transform:scale(1.1);background:var(--tint)}100%{transform:scale(1)}}
+  .pressing{animation:press-pf .42s ease}
   .item[data-id="beans"] .ic svg{transform:scale(.7)}
   .item[data-id="roast"] .ic svg{transform:translateY(3px) scale(1.2)}
   .item[data-id="tools"] .ic svg{transform:scale(1.2)}
@@ -184,6 +185,8 @@ fill="#6F4A36" stroke="none">
   function togglePower(){const p=document.getElementById('power');const on=p.dataset.on!=='0';p.dataset.on=on?'0':'1';p.style.color=on?'#49423A':'#5FA45C';}
   function alignCenter(){const pill=document.querySelector('.pill');const c=document.querySelector('.center');if(pill&&c)c.style.height=Math.round(pill.getBoundingClientRect().height)+'px';}
   alignCenter();window.addEventListener('resize',alignCenter);setTimeout(alignCenter,300);
+  function press(el){el.classList.remove('pressing');void el.offsetWidth;el.classList.add('pressing');}
+  document.querySelector('.bar').addEventListener('pointerdown',e=>{const t=e.target.closest('.ic,.fgrid,#power');if(t)press(t);});
 
   function onOpen(id){console.log('open:',id);/* TODO: route to page */}
   function swapSides(){const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
