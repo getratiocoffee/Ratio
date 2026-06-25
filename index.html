@@ -16,22 +16,29 @@
   .clock{font-size:50px;font-weight:500;line-height:1;font-family:Georgia,"Times New Roman",serif}
   .date{margin-top:8px;font-size:14px;color:var(--muted)}
   .spacer{flex:1}
-  .bar{display:flex;align-items:flex-start;justify-content:center;gap:12px;padding:0 12px calc(env(safe-area-inset-bottom,0px) + 18px)}
+  .bar{display:flex;align-items:flex-start;justify-content:space-between;gap:0;padding:0 16px calc(env(safe-area-inset-bottom,0px) + 18px)}
   .cluster{display:flex;flex-direction:column;align-items:center;gap:6px}
-  .cname{font-size:11px;font-weight:600;color:var(--muted)}
-  .pill{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;padding:11px;border-radius:24px;background:var(--surface);border:.5px solid var(--line)}
-  .item{display:flex;flex-direction:column;align-items:center;gap:4px;width:46px;cursor:pointer}
-  .ic{width:42px;height:42px;border-radius:12px;background:var(--bg);display:grid;place-items:center;color:var(--ink);overflow:hidden}
-  .ic svg{width:30px;height:30px}
-  .lbl{font-size:9px;color:var(--muted)}
-  .center{display:flex;flex-direction:column;align-items:center;gap:10px}
-  .swap{width:50px;height:50px;border-radius:15px;background:var(--surface);border:1.5px solid #49423A;display:grid;place-items:center;color:#49423A;cursor:pointer;padding:0;transition:transform .3s ease}
+  .cname{font-size:12px;font-weight:600;color:var(--muted)}
+  .pill{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:15px;border-radius:30px;background:var(--surface);border:.5px solid var(--line)}
+  .item{display:flex;flex-direction:column;align-items:center;gap:4px;width:62px;cursor:pointer;transition:transform .12s ease}
+  .ic{width:56px;height:56px;border-radius:16px;background:var(--bg);display:grid;place-items:center;color:var(--ink);overflow:hidden}
+  .ic svg{width:40px;height:40px}
+  .lbl{font-size:10px;color:var(--muted)}
+  .center{display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:0}
+  .swap{width:44px;height:44px;border-radius:13px;background:var(--surface);border:.5px solid var(--line);display:grid;place-items:center;color:#49423A;cursor:pointer;padding:0;transition:transform .3s ease}
   .swap.spin{transform:rotate(180deg)}
   .swap svg{width:23px;height:23px}
   .folder{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer}
-  .fgrid{width:50px;height:50px;border-radius:15px;background:var(--surface);border:.5px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:6px}
+  .fgrid{width:44px;height:44px;border-radius:13px;background:var(--surface);border:.5px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:5px}
   .fgrid span{background:var(--accent);border-radius:2px;opacity:.85}
   .folder .lbl{font-size:9px;color:var(--muted)}
+  .folder{transition:transform .12s ease}
+  #power{width:44px;height:44px;border-radius:13px;background:var(--surface);border:.5px solid var(--line);display:grid;place-items:center;color:#5FA45C;cursor:pointer;padding:0;transition:transform .12s ease,color .2s ease}
+  .cluster{transition:opacity .16s ease,transform .16s ease}
+  .item:active,.swap:active,.folder:active,#power:active{transform:scale(.9)}
+  .item[data-id="beans"] .ic svg{transform:scale(.7)}
+  .item[data-id="roast"] .ic svg{transform:translateY(3px) scale(1.2)}
+  .item[data-id="tools"] .ic svg{transform:scale(1.2)}
   .ov{position:fixed;inset:0;background:rgba(50,43,42,0.45);display:none;align-items:center;justify-content:center;padding:24px;z-index:10}
   .ov.open{display:flex}
   .panel{background:var(--surface);border-radius:26px;padding:20px 18px 22px;width:100%;max-width:330px;transform:scale(.85);opacity:0;transition:transform .22s ease,opacity .22s ease}
@@ -108,7 +115,8 @@ l-22 -150 -3 -7340 c-3 -8016 -7 -7459 53 -7812 146 -865 592 -1688 1235
     <div class="cluster"><div class="pill" data-side="shop"></div><div class="cname">Shop</div></div>
     <div class="center">
       <button class="swap" id="swap" onclick="swapSides()" aria-label="swap sides"></button>
-      <div class="folder" onclick="openFolder()"><div class="fgrid" id="fgrid"></div><div class="lbl">More</div></div>
+      <div class="folder" onclick="openFolder()"><div class="fgrid" id="fgrid"></div></div>
+      <button id="power" onclick="togglePower()" aria-label="power"></button>
     </div>
     <div class="cluster"><div class="pill" data-side="roastery"></div><div class="cname">Roastery</div></div>
   </div>
@@ -129,7 +137,7 @@ l-22 -150 -3 -7340 c-3 -8016 -7 -7459 53 -7812 146 -865 592 -1688 1235
 Created by potrace 1.16, written by Peter Selinger 2001-2019
 </metadata>
 <g transform="translate(0.000000,704.000000) scale(0.100000,-0.100000)"
-fill="#49423A" stroke="none">
+fill="#6F4A36" stroke="none">
 <path d="M4125 6834 c-411 -44 -770 -145 -1170 -332 -1030 -482 -1788 -1229
 -2300 -2267 -322 -654 -469 -1187 -452 -1645 6 -163 25 -248 83 -365 89 -183
 223 -256 357 -197 96 42 327 307 562 642 369 527 651 761 1165 968 402 162
@@ -147,7 +155,7 @@ fill="#49423A" stroke="none">
     task:`<svg viewBox="0 0 48 48"><rect x="13" y="12" width="22" height="27" rx="6" fill="#FCF6F4" ${O}/><rect x="19.5" y="8.5" width="9" height="6" rx="2.4" fill="#9DAE86" ${O}/><path d="M17.5 24 l2.6 2.6 5-5.6" fill="none" stroke="#9DAE86" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 30 h12 M18 34 h8" fill="none" stroke="#D8CFC6" stroke-width="1.8" stroke-linecap="round"/></svg>`,
     tools:`<svg viewBox="0 0 48 48"><path d="M31 13a5.5 5.5 0 0 0-7 7L13.5 30.5l4 4L28 24a5.5 5.5 0 0 0 7-7l-3.3 3.3-2.7-2.7L32.3 14z" fill="#B7ADA0" ${O}/></svg>`,
     roast:`<svg viewBox="0 0 48 48"><path d="M24 8c4 6 9 9 9 16a9 9 0 0 1-18 0c0-4 2-6 3.6-7.6.8 2.6 2.6 3.2 3.6 3.5 0-3.6-1.6-7.4-1.8-11.9z" fill="#D99B6E" ${O}/><path d="M24 22c2 2 3.2 4 3.2 6a4.6 4.6 0 0 1-9.2 0c0-2 1-3.6 2.1-4.6.5 1.6 1.6 2 2.1 2.2 0-1.4-.3-2.4-.2-3.6z" fill="#EFC9A0" stroke="none"/></svg>`,
-    green:`<svg viewBox="0 0 48 48"><path d="M16 30 h16 l-1.6 8 a2 2 0 0 1-2 1.6 H19.6 a2 2 0 0 1-2-1.6z" fill="#C29A78" ${O}/><path d="M14.5 30 h19" ${O} fill="none"/><path d="M24 30 V22" fill="none" stroke="#8DA06E" stroke-width="2.2" stroke-linecap="round"/><path d="M24 26 C19 23 15 24.5 13.5 28 C18 31 22 29 24 26z" fill="#9DAE86" ${O}/><path d="M24 23 C29 19.5 33 21 34.5 24.5 C30 28 25 26 24 23z" fill="#B7C49E" ${O}/></svg>`,
+    green:`<svg viewBox="0 0 48 48"><g transform="translate(24 20) scale(1.3) translate(-24 -24)" ${O}><path d="M24 40 V18" fill="none" stroke="#8DA06E" stroke-width="2.4"/><path d="M24 26 C16 22 11 24 9 29 C16 32 21 29 24 26z" fill="#9DAE86"/><path d="M24 22 C32 17 37 19 39 24 C31 28 26 25 24 22z" fill="#B7C49E"/></g></svg>`,
     order:`<svg viewBox="0 0 48 48"><rect x="14" y="11" width="20" height="26" rx="3.5" fill="#FCF6F4" ${O}/><path d="M18.5 18 h11 M18.5 22 h11 M18.5 26 h7" stroke="#CFC4B8" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M19 31 l2 2 3.5-4" fill="none" stroke="#9DAE86" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     fx:`<svg viewBox="0 0 48 48"><path d="M14 11 V36 H39" fill="none" stroke="#6B5E50" stroke-width="2" stroke-linecap="round"/><path d="M14 11 l-2.2 3 M14 11 l2.2 3" ${O} fill="none"/><path d="M39 36 l-3 -2.2 M39 36 l-3 2.2" ${O} fill="none"/><path d="M18 22 L24 31 L36 15" fill="none" stroke="#BE7C86" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18" cy="22" r="1.6" fill="#BE7C86"/><circle cx="24" cy="31" r="1.6" fill="#BE7C86"/><circle cx="36" cy="15" r="1.6" fill="#BE7C86"/></svg>`,
     coffee:`<svg viewBox="0 0 24 24" ${s}><path d="M4 11h13v3a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 11h2a2 2 0 0 1 0 6h-1"/></svg>`,
@@ -172,9 +180,13 @@ fill="#49423A" stroke="none">
   document.getElementById('fgrid').innerHTML=folder.slice(0,8).map(()=>'<span></span>').join('')+'<span style="opacity:.3"></span>';
   document.getElementById('pgrid').innerHTML=folder.map(([ic,lb])=>`<div class="item" onclick="onOpen('${ic}')"><div class="ic">${I[ic]}</div><div class="lbl">${lb}</div></div>`).join('');
   document.getElementById('swap').innerHTML=I.swap;
+  document.getElementById('power').innerHTML='<svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v8"/><path d="M7.5 7.5a6.5 6.5 0 1 0 9 0"/></svg>';
+  function togglePower(){const p=document.getElementById('power');const on=p.dataset.on!=='0';p.dataset.on=on?'0':'1';p.style.color=on?'#49423A':'#5FA45C';}
+  function alignCenter(){const pill=document.querySelector('.pill');const c=document.querySelector('.center');if(pill&&c)c.style.height=Math.round(pill.getBoundingClientRect().height)+'px';}
+  alignCenter();window.addEventListener('resize',alignCenter);setTimeout(alignCenter,300);
 
   function onOpen(id){console.log('open:',id);/* TODO: route to page */}
-  function swapSides(){const a=document.querySelector('.pill[data-side="shop"]').innerHTML;const b=document.querySelector('.pill[data-side="roastery"]').innerHTML;document.querySelector('.pill[data-side="shop"]').innerHTML=b;document.querySelector('.pill[data-side="roastery"]').innerHTML=a;document.getElementById('swap').classList.toggle('spin');fill;}
+  function swapSides(){const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
   function openFolder(){document.getElementById('ov').classList.add('open');}
   function closeFolder(){document.getElementById('ov').classList.remove('open');}
 
