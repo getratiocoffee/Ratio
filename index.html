@@ -3,248 +3,187 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
-<meta name="theme-color" content="#1a1336" />
+<meta name="theme-color" content="#F4ECEA" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<title>Home</title>
+<title>Ratio</title>
 <style>
-  :root {
-    --bg-top: #2a1f52;
-    --bg-mid: #1c1740;
-    --bg-bot: #0f0c24;
-    --glow: #6a4dff;
-    --ink: #f3f0ff;
-    --ink-soft: #b9b2e0;
-    --dock-glass: rgba(255, 255, 255, 0.10);
-    --dock-stroke: rgba(255, 255, 255, 0.18);
-    --tile: rgba(255, 255, 255, 0.06);
-    --tile-stroke: rgba(255, 255, 255, 0.12);
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-    --safe-top: env(safe-area-inset-top, 0px);
-  }
-
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
-  html, body {
-    margin: 0;
-    height: 100%;
-    overscroll-behavior: none;
-  }
-
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
-    color: var(--ink);
-    background:
-      radial-gradient(120% 80% at 80% -10%, rgba(106,77,255,0.35), transparent 60%),
-      radial-gradient(100% 60% at 0% 110%, rgba(255,110,180,0.18), transparent 55%),
-      linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 45%, var(--bg-bot) 100%);
-    background-attachment: fixed;
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* ---------- Top zone: glanceable, not interactive (out of thumb reach) ---------- */
-  .glance {
-    padding: calc(var(--safe-top) + 28px) 28px 0;
-    text-align: center;
-    flex: 0 0 auto;
-    user-select: none;
-  }
-  .clock {
-    font-size: 64px;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    line-height: 1;
-    text-shadow: 0 2px 30px rgba(106,77,255,0.45);
-  }
-  .date {
-    margin-top: 8px;
-    font-size: 15px;
-    color: var(--ink-soft);
-    letter-spacing: 0.04em;
-  }
-
-  /* spacer pushes the interactive grid into the lower half */
-  .spacer { flex: 1 1 auto; min-height: 12px; }
-
-  /* ---------- App grid: lives in the thumb-friendly lower region ---------- */
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 20px 12px;
-    padding: 0 22px 18px;
-    flex: 0 0 auto;
-  }
-
-  .app {
-    appearance: none;
-    border: 0;
-    background: none;
-    padding: 0;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    color: var(--ink);
-    font: inherit;
-  }
-  .app .icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 17px;
-    background: var(--tile);
-    border: 1px solid var(--tile-stroke);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    display: grid;
-    place-items: center;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.10);
-    transition: transform 0.18s ease;
-  }
-  .app .icon svg { width: 28px; height: 28px; }
-  .app .label {
-    font-size: 12px;
-    color: var(--ink-soft);
-    letter-spacing: 0.01em;
-  }
-  .app:active .icon { transform: scale(0.90); }
-  .app:focus-visible .icon { outline: 2px solid var(--glow); outline-offset: 3px; }
-
-  /* page dots */
-  .dots {
-    display: flex;
-    justify-content: center;
-    gap: 7px;
-    padding: 4px 0 16px;
-    flex: 0 0 auto;
-  }
-  .dots span {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: rgba(255,255,255,0.25);
-  }
-  .dots span.on { background: rgba(255,255,255,0.85); }
-
-  /* ---------- Frosted glass dock: 4 across, pinned bottom ---------- */
-  .dock-wrap {
-    flex: 0 0 auto;
-    padding: 0 14px calc(var(--safe-bottom) + 14px);
-  }
-  .dock {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
-    padding: 12px;
-    border-radius: 30px;
-    background: var(--dock-glass);
-    border: 1px solid var(--dock-stroke);
-    backdrop-filter: blur(28px) saturate(160%);
-    -webkit-backdrop-filter: blur(28px) saturate(160%);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.22);
-  }
-  .dock .app .icon {
-    width: 56px; height: 56px;
-    background: rgba(255,255,255,0.10);
-    border-color: rgba(255,255,255,0.16);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .app .icon { transition: none; }
-  }
-  @media (min-width: 520px) {
-    body { max-width: 430px; margin: 0 auto; box-shadow: 0 0 80px rgba(0,0,0,0.5); }
-  }
+  :root{--bg:#F4ECEA;--surface:#FCF6F4;--ink:#322B2A;--muted:#8C8079;--accent:#B25E6A;--tint:#F3DDE0;--line:rgba(50,43,42,0.10)}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overscroll-behavior:none}
+  body{background:var(--bg);color:var(--ink);font-family:-apple-system,"Segoe UI",system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column}
+  .glance{padding:calc(env(safe-area-inset-top,0px) + 30px) 24px 0;text-align:center;user-select:none}
+  .glance .logo{width:46px;height:46px;display:inline-block;margin:0 0 14px}
+  .clock{font-size:50px;font-weight:500;line-height:1;font-family:Georgia,"Times New Roman",serif}
+  .date{margin-top:8px;font-size:14px;color:var(--muted)}
+  .spacer{flex:1}
+  .bar{display:flex;align-items:flex-start;justify-content:center;gap:12px;padding:0 12px calc(env(safe-area-inset-bottom,0px) + 18px)}
+  .cluster{display:flex;flex-direction:column;align-items:center;gap:6px}
+  .cname{font-size:11px;font-weight:600;color:var(--muted)}
+  .pill{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;padding:11px;border-radius:24px;background:var(--surface);border:.5px solid var(--line)}
+  .item{display:flex;flex-direction:column;align-items:center;gap:4px;width:46px;cursor:pointer}
+  .ic{width:42px;height:42px;border-radius:12px;background:var(--bg);display:grid;place-items:center;color:var(--ink);overflow:hidden}
+  .ic svg{width:30px;height:30px}
+  .lbl{font-size:9px;color:var(--muted)}
+  .center{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .swap{width:50px;height:50px;border-radius:15px;background:var(--surface);border:1.5px solid #49423A;display:grid;place-items:center;color:#49423A;cursor:pointer;padding:0;transition:transform .3s ease}
+  .swap.spin{transform:rotate(180deg)}
+  .swap svg{width:23px;height:23px}
+  .folder{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer}
+  .fgrid{width:50px;height:50px;border-radius:15px;background:var(--surface);border:.5px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:6px}
+  .fgrid span{background:var(--accent);border-radius:2px;opacity:.85}
+  .folder .lbl{font-size:9px;color:var(--muted)}
+  .ov{position:fixed;inset:0;background:rgba(50,43,42,0.45);display:none;align-items:center;justify-content:center;padding:24px;z-index:10}
+  .ov.open{display:flex}
+  .panel{background:var(--surface);border-radius:26px;padding:20px 18px 22px;width:100%;max-width:330px;transform:scale(.85);opacity:0;transition:transform .22s ease,opacity .22s ease}
+  .ov.open .panel{transform:scale(1);opacity:1}
+  .ptitle{font-size:15px;font-weight:600;text-align:center;margin:0 0 16px}
+  .pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px 8px}
+  .pgrid .item{width:auto}
+  .pgrid .ic{width:48px;height:48px;border-radius:13px}
+  .pgrid .ic svg{width:26px;height:26px}
+  @media(min-width:520px){body{max-width:430px;margin:0 auto;border-left:.5px solid var(--line);border-right:.5px solid var(--line)}}
 </style>
 </head>
 <body>
   <header class="glance">
+    <span class="logo"><svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+ width="46" height="46" viewBox="0 0 2921.000000 2921.000000"
+ preserveAspectRatio="xMidYMid meet">
+<metadata>
+Created by potrace 1.16, written by Peter Selinger 2001-2019
+</metadata>
+<g transform="translate(0.000000,2921.000000) scale(0.100000,-0.100000)"
+fill="#49423A" stroke="none">
+<path d="M7245 25703 c-544 -47 -1035 -184 -1505 -419 -404 -202 -716 -429
+-1050 -764 -335 -334 -562 -646 -764 -1050 -203 -407 -328 -810 -399 -1295
+l-22 -150 -3 -7340 c-3 -8016 -7 -7459 53 -7812 146 -865 592 -1688 1235
+-2281 703 -649 1560 -1018 2510 -1082 119 -8 2201 -10 7410 -8 6898 3 7252 4
+7385 21 310 40 566 97 835 187 461 153 874 378 1260 686 173 138 486 451 624
+624 486 610 770 1290 873 2095 17 133 18 487 21 7385 2 5209 0 7291 -8 7410
+-78 1159 -623 2201 -1531 2926 -522 416 -1173 708 -1831 819 -351 59 199 55
+-7757 53 -4013 -1 -7314 -3 -7336 -5z m14695 -693 c636 -58 1223 -285 1735
+-670 162 -122 324 -267 441 -396 500 -550 791 -1182 881 -1914 17 -138 18
+-490 18 -7420 0 -5948 -2 -7295 -13 -7385 -80 -672 -302 -1218 -708 -1745
+-114 -148 -416 -450 -564 -564 -527 -406 -1073 -628 -1745 -708 -90 -11 -1437
+-13 -7385 -13 -6930 0 -7282 1 -7420 18 -937 116 -1754 583 -2310 1322 -389
+517 -619 1117 -670 1750 -8 103 -10 2076 -8 7415 l3 7275 22 135 c43 266 83
+431 154 637 337 978 1114 1755 2092 2092 258 89 555 151 832 174 22 2 3300 4
+7285 5 4958 1 7281 -1 7360 -8z M11315 21814 c-411 -44 -770 -145 -1170 -332
+-1030 -482 -1788 -1229 -2300 -2267 -322 -654 -469 -1187 -452 -1645 6 -163
+25 -248 83 -365 89 -183 223 -256 357 -197 96 42 327 307 562 642 369 527 651
+761 1165 968 402 162 724 217 1355 232 323 8 388 12 510 34 375 66 665 200
+920 424 101 88 369 382 489 536 204 262 308 456 373 694 33 124 37 310 9 412
+-41 150 -137 288 -286 411 -284 236 -605 375 -1000 434 -111 17 -516 29 -615
+19z M21490 21799 c-66 -29 -14039 -14001 -14075 -14073 -68 -135 9 -293 159
+-327 44 -10 62 -9 112 5 l59 17 7022 7022 7022 7022 17 59 c14 50 15 68 5 112
+-33 146 -186 224 -321 163z M13610 19973 c-96 -35 -238 -220 -370 -483 -303
+-603 -810 -956 -1593 -1109 -222 -44 -392 -60 -714 -71 -440 -14 -702 -53
+-996 -150 -240 -79 -519 -225 -687 -359 -210 -166 -591 -581 -742 -806 -262
+-391 -321 -787 -163 -1094 105 -204 285 -354 601 -502 549 -257 1162 -284
+1859 -82 916 265 1831 955 2463 1858 301 430 611 1056 771 1559 111 348 129
+656 51 889 -39 116 -67 161 -147 241 -109 109 -227 148 -333 109z M18952
+15211 c-86 -32 -134 -65 -208 -143 -91 -96 -123 -159 -254 -508 -198 -524
+-310 -784 -462 -1065 -196 -362 -315 -538 -808 -1195 -146 -195 -296 -398
+-332 -450 -299 -429 -464 -836 -543 -1340 -23 -141 -32 -576 -16 -736 52 -515
+277 -1014 643 -1424 499 -559 1179 -892 1943 -950 308 -24 677 28 1019 144
+458 155 811 378 1146 722 207 213 350 412 474 662 163 327 234 595 258 966 36
+576 -98 1165 -376 1652 -110 192 -197 318 -486 704 -353 471 -461 621 -586
+810 -261 397 -438 759 -673 1376 -170 443 -182 472 -223 535 -60 93 -144 171
+-233 215 -96 48 -198 56 -283 25z m213 -986 c122 -324 199 -504 335 -780 234
+-474 403 -739 879 -1379 581 -780 631 -860 747 -1211 91 -278 128 -507 128
+-795 -1 -291 -43 -507 -150 -757 -255 -599 -794 -1066 -1453 -1262 -56 -17
+-141 -38 -188 -47 -186 -34 -618 -34 -798 0 -241 47 -532 163 -759 304 -557
+344 -924 886 -1012 1492 -23 159 -15 504 15 673 65 366 187 678 373 957 46 69
+221 310 389 535 455 611 522 706 686 980 241 402 425 792 624 1323 48 129 86
+217 90 210 4 -7 46 -116 94 -243z"/>
+</g>
+</svg></span>
     <div class="clock" id="clock">9:41</div>
-    <div class="date" id="date">Monday, June 1</div>
+    <div class="date" id="date">—</div>
   </header>
 
   <div class="spacer"></div>
 
-  <main class="grid" id="grid" aria-label="Apps"></main>
+  <div class="bar">
+    <div class="cluster"><div class="pill" data-side="shop"></div><div class="cname">Shop</div></div>
+    <div class="center">
+      <button class="swap" id="swap" onclick="swapSides()" aria-label="swap sides"></button>
+      <div class="folder" onclick="openFolder()"><div class="fgrid" id="fgrid"></div><div class="lbl">More</div></div>
+    </div>
+    <div class="cluster"><div class="pill" data-side="roastery"></div><div class="cname">Roastery</div></div>
+  </div>
 
-  <nav class="dots" aria-hidden="true">
-    <span class="on"></span><span></span>
-  </nav>
-
-  <div class="dock-wrap">
-    <div class="dock" id="dock" aria-label="Dock"></div>
+  <div class="ov" id="ov" onclick="if(event.target===this)closeFolder()">
+    <div class="panel"><p class="ptitle">More</p><div class="pgrid" id="pgrid"></div></div>
   </div>
 
 <script>
-  // ---- Icon set (inline, no external deps) ----
-  const I = {
-    grid:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>',
-    chart:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19V9M12 19V5M19 19v-6"/></svg>',
-    chat:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8 8 0 0 1-11.6 7L4 19l1.5-5.4A8 8 0 1 1 21 11.5Z"/></svg>',
-    note:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v11l-5 5H5z"/><path d="M14 20v-5h5"/></svg>',
-    photo:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5L5 21"/></svg>',
-    music:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M9 18V5l12-2v13"/></svg>',
-    calendar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
-    wallet:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M16 14h2"/></svg>',
-    phone:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h3l2 5-2 1a11 11 0 0 0 5 5l1-2 5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/></svg>',
-    mail:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg>',
-    compass: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 5-4 1 2-5 4-1Z"/></svg>',
-    settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5L9 5.5a7 7 0 0 0-1.7 1l-2.4-1-2 3.5L5 10.5a7 7 0 0 0 0 3l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 1.7 1l.5 2.5h5l.5-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.5-2-1.5c.1-.3.1-.7.1-1Z"/></svg>',
+  const O='stroke="#6B5E50" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"';
+  const s='stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"';
+  const I={
+    timesheet:`<svg viewBox="0 0 48 48"><path d="M17 10 v4 M31 10 v4" ${O} fill="none"/><rect x="10" y="13" width="28" height="25" rx="6" fill="#FCF6F4" ${O}/><rect x="13.5" y="16.5" width="21" height="4.6" rx="2.3" fill="#C7A79E"/><path d="M14 27 h20 M14 32 h20 M20.6 24 v15 M27.3 24 v15" stroke="#E2D9D0" stroke-width="1.4" fill="none" stroke-linecap="round"/><rect x="21" y="27.6" width="6.3" height="4" rx="1.6" fill="#BE7C86"/></svg>`,
+    beans:`<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+ viewBox="0 0 715.000000 704.000000"
+ preserveAspectRatio="xMidYMid meet">
+<metadata>
+Created by potrace 1.16, written by Peter Selinger 2001-2019
+</metadata>
+<g transform="translate(0.000000,704.000000) scale(0.100000,-0.100000)"
+fill="#49423A" stroke="none">
+<path d="M4125 6834 c-411 -44 -770 -145 -1170 -332 -1030 -482 -1788 -1229
+-2300 -2267 -322 -654 -469 -1187 -452 -1645 6 -163 25 -248 83 -365 89 -183
+223 -256 357 -197 96 42 327 307 562 642 369 527 651 761 1165 968 402 162
+724 217 1355 232 323 8 388 12 510 34 375 66 665 200 920 424 101 88 369 382
+489 536 204 262 308 456 373 694 33 124 37 310 9 412 -41 150 -137 288 -286
+411 -284 236 -605 375 -1000 434 -111 17 -516 29 -615 19z M6420 4993 c-96
+-35 -238 -220 -370 -483 -303 -603 -810 -956 -1593 -1109 -222 -44 -392 -60
+-714 -71 -440 -14 -702 -53 -996 -150 -240 -79 -519 -225 -687 -359 -210 -166
+-591 -581 -742 -806 -262 -391 -321 -787 -163 -1094 105 -204 285 -354 601
+-502 549 -257 1162 -284 1859 -82 916 265 1831 955 2463 1858 301 430 611
+1056 771 1559 111 348 129 656 51 889 -39 116 -67 161 -147 241 -109 109 -227
+148 -333 109z"/>
+</g>
+</svg>`,
+    task:`<svg viewBox="0 0 48 48"><rect x="13" y="12" width="22" height="27" rx="6" fill="#FCF6F4" ${O}/><rect x="19.5" y="8.5" width="9" height="6" rx="2.4" fill="#9DAE86" ${O}/><path d="M17.5 24 l2.6 2.6 5-5.6" fill="none" stroke="#9DAE86" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 30 h12 M18 34 h8" fill="none" stroke="#D8CFC6" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    tools:`<svg viewBox="0 0 48 48"><path d="M31 13a5.5 5.5 0 0 0-7 7L13.5 30.5l4 4L28 24a5.5 5.5 0 0 0 7-7l-3.3 3.3-2.7-2.7L32.3 14z" fill="#B7ADA0" ${O}/></svg>`,
+    roast:`<svg viewBox="0 0 48 48"><path d="M24 8c4 6 9 9 9 16a9 9 0 0 1-18 0c0-4 2-6 3.6-7.6.8 2.6 2.6 3.2 3.6 3.5 0-3.6-1.6-7.4-1.8-11.9z" fill="#D99B6E" ${O}/><path d="M24 22c2 2 3.2 4 3.2 6a4.6 4.6 0 0 1-9.2 0c0-2 1-3.6 2.1-4.6.5 1.6 1.6 2 2.1 2.2 0-1.4-.3-2.4-.2-3.6z" fill="#EFC9A0" stroke="none"/></svg>`,
+    green:`<svg viewBox="0 0 48 48"><path d="M16 30 h16 l-1.6 8 a2 2 0 0 1-2 1.6 H19.6 a2 2 0 0 1-2-1.6z" fill="#C29A78" ${O}/><path d="M14.5 30 h19" ${O} fill="none"/><path d="M24 30 V22" fill="none" stroke="#8DA06E" stroke-width="2.2" stroke-linecap="round"/><path d="M24 26 C19 23 15 24.5 13.5 28 C18 31 22 29 24 26z" fill="#9DAE86" ${O}/><path d="M24 23 C29 19.5 33 21 34.5 24.5 C30 28 25 26 24 23z" fill="#B7C49E" ${O}/></svg>`,
+    order:`<svg viewBox="0 0 48 48"><rect x="14" y="11" width="20" height="26" rx="3.5" fill="#FCF6F4" ${O}/><path d="M18.5 18 h11 M18.5 22 h11 M18.5 26 h7" stroke="#CFC4B8" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M19 31 l2 2 3.5-4" fill="none" stroke="#9DAE86" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    fx:`<svg viewBox="0 0 48 48"><path d="M14 11 V36 H39" fill="none" stroke="#6B5E50" stroke-width="2" stroke-linecap="round"/><path d="M14 11 l-2.2 3 M14 11 l2.2 3" ${O} fill="none"/><path d="M39 36 l-3 -2.2 M39 36 l-3 2.2" ${O} fill="none"/><path d="M18 22 L24 31 L36 15" fill="none" stroke="#BE7C86" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18" cy="22" r="1.6" fill="#BE7C86"/><circle cx="24" cy="31" r="1.6" fill="#BE7C86"/><circle cx="36" cy="15" r="1.6" fill="#BE7C86"/></svg>`,
+    coffee:`<svg viewBox="0 0 24 24" ${s}><path d="M4 11h13v3a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 11h2a2 2 0 0 1 0 6h-1"/></svg>`,
+    qr:`<svg viewBox="0 0 24 24" ${s}><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h3v3M20 14v6M14 20h3"/></svg>`,
+    repeat:`<svg viewBox="0 0 24 24" ${s}><path d="M17 3l3 3-3 3"/><path d="M20 6H9a4 4 0 0 0-4 4v1"/><path d="M7 21l-3-3 3-3"/><path d="M4 18h11a4 4 0 0 0 4-4v-1"/></svg>`,
+    news:`<svg viewBox="0 0 24 24" ${s}><path d="M16 5H6a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h11a2 2 0 0 0 2-2V5z"/><path d="M8 9h5M8 13h5"/></svg>`,
+    gift:`<svg viewBox="0 0 24 24" ${s}><path d="M4 11h16v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M3 8h18v3H3z"/><path d="M12 8v12"/></svg>`,
+    user:`<svg viewBox="0 0 24 24" ${s}><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>`,
+    cog:`<svg viewBox="0 0 24 24" ${s}><circle cx="12" cy="12" r="3"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2M6 6l1.5 1.5M16.5 16.5L18 18M18 6l-1.5 1.5M7.5 16.5L6 18"/></svg>`,
+    bag:`<svg viewBox="0 0 24 24" ${s}><path d="M6 9h12l-.8 11a1 1 0 0 1-1 .9H7.8a1 1 0 0 1-1-.9z"/><path d="M9 9V7a3 3 0 0 1 6 0v2"/></svg>`,
+    swap:`<svg viewBox="0 0 24 24" ${s}><path d="M5 8h13M15 5l3 3-3 3"/><path d="M19 16H6M9 13l-3 3 3 3"/></svg>`
   };
+  const shop=[['timesheet','Timesheet'],['beans','Beans'],['task','Task'],['tools','Tools']];
+  const roastery=[['roast','Roast'],['green','Green'],['order','Order'],['fx','F(x)']];
+  const folder=[['coffee','Order'],['qr','Pay'],['repeat','Subscribe'],['news','News'],['gift','Gifts'],['user','Account'],['cog','Settings'],['bag','Shop']];
 
-  // ---- App config: edit this list to add/remove apps later ----
-  const apps = [
-    { id: 'home',     label: 'Home',     icon: 'grid'     },
-    { id: 'stats',    label: 'Stats',    icon: 'chart'    },
-    { id: 'notes',    label: 'Notes',    icon: 'note'     },
-    { id: 'photos',   label: 'Photos',   icon: 'photo'    },
-    { id: 'music',    label: 'Music',    icon: 'music'    },
-    { id: 'calendar', label: 'Calendar', icon: 'calendar' },
-    { id: 'wallet',   label: 'Wallet',   icon: 'wallet'   },
-    { id: 'explore',  label: 'Explore',  icon: 'compass'  },
-  ];
+  function fill(side,arr){const el=document.querySelector(`.pill[data-side="${side}"]`);el.innerHTML='';
+    arr.forEach(([ic,lb])=>{const d=document.createElement('div');d.className='item';d.dataset.id=ic;
+      d.innerHTML=`<div class="ic">${I[ic]}</div><div class="lbl">${lb}</div>`;
+      d.addEventListener('click',()=>onOpen(ic));el.appendChild(d);});}
+  fill('shop',shop);fill('roastery',roastery);
+  document.getElementById('fgrid').innerHTML=folder.slice(0,8).map(()=>'<span></span>').join('')+'<span style="opacity:.3"></span>';
+  document.getElementById('pgrid').innerHTML=folder.map(([ic,lb])=>`<div class="item" onclick="onOpen('${ic}')"><div class="ic">${I[ic]}</div><div class="lbl">${lb}</div></div>`).join('');
+  document.getElementById('swap').innerHTML=I.swap;
 
-  const dock = [
-    { id: 'phone',    label: 'Phone',    icon: 'phone' },
-    { id: 'messages', label: 'Messages', icon: 'chat'  },
-    { id: 'mail',     label: 'Mail',     icon: 'mail'  },
-    { id: 'settings', label: 'Settings', icon: 'settings' },
-  ];
+  function onOpen(id){console.log('open:',id);/* TODO: route to page */}
+  function swapSides(){const a=document.querySelector('.pill[data-side="shop"]').innerHTML;const b=document.querySelector('.pill[data-side="roastery"]').innerHTML;document.querySelector('.pill[data-side="shop"]').innerHTML=b;document.querySelector('.pill[data-side="roastery"]').innerHTML=a;document.getElementById('swap').classList.toggle('spin');fill;}
+  function openFolder(){document.getElementById('ov').classList.add('open');}
+  function closeFolder(){document.getElementById('ov').classList.remove('open');}
 
-  function tile(app) {
-    const b = document.createElement('button');
-    b.className = 'app';
-    b.dataset.id = app.id;
-    b.setAttribute('aria-label', app.label);
-    b.innerHTML = `<span class="icon">${I[app.icon] || ''}</span><span class="label">${app.label}</span>`;
-    b.addEventListener('click', () => onOpen(app.id));
-    return b;
-  }
-
-  function render(el, list) { list.forEach(a => el.appendChild(tile(a))); }
-  render(document.getElementById('grid'), apps);
-  render(document.getElementById('dock'), dock);
-
-  // hook for features later
-  function onOpen(id) {
-    console.log('open:', id);
-    // TODO: route to the app's screen here
-  }
-
-  // ---- Live clock ----
-  function pad(n){ return n < 10 ? '0'+n : n; }
-  function tick() {
-    const d = new Date();
-    let h = d.getHours();
-    const ampm = h >= 12 ? '' : '';
-    const h12 = h % 12 === 0 ? 12 : h % 12;
-    document.getElementById('clock').textContent = h12 + ':' + pad(d.getMinutes());
-    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    document.getElementById('date').textContent = days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate();
-  }
-  tick();
-  setInterval(tick, 10000);
+  const pad=n=>n<10?'0'+n:n;
+  function tick(){const d=new Date(),h=d.getHours(),h12=h%12===0?12:h%12;
+    document.getElementById('clock').textContent=h12+':'+pad(d.getMinutes());
+    const wd=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],mo=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    document.getElementById('date').textContent=wd[d.getDay()]+', '+mo[d.getMonth()]+' '+d.getDate();}
+  tick();setInterval(tick,10000);
 </script>
 </body>
 </html>

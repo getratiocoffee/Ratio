@@ -1,0 +1,162 @@
+/* ============================================================
+   Ratio — Geisha design system
+   A coffee laboratory. Soft, comfortable, a little playful.
+   Link this file in your pages, then use the classes below.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500&family=Space+Mono&display=swap');
+
+:root {
+  /* ---- Color: surfaces ---- */
+  --bg:            #F4ECEA;   /* page background (soft blush)   */
+  --surface:       #FCF6F4;   /* cards, tiles, raised surfaces  */
+  --surface-sunken:#EFE3E1;   /* wells, pressed tiles           */
+
+  /* ---- Color: ink ---- */
+  --ink:           #322B2A;   /* primary text                   */
+  --muted:         #8C8079;   /* labels, captions, hints        */
+
+  /* ---- Color: lines ---- */
+  --line:          rgba(50,43,42,0.10);  /* hairline borders    */
+  --line-strong:   rgba(50,43,42,0.18);  /* inputs, emphasis    */
+
+  /* ---- Color: accent (berry) ---- */
+  --accent:        #B25E6A;   /* primary actions, selected      */
+  --accent-tint:   #F3DDE0;   /* selected backgrounds, soft fill*/
+  --accent-pressed:#9B4E59;   /* active / pressed state         */
+  --accent-ink:    #6E2F39;   /* text on accent-tint            */
+
+  /* ---- Color: brand (from the logo) ---- */
+  --brand:         #49423A;   /* logo mark, icon lines, dividers */
+  --brand-tint:    #E7E1D8;   /* soft brand wash                 */
+
+  /* ---- Color: semantic (kept in the family) ---- */
+  --success:       #5F8B66;  --success-tint: #E2EADD;  --success-ink: #3C5236;
+  --danger:        #B2544E;  --danger-tint:  #F6DEDC;  --danger-ink:  #7A2E2A;
+
+  /* ---- Type ---- */
+  --font-display: 'Fraunces', Georgia, serif;       /* headings, brand */
+  --font-sans:    'Inter', system-ui, sans-serif;   /* UI, body        */
+  --font-mono:    'Space Mono', ui-monospace, monospace; /* numbers, data */
+
+  --text-display: 28px;  /* hero / screen title  */
+  --text-h1:      22px;
+  --text-h2:      18px;
+  --text-body:    15px;
+  --text-small:   13px;
+  --text-caption: 11px;
+
+  /* ---- Radius ---- */
+  --r-sm:  8px;
+  --r-md:  12px;
+  --r-lg:  16px;
+  --r-pill: 999px;
+
+  /* ---- Spacing scale ---- */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;
+  --sp-4: 16px; --sp-6: 24px; --sp-8: 32px;
+}
+
+/* ---- Base ---- */
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; line-height: 1.15; margin: 0; }
+.display { font-size: var(--text-display); font-weight: 600; }
+h1 { font-size: var(--text-h1); }
+h2 { font-size: var(--text-h2); }
+
+.muted   { color: var(--muted); }
+.caption { font-size: var(--text-caption); color: var(--muted); }
+.mono    { font-family: var(--font-mono); }   /* prices, temps, ratios */
+
+/* ---- Button ---- */
+.btn {
+  font-family: var(--font-sans);
+  font-size: var(--text-small);
+  font-weight: 500;
+  border: none;
+  border-radius: var(--r-sm);
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+.btn:active { transform: scale(0.98); }
+
+.btn--primary   { background: var(--accent); color: var(--surface); }
+.btn--primary:hover  { background: var(--accent-pressed); }
+.btn--secondary { background: var(--surface); color: var(--ink); border: 0.5px solid var(--line-strong); }
+.btn--secondary:hover { background: var(--surface-sunken); }
+.btn--ghost     { background: transparent; color: var(--accent); padding-left: 8px; padding-right: 8px; }
+.btn--ghost:hover    { background: var(--accent-tint); }
+.btn--block     { display: block; width: 100%; }
+.btn:disabled   { opacity: 0.45; cursor: not-allowed; }
+
+/* ---- Tag / pill ---- */
+.tag {
+  display: inline-block;
+  font-size: var(--text-caption);
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--muted);
+  border: 0.5px solid var(--line-strong);
+}
+.tag--accent  { background: var(--accent-tint);  color: var(--accent-ink);  border: none; }
+.tag--success { background: var(--success-tint); color: var(--success-ink); border: none; }
+.tag--danger  { background: var(--danger-tint);  color: var(--danger-ink);  border: none; }
+
+/* ---- Card ---- */
+.card {
+  background: var(--surface);
+  border: 0.5px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4);
+}
+.card__title { font-family: var(--font-display); font-size: var(--text-h2); font-weight: 500; }
+.card__meta  { font-size: var(--text-small); color: var(--muted); margin-top: 2px; }
+
+/* ---- Input ---- */
+.input {
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  color: var(--ink);
+  background: var(--surface);
+  border: 0.5px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  box-sizing: border-box;
+}
+.input::placeholder { color: var(--muted); }
+.input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
+
+/* ---- App tile (home-screen icon) ---- */
+.tile {
+  width: 56px; height: 56px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 0.5px solid var(--line);
+  display: grid; place-items: center;
+  color: var(--ink);
+}
+.tile--selected { background: var(--accent-tint); color: var(--accent); border: none; }
+
+/* ---- Dock (frosted bottom bar) ---- */
+.dock {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: var(--sp-3);
+  border-radius: 28px;
+  background: var(--surface);
+  border: 0.5px solid var(--line);
+}
