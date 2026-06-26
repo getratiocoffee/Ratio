@@ -234,7 +234,11 @@ fill="#6F4A36" stroke="none">
   /* ---- Supabase live message feed ---- */
   const SUPABASE_URL='https://kjhudxzvidhynpabnalp.supabase.co';
   const SUPABASE_KEY='sb_publishable_vt7hUK07u-veHOb4mXGGhQ_wX06qDeQ';
-  const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  let sb=null;
+  try{
+    if(window.supabase&&window.supabase.createClient){sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);}
+    else{console.warn('[Ratio] Supabase library not loaded — running offline (clock & modules still work)');}
+  }catch(e){console.error('[Ratio] Supabase init failed:',e);sb=null;}
 
   const feedEl=document.getElementById('feed');
   let rows=[];
@@ -268,12 +272,13 @@ fill="#6F4A36" stroke="none">
     if(!rows.length){feedEl.innerHTML='<div class="msg" style="justify-content:center;border-bottom:none;color:var(--muted);font-size:12px">No messages yet</div>';return;}
     feedEl.innerHTML=rows.map(r=>{
       const u=unreadOf(r);
-      return `<div class="msg"><span class="dot" style="background:${u?'var(--accent)':'var(--line)'}"></span><div class="mbody"><div class="mtitle">${esc(titleOf(r))}</div><div class="mtext">${esc(textOf(r))}</div></div><div class="mtime">${relTime(tsOf(r))}</div><button class="msg-del" data-del="${esc(idOf(r))}" aria-label="delete" style="flex:0 0 auto;border:none;background:none;color:var(--muted);font-size:15px;line-height:1;padding:2px 6px;cursor:pointer;opacity:.55">✕</button></div>`;
+      return `<div class="msg"><span class="dot" style="background:${u?'var(--accent)':'var(--line)'}"></span><div class="mbody"><div class="mtitle">${esc(titleOf(r))}</div><div class="mtext">${esc(textOf(r))}</div></div><div class="mtime">${relTime(tsOf(r))}</div></div>`;
     }).join('');
   }
   renderFeed();
 
   async function loadMessages(){
+    if(!sb)return;
     const {data,error}=await sb.from('messages').select('*').order('created_at',{ascending:false});
     if(error){console.error('[Ratio] load error:',error.message||error);return;}
     rows=data||[];sortRows();renderFeed();
@@ -281,15 +286,15 @@ fill="#6F4A36" stroke="none">
   loadMessages();
 
   /* realtime: INSERT / UPDATE / DELETE keep the local list in sync */
-  sb.channel('messages-feed')
+  if(sb){sb.channel('messages-feed')
     .on('postgres_changes',{event:'*',schema:'public',table:'messages'},payload=>{
       const ev=payload.eventType, nu=payload.new, od=payload.old;
-      if(ev==='INSERT'){rows.push(nu);}
+      if(ev==='INSERT'){if(!rows.some(r=>idOf(r)===idOf(nu)))rows.push(nu);}
       else if(ev==='UPDATE'){const i=rows.findIndex(r=>idOf(r)===idOf(nu));i>-1?rows[i]=nu:rows.push(nu);}
       else if(ev==='DELETE'){const did=idOf(od);rows=rows.filter(r=>idOf(r)!==did);}
       sortRows();renderFeed();
     })
-    .subscribe(st=>{if(st==='SUBSCRIBED')console.log('[Ratio] realtime subscribed');});
+    .subscribe(st=>{if(st==='SUBSCRIBED')console.log('[Ratio] realtime subscribed');});}
 
   /* refresh the relative timestamps once a minute */
   setInterval(renderFeed,60000);
@@ -299,6 +304,7 @@ fill="#6F4A36" stroke="none">
     const inp=document.getElementById('composer-input');
     const text=inp.value.trim();
     if(!text)return;
+    if(!sb){console.warn('[Ratio] offline — message not sent');return;}
     inp.value='';
     const {error}=await sb.from('messages').insert({title:text,unread:true});
     if(error){console.error('[Ratio] send error:',error.message||error);inp.value=text;}
@@ -306,64 +312,45 @@ fill="#6F4A36" stroke="none">
   }
   document.getElementById('composer-send').addEventListener('click',sendMessage);
   document.getElementById('composer-input').addEventListener('keydown',e=>{if(e.key==='Enter')sendMessage();});
-  async function deleteMessage(id){
-    if(id==null||id==='') return;
-    rows=rows.filter(r=>String(idOf(r))!==String(id));
-    renderFeed();
-    const {error}=await sb.from('messages').delete().eq('id',id);
-    if(error){console.error('[Ratio] delete error:',error.message||error);loadMessages();}
-  }
-  feedEl.addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(b){e.stopPropagation();deleteMessage(b.getAttribute('data-del'));}});
-
 
   /* ---- module pages ---- */
   function openPage(id){const el=document.getElementById('screen-'+id);if(el)el.classList.add('open');}
   function closePage(){document.querySelectorAll('.screen.open').forEach(s=>s.classList.remove('open'));}
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePage();closeFolder();}});
 
-    /* live timesheet — reads imported data from localStorage `timesheets` */
-  function tsEsc(x){return String(x==null?'':x).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-  function tsFmtDay(weekStart, wd){
-    var order=['mon','tue','wed','thu','fri','sat','sun'];
-    var d=new Date((weekStart||'2026-01-01')+'T00:00:00');
-    d.setDate(d.getDate()+order.indexOf(wd));
-    var dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    var mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return dn[d.getDay()]+' · '+mn[d.getMonth()]+' '+d.getDate();
-  }
-  function tsHours(a, b){
-    if(!a||!b) return '';
-    var p=a.split(':'), q=b.split(':');
-    var mins=(+q[0]*60 + +q[1]) - (+p[0]*60 + +p[1]); if(mins<0) mins+=1440;
-    var h=Math.floor(mins/60), m=mins%60;
-    return m ? (h+'h'+m+'m') : (h+'h');
-  }
-  function renderTimesheet(){
-    var body=document.getElementById('timesheet-body'); if(!body) return;
-    var list=[];
-    try{ list=JSON.parse(localStorage.getItem('timesheets')||'[]'); }catch(e){}
-    if(!list.length){ body.innerHTML='<div class="sempty">No shifts scheduled yet</div>'; document.getElementById('ts-week').textContent=''; return; }
-    list.sort(function(a,b){return (b.weekStart||'').localeCompare(a.weekStart||'');});
-    var order=['mon','tue','wed','thu','fri','sat','sun'];
-    var html='';
-    list.forEach(function(ts){
-      var status = ts.status ? (' <span style="font-weight:500;font-size:.72em;opacity:.55;text-transform:uppercase;letter-spacing:.04em">'+tsEsc(ts.status)+'</span>') : '';
-      html += '<div class="dayhd" style="font-weight:700;margin-top:16px;border-bottom:1px solid #E2D9D0;padding-bottom:4px">Week of '+tsEsc(ts.weekStart||'—')+status+'</div>';
-      var days=ts.days||{};
-      order.forEach(function(wd){
-        var rows=days[wd]; if(!rows||!rows.length) return;
-        html += '<div class="dayhd">'+tsEsc(tsFmtDay(ts.weekStart, wd))+'</div>';
-        rows.forEach(function(r){
-          var tm=(r.start||'')+(r.end?('–'+r.end):'');
-          html += '<div class="shift"><div class="who"><div class="nm">'+tsEsc(r.staffName||'')+'</div></div><div class="rt"><div class="tm">'+tsEsc(tm)+'</div><div class="hrs">'+tsEsc(tsHours(r.start, r.end))+'</div></div></div>';
-        });
-      });
-    });
-    body.innerHTML=html;
-    document.getElementById('ts-week').textContent = list[0].weekStart ? ('Week of '+list[0].weekStart) : '';
-  }
-  renderTimesheet();
+  /* placeholder roster — replace with live Supabase `shifts` data later */
+  const TIMESHEET_SAMPLE=[
+    {day:'Mon · Jun 30',rows:[
+      {nm:'Mei',role:'Barista · Open',tm:'07:00–15:00',hrs:'8h'},
+      {nm:'Daniel',role:'Roaster',tm:'09:00–17:00',hrs:'8h'},
+    ]},
+    {day:'Tue · Jul 1',rows:[
+      {nm:'Mei',role:'Barista',tm:'08:00–16:00',hrs:'8h'},
+      {nm:'Jun',role:'Counter',tm:'12:00–20:00',hrs:'8h'},
+    ]},
+    {day:'Wed · Jul 2',rows:[
+      {nm:'Daniel',role:'Roaster',tm:'09:00–17:00',hrs:'8h'},
+    ]},
+    {day:'Thu · Jul 3',rows:[
+      {nm:'Jun',role:'Barista · Open',tm:'07:00–15:00',hrs:'8h'},
+      {nm:'Mei',role:'Counter',tm:'13:00–21:00',hrs:'8h'},
+    ]},
+    {day:'Fri · Jul 4',rows:[
+      {nm:'Mei',role:'Barista',tm:'08:00–16:00',hrs:'8h'},
+      {nm:'Daniel',role:'Roaster · Close',tm:'13:00–21:00',hrs:'8h'},
+    ]},
+  ];
 
+  function renderTimesheet(groups){
+    const body=document.getElementById('timesheet-body');
+    if(!groups||!groups.length){body.innerHTML='<div class="sempty">No shifts scheduled yet</div>';return;}
+    body.innerHTML=groups.map(g=>{
+      const rows=g.rows.map(r=>`<div class="shift"><div class="who"><div class="nm">${esc(r.nm)}</div><div class="role">${esc(r.role)}</div></div><div class="rt"><div class="tm">${esc(r.tm)}</div><div class="hrs">${esc(r.hrs)}</div></div></div>`).join('');
+      return `<div class="dayhd">${esc(g.day)}</div>${rows}`;
+    }).join('');
+  }
+  document.getElementById('ts-week').textContent='Jun 30 – Jul 4';
+  renderTimesheet(TIMESHEET_SAMPLE);
 
   function onOpen(id){
     if(id==='timesheet'){openPage('timesheet');return;}
