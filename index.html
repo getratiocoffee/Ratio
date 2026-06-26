@@ -131,6 +131,7 @@ l-22 -150 -3 -7340 c-3 -8016 -7 -7459 53 -7812 146 -865 592 -1688 1235
     <div class="panel"><p class="ptitle">More</p><div class="pgrid" id="pgrid"></div></div>
   </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   const O='stroke="#6B5E50" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"';
   const s='stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"';
@@ -193,15 +194,68 @@ fill="#6F4A36" stroke="none">
   document.querySelector('.bar').addEventListener('pointerdown',e=>{const t=e.target.closest('.ic,.fgrid,#power');if(t)press(t);});
   document.querySelector('.bar').addEventListener('click',e=>{const it=e.target.closest('.item');if(it&&it.dataset.id)onOpen(it.dataset.id);});
 
-  const messages=[
-    ['New order #1042','2 bags · Ethiopia Yirgacheffe','2m',1],
-    ['Roast batch complete','Colombia — 12kg, City+','18m',1],
-    ['Low stock','Guatemala green beans under 5kg','1h',0],
-    ['Shift reminder','Mei opens tomorrow at 7:00','3h',0],
-    ['Payout sent','Weekly payroll processed','1d',0],
-  ];
-  function renderFeed(){const f=document.getElementById('feed');f.innerHTML=messages.map(([t,x,tm,u])=>`<div class="msg"><span class="dot" style="background:${u?'var(--accent)':'var(--line)'}"></span><div class="mbody"><div class="mtitle">${t}</div><div class="mtext">${x}</div></div><div class="mtime">${tm}</div></div>`).join('');}
+  /* ---- Supabase live message feed ---- */
+  const SUPABASE_URL='https://kjhudxzvidhynpabnalp.supabase.co';
+  const SUPABASE_KEY='sb_publishable_vt7hUK07u-veHOb4mXGGhQ_wX06qDeQ';
+  const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+  const feedEl=document.getElementById('feed');
+  let rows=[];
+
+  /* flexible column lookup so the feed survives small schema differences */
+  const pick=(r,keys,def)=>{for(const k of keys){if(r&&r[k]!=null)return r[k];}return def;};
+  const titleOf=r=>pick(r,['title','name'],'');
+  const textOf =r=>pick(r,['preview','body','text','message'],'');
+  const unreadOf=r=>pick(r,['unread','is_unread'],false);
+  const tsOf  =r=>pick(r,['created_at','inserted_at'],null);
+  const idOf  =r=>pick(r,['id'],null);
+
+  const esc=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  function relTime(iso){
+    if(!iso)return '';
+    const t=new Date(iso).getTime();
+    if(isNaN(t))return '';
+    let sec=Math.floor((Date.now()-t)/1000); if(sec<0)sec=0;
+    if(sec<60)return 'now';
+    const m=Math.floor(sec/60); if(m<60)return m+'m';
+    const h=Math.floor(m/60);   if(h<24)return h+'h';
+    const d=Math.floor(h/24);   if(d<7) return d+'d';
+    const w=Math.floor(d/7);    if(w<5) return w+'w';
+    return Math.floor(d/30)+'mo';
+  }
+
+  function sortRows(){rows.sort((a,b)=>(new Date(tsOf(b)).getTime()||0)-(new Date(tsOf(a)).getTime()||0));}
+
+  function renderFeed(){
+    if(!rows.length){feedEl.innerHTML='<div class="msg" style="justify-content:center;border-bottom:none;color:var(--muted);font-size:12px">No messages yet</div>';return;}
+    feedEl.innerHTML=rows.map(r=>{
+      const u=unreadOf(r);
+      return `<div class="msg"><span class="dot" style="background:${u?'var(--accent)':'var(--line)'}"></span><div class="mbody"><div class="mtitle">${esc(titleOf(r))}</div><div class="mtext">${esc(textOf(r))}</div></div><div class="mtime">${relTime(tsOf(r))}</div></div>`;
+    }).join('');
+  }
   renderFeed();
+
+  async function loadMessages(){
+    const {data,error}=await sb.from('messages').select('*').order('created_at',{ascending:false});
+    if(error){console.error('[Ratio] load error:',error.message||error);return;}
+    rows=data||[];sortRows();renderFeed();
+  }
+  loadMessages();
+
+  /* realtime: INSERT / UPDATE / DELETE keep the local list in sync */
+  sb.channel('messages-feed')
+    .on('postgres_changes',{event:'*',schema:'public',table:'messages'},payload=>{
+      const ev=payload.eventType, nu=payload.new, od=payload.old;
+      if(ev==='INSERT'){rows.push(nu);}
+      else if(ev==='UPDATE'){const i=rows.findIndex(r=>idOf(r)===idOf(nu));i>-1?rows[i]=nu:rows.push(nu);}
+      else if(ev==='DELETE'){const did=idOf(od);rows=rows.filter(r=>idOf(r)!==did);}
+      sortRows();renderFeed();
+    })
+    .subscribe(st=>{if(st==='SUBSCRIBED')console.log('[Ratio] realtime subscribed');});
+
+  /* refresh the relative timestamps once a minute */
+  setInterval(renderFeed,60000);
 
   function onOpen(id){console.log('open:',id);/* TODO: route to page */}
   function swapSides(){const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
