@@ -51,6 +51,25 @@
   .ov.open{display:flex}
   .panel{background:var(--surface);border-radius:26px;padding:20px 18px 22px;width:100%;max-width:330px;transform:scale(.85);opacity:0;transition:transform .22s ease,opacity .22s ease}
   .ov.open .panel{transform:scale(1);opacity:1}
+  /* ---- full-screen module page (Timesheet, etc.) ---- */
+  .screen{position:fixed;inset:0;background:var(--bg);z-index:20;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);visibility:hidden}
+  .screen.open{transform:none;visibility:visible}
+  .shead{display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 13px;background:#49423A;color:#F4ECEA}
+  .shead .back{width:34px;height:34px;border-radius:10px;border:none;background:rgba(244,236,234,.12);color:#F4ECEA;display:grid;place-items:center;cursor:pointer;padding:0;transition:background .15s ease}
+  .shead .back:active{background:rgba(244,236,234,.22)}
+  .shead .back svg{width:20px;height:20px}
+  .shead h1{font-size:18px;font-weight:600;margin:0;flex:1}
+  .shead .wk{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:rgba(244,236,234,.7)}
+  .sbody{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 20px)}
+  .dayhd{position:sticky;top:0;background:var(--bg);font-size:12px;font-weight:600;color:var(--muted);padding:14px 18px 6px;letter-spacing:.02em;z-index:1}
+  .shift{display:flex;align-items:center;gap:12px;padding:11px 18px;background:var(--surface);border-bottom:1px solid var(--line)}
+  .shift .who{flex:1;min-width:0}
+  .shift .nm{font-size:14px;font-weight:600;color:var(--ink)}
+  .shift .role{font-size:11px;color:var(--muted);margin-top:2px}
+  .shift .rt{text-align:right;white-space:nowrap}
+  .shift .tm{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;color:var(--ink)}
+  .shift .hrs{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;color:var(--accent);margin-top:2px}
+  .sempty{text-align:center;color:var(--muted);font-size:13px;padding:56px 24px}
   .ptitle{font-size:15px;font-weight:600;text-align:center;margin:0 0 16px}
   .pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px 8px}
   .pgrid .item{width:auto}
@@ -138,6 +157,15 @@ l-22 -150 -3 -7340 c-3 -8016 -7 -7459 53 -7812 146 -865 592 -1688 1235
 
   <div class="ov" id="ov" onclick="if(event.target===this)closeFolder()">
     <div class="panel"><p class="ptitle">More</p><div class="pgrid" id="pgrid"></div></div>
+  </div>
+
+  <div class="screen" id="screen-timesheet">
+    <header class="shead">
+      <button class="back" onclick="closePage()" aria-label="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <h1>Timesheet</h1>
+      <span class="wk" id="ts-week"></span>
+    </header>
+    <div class="sbody" id="timesheet-body"></div>
   </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -279,7 +307,49 @@ fill="#6F4A36" stroke="none">
   document.getElementById('composer-send').addEventListener('click',sendMessage);
   document.getElementById('composer-input').addEventListener('keydown',e=>{if(e.key==='Enter')sendMessage();});
 
-  function onOpen(id){console.log('open:',id);/* TODO: route to page */}
+  /* ---- module pages ---- */
+  function openPage(id){const el=document.getElementById('screen-'+id);if(el)el.classList.add('open');}
+  function closePage(){document.querySelectorAll('.screen.open').forEach(s=>s.classList.remove('open'));}
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePage();closeFolder();}});
+
+  /* placeholder roster — replace with live Supabase `shifts` data later */
+  const TIMESHEET_SAMPLE=[
+    {day:'Mon · Jun 30',rows:[
+      {nm:'Mei',role:'Barista · Open',tm:'07:00–15:00',hrs:'8h'},
+      {nm:'Daniel',role:'Roaster',tm:'09:00–17:00',hrs:'8h'},
+    ]},
+    {day:'Tue · Jul 1',rows:[
+      {nm:'Mei',role:'Barista',tm:'08:00–16:00',hrs:'8h'},
+      {nm:'Jun',role:'Counter',tm:'12:00–20:00',hrs:'8h'},
+    ]},
+    {day:'Wed · Jul 2',rows:[
+      {nm:'Daniel',role:'Roaster',tm:'09:00–17:00',hrs:'8h'},
+    ]},
+    {day:'Thu · Jul 3',rows:[
+      {nm:'Jun',role:'Barista · Open',tm:'07:00–15:00',hrs:'8h'},
+      {nm:'Mei',role:'Counter',tm:'13:00–21:00',hrs:'8h'},
+    ]},
+    {day:'Fri · Jul 4',rows:[
+      {nm:'Mei',role:'Barista',tm:'08:00–16:00',hrs:'8h'},
+      {nm:'Daniel',role:'Roaster · Close',tm:'13:00–21:00',hrs:'8h'},
+    ]},
+  ];
+
+  function renderTimesheet(groups){
+    const body=document.getElementById('timesheet-body');
+    if(!groups||!groups.length){body.innerHTML='<div class="sempty">No shifts scheduled yet</div>';return;}
+    body.innerHTML=groups.map(g=>{
+      const rows=g.rows.map(r=>`<div class="shift"><div class="who"><div class="nm">${esc(r.nm)}</div><div class="role">${esc(r.role)}</div></div><div class="rt"><div class="tm">${esc(r.tm)}</div><div class="hrs">${esc(r.hrs)}</div></div></div>`).join('');
+      return `<div class="dayhd">${esc(g.day)}</div>${rows}`;
+    }).join('');
+  }
+  document.getElementById('ts-week').textContent='Jun 30 – Jul 4';
+  renderTimesheet(TIMESHEET_SAMPLE);
+
+  function onOpen(id){
+    if(id==='timesheet'){openPage('timesheet');return;}
+    console.log('open:',id);/* TODO: route other modules */
+  }
   function swapSides(){const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
   function openFolder(){document.getElementById('ov').classList.add('open');}
   function closeFolder(){document.getElementById('ov').classList.remove('open');}
