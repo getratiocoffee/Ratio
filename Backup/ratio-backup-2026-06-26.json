@@ -1,0 +1,1330 @@
+{
+  "app": "Ratio Coffee",
+  "exportedAt": "2026-06-26T11:14:00.567Z",
+  "note": "Local backup. Customer personal details are intentionally excluded for privacy.",
+  "data": {
+    "beans": [
+      {
+        "name": "Danche Red Honey",
+        "region": "Yirgacheffe",
+        "station": "Danche",
+        "process": "Red Honey",
+        "variety": "Kurume, Dega, Wolisho",
+        "harvest": "2025",
+        "quantity": "520",
+        "costPerKg": "19.9",
+        "supplier": "Utopia",
+        "id": "bean_mqnpruaw_o48hnf",
+        "country": "Ethiopia",
+        "altitude": "1950-2200"
+      },
+      {
+        "name": "El Vergel - Decaf",
+        "region": "Tolima",
+        "station": "El Vergel Estate",
+        "process": "Natural + EA Sugarcane",
+        "variety": "Red & Yellow Caturra",
+        "harvest": "2026",
+        "quantity": "40",
+        "costPerKg": "26.91",
+        "supplier": "Forest Coffee",
+        "id": "bean_mqnpul5c_1dscsd",
+        "country": "Colombia",
+        "altitude": "1450"
+      },
+      {
+        "name": "Gatitu AA",
+        "region": "Tetu, Kiambu",
+        "station": "Gatitu",
+        "process": "Washed",
+        "variety": "Batian, SL28, SL34, Ruiru 11",
+        "harvest": "2026",
+        "quantity": "10",
+        "costPerKg": "23.48",
+        "supplier": "Cafe Imports",
+        "id": "bean_mqnqp3tt_04yohc",
+        "country": "Kenya",
+        "altitude": "1400-1600"
+      },
+      {
+        "name": "Kiangoi AB",
+        "region": "Gichugu, Kirinyaga",
+        "station": "Kiangoi",
+        "process": "Washed",
+        "variety": "Batian, SL28, SL34, Ruiru 11",
+        "harvest": "2026",
+        "quantity": "30",
+        "costPerKg": "23.51",
+        "supplier": "Cafe Imports",
+        "id": "bean_mqnqu28j_wfevl7",
+        "country": "Kenya",
+        "altitude": "1600-1900"
+      },
+      {
+        "name": "Karimikui AB",
+        "region": "Gichugu division, Kirinyaga",
+        "station": "Karimikui",
+        "process": "Washed",
+        "variety": "Batian, SL28, SL34, Ruiru 11",
+        "harvest": "2026",
+        "quantity": "30",
+        "costPerKg": "22.58",
+        "supplier": "Cafe Imports",
+        "id": "bean_mqnqymmi_yu4f2d",
+        "country": "Kenya",
+        "altitude": "1600-1900"
+      },
+      {
+        "name": "Mwendi Wega",
+        "region": "Kerugoya, Kibingo, Kirinyaga",
+        "station": "Mwendi Wega Estate",
+        "process": "Washed",
+        "variety": "Batian, SL28, SL34, Ruiru 11",
+        "harvest": "2026",
+        "quantity": "50",
+        "costPerKg": "21.88",
+        "supplier": "Cafe Imports",
+        "id": "bean_mqnr32g2_bquiqg",
+        "country": "Kenya",
+        "altitude": "1610"
+      },
+      {
+        "name": "Kii AB",
+        "region": "Gichugu Division, Kirinyaga",
+        "station": "Kii",
+        "process": "Washed",
+        "variety": "Batian, SL28, SL34, Ruiru 11",
+        "harvest": "2026",
+        "quantity": "30",
+        "costPerKg": "23.1",
+        "supplier": "Cafe Imports",
+        "id": "bean_mqnralhi_9t1y34",
+        "country": "Kenya",
+        "altitude": "1600-1900"
+      },
+      {
+        "name": "La Molienda",
+        "region": "La Union, Narino",
+        "station": "La Molienda",
+        "process": "Natural",
+        "variety": "Variedad Colombia",
+        "harvest": "2026",
+        "quantity": "110",
+        "costPerKg": "27",
+        "supplier": "Cofinet",
+        "id": "bean_mqnrfmyh_6ihpey",
+        "country": "Colombia",
+        "altitude": "1800"
+      },
+      {
+        "name": "Hakuna Matata & Maputo - Sidra",
+        "region": "La Perla, Nanegal, Pichincha",
+        "station": "Hakuna Matata Maputo",
+        "process": "Honey",
+        "variety": "Sidra",
+        "harvest": "2026",
+        "quantity": "50",
+        "costPerKg": "33.5",
+        "supplier": "Cafe Imports",
+        "id": "bean_mqnrjqz5_ro3piw",
+        "country": "Ecuador",
+        "altitude": "1350"
+      },
+      {
+        "name": "Danche Anaerobic Washed",
+        "region": "Yirgacheffe",
+        "station": "Danche",
+        "process": "Anaerobic Washed",
+        "variety": "Kurume, Dega, Wolisho",
+        "harvest": "2025",
+        "quantity": "95",
+        "costPerKg": "35",
+        "supplier": "Utopia",
+        "id": "bean_mqnrt13h_htk5sk",
+        "country": "Ethiopia",
+        "altitude": "2110"
+      },
+      {
+        "name": "Alo Bona Village",
+        "region": "Sidama",
+        "station": "Bona Village",
+        "process": "Natural",
+        "variety": "74158",
+        "harvest": "2025",
+        "quantity": "100",
+        "costPerKg": "29",
+        "supplier": "Utopia",
+        "id": "bean_mqnrvc7i_984kfa",
+        "country": "Ethiopia",
+        "altitude": "2300"
+      },
+      {
+        "name": "Alo Village Cold Fermentation",
+        "region": "Sidama",
+        "station": "Alo Village",
+        "process": "Cold Fermentation",
+        "variety": "74158",
+        "harvest": "2025",
+        "quantity": "82",
+        "costPerKg": "59",
+        "supplier": "Utopia",
+        "id": "bean_mqns0sfn_pkl17b",
+        "country": "Ethiopia",
+        "altitude": "2400-2550"
+      },
+      {
+        "name": "Alo Village White Honey",
+        "region": "Sidama",
+        "station": "Alo Village",
+        "process": "White Honey",
+        "variety": "74158",
+        "harvest": "2025",
+        "quantity": "25",
+        "costPerKg": "45",
+        "supplier": "Utopia",
+        "id": "bean_mqns2ga9_bak3nx",
+        "country": "Ethiopia",
+        "altitude": "2400-2550"
+      },
+      {
+        "name": "UBA, Nitro",
+        "region": "Risaralda",
+        "station": "Finca Milan",
+        "process": "Culturing Co Fermentation",
+        "variety": "Caturra & Castillo",
+        "harvest": "2026",
+        "quantity": "7",
+        "costPerKg": "33.28",
+        "supplier": "CATA Export",
+        "id": "bean_mqns84c4_b35qak",
+        "country": "Colombia",
+        "altitude": "1600"
+      },
+      {
+        "name": "UBA, April",
+        "region": "Risaralda",
+        "station": "Finca Milan",
+        "process": "Culturing Co Fermentation",
+        "variety": "Caturra & Castillo",
+        "harvest": "2026",
+        "quantity": "6.5",
+        "costPerKg": "33.28",
+        "supplier": "CATA Export",
+        "id": "bean_mqns9fr3_6jpv2b",
+        "country": "Colombia",
+        "altitude": "1600"
+      },
+      {
+        "name": "UBA, Maypop",
+        "region": "Risaralda",
+        "station": "Finca Milan",
+        "process": "Culturing Co Fermentation",
+        "variety": "Caturra & Castillo",
+        "harvest": "2026",
+        "quantity": "24",
+        "costPerKg": "33.28",
+        "supplier": "CATA Export",
+        "id": "bean_mqnsbtvl_kyro6o",
+        "country": "Colombia",
+        "altitude": "1600"
+      },
+      {
+        "name": "UBA, Toffee",
+        "region": "Risaralda",
+        "station": "Finca Milan",
+        "process": "Culturing Co Fermentation",
+        "variety": "Caturra & Castillo",
+        "harvest": "2026",
+        "quantity": "13",
+        "costPerKg": "33.28",
+        "supplier": "CATA Export",
+        "id": "bean_mqnscy8b_wu4y7t",
+        "country": "Colombia",
+        "altitude": "1600"
+      },
+      {
+        "name": "UBA, Sakura",
+        "region": "Risaralda",
+        "station": "Finca Milan",
+        "process": "Culturing Co Fermentation",
+        "variety": "Caturra & Castillo",
+        "harvest": "2026",
+        "quantity": "24",
+        "costPerKg": "33.28",
+        "supplier": "CATA Export",
+        "id": "bean_mqnsdx6r_zfg42b",
+        "country": "Colombia",
+        "altitude": "1600"
+      },
+      {
+        "name": "UBA, MAME",
+        "region": "Risaralda",
+        "station": "Finca Milan",
+        "process": "Culturing Co Fermentation",
+        "variety": "Caturra & Castillo",
+        "harvest": "2026",
+        "quantity": "24",
+        "costPerKg": "37.32",
+        "supplier": "CATA Export",
+        "id": "bean_mqnsf9ps_rofz4d",
+        "country": "Colombia",
+        "altitude": "1600"
+      },
+      {
+        "id": "bean_mqoxfzs0_q8i17m",
+        "name": "El Prado",
+        "country": "Colombia",
+        "region": "Gigante, Huila",
+        "station": "El Prado",
+        "process": "Washed",
+        "altitude": "1562",
+        "variety": "Geisha",
+        "harvest": "2026",
+        "supplier": "ENA Coffee Roasters Pty Ltd",
+        "quantity": "23.75",
+        "costPerKg": "34.12"
+      },
+      {
+        "name": "Los Nogales - Typica Decaf",
+        "country": "Colombia",
+        "region": "Pitalito, Huila",
+        "station": "Los Nogales",
+        "process": "EA",
+        "altitude": "1850-2000",
+        "variety": "Typica",
+        "harvest": "2026",
+        "quantity": "13.9",
+        "costPerKg": "45.9",
+        "supplier": "Forest Coffee",
+        "id": "bean_mqp2e2ed_65flck"
+      },
+      {
+        "name": "Hakuna Matata & Maputo - Typica",
+        "country": "Ecuador",
+        "region": "La Perla, Nanegal, Pichicha",
+        "station": "Hakuna Matata & Maputo",
+        "process": "Washed",
+        "altitude": "1350",
+        "variety": "Typica",
+        "harvest": "2026",
+        "quantity": "10",
+        "costPerKg": "36.97",
+        "supplier": "Cafe Imports",
+        "id": "bean_mqp2g3o9_1a14sd"
+      },
+      {
+        "name": "Los Nogales - Tabi Decaf",
+        "country": "Colombia",
+        "region": "Pitalito, Huila",
+        "station": "Los Nogales",
+        "process": "EA",
+        "altitude": "1850-2000",
+        "variety": "Tabi",
+        "harvest": "2025",
+        "quantity": "2.4",
+        "costPerKg": "40",
+        "supplier": "ICT",
+        "id": "bean_mqp2irth_hr67xl"
+      },
+      {
+        "name": "Hure Village",
+        "country": "Ethiopia",
+        "region": "Arbegona",
+        "station": "Hure",
+        "process": "Anaerobic Natural",
+        "altitude": "2400-2450",
+        "variety": "74158",
+        "harvest": "2026",
+        "quantity": "30",
+        "costPerKg": "42",
+        "supplier": "Utopia",
+        "id": "bean_mqp2kwk5_yzyhl8"
+      },
+      {
+        "name": "Danche Hydro Honey",
+        "country": "Ethiopia",
+        "region": "Yirgacheffe",
+        "station": "Danche",
+        "process": "Hydro Honey",
+        "altitude": "1950-2200",
+        "variety": "Dega, Kurume, Wholisho",
+        "harvest": "2026",
+        "quantity": "30",
+        "costPerKg": "35",
+        "supplier": "Utopia",
+        "id": "bean_mqp2me2y_ox316m"
+      },
+      {
+        "id": "bean_mqt2dvln_qmiqsh",
+        "name": "Hakuna Matata & Maputo",
+        "country": "Evuador",
+        "region": "",
+        "station": "Hakuna Matata & Maputo",
+        "process": "Washed",
+        "altitude": "",
+        "variety": "Typica",
+        "harvest": "2026",
+        "supplier": "ENA Coffee Roasters Pty Ltd",
+        "quantity": "10.0",
+        "costPerKg": "36.21"
+      }
+    ],
+    "contacts": [
+      {
+        "id": "bean_mqoxaev6_32aa09",
+        "name": "ENA Coffee Roasters Pty Ltd",
+        "email": "Jiyoon@enacoffee.com.au"
+      }
+    ],
+    "transfers": [
+      {
+        "id": "bean_mqoxfzs0_u5imu6",
+        "date": "2026-06-22T08:01:52.608Z",
+        "direction": "in",
+        "contactName": "ENA Coffee Roasters Pty Ltd",
+        "contactEmail": "Jiyoon@enacoffee.com.au",
+        "beanName": "El Prado",
+        "quantity": 23.75,
+        "pricePerKg": 34.12,
+        "shippingCost": 0,
+        "gstAmount": 0,
+        "handlingFee": 0,
+        "handlingGst": 0,
+        "deliveryFee": 0,
+        "deliveryGst": 0,
+        "totalAmount": 810.3499999999999
+      },
+      {
+        "id": "bean_mqt2dvlm_h2ypxl",
+        "date": "2026-06-25T05:31:16.667Z",
+        "direction": "in",
+        "contactName": "ENA Coffee Roasters Pty Ltd",
+        "contactEmail": "Jiyoon@enacoffee.com.au",
+        "beanName": "Hakuna Matata & Maputo",
+        "quantity": 10,
+        "pricePerKg": 36.21,
+        "shippingCost": 0,
+        "gstAmount": 0,
+        "handlingFee": 0,
+        "handlingGst": 0,
+        "deliveryFee": 0,
+        "deliveryGst": 0,
+        "totalAmount": 362.1
+      }
+    ],
+    "invoices": [
+      "INV-20260622-001",
+      "INV-20260622-002",
+      "INV-20260622-003"
+    ],
+    "staff": [
+      {
+        "id": "bean_mqp18qaf_u1640v",
+        "name": "Yi",
+        "phone": "0425850053",
+        "email": ""
+      },
+      {
+        "id": "bean_mqp18wex_lw2cfr",
+        "name": "Manami",
+        "phone": "0466903143",
+        "email": ""
+      },
+      {
+        "id": "bean_mqp18zn5_2a0n4j",
+        "name": "Joshua"
+      },
+      {
+        "id": "bean_mqp1922s_ybm56g",
+        "name": "Juwa"
+      },
+      {
+        "id": "bean_mqp195jw_39y3mr",
+        "name": "Daniel",
+        "phone": "0403037369",
+        "email": "wu110681@gmail.com"
+      },
+      {
+        "id": "bean_mqp1jlld_tz09p9",
+        "name": "Samuel"
+      },
+      {
+        "id": "bean_mqp5blhv_ogrrvt",
+        "name": "Nina"
+      },
+      {
+        "id": "bean_mqp5bq0q_lw5d30",
+        "name": "Lovey"
+      }
+    ],
+    "timesheets": [
+      {
+        "id": "bean_mqp1jf54_1lcy48",
+        "weekStart": "2026-06-22",
+        "status": "completed",
+        "entries": [
+          {
+            "staffId": "bean_mqp18qaf_u1640v",
+            "staffName": "Yi",
+            "days": {
+              "mon": {
+                "start": "05:45",
+                "end": "14:15"
+              },
+              "tue": {
+                "start": "05:45",
+                "end": "14:15"
+              },
+              "wed": {
+                "start": "05:45",
+                "end": "14:15"
+              },
+              "sat": {
+                "start": "08:15",
+                "end": "16:15"
+              },
+              "sun": {
+                "start": "08:00",
+                "end": "16:00"
+              }
+            }
+          },
+          {
+            "staffId": "bean_mqp18wex_lw2cfr",
+            "staffName": "Manami",
+            "days": {
+              "wed": {
+                "start": "08:15",
+                "end": "14:15"
+              },
+              "thu": {
+                "start": "08:15",
+                "end": "14:15"
+              },
+              "sun": {
+                "start": "09:15",
+                "end": "16:15"
+              }
+            }
+          },
+          {
+            "staffId": "bean_mqp18zn5_2a0n4j",
+            "staffName": "Joshua",
+            "days": {
+              "mon": {
+                "start": "08:15",
+                "end": "14:15"
+              },
+              "tue": {
+                "start": "08:15",
+                "end": "14:15"
+              },
+              "fri": {
+                "start": "08:15",
+                "end": "14:15"
+              }
+            }
+          },
+          {
+            "staffId": "bean_mqp1922s_ybm56g",
+            "staffName": "Juwa",
+            "days": {
+              "sun": {
+                "start": "08:15",
+                "end": "16:15"
+              }
+            }
+          },
+          {
+            "staffId": "bean_mqp195jw_39y3mr",
+            "staffName": "Daniel",
+            "days": {
+              "wed": {
+                "start": ""
+              },
+              "thu": {
+                "start": "05:45",
+                "end": "14:15"
+              },
+              "fri": {
+                "start": "05:45",
+                "end": "14:15"
+              },
+              "sat": {
+                "start": "06:15",
+                "end": "16:15"
+              },
+              "sun": {
+                "start": "06:15",
+                "end": "08:15"
+              }
+            }
+          },
+          {
+            "staffId": "bean_mqp1jlld_tz09p9",
+            "staffName": "Samuel",
+            "days": {
+              "sat": {
+                "start": "08:15",
+                "end": "16:15"
+              }
+            }
+          }
+        ],
+        "days": {
+          "mon": [
+            {
+              "staffId": "bean_mqp18qaf_u1640v",
+              "staffName": "Yi",
+              "start": "05:45",
+              "end": "14:15"
+            },
+            {
+              "staffId": "bean_mqp18zn5_2a0n4j",
+              "staffName": "Joshua",
+              "start": "08:15",
+              "end": "14:15"
+            }
+          ],
+          "tue": [
+            {
+              "staffId": "bean_mqp18qaf_u1640v",
+              "staffName": "Yi",
+              "start": "05:45",
+              "end": "14:15"
+            },
+            {
+              "staffId": "bean_mqp18zn5_2a0n4j",
+              "staffName": "Joshua",
+              "start": "08:15",
+              "end": "14:15"
+            }
+          ],
+          "wed": [
+            {
+              "staffId": "bean_mqp18qaf_u1640v",
+              "staffName": "Yi",
+              "start": "05:45",
+              "end": "14:15"
+            },
+            {
+              "staffId": "bean_mqp18wex_lw2cfr",
+              "staffName": "Manami",
+              "start": "08:15",
+              "end": "14:15"
+            }
+          ],
+          "thu": [
+            {
+              "staffId": "bean_mqp195jw_39y3mr",
+              "staffName": "Daniel",
+              "start": "05:45",
+              "end": "14:15"
+            },
+            {
+              "staffId": "bean_mqp18wex_lw2cfr",
+              "staffName": "Manami",
+              "start": "08:15",
+              "end": "14:15"
+            }
+          ],
+          "fri": [
+            {
+              "staffId": "bean_mqp195jw_39y3mr",
+              "staffName": "Daniel",
+              "start": "05:45",
+              "end": "14:15"
+            },
+            {
+              "staffId": "bean_mqp18zn5_2a0n4j",
+              "staffName": "Joshua",
+              "start": "08:15",
+              "end": "14:15"
+            }
+          ],
+          "sat": [
+            {
+              "staffId": "bean_mqp195jw_39y3mr",
+              "staffName": "Daniel",
+              "start": "06:00",
+              "end": "15:00"
+            },
+            {
+              "staffId": "bean_mqp1jlld_tz09p9",
+              "staffName": "Samuel",
+              "start": "08:15",
+              "end": "16:15"
+            },
+            {
+              "staffId": "bean_mqp18qaf_u1640v",
+              "staffName": "Yi",
+              "start": "08:15",
+              "end": "16:15"
+            }
+          ],
+          "sun": [
+            {
+              "staffId": "bean_mqp195jw_39y3mr",
+              "staffName": "Daniel",
+              "start": "06:15",
+              "end": "08:15"
+            },
+            {
+              "staffId": "bean_mqp18qaf_u1640v",
+              "staffName": "Yi",
+              "start": "08:00",
+              "end": "16:00"
+            },
+            {
+              "staffId": "bean_mqp1922s_ybm56g",
+              "staffName": "Juwa",
+              "start": "08:15",
+              "end": "16:15"
+            },
+            {
+              "staffId": "bean_mqp18wex_lw2cfr",
+              "staffName": "Manami",
+              "start": "09:15",
+              "end": "16:15"
+            }
+          ]
+        }
+      },
+      {
+        "id": "bean_mqrtaw7a_lp5ucc",
+        "weekStart": "2026-06-15",
+        "days": {
+          "mon": [
+            {
+              "staffId": "bean_mqp18qaf_u1640v",
+              "staffName": "Yi",
+              "start": "05:45",
+              "end": "14:15"
+            },
+            {
+              "staffId": "bean_mqp18zn5_2a0n4j",
+              "staffName": "Joshua",
+              "start": "08:15",
+              "end": "14:15"
+            }
+          ],
+          "tue": [
+            {
+              "staffId": "bean_mqp18qaf_u1640v",
+              "staffName": "Yi",
+              "start": "05:45",
+              "end": "14:15"
+            },
+            {
+              "staffId": "bean_mqp18zn5_2a0n4j",
+              "staffName": "Joshua",
+              "start": "08:15",
+              "end": "14:15"
+            }
+          ],
+          "wed": [
+            {
+              "staffId": "bean_mqp18qaf_u1640v",
+              "staffName": "Yi",
+              "start": "05:45",
+              "end": "14:15"
+            },
+            {
+              "staffId": "bean_mqp18wex_lw2cfr",
+              "staffName": "Manami",
+              "start": "08:15",
+              "end": "14:15"
+            }
+          ],
+          "thu": [
+            {
+              "staffId": "bean_mqp195jw_39y3mr",
+              "staffName": "Daniel",
+              "start": "05:45",
+              "end": "14:15"
+            },
+            {
+              "staffId": "bean_mqp18wex_lw2cfr",
+              "staffName": "Manami",
+              "start": "08:15",
+              "end": "14:15"
+            }
+          ],
+          "fri": [
+            {
+              "staffId": "bean_mqp195jw_39y3mr",
+              "staffName": "Daniel",
+              "start": "05:45",
+              "end": "14:15"
+            },
+            {
+              "staffId": "bean_mqp18zn5_2a0n4j",
+              "staffName": "Joshua",
+              "start": "08:15",
+              "end": "14:15"
+            }
+          ],
+          "sat": [
+            {
+              "staffId": "bean_mqp195jw_39y3mr",
+              "staffName": "Daniel",
+              "start": "06:00",
+              "end": "15:00"
+            },
+            {
+              "staffId": "bean_mqp1jlld_tz09p9",
+              "staffName": "Samuel",
+              "start": "08:15",
+              "end": "16:15"
+            },
+            {
+              "staffId": "bean_mqp18qaf_u1640v",
+              "staffName": "Yi",
+              "start": "08:15",
+              "end": "16:15"
+            }
+          ],
+          "sun": [
+            {
+              "staffId": "bean_mqp195jw_39y3mr",
+              "staffName": "Daniel",
+              "start": "06:15",
+              "end": "08:15"
+            },
+            {
+              "staffId": "bean_mqp18qaf_u1640v",
+              "staffName": "Yi",
+              "start": "08:00",
+              "end": "16:00"
+            },
+            {
+              "staffId": "bean_mqp1922s_ybm56g",
+              "staffName": "Juwa",
+              "start": "08:15",
+              "end": "16:15"
+            },
+            {
+              "staffId": "bean_mqp18wex_lw2cfr",
+              "staffName": "Manami",
+              "start": "09:15",
+              "end": "16:15"
+            }
+          ]
+        },
+        "cashStaff": [
+          "bean_mqp18zn5_2a0n4j",
+          "bean_mqp195jw_39y3mr"
+        ],
+        "lockedStaff": [
+          "bean_mqp18zn5_2a0n4j",
+          "bean_mqp195jw_39y3mr"
+        ]
+      }
+    ],
+    "na": [
+      {
+        "id": "bean_mqpdtdq2_iayadq",
+        "staffId": "bean_mqp1jlld_tz09p9",
+        "staffName": "Samuel",
+        "dates": [
+          "2026-07-04"
+        ]
+      },
+      {
+        "id": "bean_mqrcwsbr_zwizi1",
+        "staffId": "bean_mqp5blhv_ogrrvt",
+        "staffName": "Nina",
+        "dates": [
+          "2026-07-27"
+        ]
+      },
+      {
+        "id": "bean_mqt09szs_h85qif",
+        "staffId": "bean_mqp18wex_lw2cfr",
+        "staffName": "Manami",
+        "dates": [
+          "2026-07-05"
+        ]
+      }
+    ],
+    "sensory": [
+      {
+        "id": "bean_mqpk5t68_138jmk",
+        "taster": "Daniel",
+        "bean": "Danche Anaerobic Washed",
+        "date": "2026-06-23",
+        "overallNotes": "this is a test",
+        "fragrance": {
+          "hot": {
+            "intensity": 9,
+            "cata": [
+              "FLORAL",
+              "FRUITY_BERRY",
+              "SOUR_FERMENTED",
+              "SOUR_FERMENTED2",
+              "ROASTED"
+            ],
+            "notes": ""
+          },
+          "cold": {
+            "intensity": 6,
+            "cata": [
+              "FRUITY_BERRY"
+            ],
+            "notes": ""
+          }
+        },
+        "aroma": {
+          "hot": {
+            "intensity": 8,
+            "cata": [
+              "FLORAL",
+              "SOUR_FERMENTED",
+              "ROASTED",
+              "SWEET_VANILLA",
+              "MUSTY_EARTHY"
+            ],
+            "notes": ""
+          },
+          "cold": {
+            "intensity": 7,
+            "cata": [
+              "SOUR_FERMENTED2"
+            ],
+            "notes": ""
+          }
+        },
+        "flavor": {
+          "hot": {
+            "intensity": 7,
+            "cata": [
+              "FLORAL",
+              "FRUITY_BERRY",
+              "FRUITY_DRIED",
+              "FRUITY_CITRUS",
+              "GREEN_VEG"
+            ],
+            "main": [],
+            "notes": ""
+          },
+          "cold": {
+            "intensity": 9,
+            "cata": [
+              "FRUITY_BERRY",
+              "SOUR_FERMENTED2",
+              "NUTTY"
+            ],
+            "main": [],
+            "notes": ""
+          }
+        },
+        "aftertaste": {
+          "hot": {
+            "intensity": 4,
+            "cata": [
+              "FLORAL",
+              "ROASTED"
+            ],
+            "main": [],
+            "notes": ""
+          },
+          "cold": {
+            "intensity": 12,
+            "cata": [
+              "SOUR_FERMENTED2",
+              "GREEN_VEG",
+              "COCOA"
+            ],
+            "main": [],
+            "notes": ""
+          }
+        },
+        "acidity": {
+          "hot": {
+            "intensity": 8,
+            "dry": [],
+            "sweet": [
+              "SWEET_JUICY"
+            ],
+            "notes": ""
+          },
+          "cold": {
+            "intensity": 7,
+            "dry": [
+              "DRY_TART"
+            ],
+            "sweet": [],
+            "notes": ""
+          }
+        },
+        "sweetness": {
+          "hot": {
+            "intensity": 0,
+            "present": [
+              "AROMA",
+              "FLAVOR",
+              "AFTERTASTE"
+            ],
+            "notesAroma": "a",
+            "notesFlavor": "b",
+            "notesAftertaste": "c"
+          },
+          "cold": {
+            "intensity": 0,
+            "present": [
+              "AROMA",
+              "FLAVOR",
+              "AFTERTASTE"
+            ],
+            "notesAroma": "1",
+            "notesFlavor": "2",
+            "notesAftertaste": "3"
+          }
+        },
+        "mouthfeel": {
+          "hot": {
+            "intensity": 7,
+            "cata": [
+              "SMOOTH",
+              "ROUGH"
+            ],
+            "notes": ""
+          },
+          "cold": {
+            "intensity": 6,
+            "cata": [
+              "SMOOTH",
+              "MOUTH_DRYING"
+            ],
+            "notes": ""
+          }
+        }
+      },
+      {
+        "id": "bean_mqqxbaht_9rxq3s",
+        "taster": "Daniel",
+        "bean": "Dark Knight",
+        "date": "2026-06-24",
+        "overallNotes": "",
+        "fragrance": {
+          "hot": {
+            "intensity": 12,
+            "cata": [
+              "FRUITY_BERRY",
+              "FRUITY_DRIED",
+              "FRUITY_CITRUS",
+              "GREEN_VEG",
+              "NUTTY"
+            ],
+            "notes": ""
+          },
+          "cold": {
+            "intensity": 6,
+            "cata": [
+              "FRUITY_BERRY",
+              "GREEN_VEG"
+            ],
+            "notes": ""
+          }
+        },
+        "aroma": {
+          "hot": {
+            "intensity": 14,
+            "cata": [
+              "FRUITY_BERRY",
+              "FRUITY_DRIED",
+              "FRUITY_CITRUS",
+              "SOUR_FERMENTED2",
+              "GREEN_VEG"
+            ],
+            "notes": ""
+          },
+          "cold": {
+            "intensity": 7,
+            "cata": [
+              "FRUITY_BERRY",
+              "ROASTED"
+            ],
+            "notes": ""
+          }
+        },
+        "flavor": {
+          "hot": {
+            "intensity": 14,
+            "cata": [
+              "SOUR_FERMENTED",
+              "SOUR_FERMENTED2",
+              "ROASTED"
+            ],
+            "main": [],
+            "notes": ""
+          },
+          "cold": {
+            "intensity": 10,
+            "cata": [
+              "FRUITY_BERRY",
+              "SOUR_FERMENTED",
+              "SOUR_FERMENTED2",
+              "COCOA"
+            ],
+            "main": [],
+            "notes": ""
+          }
+        },
+        "aftertaste": {
+          "hot": {
+            "intensity": 5,
+            "cata": [
+              "FRUITY_DRIED",
+              "GREEN_VEG"
+            ],
+            "main": [],
+            "notes": ""
+          },
+          "cold": {
+            "intensity": 15,
+            "cata": [
+              "SOUR_FERMENTED",
+              "ROASTED"
+            ],
+            "main": [],
+            "notes": ""
+          }
+        },
+        "acidity": {
+          "hot": {
+            "intensity": 11,
+            "dry": [
+              "DRY_TART"
+            ],
+            "sweet": [],
+            "notes": ""
+          },
+          "cold": {
+            "intensity": 4,
+            "dry": [],
+            "sweet": [
+              "SWEET_FRUIT_LIKE"
+            ],
+            "notes": ""
+          }
+        },
+        "sweetness": {
+          "hot": {
+            "intensity": 8,
+            "present": [
+              "AROMA"
+            ],
+            "notesAroma": "",
+            "notesFlavor": "",
+            "notesAftertaste": ""
+          },
+          "cold": {
+            "intensity": 5,
+            "present": [
+              "AROMA"
+            ],
+            "notesAroma": "",
+            "notesFlavor": "",
+            "notesAftertaste": ""
+          }
+        },
+        "mouthfeel": {
+          "hot": {
+            "intensity": 11,
+            "cata": [
+              "ROUGH"
+            ],
+            "notes": ""
+          },
+          "cold": {
+            "intensity": 7,
+            "cata": [
+              "SMOOTH"
+            ],
+            "notes": ""
+          }
+        }
+      }
+    ],
+    "roasted": [
+      {
+        "id": "bean_mqq4p5hz_1wdruq",
+        "name": "Dark Knight",
+        "type": "blend",
+        "country": "",
+        "sensoryDone": true
+      },
+      {
+        "id": "bean_mqq4pluh_8om59a",
+        "name": "Dancer",
+        "type": "blend",
+        "country": ""
+      },
+      {
+        "id": "bean_mqq4pys8_opgct3",
+        "name": "Sugar Daddy",
+        "type": "blend",
+        "country": ""
+      },
+      {
+        "id": "bean_mqq4rorm_xwj19c",
+        "name": "Alo Village White Honey",
+        "type": "single",
+        "country": "Ethiopia"
+      },
+      {
+        "id": "bean_mqq4sesh_o2qxt7",
+        "name": "Alo Village Cold Fermentation",
+        "type": "single",
+        "country": "Ethiopia"
+      },
+      {
+        "id": "bean_mqq4sz6l_qzh8px",
+        "name": "Alo Bona Village",
+        "type": "single",
+        "country": "Ethiopia"
+      },
+      {
+        "id": "bean_mqq4tcpg_rkew29",
+        "name": "Danche Anaerobic Washed",
+        "type": "single",
+        "country": "Ethiopia"
+      },
+      {
+        "id": "bean_mqq4tn90_ooypkw",
+        "name": "Danche Red Honey",
+        "type": "single",
+        "country": "Ethiopia"
+      },
+      {
+        "id": "bean_mqq4ugll_jnmxgi",
+        "name": "Danche Hydro Honey",
+        "type": "single",
+        "country": "Ethiopia"
+      },
+      {
+        "id": "bean_mqq4uqu9_0fivw1",
+        "name": "Hure Village",
+        "type": "single",
+        "country": "Ethiopia"
+      },
+      {
+        "id": "bean_mqq4vduf_2wo1fe",
+        "name": "Gatitu AA",
+        "type": "single",
+        "country": "Kenya"
+      },
+      {
+        "id": "bean_mqq4vt31_3rrqic",
+        "name": "Mwendi Wega",
+        "type": "single",
+        "country": "Kenya"
+      },
+      {
+        "id": "bean_mqq4w7yy_y59g6z",
+        "name": "Karimikui AB",
+        "type": "single",
+        "country": "Kenya"
+      },
+      {
+        "id": "bean_mqq4wk60_3kardk",
+        "name": "Kii AB",
+        "type": "single",
+        "country": "Kenya"
+      },
+      {
+        "id": "bean_mqq4wyrv_hq1d9t",
+        "name": "Kiangoi AB",
+        "type": "single",
+        "country": "Kenya"
+      },
+      {
+        "id": "bean_mqq4xwne_7kg4su",
+        "name": "Hakuna Matata & Maputo - Sidra",
+        "type": "single",
+        "country": "Ecuador"
+      },
+      {
+        "id": "bean_mqq4yav3_wa4t1r",
+        "name": "Hakuna Matata & Maputo - Typica",
+        "type": "single",
+        "country": "Ecuador"
+      },
+      {
+        "id": "bean_mqq4yut2_yq7b49",
+        "name": "April Project",
+        "type": "blend",
+        "country": ""
+      },
+      {
+        "id": "bean_mqq4zkxg_g6kefh",
+        "name": "May Project",
+        "type": "blend",
+        "country": ""
+      },
+      {
+        "id": "bean_mqq4zy1l_1gm6yw",
+        "name": "June Project",
+        "type": "blend",
+        "country": ""
+      },
+      {
+        "id": "bean_mqq50bua_yqk2an",
+        "name": "Dreamer",
+        "type": "blend",
+        "country": ""
+      }
+    ],
+    "handover": {
+      "tasksByDate": {
+        "2026-06-26": [
+          {
+            "id": "bean_mqsqk047_iaoaa9",
+            "name": "Defrost Milk"
+          }
+        ]
+      },
+      "checks": {
+        "2026-06-23": {
+          "bean_mqpg2n43_zyvm73": true,
+          "bean_mqpgdgwx_g7a9o4": true,
+          "bean_mqpgdgwx_zirv03": true
+        },
+        "2026-06-25": {
+          "bean_mqpgknwm_sgw695": true
+        }
+      },
+      "templates": [
+        {
+          "id": "bean_mqpg2hr1_yb476d",
+          "name": "Defrost Milk"
+        },
+        {
+          "id": "bean_mqpgcdc8_95p317",
+          "name": "Defrost Freeze"
+        },
+        {
+          "id": "bean_mqpgcp8h_evudhp",
+          "name": "Send Parcel"
+        },
+        {
+          "id": "bean_mqpgcztq_f2a7f8",
+          "name": "Make Crystal Ice"
+        },
+        {
+          "id": "bean_mqpgd3qu_jzhxkk",
+          "name": "Make Round Ice"
+        },
+        {
+          "id": "bean_mqpgk96x_ss706j",
+          "name": "General Bin Out"
+        },
+        {
+          "id": "bean_mqpgkeuo_s2iwhs",
+          "name": "Recycle Bin Out"
+        }
+      ]
+    }
+  }
+}
