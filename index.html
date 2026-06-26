@@ -268,7 +268,7 @@ fill="#6F4A36" stroke="none">
     if(!rows.length){feedEl.innerHTML='<div class="msg" style="justify-content:center;border-bottom:none;color:var(--muted);font-size:12px">No messages yet</div>';return;}
     feedEl.innerHTML=rows.map(r=>{
       const u=unreadOf(r);
-      return `<div class="msg"><span class="dot" style="background:${u?'var(--accent)':'var(--line)'}"></span><div class="mbody"><div class="mtitle">${esc(titleOf(r))}</div><div class="mtext">${esc(textOf(r))}</div></div><div class="mtime">${relTime(tsOf(r))}</div></div>`;
+      return `<div class="msg"><span class="dot" style="background:${u?'var(--accent)':'var(--line)'}"></span><div class="mbody"><div class="mtitle">${esc(titleOf(r))}</div><div class="mtext">${esc(textOf(r))}</div></div><div class="mtime">${relTime(tsOf(r))}</div><button class="msg-del" data-del="${esc(idOf(r))}" aria-label="delete" style="flex:0 0 auto;border:none;background:none;color:var(--muted);font-size:15px;line-height:1;padding:2px 6px;cursor:pointer;opacity:.55">✕</button></div>`;
     }).join('');
   }
   renderFeed();
@@ -306,6 +306,15 @@ fill="#6F4A36" stroke="none">
   }
   document.getElementById('composer-send').addEventListener('click',sendMessage);
   document.getElementById('composer-input').addEventListener('keydown',e=>{if(e.key==='Enter')sendMessage();});
+  async function deleteMessage(id){
+    if(id==null||id==='') return;
+    rows=rows.filter(r=>String(idOf(r))!==String(id));
+    renderFeed();
+    const {error}=await sb.from('messages').delete().eq('id',id);
+    if(error){console.error('[Ratio] delete error:',error.message||error);loadMessages();}
+  }
+  feedEl.addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(b){e.stopPropagation();deleteMessage(b.getAttribute('data-del'));}});
+
 
   /* ---- module pages ---- */
   function openPage(id){const el=document.getElementById('screen-'+id);if(el)el.classList.add('open');}
