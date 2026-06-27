@@ -85,7 +85,9 @@
   /* ---- login gate ---- */
   .auth{position:fixed;inset:0;z-index:50;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:28px}
   .auth.show{display:flex}
-  .auth-card{width:100%;max-width:320px;text-align:center}
+  .auth-card{width:100%;max-width:320px;text-align:center;position:relative}
+  .auth-x{position:absolute;top:-14px;right:-6px;width:34px;height:34px;border:none;background:none;color:var(--muted);font-size:26px;line-height:1;cursor:pointer;font-family:inherit}
+  .auth-x:active{opacity:.6}
   .auth-logo{width:54px;height:54px;margin:0 auto 14px}
   .auth-logo svg{width:100%;height:100%;display:block}
   .auth-logo svg path{fill:#49423A}
@@ -117,6 +119,7 @@
 <body>
   <div class="auth" id="auth">
     <div class="auth-card">
+      <button class="auth-x" id="auth-x" aria-label="close">×</button>
       <div class="auth-logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2921 2921" preserveAspectRatio="xMidYMid meet"><g transform="translate(0,2921) scale(0.1,-0.1)" fill="#49423A" stroke="none"><path d="M7245 25703 c-544 -47 -1035 -184 -1505 -419 -404 -202 -716 -429 -1050 -764 -335 -334 -562 -646 -764 -1050 -203 -407 -328 -810 -399 -1295 l-22 -150 -3 -7340 c-3 -8016 -7 -7459 53 -7812 146 -865 592 -1688 1235 -2281 703 -649 1560 -1018 2510 -1082 119 -8 2201 -10 7410 -8 6898 3 7252 4 7385 21 310 40 566 97 835 187 461 153 874 378 1260 686 173 138 486 451 624 624 486 610 770 1290 873 2095 17 133 18 487 21 7385 2 5209 0 7291 -8 7410 -78 1159 -623 2201 -1531 2926 -522 416 -1173 708 -1831 819 -351 59 199 55 -7757 53 -4013 -1 -7314 -3 -7336 -5z m14695 -693 c636 -58 1223 -285 1735 -670 162 -122 324 -267 441 -396 500 -550 791 -1182 881 -1914 17 -138 18 -490 18 -7420 0 -5948 -2 -7295 -13 -7385 -80 -672 -302 -1218 -708 -1745 -114 -148 -416 -450 -564 -564 -527 -406 -1073 -628 -1745 -708 -90 -11 -1437 -13 -7385 -13 -6930 0 -7282 1 -7420 18 -937 116 -1754 583 -2310 1322 -389 517 -619 1117 -670 1750 -8 103 -10 2076 -8 7415 l3 7275 22 135 c43 266 83 431 154 637 337 978 1114 1755 2092 2092 258 89 555 151 832 174 22 2 3300 4 7285 5 4958 1 7281 -1 7360 -8z"/><path d="M21490 21799 c-66 -29 -14039 -14001 -14075 -14073 -68 -135 9 -293 159 -327 44 -10 62 -9 112 5 l59 17 7022 7022 7022 7022 17 59 c14 50 15 68 5 112 -33 146 -186 224 -321 163z"/><path d="M13610 19973 c-96 -35 -238 -220 -370 -483 -303 -603 -810 -956 -1593 -1109 -222 -44 -392 -60 -714 -71 -440 -14 -702 -53 -996 -150 -240 -79 -519 -225 -687 -359 -210 -166 -591 -581 -742 -806 -262 -391 -321 -787 -163 -1094 105 -204 285 -354 601 -502 549 -257 1162 -284 1859 -82 916 265 1831 955 2463 1858 301 430 611 1056 771 1559 111 348 129 656 51 889 -39 116 -67 161 -147 241 -109 109 -227 148 -333 109z"/><path d="M18952 15211 c-86 -32 -134 -65 -208 -143 -91 -96 -123 -159 -254 -508 -198 -524 -310 -784 -462 -1065 -196 -362 -315 -538 -808 -1195 -146 -195 -296 -398 -332 -450 -299 -429 -464 -836 -543 -1340 -23 -141 -32 -576 -16 -736 52 -515 277 -1014 643 -1424 499 -559 1179 -892 1943 -950 308 -24 677 28 1019 144 458 155 811 378 1146 722 207 213 350 412 474 662 163 327 234 595 258 966 36 576 -98 1165 -376 1652 -110 192 -197 318 -486 704 -353 471 -461 621 -586 810 -261 397 -438 759 -673 1376 -170 443 -182 472 -223 535 -60 93 -144 171 -233 215 -96 48 -198 56 -283 25z"/></g></svg></div>
       <h2>Ratio</h2>
       <p class="sub" id="auth-sub">登入以繼續</p>
@@ -186,7 +189,7 @@ l-22 -150 -3 -7340 c-3 -8016 -7 -7459 53 -7812 146 -865 592 -1688 1235
 221 310 389 535 455 611 522 706 686 980 241 402 425 792 624 1323 48 129 86
 217 90 210 4 -7 46 -116 94 -243z"/>
 </g>
-</svg></span><div class="hright"><div class="hmeta"><span id="who"></span><button id="signout" class="signout">登出</button></div><div class="htime"><div class="clock" id="clock">9:41</div></div></div></header>
+</svg></span><div class="hright"><div class="hmeta"><span id="who"></span><button id="signin" class="signout">登入</button><button id="signout" class="signout" style="display:none">登出</button></div><div class="htime"><div class="clock" id="clock">9:41</div></div></div></header>
     <div class="feed" id="feed"></div>
     <div class="composer">
       <input id="composer-input" type="text" placeholder="Write a message…" autocomplete="off" />
@@ -312,15 +315,32 @@ fill="#6F4A36" stroke="none">
       if(who)who.textContent=name+' · '+(role==='staff'?'員工':'客人');
       if(typeof alignCenter==='function')alignCenter();
     }
+    function setLoggedOut(){
+      document.body.classList.remove('role-staff');
+      document.body.classList.add('role-customer');
+      const who=document.getElementById('who');if(who)who.textContent='';
+      const si=document.getElementById('signin');if(si)si.style.display='';
+      const so=document.getElementById('signout');if(so)so.style.display='none';
+      if(typeof alignCenter==='function')alignCenter();
+    }
     async function onSession(session){
-      if(!session){showGate();return;}
       hideGate();
+      if(!session){setLoggedOut();return;}
+      const si=document.getElementById('signin');if(si)si.style.display='none';
+      const so=document.getElementById('signout');if(so)so.style.display='';
       await applyRole(session.user);
     }
     sb.auth.getSession().then(({data})=>onSession(data.session));
     sb.auth.onAuthStateChange((_e,session)=>onSession(session));
     const soBtn=document.getElementById('signout');
     if(soBtn)soBtn.addEventListener('click',async()=>{await sb.auth.signOut();location.reload();});
+    const siBtn=document.getElementById('signin');
+    if(siBtn)siBtn.addEventListener('click',()=>{
+      emailStep.style.display='block';codeStep.style.display='none';
+      subEl.textContent='登入以繼續';setHint('',null);showGate();
+    });
+    const xBtn=document.getElementById('auth-x');
+    if(xBtn)xBtn.addEventListener('click',hideGate);
 
     async function sendCode(){
       const email=document.getElementById('auth-email').value.trim();
