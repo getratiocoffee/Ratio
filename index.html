@@ -101,6 +101,17 @@
   .auth .hint{font-size:12px;margin:12px 2px 0;min-height:16px;line-height:1.4}
   .auth .hint.err{color:var(--accent)}
   .auth .hint.ok{color:var(--muted)}
+  /* ---- role-based view ---- */
+  body:not(.role-staff) .cluster{display:none}
+  body:not(.role-staff) #swap{display:none}
+  body:not(.role-staff) .bar{justify-content:center}
+  body:not(.role-staff) .center{height:auto!important}
+  .hright{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+  .hmeta{display:flex;align-items:center;gap:8px}
+  #who{font-size:12px;color:#F4ECEA;opacity:.85}
+  #who:empty{display:none}
+  .signout{background:rgba(244,236,234,.16);border:none;color:#F4ECEA;font-size:11px;padding:3px 10px;border-radius:9px;cursor:pointer;font-family:inherit}
+  .signout:active{opacity:.7}
 </style>
 </head>
 <body>
@@ -175,7 +186,7 @@ l-22 -150 -3 -7340 c-3 -8016 -7 -7459 53 -7812 146 -865 592 -1688 1235
 221 310 389 535 455 611 522 706 686 980 241 402 425 792 624 1323 48 129 86
 217 90 210 4 -7 46 -116 94 -243z"/>
 </g>
-</svg></span><div class="htime"><div class="clock" id="clock">9:41</div></div></header>
+</svg></span><div class="hright"><div class="hmeta"><span id="who"></span><button id="signout" class="signout">登出</button></div><div class="htime"><div class="clock" id="clock">9:41</div></div></div></header>
     <div class="feed" id="feed"></div>
     <div class="composer">
       <input id="composer-input" type="text" placeholder="Write a message…" autocomplete="off" />
@@ -289,8 +300,27 @@ fill="#6F4A36" stroke="none">
     const showGate=()=>gate.classList.add('show');
     const hideGate=()=>gate.classList.remove('show');
 
-    sb.auth.getSession().then(({data})=>{data.session?hideGate():showGate();});
-    sb.auth.onAuthStateChange((_e,session)=>{if(session)hideGate();});
+    async function applyRole(user){
+      let role='customer', name=(user.email||'');
+      try{
+        const {data}=await sb.from('profiles').select('name,role').eq('id',user.id).single();
+        if(data){role=data.role||'customer';if(data.name)name=data.name;}
+      }catch(e){}
+      document.body.classList.remove('role-staff','role-customer');
+      document.body.classList.add(role==='staff'?'role-staff':'role-customer');
+      const who=document.getElementById('who');
+      if(who)who.textContent=name+' · '+(role==='staff'?'員工':'客人');
+      if(typeof alignCenter==='function')alignCenter();
+    }
+    async function onSession(session){
+      if(!session){showGate();return;}
+      hideGate();
+      await applyRole(session.user);
+    }
+    sb.auth.getSession().then(({data})=>onSession(data.session));
+    sb.auth.onAuthStateChange((_e,session)=>onSession(session));
+    const soBtn=document.getElementById('signout');
+    if(soBtn)soBtn.addEventListener('click',async()=>{await sb.auth.signOut();location.reload();});
 
     async function sendCode(){
       const email=document.getElementById('auth-email').value.trim();
