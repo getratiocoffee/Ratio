@@ -47,12 +47,11 @@
   .fgrid{width:44px;height:44px;border-radius:13px;background:var(--surface);border:.5px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:5px}
   .fgrid span{background:var(--accent);border-radius:2px;opacity:.85}
   #power{width:44px;height:44px;border-radius:13px;background:var(--surface);border:.5px solid var(--line);display:grid;place-items:center;color:#5FA45C;cursor:pointer;padding:0;transition:color .2s ease}
-  /* dock-morph: tapping an app swaps the two side clusters for that module's two buttons */
-  .bar.module{gap:10px}
-  .bar.module .cluster{flex:1;min-width:0}
-  .bar.module .pill{grid-template-columns:1fr;background:transparent;border:none;padding:0;width:100%}
-  .bar.module .cname{display:none}
-  .dock-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;width:100%;min-height:150px;border:1px solid var(--line);border-radius:26px;background:var(--surface);cursor:pointer;font-family:inherit;color:var(--ink);transition:transform .12s ease}
+  /* dock-morph: module dock = SAME size as the dashboard dock. Pill keeps its app-mode box;
+     JS locks each pill's measured width/height on enter, and the single button fills it 100%. */
+  .bar.module .pill{background:transparent;border:none;padding:0;display:block}
+  .bar.module .cname{visibility:hidden}
+  .dock-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;width:100%;height:100%;border:.5px solid var(--line);border-radius:30px;background:var(--surface);cursor:pointer;font-family:inherit;color:var(--ink);transition:transform .12s ease}
   .dock-btn:active{transform:scale(.96)}
   .dock-btn .db-ic{width:52px;height:52px;border-radius:50%;background:#F4E4E0;display:flex;align-items:center;justify-content:center}
   .dock-btn .db-ic svg{width:27px;height:27px;color:var(--accent)}
@@ -472,12 +471,16 @@ fill="#6F4A36" stroke="none">
     const rp=document.querySelector('.pill[data-side="roastery"]');
     const cl=document.querySelectorAll('.cluster');
     if(dockMode!=='module')_savedDock={l:lp.innerHTML,r:rp.innerHTML};
+    /* measure the dashboard pill sizes NOW (app mode) so the module buttons match exactly */
+    const lr=lp.getBoundingClientRect(), rr=rp.getBoundingClientRect();
     dockMode='module';dockModule=key;
     cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});
     setTimeout(()=>{
       document.querySelector('.bar').classList.add('module');
       lp.innerHTML=dockBtnHTML(m.left);
       rp.innerHTML=dockBtnHTML(m.right);
+      lp.style.width=Math.round(lr.width)+'px';lp.style.height=Math.round(lr.height)+'px';
+      rp.style.width=Math.round(rr.width)+'px';rp.style.height=Math.round(rr.height)+'px';
       const sw=document.getElementById('swap');sw.classList.add('back');sw.innerHTML=GRID_ICON;
       cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});
       alignCenter();
@@ -490,6 +493,7 @@ fill="#6F4A36" stroke="none">
     cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});
     setTimeout(()=>{
       document.querySelector('.bar').classList.remove('module');
+      lp.style.width='';lp.style.height='';rp.style.width='';rp.style.height='';
       if(_savedDock){lp.innerHTML=_savedDock.l;rp.innerHTML=_savedDock.r;}
       const sw=document.getElementById('swap');sw.classList.remove('back');sw.innerHTML=I.swap;
       dockMode='apps';dockModule=null;
