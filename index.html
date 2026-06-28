@@ -70,6 +70,18 @@
   .shift .tm{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;color:var(--ink)}
   .shift .hrs{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;color:var(--accent);margin-top:2px}
   .sempty{text-align:center;color:var(--muted);font-size:13px;padding:56px 24px}
+  .beans-search{padding:12px 16px 6px;position:sticky;top:0;background:var(--bg);z-index:2}
+  .beans-search input{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit}
+  .beans-search input:focus{border-color:var(--accent)}
+  .bean{margin:8px 14px;padding:13px 15px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+  .bean-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .bean-nm{font-size:15px;font-weight:600;color:var(--ink)}
+  .bean-ct{font-size:11px;color:var(--accent);font-weight:600;white-space:nowrap}
+  .bean-sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .bean-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .bean-chip{font-size:11px;color:#6B5E50;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:2px 8px}
+  .bean-meta{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;color:var(--muted)}
+  .bean-meta b{color:var(--ink);font-weight:600}
   .ptitle{font-size:15px;font-weight:600;text-align:center;margin:0 0 16px}
   .pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px 8px}
   .pgrid .item{width:auto}
@@ -124,7 +136,7 @@
       <p class="sub" id="auth-sub">登入你的帳號</p>
       <input id="auth-name" type="text" placeholder="你的名字" autocomplete="name" style="display:none" />
       <input id="auth-email" type="email" placeholder="Email" autocomplete="email" inputmode="email" />
-      <input id="auth-pass" type="password" placeholder="密碼（至少 6 位）" autocomplete="current-password" />
+      <input id="auth-pass" type="password" placeholder="密碼（至少 6 位）" inputmode="numeric" autocomplete="current-password" />
       <button class="go" id="auth-go">登入</button>
       <button class="lnk" id="auth-toggle">還沒有帳號？申請一個</button>
       <p class="hint" id="auth-hint"></p>
@@ -212,6 +224,18 @@ l-22 -150 -3 -7340 c-3 -8016 -7 -7459 53 -7812 146 -865 592 -1688 1235
       <span class="wk" id="ts-week"></span>
     </header>
     <div class="sbody" id="timesheet-body"></div>
+  </div>
+
+  <div class="screen" id="screen-green">
+    <header class="shead">
+      <button class="back" onclick="closePage()" aria-label="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <h1>Green</h1>
+      <span class="wk" id="green-count"></span>
+    </header>
+    <div class="sbody">
+      <div class="beans-search"><input id="green-q" type="search" placeholder="搜尋豆子 / 國家 / 產區" /></div>
+      <div id="green-list"></div>
+    </div>
   </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -474,8 +498,46 @@ fill="#6F4A36" stroke="none">
 
   function onOpen(id){
     if(id==='timesheet'){openPage('timesheet');return;}
+    if(id==='green'){openPage('green');loadBeans();return;}
     console.log('open:',id);/* TODO: route other modules */
   }
+
+  /* ---- Beans module (live from Supabase) ---- */
+  let BEANS=[];
+  async function loadBeans(){
+    const list=document.getElementById('green-list');
+    list.innerHTML='<div class="sempty">載入中…</div>';
+    const {data,error}=await sb.from('beans').select('*').order('name');
+    if(error){list.innerHTML='<div class="sempty">載入失敗：'+esc(error.message)+'</div>';return;}
+    BEANS=data||[];
+    document.getElementById('green-count').textContent=BEANS.length+' beans';
+    renderBeans(BEANS);
+  }
+  function beanCard(b){
+    const chips=[b.process,b.variety,b.harvest&&('Harvest '+b.harvest)].filter(Boolean)
+      .map(c=>'<span class="bean-chip">'+esc(c)+'</span>').join('');
+    const sub=[b.region,b.station].filter(Boolean).map(esc).join(' · ');
+    const meta=[];
+    if(b.quantity!=null)meta.push('<span><b>'+esc(b.quantity)+'</b> kg</span>');
+    if(b.cost_per_kg!=null)meta.push('<span>$<b>'+esc(b.cost_per_kg)+'</b>/kg</span>');
+    if(b.altitude)meta.push('<span><b>'+esc(b.altitude)+'</b> m</span>');
+    if(b.supplier)meta.push('<span>'+esc(b.supplier)+'</span>');
+    return '<div class="bean"><div class="bean-top"><span class="bean-nm">'+esc(b.name)+'</span><span class="bean-ct">'+esc(b.country||'')+'</span></div>'
+      +(sub?'<div class="bean-sub">'+sub+'</div>':'')
+      +(chips?'<div class="bean-chips">'+chips+'</div>':'')
+      +(meta.length?'<div class="bean-meta">'+meta.join('')+'</div>':'')
+      +'</div>';
+  }
+  function renderBeans(arr){
+    const list=document.getElementById('green-list');
+    if(!arr||!arr.length){list.innerHTML='<div class="sempty">找不到豆子</div>';return;}
+    list.innerHTML=arr.map(beanCard).join('');
+  }
+  document.getElementById('green-q').addEventListener('input',e=>{
+    const q=e.target.value.trim().toLowerCase();
+    if(!q){renderBeans(BEANS);return;}
+    renderBeans(BEANS.filter(b=>[b.name,b.country,b.region,b.station,b.process,b.variety,b.supplier].filter(Boolean).join(' ').toLowerCase().includes(q)));
+  });
   function swapSides(){const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
   function openFolder(){document.getElementById('ov').classList.add('open');}
   function closeFolder(){document.getElementById('ov').classList.remove('open');}
