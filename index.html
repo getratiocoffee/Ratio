@@ -454,13 +454,17 @@ fill="#6F4A36" stroke="none">
   /* ---- dock-morph: tap an app icon → its two buttons take over the dock (in place) ---- */
   const DOCK_ICONS={
     bag:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9h12l-.8 11a1 1 0 0 1-1 .9H7.8a1 1 0 0 1-1-.9z"/><path d="M9 9V7a3 3 0 0 1 6 0v2"/></svg>`,
-    factory:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V11l5 3V11l5 3V9l4 2v10"/><path d="M9 21v-4h3v4"/></svg>`
+    factory:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V11l5 3V11l5 3V9l4 2v10"/><path d="M9 21v-4h3v4"/></svg>`,
+    history:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>`
   };
   /* each module = exactly two buttons (left / right). Add more modules here as they're built. */
   const MODULE_ACTIONS={
     beans:{name:'Beans',
       left:{act:'beans:retail',label:'Retail Shelf',zh:'零售貨架',icon:'bag'},
-      right:{act:'beans:prod',label:'Production',zh:'生產烘焙',icon:'factory'}}
+      right:{act:'beans:prod',label:'Pending',zh:'待杯測',icon:'factory'}},
+    roast:{name:'Roast',
+      left:{act:'roast:prod',label:'Production',zh:'生產烘焙',icon:'factory'},
+      right:{act:'roast:hist',label:'History',zh:'烘焙紀錄',icon:'history'}}
   };
   let dockMode='apps', dockModule=null, _savedDock=null;
   const GRID_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1.4"/><rect x="14" y="4" width="6" height="6" rx="1.4"/><rect x="4" y="14" width="6" height="6" rx="1.4"/><rect x="14" y="14" width="6" height="6" rx="1.4"/></svg>';
@@ -502,8 +506,10 @@ fill="#6F4A36" stroke="none">
     },140);
   }
   function runModuleAction(act){
-    if(act==='beans:prod'){openPage('beans');beansView='production';loadRoasted();}
+    if(act==='beans:prod'){roastedTitle='Pending';openPage('beans');beansView='production';loadRoasted();}
     else if(act==='beans:retail'){openPage('beans');beansView='retail';renderBeansRetail();}
+    else if(act==='roast:prod'){openPage('green');loadBeans('roast');}
+    else if(act==='roast:hist'){roastedTitle='History';openPage('beans');beansView='production';loadRoasted();}
   }
 
   /* ---- Supabase live message feed ---- */
@@ -712,7 +718,6 @@ fill="#6F4A36" stroke="none">
     if(MODULE_ACTIONS[id]){enterModule(id);return;}
     if(id==='timesheet'){openPage('timesheet');return;}
     if(id==='green'){openPage('green');loadBeans();return;}
-    if(id==='roast'){openPage('green');loadBeans('roast');return;}
     console.log('open:',id);/* TODO: route other modules */
   }
 
@@ -966,7 +971,7 @@ fill="#6F4A36" stroke="none">
         +'<span class="bhome-lab">Retail Shelf</span><span class="bhome-zh">零售貨架</span></button>'
       +'<button class="bhome-tile" data-k="prod">'
         +'<span class="bhome-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V11l5 3V11l5 3V9l4 2v10"/><path d="M9 21v-4h3v4"/></svg></span>'
-        +'<span class="bhome-lab">Production</span><span class="bhome-zh">生產烘焙</span></button>'
+        +'<span class="bhome-lab">Pending</span><span class="bhome-zh">待杯測</span></button>'
       +'</div></div>';
     box.querySelectorAll('.bhome-tile').forEach(function(el){el.addEventListener('click',function(){
       if(el.dataset.k==='prod'){beansView='production';loadRoasted();box.scrollTop=0;}
@@ -981,7 +986,7 @@ fill="#6F4A36" stroke="none">
     document.getElementById('beans-count').textContent='';
     box.innerHTML='<div class="sempty">零售貨架之後再做<br>（等產品資料搬進 Supabase）</div>';
   }
-  let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false;
+  let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending';
   function fmtDate(d){if(!d||d==='—')return '無日期';var p=String(d).split('-');return p.length===3?(p[0]+'/'+p[1]+'/'+p[2]):d;}
   function beansBack(){
     if(roastEdit){roastEdit=null;roastDelConfirm=false;renderRoasted();return;}
@@ -1000,7 +1005,7 @@ fill="#6F4A36" stroke="none">
     const box=document.getElementById('beans-content');
     const title=document.getElementById('beans-title');
     if(roastEdit){renderRoastEdit();return;}
-    if(title)title.textContent='Production';
+    if(title)title.textContent=roastedTitle;
     document.getElementById('beans-count').textContent=ROASTS.length+' roasts';
     if(!ROASTS.length){box.innerHTML='<div class="sempty">尚無烘焙紀錄<br>到 Roast 記一筆</div>';return;}
     var groups={}, order=[];
