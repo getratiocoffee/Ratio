@@ -341,13 +341,13 @@
   </div>
 
   <div class="bar">
-    <div class="cluster"><div class="pill" data-side="shop"></div><div class="cname">Shop</div></div>
+    <div class="cluster"><div class="cname">Shop</div><div class="pill" data-side="shop"></div></div>
     <div class="center">
       <button class="swap" id="swap" onclick="swapSides()" aria-label="swap sides"></button>
       <div class="folder" onclick="openFolder()"><div class="fgrid" id="fgrid"></div></div>
       <button id="power" aria-label="logout"></button>
     </div>
-    <div class="cluster"><div class="pill" data-side="roastery"></div><div class="cname">Roastery</div></div>
+    <div class="cluster"><div class="cname">Roastery</div><div class="pill" data-side="roastery"></div></div>
   </div>
 
   <div class="ov" id="ov" onclick="if(event.target===this)closeFolder()">
@@ -443,7 +443,7 @@ fill="#6F4A36" stroke="none">
   document.getElementById('swap').innerHTML=I.swap;
   document.getElementById('power').innerHTML='<svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v8"/><path d="M7.5 7.5a6.5 6.5 0 1 0 9 0"/></svg>';
   function togglePower(){const p=document.getElementById('power');const on=p.dataset.on!=='0';p.dataset.on=on?'0':'1';p.style.color=on?'#49423A':'#5FA45C';}
-  function alignCenter(){const pill=document.querySelector('.pill');const c=document.querySelector('.center');if(pill&&c)c.style.height=Math.round(pill.getBoundingClientRect().height)+'px';}
+  function alignCenter(){const pill=document.querySelector('.pill');const c=document.querySelector('.center');const cn=document.querySelector('.cluster .cname');if(pill&&c){c.style.height=Math.round(pill.getBoundingClientRect().height)+'px';let off=0;if(cn&&cn.offsetHeight)off=cn.offsetHeight+6;c.style.marginTop=off+'px';}}
   alignCenter();window.addEventListener('resize',alignCenter);setTimeout(alignCenter,300);
   function press(el){el.classList.remove('pressing');void el.offsetWidth;el.classList.add('pressing');}
   document.querySelector('.bar').addEventListener('pointerdown',e=>{const t=e.target.closest('.ic,.fgrid,#power,.dock-btn');if(t)press(t);});
