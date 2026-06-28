@@ -129,6 +129,12 @@
   .gta{border:1px solid var(--line);border-radius:11px;padding:11px 13px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit;resize:vertical;width:100%}
   .gta:focus{border-color:var(--accent)}
   /* sample form (redesigned) */
+  .smp-pager{display:flex;align-items:center;gap:8px;padding:12px 16px 2px}
+  .smp-nav{width:40px;height:40px;border-radius:11px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-family:inherit}
+  .smp-nav:active{background:#EDE3DF}
+  .smp-pos{flex:1;text-align:center;font-size:13px;font-weight:600;color:var(--ink)}
+  .smp-add{border:1px solid var(--accent);background:var(--surface);color:var(--accent);border-radius:11px;padding:0 14px;height:40px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;flex:0 0 auto}
+  .smp-add:active{background:#F4E4E0}
   .smp-sec{margin:0 16px 14px}
   .smp-sec:first-child{margin-top:14px}
   .smp-sec-h{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;padding-left:2px}
@@ -946,9 +952,15 @@ fill="#6F4A36" stroke="none">
     ROASTS=ROASTS.filter(function(x){return String(x.id)!==String(r.id);});
     roastEdit=null;roastDelConfirm=false;renderRoasted();
   }
-  let SAMPLES=[], smpRatings={fragrance:null,acidity:null,sweetness:null,body:null,aftertaste:null};
+  let SAMPLES=[], smpPages=[], smpIdx=0;
   const SMP_FIELDS=[['fragrance','Fragrance / Aroma'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
   function todayStr(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+  function blankSmp(){return {cupping_date:todayStr(),supplier:'',sample_id:'',process:'',fragrance:null,acidity:null,sweetness:null,body:null,aftertaste:null,comment:''};}
+  function captureSmp(){
+    var p=smpPages[smpIdx];if(!p)return;
+    var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
+    p.cupping_date=g('smp-date')||todayStr();p.supplier=g('smp-supplier');p.sample_id=g('smp-id');p.process=g('smp-process');p.comment=g('smp-comment');
+  }
   async function loadSamples(){
     const box=document.getElementById('green-content');
     document.getElementById('green-title').textContent='Sample';
@@ -956,41 +968,49 @@ fill="#6F4A36" stroke="none">
     box.innerHTML='<div class="sempty">載入中…</div>';
     const {data,error}=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('created_at',{ascending:false});
     SAMPLES=error?[]:(data||[]);
-    smpRatings={fragrance:null,acidity:null,sweetness:null,body:null,aftertaste:null};
+    smpPages=[blankSmp()];smpIdx=0;
     renderSample(error?error.message:'');
   }
-  function dotRow(name){
-    var v=smpRatings[name]||0,d='';
+  function dotRow(p,name){
+    var v=p[name]||0,d='';
     for(var i=1;i<=5;i++){d+='<button class="dot'+(i<=v?' fill':'')+'" data-n="'+i+'" aria-label="'+i+'"></button>';}
     return '<div class="dots" data-name="'+name+'">'+d+'</div>';
   }
-  function renderSample(errMsg){
+  function renderSample(errMsg,okMsg){
     const box=document.getElementById('green-content');
     document.getElementById('green-title').textContent='Sample';
     document.getElementById('green-count').textContent=SAMPLES.length?(SAMPLES.length+' 筆'):'';
-    var scores=SMP_FIELDS.map(function(f){return '<div class="smp-score"><span class="smp-sname">'+f[1]+'</span>'+dotRow(f[0])+'</div>';}).join('');
+    if(!smpPages.length)smpPages=[blankSmp()];
+    if(smpIdx<0)smpIdx=0;if(smpIdx>=smpPages.length)smpIdx=smpPages.length-1;
+    var p=smpPages[smpIdx];
+    var nav='<div class="smp-pager"><button class="smp-nav" id="smp-prev" aria-label="上一個">‹</button>'
+      +'<span class="smp-pos">樣品 '+(smpIdx+1)+' / '+smpPages.length+'</span>'
+      +'<button class="smp-nav" id="smp-next" aria-label="下一個">›</button>'
+      +'<button class="smp-add" id="smp-add">＋ 新增</button></div>';
+    var scores=SMP_FIELDS.map(function(f){return '<div class="smp-score"><span class="smp-sname">'+f[1]+'</span>'+dotRow(p,f[0])+'</div>';}).join('');
     var form=''
       +'<div class="smp-sec"><div class="smp-sec-h">樣品資料</div><div class="smp-fields">'
-      +'<label class="smp-f"><span>杯測日期</span><input id="smp-date" type="date" value="'+todayStr()+'" /></label>'
-      +'<div class="smp-f2"><label class="smp-f"><span>Supplier</span><input id="smp-supplier" type="text" /></label>'
-      +'<label class="smp-f"><span>ID</span><input id="smp-id" type="text" /></label></div>'
-      +'<label class="smp-f"><span>Process</span><input id="smp-process" type="text" /></label>'
+      +'<label class="smp-f"><span>杯測日期</span><input id="smp-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" /></label>'
+      +'<div class="smp-f2"><label class="smp-f"><span>Supplier</span><input id="smp-supplier" type="text" value="'+esc(p.supplier||'')+'" /></label>'
+      +'<label class="smp-f"><span>ID</span><input id="smp-id" type="text" value="'+esc(p.sample_id||'')+'" /></label></div>'
+      +'<label class="smp-f"><span>Process</span><input id="smp-process" type="text" value="'+esc(p.process||'')+'" /></label>'
       +'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">杯測評分　1–5</div><div class="smp-scores">'+scores+'</div></div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">Comment</div><textarea id="smp-comment" class="gta" rows="3"></textarea></div>'
-      +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':'')+'" id="smp-msg">'+(errMsg?('讀取失敗：'+esc(errMsg)+'（請先在 Supabase 跑 samples 建表 SQL）'):'')+'</div></div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Comment</div><textarea id="smp-comment" class="gta" rows="3">'+esc(p.comment||'')+'</textarea></div>'
+      +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':(okMsg?' ok':''))+'" id="smp-msg">'+(errMsg?('讀取失敗：'+esc(errMsg)+'（請先在 Supabase 跑 samples 建表 SQL）'):(okMsg?esc(okMsg):''))+'</div></div>'
       +'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn skip" id="smp-skip">Skip</button><button class="gbtn buy" id="smp-buy">Buy</button></div></div>';
     var list=SAMPLES.length?('<div class="smp-sec"><div class="smp-sec-h">已存樣品</div><div class="smp-list">'+SAMPLES.map(sampleCard).join('')+'</div></div>'):'';
-    box.innerHTML=form+list;
+    box.innerHTML=nav+form+list;
     box.querySelectorAll('.dots').forEach(function(dr){
       var name=dr.dataset.name;
       dr.querySelectorAll('.dot').forEach(function(d){d.addEventListener('click',function(){
-        var n=+d.dataset.n;
-        smpRatings[name]=(smpRatings[name]===n?null:n);
-        var v=smpRatings[name]||0;
-        dr.querySelectorAll('.dot').forEach(function(x){x.classList.toggle('fill',+x.dataset.n<=v);});
+        var n=+d.dataset.n;p[name]=(p[name]===n?null:n);
+        var v=p[name]||0;dr.querySelectorAll('.dot').forEach(function(x){x.classList.toggle('fill',+x.dataset.n<=v);});
       });});
     });
+    document.getElementById('smp-prev').addEventListener('click',function(){captureSmp();smpIdx=(smpIdx-1+smpPages.length)%smpPages.length;renderSample();box.scrollTop=0;});
+    document.getElementById('smp-next').addEventListener('click',function(){captureSmp();smpIdx=(smpIdx+1)%smpPages.length;renderSample();box.scrollTop=0;});
+    document.getElementById('smp-add').addEventListener('click',function(){captureSmp();smpPages.push(blankSmp());smpIdx=smpPages.length-1;renderSample();box.scrollTop=0;});
     document.getElementById('smp-buy').addEventListener('click',function(){saveSample('buy');});
     document.getElementById('smp-skip').addEventListener('click',function(){saveSample('skip');});
   }
@@ -1004,26 +1024,21 @@ fill="#6F4A36" stroke="none">
       +(s.comment?'<div class="smp-cmt">'+esc(s.comment)+'</div>':'')+'</div>';
   }
   async function saveSample(decision){
+    captureSmp();
     const msg=document.getElementById('smp-msg');
     const buy=document.getElementById('smp-buy'),skip=document.getElementById('smp-skip');
-    var rec={
-      cupping_date:document.getElementById('smp-date').value||todayStr(),
-      supplier:document.getElementById('smp-supplier').value.trim()||null,
-      sample_id:document.getElementById('smp-id').value.trim()||null,
-      process:document.getElementById('smp-process').value.trim()||null,
-      fragrance:smpRatings.fragrance,acidity:smpRatings.acidity,sweetness:smpRatings.sweetness,body:smpRatings.body,aftertaste:smpRatings.aftertaste,
-      comment:document.getElementById('smp-comment').value.trim()||null,
-      decision:decision
-    };
+    var p=smpPages[smpIdx];
+    var rec={cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||null,sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,comment:(p.comment||'').trim()||null,decision:decision};
     if(!rec.supplier&&!rec.sample_id){msg.textContent='請至少填 Supplier 或 ID';msg.className='gform-msg err';return;}
     buy.disabled=true;skip.disabled=true;msg.textContent='儲存中…';msg.className='gform-msg';
     const ins=await sb.from('samples').insert(rec).select();
-    buy.disabled=false;skip.disabled=false;
-    if(ins.error){msg.textContent='儲存失敗：'+ins.error.message;msg.className='gform-msg err';return;}
+    if(ins.error){buy.disabled=false;skip.disabled=false;msg.textContent='儲存失敗：'+ins.error.message;msg.className='gform-msg err';return;}
     if(ins.data&&ins.data[0])SAMPLES.unshift(ins.data[0]);
-    smpRatings={fragrance:null,acidity:null,sweetness:null,body:null,aftertaste:null};
-    renderSample();
-    var m2=document.getElementById('smp-msg');if(m2){m2.textContent='已儲存（'+(decision==='buy'?'Buy':'Skip')+'）';m2.className='gform-msg ok';}
+    smpPages.splice(smpIdx,1);
+    if(!smpPages.length)smpPages=[blankSmp()];
+    if(smpIdx>=smpPages.length)smpIdx=smpPages.length-1;
+    renderSample('','已儲存（'+(decision==='buy'?'Buy':'Skip')+'），接著填下一支');
+    document.getElementById('green-content').scrollTop=0;
   }
   function swapSides(){const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
   function openFolder(){document.getElementById('ov').classList.add('open');}
