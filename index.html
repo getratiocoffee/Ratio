@@ -26,6 +26,9 @@
   .mtitle{font-size:13px;font-weight:600;color:var(--ink)}
   .mtext{font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .mtime{font-size:11px;color:var(--muted);flex:0 0 auto;margin-top:1px}
+  .mdel{flex:0 0 auto;border:none;background:none;color:var(--line);cursor:pointer;padding:2px;margin:-2px -4px 0 -2px;display:flex;align-items:center}
+  .mdel svg{width:15px;height:15px}
+  .mdel:active{color:var(--accent)}
   .bar{display:flex;align-items:flex-start;justify-content:space-between;gap:0;padding:0 16px calc(env(safe-area-inset-bottom,0px) - 18px)}
   .cluster{display:flex;flex-direction:column;align-items:center;gap:6px;transition:opacity .16s ease,transform .16s ease}
   .cname{font-size:12px;font-weight:600;color:var(--muted)}
@@ -541,9 +544,16 @@ fill="#6F4A36" stroke="none">
   function renderFeed(){
     if(!rows.length){feedEl.innerHTML='<div class="msg" style="justify-content:center;border-bottom:none;color:var(--muted);font-size:12px">No messages yet</div>';return;}
     feedEl.innerHTML=rows.map(r=>{
-      const u=unreadOf(r);
-      return `<div class="msg"><span class="dot" style="background:${u?'var(--accent)':'var(--line)'}"></span><div class="mbody"><div class="mtitle">${esc(titleOf(r))}</div><div class="mtext">${esc(textOf(r))}</div></div><div class="mtime">${relTime(tsOf(r))}</div></div>`;
+      const u=unreadOf(r);const id=idOf(r);
+      return `<div class="msg"><span class="dot" style="background:${u?'var(--accent)':'var(--line)'}"></span><div class="mbody"><div class="mtitle">${esc(titleOf(r))}</div><div class="mtext">${esc(textOf(r))}</div></div><div class="mtime">${relTime(tsOf(r))}</div><button class="mdel" data-id="${esc(String(id))}" aria-label="delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
     }).join('');
+    feedEl.querySelectorAll('.mdel').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();delMessage(b.dataset.id);}));
+  }
+  async function delMessage(id){
+    if(id==null||id==='null')return;
+    rows=rows.filter(r=>String(idOf(r))!==String(id));renderFeed();
+    const {error}=await sb.from('messages').delete().eq('id',id);
+    if(error){console.error('[Ratio] delete error:',error.message||error);loadMessages();}
   }
   renderFeed();
 
