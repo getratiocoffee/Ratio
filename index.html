@@ -185,6 +185,7 @@
   .ghome-tile.soon .gh-ic{background:#EDE3DF}
   .ghome-tile.soon .gh-ic svg{color:var(--muted)}
   .ghome-tile.soon .gh-lab{color:#6B5E50}
+  .ghome-tile.wide{grid-column:1 / -1;min-height:84px}
   .gsel{border:1px solid var(--line);border-radius:11px;padding:11px 13px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit;-webkit-appearance:none;appearance:none}
   .gsel:focus{border-color:var(--accent)}
   .rbadge{font-size:11px;font-weight:600;color:#fff;background:var(--accent);border-radius:8px;padding:2px 9px;white-space:nowrap}
@@ -406,7 +407,7 @@ fill="#6F4A36" stroke="none">
     swap:`<svg viewBox="0 0 24 24" ${s}><path d="M5 8h13M15 5l3 3-3 3"/><path d="M19 16H6M9 13l-3 3 3 3"/></svg>`
   };
   const shop=[['timesheet','Timesheet'],['beans','Beans'],['task','Task'],['tools','Tools']];
-  const roastery=[['roast','Roast'],['green','Green'],['order','Order'],['fx','F(x)'],['history','History']];
+  const roastery=[['roast','Roast'],['green','Green'],['order','Order'],['fx','F(x)']];
   const folder=[['coffee','Order'],['qr','Pay'],['repeat','Subscribe'],['news','News'],['gift','Gifts'],['user','Account'],['cog','Settings'],['bag','Shop']];
 
   function fill(side,arr){const el=document.querySelector(`.pill[data-side="${side}"]`);el.innerHTML='';
@@ -624,7 +625,6 @@ fill="#6F4A36" stroke="none">
     if(id==='green'){openPage('green');loadBeans();return;}
     if(id==='roast'){openPage('green');loadBeans('roast');return;}
     if(id==='beans'){openPage('beans');loadRoasted();return;}
-    if(id==='history'){openPage('green');greenView='history';loadSamples('history');return;}
     console.log('open:',id);/* TODO: route other modules */
   }
 
@@ -652,7 +652,7 @@ fill="#6F4A36" stroke="none">
     else if(greenView==='beans'){greenView='countries';greenCountry=null;renderGreen();}
     else if(greenView==='roast'){closePage();}
     else if(greenView==='sample'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderSample();}else{greenView='home';renderGreen();}}
-    else if(greenView==='history'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderHistory();}else{closePage();}}
+    else if(greenView==='history'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderHistory();}else{greenView='home';renderGreen();}}
     else if(greenView==='countries'||greenView==='soon'){greenView='home';renderGreen();}
     else{closePage();}
   }
@@ -668,10 +668,11 @@ fill="#6F4A36" stroke="none">
         ['buy','Buy','採購','M6 8h12l-1 11a2 2 0 0 1-2 1.8H9A2 2 0 0 1 7 19z M9 8a3 3 0 0 1 6 0'],
         ['sell','Sell','販售','M4 4h7l9 9-7 7-9-9z'],
         ['sample','Sample','樣品杯測','M9 3h6 M10 3v5l-4 9a2 2 0 0 0 2 3h8a2 2 0 0 0 2-3l-4-9V3'],
-        ['inventory','Inventory','庫存','M12 3l9 5-9 5-9-5z M3 12l9 5 9-5 M3 16l9 5 9-5']
+        ['inventory','Inventory','庫存','M12 3l9 5-9 5-9-5z M3 12l9 5 9-5 M3 16l9 5 9-5'],
+        ['history','History','樣品紀錄','M20 12a8 8 0 1 1-2.3-5.6 M20 4v4h-4 M12 8v4l3 1.8']
       ];
       box.innerHTML='<div class="ghome">'+tiles.map(function(t){
-        var cls='ghome-tile';
+        var cls='ghome-tile'+(t[0]==='history'?' wide':'');
         var icon=t[3]
           ?'<span class="gh-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="'+t[3]+'"/></svg></span>'
           :'<span class="gh-ic"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18" cy="12" r="1.6" fill="currentColor"/></svg></span>';
@@ -681,6 +682,7 @@ fill="#6F4A36" stroke="none">
         var k=el.dataset.k;
         if(k==='buy'||k==='inventory'){greenView='countries';renderGreen();box.scrollTop=0;}
         else if(k==='sample'){greenView='sample';loadSamples();box.scrollTop=0;}
+        else if(k==='history'){greenView='history';loadSamples('history');box.scrollTop=0;}
         else{greenSoon='Sell 販售';greenView='soon';renderGreen();box.scrollTop=0;}
       });});
     }
