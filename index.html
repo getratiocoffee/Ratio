@@ -71,20 +71,39 @@
   .shift .hrs{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;color:var(--accent);margin-top:2px}
   .sempty{text-align:center;color:var(--muted);font-size:13px;padding:56px 24px}
   .beans-search{padding:12px 16px 6px;position:sticky;top:0;background:var(--bg);z-index:2}
-  .green-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px 16px 6px}
+  .green-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px 16px 4px}
   .green-stat{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:11px 13px}
   .green-stat .lab{font-size:11px;color:var(--muted)}
   .green-stat .val{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:19px;font-weight:600;color:var(--ink);margin-top:3px;line-height:1.1}
   .green-stat .val small{font-size:11px;font-weight:500;color:var(--muted);margin-left:2px}
-  .green-countries{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:12px 16px 4px;scrollbar-width:none}
-  .green-countries::-webkit-scrollbar{display:none}
-  .cbtn{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:11px;padding:8px 13px;font-size:13px;font-family:inherit;cursor:pointer;white-space:nowrap;transition:all .12s ease}
-  .cbtn .cn{color:var(--muted);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;margin-left:6px}
-  .cbtn:active{transform:scale(.96)}
-  .cbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
-  .cbtn.on .cn{color:rgba(255,255,255,.8)}
-  .green-subtotal{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--muted);padding:8px 18px 2px}
-  .green-subtotal:empty{display:none}
+  .gsec{font-size:12px;font-weight:600;color:var(--muted);padding:14px 18px 2px;letter-spacing:.02em}
+  /* level 1: country tiles */
+  .gcountries{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:8px 16px 16px}
+  .gcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 15px;min-height:92px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .12s ease,border-color .12s ease}
+  .gcard:active{transform:scale(.97)}
+  .gcard .gc-name{font-size:17px;font-weight:600;color:var(--ink)}
+  .gcard .gc-sub{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;color:var(--muted);margin-top:8px}
+  .gcard .gc-n{display:inline-block;background:var(--accent);color:#fff;font-size:11px;font-weight:600;border-radius:8px;padding:1px 8px;align-self:flex-start}
+  /* level 2: bean tiles */
+  .gbeans{display:flex;flex-direction:column;gap:10px;padding:8px 16px 16px}
+  .gbean{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:15px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;transition:transform .12s ease}
+  .gbean:active{transform:scale(.98)}
+  .gbean .gb-main{min-width:0}
+  .gbean .gb-name{font-size:16px;font-weight:600;color:var(--ink)}
+  .gbean .gb-sub{font-size:12px;color:var(--muted);margin-top:3px}
+  .gbean .gb-arrow{color:var(--muted);flex:0 0 auto}
+  .gbean .gb-arrow svg{width:18px;height:18px;display:block}
+  /* level 3: detail rows */
+  .gdetail{padding:6px 16px 20px}
+  .gd-hero{padding:16px 4px 12px}
+  .gd-hero .gd-nm{font-size:22px;font-weight:600;color:var(--ink);line-height:1.15}
+  .gd-hero .gd-ct{font-size:13px;color:var(--accent);font-weight:600;margin-top:4px}
+  .gd-list{background:var(--surface);border:1px solid var(--line);border-radius:15px;overflow:hidden}
+  .grow{display:flex;justify-content:space-between;gap:14px;padding:12px 15px;border-top:1px solid var(--line)}
+  .grow:first-child{border-top:none}
+  .grow .gk{font-size:13px;color:var(--muted);flex:0 0 auto}
+  .grow .gv{font-size:13px;color:var(--ink);text-align:right;font-weight:500}
+  .grow .gv.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace}
   .beans-search input{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit}
   .beans-search input:focus{border-color:var(--accent)}
   .bean{margin:8px 14px;padding:13px 15px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
@@ -242,15 +261,12 @@ l-22 -150 -3 -7340 c-3 -8016 -7 -7459 53 -7812 146 -865 592 -1688 1235
 
   <div class="screen" id="screen-green">
     <header class="shead">
-      <button class="back" onclick="closePage()" aria-label="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
-      <h1>Green</h1>
+      <button class="back" onclick="greenBack()" aria-label="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <h1 id="green-title">Green</h1>
       <span class="wk" id="green-count"></span>
     </header>
     <div class="sbody">
-      <div id="green-summary" class="green-summary"></div>
-      <div id="green-countries" class="green-countries"></div>
-      <div id="green-subtotal" class="green-subtotal"></div>
-      <div id="green-list"></div>
+      <div id="green-content"></div>
     </div>
   </div>
 
@@ -518,82 +534,63 @@ fill="#6F4A36" stroke="none">
     console.log('open:',id);/* TODO: route other modules */
   }
 
-  /* ---- Green module (live green-coffee inventory from Supabase) ---- */
-  let BEANS=[], greenCountry='all';
+  /* ---- Green module: country → bean → detail drill-down ---- */
+  let BEANS=[], greenView='countries', greenCountry=null, greenBeanId=null;
   const gnum=n=>{const x=Number(n);return isNaN(x)?n:(x%1===0?x:Math.round(x*10)/10);};
   const gmoney=n=>'$'+Math.round(Number(n)||0).toLocaleString('en-US');
 
   async function loadBeans(){
-    const list=document.getElementById('green-list');
-    list.innerHTML='<div class="sempty">載入中…</div>';
+    const box=document.getElementById('green-content');
+    box.innerHTML='<div class="sempty">載入中…</div>';
     const {data,error}=await sb.from('beans').select('*').order('name');
-    if(error){list.innerHTML='<div class="sempty">載入失敗：'+esc(error.message)+'</div>';return;}
+    if(error){box.innerHTML='<div class="sempty">載入失敗：'+esc(error.message)+'</div>';return;}
     BEANS=data||[];
-    document.getElementById('green-count').textContent=BEANS.length+' beans';
-    renderSummary();renderCountries();renderList();
+    greenView='countries';greenCountry=null;greenBeanId=null;
+    renderGreen();
   }
-  function totals(arr){
-    let kg=0,val=0;
-    arr.forEach(b=>{const q=Number(b.quantity)||0,c=Number(b.cost_per_kg)||0;kg+=q;val+=q*c;});
-    return {kg,val};
+  function totals(arr){let kg=0,val=0;arr.forEach(b=>{const q=Number(b.quantity)||0,c=Number(b.cost_per_kg)||0;kg+=q;val+=q*c;});return {kg,val};}
+  function countryList(){const m={};BEANS.forEach(b=>{const c=b.country||'—';m[c]=(m[c]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]);}
+
+  function greenBack(){
+    if(greenView==='detail'){greenView='beans';greenBeanId=null;renderGreen();}
+    else if(greenView==='beans'){greenView='countries';greenCountry=null;renderGreen();}
+    else{closePage();}
   }
-  function renderSummary(){
-    const t=totals(BEANS);
-    const origins=new Set(BEANS.map(b=>b.country).filter(Boolean)).size;
-    const tiles=[
-      ['Beans',BEANS.length,''],
-      ['Green weight',gnum(t.kg),' kg'],
-      ['Inventory value',gmoney(t.val),''],
-      ['Origins',origins,''],
-    ];
-    document.getElementById('green-summary').innerHTML=tiles.map(([lab,val,unit])=>
-      '<div class="green-stat"><div class="lab">'+lab+'</div><div class="val">'+esc(val)+(unit?'<small>'+unit+'</small>':'')+'</div></div>').join('');
-  }
-  function countryList(){
-    const m={};
-    BEANS.forEach(b=>{const c=b.country||'—';m[c]=(m[c]||0)+1;});
-    return Object.entries(m).sort((a,b)=>b[1]-a[1]);
-  }
-  function renderCountries(){
-    const btns=['<button class="cbtn'+(greenCountry==='all'?' on':'')+'" data-c="all">All<span class="cn">'+BEANS.length+'</span></button>'];
-    countryList().forEach(([c,n])=>{
-      btns.push('<button class="cbtn'+(greenCountry===c?' on':'')+'" data-c="'+esc(c)+'">'+esc(c)+'<span class="cn">'+n+'</span></button>');
-    });
-    const wrap=document.getElementById('green-countries');
-    wrap.innerHTML=btns.join('');
-    wrap.querySelectorAll('.cbtn').forEach(b=>b.addEventListener('click',()=>{greenCountry=b.dataset.c;renderCountries();renderList();}));
-  }
-  function beanCard(b){
-    const chips=[b.process,b.variety,b.harvest&&('Harvest '+b.harvest)].filter(Boolean)
-      .map(c=>'<span class="bean-chip">'+esc(c)+'</span>').join('');
-    const sub=[b.region,b.station].filter(Boolean).map(esc).join(' · ');
-    const meta=[];
-    if(b.quantity!=null)meta.push('<span><b>'+esc(gnum(b.quantity))+'</b> kg</span>');
-    if(b.cost_per_kg!=null)meta.push('<span>$<b>'+esc(b.cost_per_kg)+'</b>/kg</span>');
-    if(b.altitude)meta.push('<span><b>'+esc(b.altitude)+'</b> m</span>');
-    if(b.supplier)meta.push('<span>'+esc(b.supplier)+'</span>');
-    return '<div class="bean"><div class="bean-top"><span class="bean-nm">'+esc(b.name)+'</span><span class="bean-ct">'+esc(b.country||'')+'</span></div>'
-      +(sub?'<div class="bean-sub">'+sub+'</div>':'')
-      +(chips?'<div class="bean-chips">'+chips+'</div>':'')
-      +(meta.length?'<div class="bean-meta">'+meta.join('')+'</div>':'')
-      +'</div>';
-  }
-  function renderList(){
-    const list=document.getElementById('green-list');
-    const sub=document.getElementById('green-subtotal');
-    if(greenCountry==='all'){
-      sub.textContent='';
-      const groups=countryList().map(([c])=>c);
-      if(!groups.length){list.innerHTML='<div class="sempty">沒有生豆</div>';return;}
-      list.innerHTML=groups.map(c=>{
-        const items=BEANS.filter(b=>(b.country||'—')===c);
-        return '<div class="dayhd">'+esc(c)+' · '+items.length+'</div>'+items.map(beanCard).join('');
-      }).join('');
-    }else{
-      const items=BEANS.filter(b=>(b.country||'—')===greenCountry);
+
+  function renderGreen(){
+    const box=document.getElementById('green-content');
+    const title=document.getElementById('green-title');
+    const count=document.getElementById('green-count');
+    if(greenView==='countries'){
+      title.textContent='Green';
+      count.textContent=BEANS.length+' beans';
+      const t=totals(BEANS);
+      const origins=new Set(BEANS.map(b=>b.country).filter(Boolean)).size;
+      const tiles=[['Beans',BEANS.length,''],['Green weight',gnum(t.kg),' kg'],['Value',gmoney(t.val),''],['Origins',origins,'']];
+      const summary='<div class="green-summary">'+tiles.map(function(x){return '<div class="green-stat"><div class="lab">'+x[0]+'</div><div class="val">'+esc(x[1])+(x[2]?'<small>'+x[2]+'</small>':'')+'</div></div>';}).join('')+'</div>';
+      const grid='<div class="gcountries">'+countryList().map(function(e){var c=e[0],n=e[1];var ct=totals(BEANS.filter(function(b){return (b.country||'—')===c;}));return '<div class="gcard" data-c="'+esc(c)+'"><div class="gc-name">'+esc(c)+'</div><div class="gc-sub"><span class="gc-n">'+n+' beans</span><br>'+gnum(ct.kg)+' kg · '+gmoney(ct.val)+'</div></div>';}).join('')+'</div>';
+      box.innerHTML=summary+'<div class="gsec">選擇產國</div>'+grid;
+      box.querySelectorAll('.gcard').forEach(function(el){el.addEventListener('click',function(){greenCountry=el.dataset.c;greenView='beans';renderGreen();box.scrollTop=0;});});
+    }
+    else if(greenView==='beans'){
+      const items=BEANS.filter(function(b){return (b.country||'—')===greenCountry;});
       const t=totals(items);
-      sub.textContent=greenCountry+' 小計： '+gnum(t.kg)+' kg · '+gmoney(t.val);
-      list.innerHTML=items.length?items.map(beanCard).join(''):'<div class="sempty">沒有生豆</div>';
+      title.textContent=greenCountry;
+      count.textContent=items.length+' beans';
+      const head='<div class="gsec">'+esc(greenCountry)+' · '+gnum(t.kg)+' kg · '+gmoney(t.val)+'</div>';
+      const list='<div class="gbeans">'+items.map(function(b){var sub=[b.region,b.process].filter(Boolean).map(esc).join(' · ');return '<div class="gbean" data-id="'+esc(b.id)+'"><div class="gb-main"><div class="gb-name">'+esc(b.name)+'</div>'+(sub?'<div class="gb-sub">'+sub+'</div>':'')+'</div><span class="gb-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></div>';}).join('')+'</div>';
+      box.innerHTML=head+list;
+      box.querySelectorAll('.gbean').forEach(function(el){el.addEventListener('click',function(){greenBeanId=el.dataset.id;greenView='detail';renderGreen();box.scrollTop=0;});});
+    }
+    else if(greenView==='detail'){
+      const b=BEANS.find(function(x){return String(x.id)===String(greenBeanId);});
+      if(!b){greenBack();return;}
+      title.textContent='';
+      count.textContent='';
+      const val=(Number(b.quantity)||0)*(Number(b.cost_per_kg)||0);
+      const rows=[['Country',b.country],['Region',b.region],['Station',b.station],['Process',b.process],['Variety',b.variety],['Harvest',b.harvest],['Altitude',b.altitude?b.altitude+' m':''],['Quantity',b.quantity!=null?gnum(b.quantity)+' kg':'',true],['Cost',b.cost_per_kg!=null?'$'+b.cost_per_kg+' /kg':'',true],['Value',val?gmoney(val):'',true],['Supplier',b.supplier]].filter(function(r){return r[1];});
+      const list='<div class="gd-list">'+rows.map(function(r){return '<div class="grow"><span class="gk">'+r[0]+'</span><span class="gv'+(r[2]?' mono':'')+'">'+esc(r[1])+'</span></div>';}).join('')+'</div>';
+      box.innerHTML='<div class="gdetail"><div class="gd-hero"><div class="gd-nm">'+esc(b.name)+'</div><div class="gd-ct">'+esc(b.country||'')+'</div></div>'+list+'</div>';
     }
   }
   function swapSides(){const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
