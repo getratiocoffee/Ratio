@@ -620,7 +620,8 @@ fill="#6F4A36" stroke="none">
   function greenBack(){
     if(greenView==='detail'){greenView='beans';greenBeanId=null;greenEdit=false;greenDelConfirm=false;renderGreen();}
     else if(greenView==='beans'){greenView='countries';greenCountry=null;renderGreen();}
-    else if(greenView==='countries'||greenView==='roast'||greenView==='soon'||greenView==='sample'){greenView='home';renderGreen();}
+    else if(greenView==='roast'){closePage();}
+    else if(greenView==='countries'||greenView==='soon'||greenView==='sample'){greenView='home';renderGreen();}
     else{closePage();}
   }
 
