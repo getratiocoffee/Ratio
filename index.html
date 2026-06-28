@@ -189,32 +189,6 @@
   .smp-badge{font-size:11px;font-weight:600;border-radius:8px;padding:3px 11px;color:#fff}
   .smp-badge.buy{background:#5E8C61}
   .smp-badge.skip{background:#9A8B82}
-  /* green home 2x2 */
-  .ghome{display:grid;grid-template-columns:1fr 1fr;gap:13px;padding:16px}
-  .ghome-tile{background:var(--surface);border:1px solid var(--line);border-radius:20px;min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;transition:transform .12s ease}
-  .ghome-tile:active{transform:scale(.97)}
-  .gh-ic{width:52px;height:52px;border-radius:50%;background:#F4E4E0;display:flex;align-items:center;justify-content:center}
-  .gh-ic svg{width:26px;height:26px;color:var(--accent)}
-  .gh-lab{font-size:18px;font-weight:600;color:var(--ink)}
-  .gh-zh{font-size:11px;color:var(--muted);margin-top:-6px}
-  .ghome-tile.soon{background:var(--bg);border:1.5px dashed #CBBEB7}
-  .ghome-tile.soon .gh-ic{background:#EDE3DF}
-  .ghome-tile.soon .gh-ic svg{color:var(--muted)}
-  .ghome-tile.soon .gh-lab{color:#6B5E50}
-  .ghome-tile.wide{grid-column:1 / -1;min-height:84px}
-  /* ===== STANDARD: module landing — two big buttons, anchored center-bottom (one-handed phone use) =====
-     Markup:  <div class="landing"><div class="cta2">
-                 <button class="bhome-tile">…</button>
-                 <button class="bhome-tile">…</button>
-              </div></div>                                                                              */
-  .landing{min-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 112px);display:flex;flex-direction:column;justify-content:flex-end;padding:16px 16px 26px;box-sizing:border-box}
-  .cta2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  .bhome-tile{background:var(--surface);border:1px solid var(--line);border-radius:22px;min-height:210px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;font-family:inherit;color:var(--ink);transition:transform .12s ease}
-  .bhome-tile:active{transform:scale(.97)}
-  .bhome-ic{width:66px;height:66px;border-radius:50%;background:#F4E4E0;display:flex;align-items:center;justify-content:center}
-  .bhome-ic svg{width:32px;height:32px;color:var(--accent)}
-  .bhome-lab{font-size:19px;font-weight:600;color:var(--ink)}
-  .bhome-zh{font-size:12px;color:var(--muted);margin-top:-8px}
   .gsel{border:1px solid var(--line);border-radius:11px;padding:11px 13px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit;-webkit-appearance:none;appearance:none}
   .gsel:focus{border-color:var(--accent)}
   .rbadge{font-size:11px;font-weight:600;color:#fff;background:var(--accent);border-radius:8px;padding:2px 9px;white-space:nowrap}
@@ -761,32 +735,7 @@ fill="#6F4A36" stroke="none">
     const box=document.getElementById('green-content');
     const title=document.getElementById('green-title');
     const count=document.getElementById('green-count');
-    if(greenView==='home'){
-      title.textContent='Green';
-      count.textContent=BEANS.length+' beans';
-      const tiles=[
-        ['buy','Buy','採購','M6 8h12l-1 11a2 2 0 0 1-2 1.8H9A2 2 0 0 1 7 19z M9 8a3 3 0 0 1 6 0'],
-        ['sell','Sell','販售','M4 4h7l9 9-7 7-9-9z'],
-        ['sample','Sample','樣品杯測','M9 3h6 M10 3v5l-4 9a2 2 0 0 0 2 3h8a2 2 0 0 0 2-3l-4-9V3'],
-        ['inventory','Inventory','庫存','M12 3l9 5-9 5-9-5z M3 12l9 5 9-5 M3 16l9 5 9-5'],
-        ['history','History','樣品紀錄','M20 12a8 8 0 1 1-2.3-5.6 M20 4v4h-4 M12 8v4l3 1.8']
-      ];
-      box.innerHTML='<div class="ghome">'+tiles.map(function(t){
-        var cls='ghome-tile'+(t[0]==='history'?' wide':'');
-        var icon=t[3]
-          ?'<span class="gh-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="'+t[3]+'"/></svg></span>'
-          :'<span class="gh-ic"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18" cy="12" r="1.6" fill="currentColor"/></svg></span>';
-        return '<div class="'+cls+'" data-k="'+t[0]+'">'+icon+'<div class="gh-lab">'+t[1]+'</div><div class="gh-zh">'+t[2]+'</div></div>';
-      }).join('')+'</div>';
-      box.querySelectorAll('.ghome-tile').forEach(function(el){el.addEventListener('click',function(){
-        var k=el.dataset.k;
-        if(k==='buy'||k==='inventory'){greenView='countries';renderGreen();box.scrollTop=0;}
-        else if(k==='sample'){greenView='sample';loadSamples();box.scrollTop=0;}
-        else if(k==='history'){greenView='history';loadSamples('history');box.scrollTop=0;}
-        else{greenSoon='Sell 販售';greenView='soon';renderGreen();box.scrollTop=0;}
-      });});
-    }
-    else if(greenView==='roast'){renderRoast();}
+    if(greenView==='roast'){renderRoast();}
     else if(greenView==='sample'){renderSample();}
     else if(greenView==='history'){renderHistory();}
     else if(greenView==='soon'){
@@ -966,25 +915,6 @@ fill="#6F4A36" stroke="none">
     renderRoast();
   }
   let beansView='home';
-  function renderBeansHome(){
-    beansView='home';
-    const box=document.getElementById('beans-content');
-    const title=document.getElementById('beans-title');
-    if(title)title.textContent='Beans';
-    document.getElementById('beans-count').textContent='';
-    box.innerHTML='<div class="landing"><div class="cta2">'
-      +'<button class="bhome-tile" data-k="retail">'
-        +'<span class="bhome-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9h12l-.8 11a1 1 0 0 1-1 .9H7.8a1 1 0 0 1-1-.9z"/><path d="M9 9V7a3 3 0 0 1 6 0v2"/></svg></span>'
-        +'<span class="bhome-lab">Retail Shelf</span><span class="bhome-zh">零售貨架</span></button>'
-      +'<button class="bhome-tile" data-k="prod">'
-        +'<span class="bhome-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V11l5 3V11l5 3V9l4 2v10"/><path d="M9 21v-4h3v4"/></svg></span>'
-        +'<span class="bhome-lab">Pending</span><span class="bhome-zh">待杯測</span></button>'
-      +'</div></div>';
-    box.querySelectorAll('.bhome-tile').forEach(function(el){el.addEventListener('click',function(){
-      if(el.dataset.k==='prod'){beansView='production';loadRoasted();box.scrollTop=0;}
-      else{beansView='retail';renderBeansRetail();box.scrollTop=0;}
-    });});
-  }
   function renderBeansRetail(){
     beansView='retail';
     const box=document.getElementById('beans-content');
