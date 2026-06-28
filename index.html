@@ -191,9 +191,14 @@
   .ghome-tile.soon .gh-ic svg{color:var(--muted)}
   .ghome-tile.soon .gh-lab{color:#6B5E50}
   .ghome-tile.wide{grid-column:1 / -1;min-height:84px}
-  /* Beans home: two big buttons */
-  .beans-2up{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px}
-  .bhome-tile{background:var(--surface);border:1px solid var(--line);border-radius:22px;min-height:248px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;font-family:inherit;color:var(--ink);transition:transform .12s ease}
+  /* ===== STANDARD: module landing — two big buttons, anchored center-bottom (one-handed phone use) =====
+     Markup:  <div class="landing"><div class="cta2">
+                 <button class="bhome-tile">…</button>
+                 <button class="bhome-tile">…</button>
+              </div></div>                                                                              */
+  .landing{min-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 112px);display:flex;flex-direction:column;justify-content:flex-end;padding:16px 16px 26px;box-sizing:border-box}
+  .cta2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .bhome-tile{background:var(--surface);border:1px solid var(--line);border-radius:22px;min-height:210px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;font-family:inherit;color:var(--ink);transition:transform .12s ease}
   .bhome-tile:active{transform:scale(.97)}
   .bhome-ic{width:66px;height:66px;border-radius:50%;background:#F4E4E0;display:flex;align-items:center;justify-content:center}
   .bhome-ic svg{width:32px;height:32px;color:var(--accent)}
@@ -886,14 +891,14 @@ fill="#6F4A36" stroke="none">
     const title=document.getElementById('beans-title');
     if(title)title.textContent='Beans';
     document.getElementById('beans-count').textContent='';
-    box.innerHTML='<div class="beans-2up">'
+    box.innerHTML='<div class="landing"><div class="cta2">'
       +'<button class="bhome-tile" data-k="retail">'
         +'<span class="bhome-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9h12l-.8 11a1 1 0 0 1-1 .9H7.8a1 1 0 0 1-1-.9z"/><path d="M9 9V7a3 3 0 0 1 6 0v2"/></svg></span>'
         +'<span class="bhome-lab">Retail Shelf</span><span class="bhome-zh">零售貨架</span></button>'
       +'<button class="bhome-tile" data-k="prod">'
         +'<span class="bhome-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V11l5 3V11l5 3V9l4 2v10"/><path d="M9 21v-4h3v4"/></svg></span>'
         +'<span class="bhome-lab">Production</span><span class="bhome-zh">生產烘焙</span></button>'
-      +'</div>';
+      +'</div></div>';
     box.querySelectorAll('.bhome-tile').forEach(function(el){el.addEventListener('click',function(){
       if(el.dataset.k==='prod'){beansView='production';loadRoasted();box.scrollTop=0;}
       else{beansView='retail';renderBeansRetail();box.scrollTop=0;}
