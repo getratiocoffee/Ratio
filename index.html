@@ -15,7 +15,7 @@
   .bhead{background:#49423A;display:flex;align-items:center;justify-content:space-between;padding:9px 18px;color:#F4ECEA}
   .bhead svg path{fill:#F4ECEA}
   .bhead .logo{width:40px;height:40px;display:block}
-  .bhead .logo img{width:100%;height:100%;display:block;filter:brightness(0) invert(1)}
+  .bhead .logo svg{width:100%;height:100%;display:block}
   .htime{text-align:right;line-height:1}
   .htime .clock{font-size:30px;font-weight:600;font-family:-apple-system,system-ui,sans-serif;color:#F4ECEA}
   .feed{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -26,9 +26,6 @@
   .mtitle{font-size:13px;font-weight:600;color:var(--ink)}
   .mtext{font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .mtime{font-size:11px;color:var(--muted);flex:0 0 auto;margin-top:1px}
-  .mdel{flex:0 0 auto;border:none;background:none;color:var(--line);cursor:pointer;padding:2px;margin:-2px -4px 0 -2px;display:flex;align-items:center}
-  .mdel svg{width:15px;height:15px}
-  .mdel:active{color:var(--accent)}
   .bar{display:flex;align-items:flex-start;justify-content:space-between;gap:0;padding:0 16px calc(env(safe-area-inset-bottom,0px) - 18px)}
   .cluster{display:flex;flex-direction:column;align-items:center;gap:6px;transition:opacity .16s ease,transform .16s ease}
   .cname{font-size:12px;font-weight:600;color:var(--muted)}
@@ -50,20 +47,25 @@
   .item[data-id="beans"] .ic svg{transform:scale(.7)}
   .item[data-id="roast"] .ic svg{transform:translateY(3px) scale(1.2)}
   .item[data-id="tools"] .ic svg{transform:scale(1.2)}
-  .ov{position:fixed;inset:0;background:rgba(50,43,42,0.45);display:none;align-items:center;justify-content:center;padding:24px;z-index:10}
+  .ov{position:fixed;inset:0;background:rgba(50,43,42,0.45);display:none;align-items:flex-end;justify-content:center;z-index:10}
   .ov.open{display:flex}
-  .panel{background:var(--surface);border-radius:26px;padding:20px 18px 22px;width:100%;max-width:330px;transform:scale(.85);opacity:0;transition:transform .22s ease,opacity .22s ease}
-  .ov.open .panel{transform:scale(1);opacity:1}
+  .panel{background:var(--surface);border-radius:26px 26px 0 0;padding:16px 18px calc(env(safe-area-inset-bottom,0px) + 14px);width:100%;max-width:430px;transform:translateY(100%);transition:transform .26s cubic-bezier(.4,0,.2,1)}
+  .ov.open .panel{transform:translateY(0)}
+  .grab{width:38px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 12px}
+  .sheet-close{margin-top:16px;width:100%;height:48px;border-radius:16px;border:none;background:var(--bg);color:var(--ink);font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;transition:transform .12s ease}
+  .sheet-close:active{transform:scale(.97)}
   /* ---- full-screen module page (Timesheet, etc.) ---- */
   .screen{position:fixed;inset:0;background:var(--bg);z-index:20;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);visibility:hidden}
   .screen.open{transform:none;visibility:visible}
-  .shead{display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 13px;background:#49423A;color:#F4ECEA}
-  .shead .back{width:34px;height:34px;border-radius:10px;border:none;background:rgba(244,236,234,.12);color:#F4ECEA;display:grid;place-items:center;cursor:pointer;padding:0;transition:background .15s ease}
-  .shead .back:active{background:rgba(244,236,234,.22)}
-  .shead .back svg{width:20px;height:20px}
+  .shead{display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 14px) 18px 13px;background:#49423A;color:#F4ECEA}
   .shead h1{font-size:18px;font-weight:600;margin:0;flex:1}
   .shead .wk{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:rgba(244,236,234,.7)}
-  .sbody{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 20px)}
+  .sbody{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:14px}
+  /* ---- bottom back bar: thumb-reachable on mobile ---- */
+  .sfoot{display:flex;gap:10px;padding:10px 16px calc(env(safe-area-inset-bottom,0px) + 10px);background:var(--surface);border-top:1px solid var(--line)}
+  .sfoot .back{flex:1;height:52px;border-radius:16px;border:none;background:#49423A;color:#F4ECEA;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;transition:transform .12s ease,background .15s ease}
+  .sfoot .back:active{transform:scale(.97);background:#3a342d}
+  .sfoot .back svg{width:19px;height:19px}
   .dayhd{position:sticky;top:0;background:var(--bg);font-size:12px;font-weight:600;color:var(--muted);padding:14px 18px 6px;letter-spacing:.02em;z-index:1}
   .shift{display:flex;align-items:center;gap:12px;padding:11px 18px;background:var(--surface);border-bottom:1px solid var(--line)}
   .shift .who{flex:1;min-width:0}
@@ -73,183 +75,6 @@
   .shift .tm{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;color:var(--ink)}
   .shift .hrs{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;color:var(--accent);margin-top:2px}
   .sempty{text-align:center;color:var(--muted);font-size:13px;padding:56px 24px}
-  .beans-search{padding:12px 16px 6px;position:sticky;top:0;background:var(--bg);z-index:2}
-  .green-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px 16px 4px}
-  .green-stat{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:11px 13px}
-  .green-stat .lab{font-size:11px;color:var(--muted)}
-  .green-stat .val{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:19px;font-weight:600;color:var(--ink);margin-top:3px;line-height:1.1}
-  .green-stat .val small{font-size:11px;font-weight:500;color:var(--muted);margin-left:2px}
-  .gsec{font-size:12px;font-weight:600;color:var(--muted);padding:14px 18px 2px;letter-spacing:.02em}
-  /* level 1: country tiles */
-  .gcountries{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:8px 16px 16px}
-  .gcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 15px;min-height:92px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .12s ease,border-color .12s ease}
-  .gcard:active{transform:scale(.97)}
-  .gcard .gc-name{font-size:17px;font-weight:600;color:var(--ink)}
-  .gcard .gc-sub{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;color:var(--muted);margin-top:8px}
-  .gcard .gc-n{display:inline-block;background:var(--accent);color:#fff;font-size:11px;font-weight:600;border-radius:8px;padding:1px 8px;align-self:flex-start}
-  /* level 2: bean tiles */
-  .gbeans{display:flex;flex-direction:column;gap:10px;padding:8px 16px 16px}
-  .gbean{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:15px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;transition:transform .12s ease}
-  .gbean:active{transform:scale(.98)}
-  .gbean .gb-main{min-width:0}
-  .gbean .gb-name{font-size:16px;font-weight:600;color:var(--ink)}
-  .gbean .gb-sub{font-size:12px;color:var(--muted);margin-top:3px}
-  .gbean .gb-arrow{color:var(--muted);flex:0 0 auto}
-  .gbean .gb-arrow svg{width:18px;height:18px;display:block}
-  /* level 3: detail rows */
-  .gdetail{padding:6px 16px 20px}
-  .gd-hero{padding:16px 4px 12px}
-  .gd-hero .gd-nm{font-size:22px;font-weight:600;color:var(--ink);line-height:1.15}
-  .gd-hero .gd-ct{font-size:13px;color:var(--accent);font-weight:600;margin-top:4px}
-  .gd-list{background:var(--surface);border:1px solid var(--line);border-radius:15px;overflow:hidden}
-  .grow{display:flex;justify-content:space-between;gap:14px;padding:12px 15px;border-top:1px solid var(--line)}
-  .grow:first-child{border-top:none}
-  .grow .gk{font-size:13px;color:var(--muted);flex:0 0 auto}
-  .grow .gv{font-size:13px;color:var(--ink);text-align:right;font-weight:500}
-  .grow .gv.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace}
-  /* edit button + form */
-  .gbtn{display:block;width:100%;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;background:var(--accent);color:#fff;transition:opacity .15s ease}
-  .gbtn:active{opacity:.8}
-  .gbtn[disabled]{opacity:.5}
-  .gbtn.ghost{background:var(--surface);color:var(--accent);border:1px solid var(--line);margin-bottom:12px}
-  .gform{display:flex;flex-direction:column;gap:11px;padding-top:4px}
-  .gfield{display:flex;flex-direction:column;gap:5px}
-  .gfield .gl{font-size:12px;color:var(--muted);padding-left:2px}
-  .gfield input{border:1px solid var(--line);border-radius:11px;padding:11px 13px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit}
-  .gfield input:focus{border-color:var(--accent)}
-  .gform-actions{display:flex;gap:10px;margin-top:6px}
-  .gform-actions .gbtn{margin-bottom:0}
-  .gform-msg{font-size:12px;color:var(--muted);min-height:14px}
-  .gform-msg.err{color:var(--accent)}
-  .gform-msg.ok{color:#5b7a57}
-  .gbtn.danger{background:#C0392B;color:#fff}
-  .gbtn.dghost{background:var(--surface);color:#C0392B;border:1px solid #E6BBB5}
-  .gdel{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
-  .gdel-msg{font-size:13px;color:var(--ink);margin-bottom:11px;text-align:center;line-height:1.5}
-  .re-seg{display:flex;gap:8px}
-  .re-opt{flex:1;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:12px;padding:11px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer}
-  .re-opt.on{background:var(--accent);border-color:var(--accent);color:#fff}
-  .gta{border:1px solid var(--line);border-radius:11px;padding:11px 13px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit;resize:vertical;width:100%}
-  .gta:focus{border-color:var(--accent)}
-  /* sample form (redesigned) */
-  .smp-pager{display:flex;align-items:center;gap:8px;padding:12px 16px 2px}
-  .smp-nav{width:40px;height:40px;border-radius:11px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-family:inherit}
-  .smp-nav:active{background:#EDE3DF}
-  .smp-pos{flex:1;text-align:center;font-size:13px;font-weight:600;color:var(--ink)}
-  .smp-add{border:1px solid var(--accent);background:var(--surface);color:var(--accent);border-radius:11px;padding:0 14px;height:40px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;flex:0 0 auto}
-  .smp-add:active{background:#F4E4E0}
-  .smp-nohdr{font-family:ui-monospace,Menlo,monospace;font-size:20px;font-weight:700;color:var(--accent);padding:6px 18px 2px}
-  .smp-no{font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;color:#fff;background:var(--accent);border-radius:7px;padding:1px 7px;margin-right:2px}
-  .smp-item{cursor:pointer}
-  .smp-item:active{background:#FAF2EF}
-  .smp-hint{font-size:12px;color:var(--muted);text-align:center;padding:10px 4px 0}
-  .smp-sec{margin:0 16px 14px}
-  .smp-sec:first-child{margin-top:14px}
-  .smp-sec-h{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;padding-left:2px}
-  .smp-fields{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:13px;display:flex;flex-direction:column;gap:12px}
-  .smp-f{display:flex;flex-direction:column;gap:5px}
-  .smp-f span{font-size:12px;color:var(--muted);padding-left:2px}
-  .smp-f input{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;color:var(--ink);background:var(--bg);outline:none;font-family:inherit;width:100%}
-  .smp-f input:focus{border-color:var(--accent);background:var(--surface)}
-  .smp-f2{display:flex;gap:10px}
-  .smp-f2 .smp-f{flex:1;min-width:0}
-  .smp-scores{background:var(--surface);border:1px solid var(--line);border-radius:15px;overflow:hidden}
-  .smp-score{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;border-top:1px solid var(--line)}
-  .smp-score:first-child{border-top:none}
-  .smp-sname{font-size:14px;color:var(--ink);font-weight:500}
-  .dots{display:flex;gap:9px;align-items:center}
-  .dot{width:23px;height:23px;border-radius:50%;border:1.7px solid #D6C8C1;background:transparent;cursor:pointer;padding:0;transition:transform .12s ease,background .12s ease,border-color .12s ease}
-  .dot.fill{background:var(--accent);border-color:var(--accent)}
-  .dot:active{transform:scale(.85)}
-  .smp-msg-wrap{padding:0 18px}
-  .smp-decide-wrap{position:sticky;bottom:0;padding:10px 16px calc(env(safe-area-inset-bottom,0px) + 14px);background:linear-gradient(to top,var(--bg) 72%,rgba(244,236,234,0))}
-  .smp-decide{display:flex;gap:11px}
-  .smp-decide .gbtn{padding:15px;font-size:15px;border-radius:14px}
-  .gbtn.buy{background:#5E8C61;color:#fff}
-  .gbtn.skip{background:var(--surface);color:#6B5E50;border:1px solid var(--line)}
-  .smp-list{display:flex;flex-direction:column;gap:10px}
-  .smp-item{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 15px}
-  .smp-scoreline{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
-  .sc-chip{font-size:11px;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:2px 8px}
-  .sc-chip b{color:var(--ink);margin-left:4px;font-family:ui-monospace,Menlo,monospace}
-  .smp-cmt{font-size:13px;color:var(--ink);margin-top:8px;line-height:1.5}
-  .smp-badge{font-size:11px;font-weight:600;border-radius:8px;padding:3px 11px;color:#fff}
-  .smp-badge.buy{background:#5E8C61}
-  .smp-badge.skip{background:#9A8B82}
-  /* green home 2x2 */
-  .ghome{display:grid;grid-template-columns:1fr 1fr;gap:13px;padding:16px}
-  .ghome-tile{background:var(--surface);border:1px solid var(--line);border-radius:20px;min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;transition:transform .12s ease}
-  .ghome-tile:active{transform:scale(.97)}
-  .gh-ic{width:52px;height:52px;border-radius:50%;background:#F4E4E0;display:flex;align-items:center;justify-content:center}
-  .gh-ic svg{width:26px;height:26px;color:var(--accent)}
-  .gh-lab{font-size:18px;font-weight:600;color:var(--ink)}
-  .gh-zh{font-size:11px;color:var(--muted);margin-top:-6px}
-  .ghome-tile.soon{background:var(--bg);border:1.5px dashed #CBBEB7}
-  .ghome-tile.soon .gh-ic{background:#EDE3DF}
-  .ghome-tile.soon .gh-ic svg{color:var(--muted)}
-  .ghome-tile.soon .gh-lab{color:#6B5E50}
-  .ghome-tile.wide{grid-column:1 / -1;min-height:84px}
-  .gsel{border:1px solid var(--line);border-radius:11px;padding:11px 13px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit;-webkit-appearance:none;appearance:none}
-  .gsel:focus{border-color:var(--accent)}
-  .rbadge{font-size:11px;font-weight:600;color:#fff;background:var(--accent);border-radius:8px;padding:2px 9px;white-space:nowrap}
-  .rbadge.done{background:#7E9B7A}
-  .rcard{cursor:pointer}
-  /* roasted by-date collapsible (Beans) */
-  .rdate{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--line);padding:15px 18px;cursor:pointer;font-family:inherit}
-  .rd-chev{color:var(--muted);display:flex;transition:transform .15s ease}
-  .rd-chev svg{width:18px;height:18px}
-  .rdate.open .rd-chev{transform:rotate(90deg)}
-  .rd-date{font-size:15px;font-weight:600;color:var(--ink);flex:1;font-family:ui-monospace,Menlo,monospace}
-  .rd-meta{font-size:12px;color:var(--muted)}
-  .rd-meta b{color:var(--accent)}
-  .rd-body{padding:10px 14px 12px;display:flex;flex-direction:column;gap:10px;background:#FAF2EF}
-  .rd-body .bean{margin:0}
-  /* roasting cart UI */
-  .ro-banner{margin:12px 16px 0;font-size:13px;font-weight:500;color:#5b7a57}
-  .ro-banner.err{color:var(--accent)}
-  .ro-banner:empty{display:none}
-  .ro-top{display:flex;gap:10px;padding:12px 16px 2px}
-  .ro-dt{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
-  .ro-dt span{font-size:11px;color:var(--muted);padding-left:2px}
-  .ro-dt input{border:1px solid var(--line);border-radius:11px;padding:10px 12px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit;width:100%}
-  .ro-dt input:focus{border-color:var(--accent)}
-  .ro-cart{padding:2px 16px 6px;display:flex;flex-direction:column;gap:10px}
-  .ro-row{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:12px 14px}
-  .ro-rh{display:flex;justify-content:space-between;align-items:center}
-  .ro-nm{font-size:15px;font-weight:600;color:var(--ink)}
-  .ro-x{border:none;background:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px 6px;line-height:1}
-  .ro-rem{font-size:11px;color:var(--muted);margin-top:2px}
-  .ro-qty{display:flex;align-items:center;gap:10px;margin-top:11px}
-  .ro-step{width:46px;height:46px;border-radius:13px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-family:inherit}
-  .ro-step:active{background:#EDE3DF}
-  .ro-in{flex:1;min-width:0;text-align:center;border:1px solid var(--line);border-radius:13px;padding:11px;font-size:19px;font-weight:600;color:var(--ink);background:var(--bg);outline:none;font-family:ui-monospace,Menlo,monospace}
-  .ro-in:focus{border-color:var(--accent)}
-  .ro-unit{font-size:13px;color:var(--muted);flex:0 0 auto}
-  .ro-add{padding:2px 16px 16px;display:flex;flex-direction:column;gap:8px}
-  .ro-aitem{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 15px;cursor:pointer;font-family:inherit}
-  .ro-aitem:active{background:#FAF2EF}
-  .ro-an{font-size:15px;font-weight:600;color:var(--ink)}
-  .ro-as{font-size:12px;color:var(--muted);margin-top:2px}
-  .ro-plus{width:32px;height:32px;border-radius:50%;background:#F4E4E0;color:var(--accent);font-size:19px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
-  .ro-save-wrap{position:sticky;bottom:0;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 14px);background:linear-gradient(to top,var(--bg) 72%,rgba(244,236,234,0))}
-  .ro-cgroup{border-bottom:1px solid var(--line)}
-  .ro-chead{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;padding:13px 2px;cursor:pointer;font-family:inherit}
-  .ro-chead .rd-chev{color:var(--muted);display:flex;transition:transform .15s ease}
-  .ro-chead .rd-chev svg{width:18px;height:18px}
-  .ro-chead.open .rd-chev{transform:rotate(90deg)}
-  .ro-cname{font-size:14px;font-weight:600;color:var(--ink);flex:1}
-  .ro-cbody{display:flex;flex-direction:column;gap:8px;padding:2px 0 12px}
-  .beans-search input{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit}
-  .beans-search input:focus{border-color:var(--accent)}
-  .bean{margin:8px 14px;padding:13px 15px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
-  .bean-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-  .bean-nm{font-size:15px;font-weight:600;color:var(--ink)}
-  .bean-ct{font-size:11px;color:var(--accent);font-weight:600;white-space:nowrap}
-  .bean-sub{font-size:12px;color:var(--muted);margin-top:2px}
-  .bean-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
-  .bean-chip{font-size:11px;color:#6B5E50;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:2px 8px}
-  .bean-meta{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;color:var(--muted)}
-  .bean-meta b{color:var(--ink);font-weight:600}
   .ptitle{font-size:15px;font-weight:600;text-align:center;margin:0 0 16px}
   .pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px 8px}
   .pgrid .item{width:auto}
@@ -262,56 +87,62 @@
   .composer button:active{opacity:.7}
   .composer button svg{width:18px;height:18px}
   @media(min-width:520px){body{max-width:430px;margin:0 auto;border-left:.5px solid var(--line);border-right:.5px solid var(--line)}}
-  /* ---- login gate ---- */
-  .auth{position:fixed;inset:0;z-index:50;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:28px}
-  .auth.show{display:flex}
-  .auth-card{width:100%;max-width:320px;text-align:center;position:relative}
-  .auth-x{position:absolute;top:-14px;right:-6px;width:34px;height:34px;border:none;background:none;color:var(--muted);font-size:26px;line-height:1;cursor:pointer;font-family:inherit}
-  .auth-x:active{opacity:.6}
-  .auth-logo{width:54px;height:54px;margin:0 auto 14px}
-  .auth-logo img{width:100%;height:100%;display:block}
-  .auth h2{font-size:26px;font-weight:600;margin:0 0 4px;color:var(--ink);letter-spacing:.01em}
-  .auth .sub{font-size:13px;color:var(--muted);margin:0 0 22px}
-  .auth input{width:100%;border:1px solid var(--line);border-radius:14px;padding:13px 15px;font-size:15px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit;margin-bottom:10px}
-  .auth input:focus{border-color:var(--accent)}
-  .auth input::placeholder{color:var(--muted)}
-  .auth .go{width:100%;border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:600;color:#fff;background:var(--accent);cursor:pointer;font-family:inherit;margin-top:4px;transition:opacity .15s ease}
-  .auth .go:active{opacity:.8}
-  .auth .go[disabled]{opacity:.5}
-  .auth .lnk{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;margin-top:14px;font-family:inherit;text-decoration:underline}
-  .auth .hint{font-size:12px;margin:12px 2px 0;min-height:16px;line-height:1.4}
-  .auth .hint.err{color:var(--accent)}
-  .auth .hint.ok{color:var(--muted)}
-  /* ---- role-based view ---- */
-  body:not(.role-staff) .cluster{display:none}
-  body:not(.role-staff) #swap{display:none}
-  body:not(.role-staff) .bar{justify-content:center}
-  body:not(.role-staff) .center{height:auto!important}
-  .hright{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
-  .hmeta{display:flex;align-items:center;gap:8px}
-  #who{font-size:12px;color:#F4ECEA;opacity:.85}
-  #who:empty{display:none}
-  .signout{background:rgba(244,236,234,.16);border:none;color:#F4ECEA;font-size:11px;padding:3px 10px;border-radius:9px;cursor:pointer;font-family:inherit}
-  .signout:active{opacity:.7}
 </style>
 </head>
 <body>
-  <div class="auth" id="auth">
-    <div class="auth-card">
-      <div class="auth-logo"><img src="logo.png" alt="Ratio" /></div>
-      <h2>Ratio</h2>
-      <p class="sub" id="auth-sub">登入你的帳號</p>
-      <input id="auth-name" type="text" placeholder="你的名字" autocomplete="name" style="display:none" />
-      <input id="auth-email" type="email" placeholder="Email" autocomplete="email" inputmode="email" />
-      <input id="auth-pass" type="password" placeholder="密碼（至少 6 位）" inputmode="numeric" autocomplete="current-password" />
-      <button class="go" id="auth-go">登入</button>
-      <button class="lnk" id="auth-toggle">還沒有帳號？申請一個</button>
-      <p class="hint" id="auth-hint"></p>
-    </div>
-  </div>
-
   <div class="board">
-    <header class="bhead"><span class="logo"><img src="logo.png" alt="Ratio" /></span><div class="hright"><div class="hmeta"><span id="who"></span><button id="signout" class="signout">登出</button></div><div class="htime"><div class="clock" id="clock">9:41</div></div></div></header>
+    <header class="bhead"><span class="logo"><svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+ width="46" height="46" viewBox="0 0 2921.000000 2921.000000"
+ preserveAspectRatio="xMidYMid meet">
+<metadata>
+Created by potrace 1.16, written by Peter Selinger 2001-2019
+</metadata>
+<g transform="translate(0.000000,2921.000000) scale(0.100000,-0.100000)"
+fill="#49423A" stroke="none">
+<path d="M7245 25703 c-544 -47 -1035 -184 -1505 -419 -404 -202 -716 -429
+-1050 -764 -335 -334 -562 -646 -764 -1050 -203 -407 -328 -810 -399 -1295
+l-22 -150 -3 -7340 c-3 -8016 -7 -7459 53 -7812 146 -865 592 -1688 1235
+-2281 703 -649 1560 -1018 2510 -1082 119 -8 2201 -10 7410 -8 6898 3 7252 4
+7385 21 310 40 566 97 835 187 461 153 874 378 1260 686 173 138 486 451 624
+624 486 610 770 1290 873 2095 17 133 18 487 21 7385 2 5209 0 7291 -8 7410
+-78 1159 -623 2201 -1531 2926 -522 416 -1173 708 -1831 819 -351 59 199 55
+-7757 53 -4013 -1 -7314 -3 -7336 -5z m14695 -693 c636 -58 1223 -285 1735
+-670 162 -122 324 -267 441 -396 500 -550 791 -1182 881 -1914 17 -138 18
+-490 18 -7420 0 -5948 -2 -7295 -13 -7385 -80 -672 -302 -1218 -708 -1745
+-114 -148 -416 -450 -564 -564 -527 -406 -1073 -628 -1745 -708 -90 -11 -1437
+-13 -7385 -13 -6930 0 -7282 1 -7420 18 -937 116 -1754 583 -2310 1322 -389
+517 -619 1117 -670 1750 -8 103 -10 2076 -8 7415 l3 7275 22 135 c43 266 83
+431 154 637 337 978 1114 1755 2092 2092 258 89 555 151 832 174 22 2 3300 4
+7285 5 4958 1 7281 -1 7360 -8z M11315 21814 c-411 -44 -770 -145 -1170 -332
+-1030 -482 -1788 -1229 -2300 -2267 -322 -654 -469 -1187 -452 -1645 6 -163
+25 -248 83 -365 89 -183 223 -256 357 -197 96 42 327 307 562 642 369 527 651
+761 1165 968 402 162 724 217 1355 232 323 8 388 12 510 34 375 66 665 200
+920 424 101 88 369 382 489 536 204 262 308 456 373 694 33 124 37 310 9 412
+-41 150 -137 288 -286 411 -284 236 -605 375 -1000 434 -111 17 -516 29 -615
+19z M21490 21799 c-66 -29 -14039 -14001 -14075 -14073 -68 -135 9 -293 159
+-327 44 -10 62 -9 112 5 l59 17 7022 7022 7022 7022 17 59 c14 50 15 68 5 112
+-33 146 -186 224 -321 163z M13610 19973 c-96 -35 -238 -220 -370 -483 -303
+-603 -810 -956 -1593 -1109 -222 -44 -392 -60 -714 -71 -440 -14 -702 -53
+-996 -150 -240 -79 -519 -225 -687 -359 -210 -166 -591 -581 -742 -806 -262
+-391 -321 -787 -163 -1094 105 -204 285 -354 601 -502 549 -257 1162 -284
+1859 -82 916 265 1831 955 2463 1858 301 430 611 1056 771 1559 111 348 129
+656 51 889 -39 116 -67 161 -147 241 -109 109 -227 148 -333 109z M18952
+15211 c-86 -32 -134 -65 -208 -143 -91 -96 -123 -159 -254 -508 -198 -524
+-310 -784 -462 -1065 -196 -362 -315 -538 -808 -1195 -146 -195 -296 -398
+-332 -450 -299 -429 -464 -836 -543 -1340 -23 -141 -32 -576 -16 -736 52 -515
+277 -1014 643 -1424 499 -559 1179 -892 1943 -950 308 -24 677 28 1019 144
+458 155 811 378 1146 722 207 213 350 412 474 662 163 327 234 595 258 966 36
+576 -98 1165 -376 1652 -110 192 -197 318 -486 704 -353 471 -461 621 -586
+810 -261 397 -438 759 -673 1376 -170 443 -182 472 -223 535 -60 93 -144 171
+-233 215 -96 48 -198 56 -283 25z m213 -986 c122 -324 199 -504 335 -780 234
+-474 403 -739 879 -1379 581 -780 631 -860 747 -1211 91 -278 128 -507 128
+-795 -1 -291 -43 -507 -150 -757 -255 -599 -794 -1066 -1453 -1262 -56 -17
+-141 -38 -188 -47 -186 -34 -618 -34 -798 0 -241 47 -532 163 -759 304 -557
+344 -924 886 -1012 1492 -23 159 -15 504 15 673 65 366 187 678 373 957 46 69
+221 310 389 535 455 611 522 706 686 980 241 402 425 792 624 1323 48 129 86
+217 90 210 4 -7 46 -116 94 -243z"/>
+</g>
+</svg></span><div class="htime"><div class="clock" id="clock">9:41</div></div></header>
     <div class="feed" id="feed"></div>
     <div class="composer">
       <input id="composer-input" type="text" placeholder="Write a message…" autocomplete="off" />
@@ -324,44 +155,24 @@
     <div class="center">
       <button class="swap" id="swap" onclick="swapSides()" aria-label="swap sides"></button>
       <div class="folder" onclick="openFolder()"><div class="fgrid" id="fgrid"></div></div>
-      <button id="power" aria-label="logout"></button>
+      <button id="power" onclick="togglePower()" aria-label="power"></button>
     </div>
     <div class="cluster"><div class="pill" data-side="roastery"></div><div class="cname">Roastery</div></div>
   </div>
 
   <div class="ov" id="ov" onclick="if(event.target===this)closeFolder()">
-    <div class="panel"><p class="ptitle">More</p><div class="pgrid" id="pgrid"></div></div>
+    <div class="panel"><div class="grab"></div><p class="ptitle">More</p><div class="pgrid" id="pgrid"></div><button class="sheet-close" onclick="closeFolder()">Close</button></div>
   </div>
 
   <div class="screen" id="screen-timesheet">
     <header class="shead">
-      <button class="back" onclick="closePage()" aria-label="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
       <h1>Timesheet</h1>
       <span class="wk" id="ts-week"></span>
     </header>
     <div class="sbody" id="timesheet-body"></div>
-  </div>
-
-  <div class="screen" id="screen-green">
-    <header class="shead">
-      <button class="back" onclick="greenBack()" aria-label="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
-      <h1 id="green-title">Green</h1>
-      <span class="wk" id="green-count"></span>
-    </header>
-    <div class="sbody">
-      <div id="green-content"></div>
-    </div>
-  </div>
-
-  <div class="screen" id="screen-beans">
-    <header class="shead">
-      <button class="back" onclick="beansBack()" aria-label="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
-      <h1 id="beans-title">Beans</h1>
-      <span class="wk" id="beans-count"></span>
-    </header>
-    <div class="sbody">
-      <div id="beans-content"></div>
-    </div>
+    <footer class="sfoot">
+      <button class="back" onclick="closePage()" aria-label="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>Back</button>
+    </footer>
   </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -399,7 +210,6 @@ fill="#6F4A36" stroke="none">
     order:`<svg viewBox="0 0 48 48"><rect x="14" y="11" width="20" height="26" rx="3.5" fill="#FCF6F4" ${O}/><path d="M18.5 18 h11 M18.5 22 h11 M18.5 26 h7" stroke="#CFC4B8" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M19 31 l2 2 3.5-4" fill="none" stroke="#9DAE86" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     fx:`<svg viewBox="0 0 48 48"><path d="M14 11 V36 H39" fill="none" stroke="#6B5E50" stroke-width="2" stroke-linecap="round"/><path d="M14 11 l-2.2 3 M14 11 l2.2 3" ${O} fill="none"/><path d="M39 36 l-3 -2.2 M39 36 l-3 2.2" ${O} fill="none"/><path d="M18 22 L24 31 L36 15" fill="none" stroke="#BE7C86" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18" cy="22" r="1.6" fill="#BE7C86"/><circle cx="24" cy="31" r="1.6" fill="#BE7C86"/><circle cx="36" cy="15" r="1.6" fill="#BE7C86"/></svg>`,
     coffee:`<svg viewBox="0 0 24 24" ${s}><path d="M4 11h13v3a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 11h2a2 2 0 0 1 0 6h-1"/></svg>`,
-    history:`<svg viewBox="0 0 48 48"><g transform="translate(0 1)" stroke="#9A8B82" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 23a13 13 0 1 1 1.5 6"/><path d="M11 16v7h7"/><path d="M24 17v7l5 3" stroke="#BE7C86"/></g></svg>`,
     qr:`<svg viewBox="0 0 24 24" ${s}><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h3v3M20 14v6M14 20h3"/></svg>`,
     repeat:`<svg viewBox="0 0 24 24" ${s}><path d="M17 3l3 3-3 3"/><path d="M20 6H9a4 4 0 0 0-4 4v1"/><path d="M7 21l-3-3 3-3"/><path d="M4 18h11a4 4 0 0 0 4-4v-1"/></svg>`,
     news:`<svg viewBox="0 0 24 24" ${s}><path d="M16 5H6a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h11a2 2 0 0 0 2-2V5z"/><path d="M8 9h5M8 13h5"/></svg>`,
@@ -433,86 +243,6 @@ fill="#6F4A36" stroke="none">
   const SUPABASE_KEY='sb_publishable_vt7hUK07u-veHOb4mXGGhQ_wX06qDeQ';
   const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-  /* ---- auth gate (email + password) ---- */
-  (function(){
-    const gate=document.getElementById('auth');
-    const subEl=document.getElementById('auth-sub');
-    const hintEl=document.getElementById('auth-hint');
-    const nameEl=document.getElementById('auth-name');
-    const emailEl=document.getElementById('auth-email');
-    const passEl=document.getElementById('auth-pass');
-    const goBtn=document.getElementById('auth-go');
-    const toggleBtn=document.getElementById('auth-toggle');
-    let mode='login';
-
-    const setHint=(msg,kind)=>{hintEl.textContent=msg||'';hintEl.className='hint'+(kind?(' '+kind):'');};
-    const showGate=()=>gate.classList.add('show');
-    const hideGate=()=>gate.classList.remove('show');
-
-    function setMode(m){
-      mode=m;
-      if(m==='signup'){
-        subEl.textContent='申請新帳號';nameEl.style.display='';
-        goBtn.textContent='申請帳號';toggleBtn.textContent='已經有帳號？登入';
-      }else{
-        subEl.textContent='登入你的帳號';nameEl.style.display='none';
-        goBtn.textContent='登入';toggleBtn.textContent='還沒有帳號？申請一個';
-      }
-      setHint('',null);
-    }
-
-    async function applyRole(user){
-      let role='customer', name=(user.email||'');
-      try{
-        const {data}=await sb.from('profiles').select('name,role').eq('id',user.id).single();
-        if(data){role=data.role||'customer';if(data.name)name=data.name;}
-      }catch(e){}
-      document.body.classList.remove('role-staff','role-customer');
-      document.body.classList.add(role==='staff'?'role-staff':'role-customer');
-      const who=document.getElementById('who');
-      if(who)who.textContent=name+' · '+(role==='staff'?'員工':'客人');
-      if(typeof alignCenter==='function')alignCenter();
-    }
-    async function onSession(session){
-      if(!session){showGate();return;}
-      hideGate();
-      await applyRole(session.user);
-    }
-    sb.auth.getSession().then(({data})=>onSession(data.session));
-    sb.auth.onAuthStateChange((_e,session)=>{setTimeout(()=>onSession(session),0);});
-
-    async function submit(){
-      const email=emailEl.value.trim();
-      const pass=passEl.value;
-      if(!email||!pass){setHint('請填 Email 和密碼','err');return;}
-      if(mode==='signup'&&pass.length<6){setHint('密碼至少 6 位','err');return;}
-      goBtn.disabled=true;setHint(mode==='signup'?'申請中…':'登入中…','ok');
-      let error;
-      if(mode==='signup'){
-        const r=await sb.auth.signUp({email,password:pass,options:{data:{name:nameEl.value.trim()}}});
-        error=r.error;
-        if(!error && !r.data.session){goBtn.disabled=false;setHint('帳號建立成功，請收信點確認連結後再登入','ok');return;}
-      }else{
-        const r=await sb.auth.signInWithPassword({email,password:pass});
-        error=r.error;
-      }
-      goBtn.disabled=false;
-      if(error){setHint('失敗：'+error.message,'err');return;}
-      setHint('',null);
-    }
-    goBtn.addEventListener('click',submit);
-    toggleBtn.addEventListener('click',()=>setMode(mode==='login'?'signup':'login'));
-    passEl.addEventListener('keydown',e=>{if(e.key==='Enter')submit();});
-    emailEl.addEventListener('keydown',e=>{if(e.key==='Enter')submit();});
-
-    const soBtn=document.getElementById('signout');
-    if(soBtn)soBtn.addEventListener('click',async()=>{await sb.auth.signOut();location.reload();});
-    const pwrBtn=document.getElementById('power');
-    if(pwrBtn)pwrBtn.addEventListener('click',async()=>{await sb.auth.signOut();location.reload();});
-
-    setMode('login');
-  })();
-
   const feedEl=document.getElementById('feed');
   let rows=[];
 
@@ -544,16 +274,9 @@ fill="#6F4A36" stroke="none">
   function renderFeed(){
     if(!rows.length){feedEl.innerHTML='<div class="msg" style="justify-content:center;border-bottom:none;color:var(--muted);font-size:12px">No messages yet</div>';return;}
     feedEl.innerHTML=rows.map(r=>{
-      const u=unreadOf(r);const id=idOf(r);
-      return `<div class="msg"><span class="dot" style="background:${u?'var(--accent)':'var(--line)'}"></span><div class="mbody"><div class="mtitle">${esc(titleOf(r))}</div><div class="mtext">${esc(textOf(r))}</div></div><div class="mtime">${relTime(tsOf(r))}</div><button class="mdel" data-id="${esc(String(id))}" aria-label="delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
+      const u=unreadOf(r);
+      return `<div class="msg"><span class="dot" style="background:${u?'var(--accent)':'var(--line)'}"></span><div class="mbody"><div class="mtitle">${esc(titleOf(r))}</div><div class="mtext">${esc(textOf(r))}</div></div><div class="mtime">${relTime(tsOf(r))}</div></div>`;
     }).join('');
-    feedEl.querySelectorAll('.mdel').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();delMessage(b.dataset.id);}));
-  }
-  async function delMessage(id){
-    if(id==null||id==='null')return;
-    rows=rows.filter(r=>String(idOf(r))!==String(id));renderFeed();
-    const {error}=await sb.from('messages').delete().eq('id',id);
-    if(error){console.error('[Ratio] delete error:',error.message||error);loadMessages();}
   }
   renderFeed();
 
@@ -632,536 +355,7 @@ fill="#6F4A36" stroke="none">
 
   function onOpen(id){
     if(id==='timesheet'){openPage('timesheet');return;}
-    if(id==='green'){openPage('green');loadBeans();return;}
-    if(id==='roast'){openPage('green');loadBeans('roast');return;}
-    if(id==='beans'){openPage('beans');loadRoasted();return;}
     console.log('open:',id);/* TODO: route other modules */
-  }
-
-  /* ---- Green module: country → bean → detail drill-down ---- */
-  let BEANS=[], ROASTS=[], greenView='home', greenCountry=null, greenBeanId=null, greenEdit=false, greenSoon='', greenDelConfirm=false;
-  const GFIELDS=[['name','名稱','text'],['country','國家','text'],['region','產區','text'],['station','處理站','text'],['process','處理法','text'],['variety','品種','text'],['harvest','年份','text'],['altitude','海拔','text'],['quantity','數量 (kg)','number'],['cost_per_kg','每公斤成本','number'],['supplier','供應商','text']];
-  const gnum=n=>{const x=Number(n);return isNaN(x)?n:(x%1===0?x:Math.round(x*10)/10);};
-  const gmoney=n=>'$'+Math.round(Number(n)||0).toLocaleString('en-US');
-
-  async function loadBeans(view){
-    const box=document.getElementById('green-content');
-    box.innerHTML='<div class="sempty">載入中…</div>';
-    const {data,error}=await sb.from('beans').select('*').order('name');
-    if(error){box.innerHTML='<div class="sempty">載入失敗：'+esc(error.message)+'</div>';return;}
-    BEANS=data||[];
-    await loadRoasts();
-    greenView=view||'home';greenCountry=null;greenBeanId=null;greenEdit=false;
-    renderGreen();
-  }
-  function totals(arr){let kg=0,val=0;arr.forEach(b=>{const q=Number(b.quantity)||0,c=Number(b.cost_per_kg)||0;kg+=q;val+=q*c;});return {kg,val};}
-  function countryList(){const m={};BEANS.forEach(b=>{const c=b.country||'—';m[c]=(m[c]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]);}
-
-  function greenBack(){
-    if(greenView==='detail'){greenView='beans';greenBeanId=null;greenEdit=false;greenDelConfirm=false;renderGreen();}
-    else if(greenView==='beans'){greenView='countries';greenCountry=null;renderGreen();}
-    else if(greenView==='roast'){closePage();}
-    else if(greenView==='sample'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderSample();}else{greenView='home';renderGreen();}}
-    else if(greenView==='history'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderHistory();}else{greenView='home';renderGreen();}}
-    else if(greenView==='countries'||greenView==='soon'){greenView='home';renderGreen();}
-    else{closePage();}
-  }
-
-  function renderGreen(){
-    const box=document.getElementById('green-content');
-    const title=document.getElementById('green-title');
-    const count=document.getElementById('green-count');
-    if(greenView==='home'){
-      title.textContent='Green';
-      count.textContent=BEANS.length+' beans';
-      const tiles=[
-        ['buy','Buy','採購','M6 8h12l-1 11a2 2 0 0 1-2 1.8H9A2 2 0 0 1 7 19z M9 8a3 3 0 0 1 6 0'],
-        ['sell','Sell','販售','M4 4h7l9 9-7 7-9-9z'],
-        ['sample','Sample','樣品杯測','M9 3h6 M10 3v5l-4 9a2 2 0 0 0 2 3h8a2 2 0 0 0 2-3l-4-9V3'],
-        ['inventory','Inventory','庫存','M12 3l9 5-9 5-9-5z M3 12l9 5 9-5 M3 16l9 5 9-5'],
-        ['history','History','樣品紀錄','M20 12a8 8 0 1 1-2.3-5.6 M20 4v4h-4 M12 8v4l3 1.8']
-      ];
-      box.innerHTML='<div class="ghome">'+tiles.map(function(t){
-        var cls='ghome-tile'+(t[0]==='history'?' wide':'');
-        var icon=t[3]
-          ?'<span class="gh-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="'+t[3]+'"/></svg></span>'
-          :'<span class="gh-ic"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18" cy="12" r="1.6" fill="currentColor"/></svg></span>';
-        return '<div class="'+cls+'" data-k="'+t[0]+'">'+icon+'<div class="gh-lab">'+t[1]+'</div><div class="gh-zh">'+t[2]+'</div></div>';
-      }).join('')+'</div>';
-      box.querySelectorAll('.ghome-tile').forEach(function(el){el.addEventListener('click',function(){
-        var k=el.dataset.k;
-        if(k==='buy'||k==='inventory'){greenView='countries';renderGreen();box.scrollTop=0;}
-        else if(k==='sample'){greenView='sample';loadSamples();box.scrollTop=0;}
-        else if(k==='history'){greenView='history';loadSamples('history');box.scrollTop=0;}
-        else{greenSoon='Sell 販售';greenView='soon';renderGreen();box.scrollTop=0;}
-      });});
-    }
-    else if(greenView==='roast'){renderRoast();}
-    else if(greenView==='sample'){renderSample();}
-    else if(greenView==='history'){renderHistory();}
-    else if(greenView==='soon'){
-      title.textContent=greenSoon;count.textContent='';
-      box.innerHTML='<div class="sempty">「'+esc(greenSoon)+'」這塊之後再做</div>';
-    }
-    else if(greenView==='countries'){
-      title.textContent='Green';
-      count.textContent=BEANS.length+' beans';
-      const t=totals(BEANS);
-      const origins=new Set(BEANS.map(b=>b.country).filter(Boolean)).size;
-      const tiles=[['Beans',BEANS.length,''],['Green weight',gnum(t.kg),' kg'],['Value',gmoney(t.val),''],['Origins',origins,'']];
-      const summary='<div class="green-summary">'+tiles.map(function(x){return '<div class="green-stat"><div class="lab">'+x[0]+'</div><div class="val">'+esc(x[1])+(x[2]?'<small>'+x[2]+'</small>':'')+'</div></div>';}).join('')+'</div>';
-      const grid='<div class="gcountries">'+countryList().map(function(e){var c=e[0],n=e[1];var ct=totals(BEANS.filter(function(b){return (b.country||'—')===c;}));return '<div class="gcard" data-c="'+esc(c)+'"><div class="gc-name">'+esc(c)+'</div><div class="gc-sub"><span class="gc-n">'+n+' beans</span><br>'+gnum(ct.kg)+' kg · '+gmoney(ct.val)+'</div></div>';}).join('')+'</div>';
-      box.innerHTML=summary+'<div class="gsec">選擇產國</div>'+grid;
-      box.querySelectorAll('.gcard').forEach(function(el){el.addEventListener('click',function(){greenCountry=el.dataset.c;greenView='beans';renderGreen();box.scrollTop=0;});});
-    }
-    else if(greenView==='beans'){
-      const items=BEANS.filter(function(b){return (b.country||'—')===greenCountry;});
-      const t=totals(items);
-      title.textContent=greenCountry;
-      count.textContent=items.length+' beans';
-      const head='<div class="gsec">'+esc(greenCountry)+' · '+gnum(t.kg)+' kg · '+gmoney(t.val)+'</div>';
-      const list='<div class="gbeans">'+items.map(function(b){var sub=[b.region,b.process].filter(Boolean).map(esc).join(' · ');return '<div class="gbean" data-id="'+esc(b.id)+'"><div class="gb-main"><div class="gb-name">'+esc(b.name)+'</div>'+(sub?'<div class="gb-sub">'+sub+'</div>':'')+'</div><span class="gb-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></div>';}).join('')+'</div>';
-      box.innerHTML=head+list;
-      box.querySelectorAll('.gbean').forEach(function(el){el.addEventListener('click',function(){greenBeanId=el.dataset.id;greenView='detail';greenEdit=false;renderGreen();box.scrollTop=0;});});
-    }
-    else if(greenView==='detail'){
-      const b=BEANS.find(function(x){return String(x.id)===String(greenBeanId);});
-      if(!b){greenBack();return;}
-      title.textContent='';
-      count.textContent='';
-      if(!greenEdit){
-        const val=(Number(b.quantity)||0)*(Number(b.cost_per_kg)||0);
-        const rows=[['Country',b.country],['Region',b.region],['Station',b.station],['Process',b.process],['Variety',b.variety],['Harvest',b.harvest],['Altitude',b.altitude?b.altitude+' m':''],['Quantity',b.quantity!=null?gnum(b.quantity)+' kg':'',true],['Cost',b.cost_per_kg!=null?'$'+b.cost_per_kg+' /kg':'',true],['Value',val?gmoney(val):'',true],['Supplier',b.supplier]].filter(function(r){return r[1];});
-        const list='<div class="gd-list">'+rows.map(function(r){return '<div class="grow"><span class="gk">'+r[0]+'</span><span class="gv'+(r[2]?' mono':'')+'">'+esc(r[1])+'</span></div>';}).join('')+'</div>';
-        box.innerHTML='<div class="gdetail"><div class="gd-hero"><div class="gd-nm">'+esc(b.name)+'</div><div class="gd-ct">'+esc(b.country||'')+'</div></div><button class="gbtn ghost" id="green-edit">編輯</button>'+list+'</div>';
-        document.getElementById('green-edit').addEventListener('click',function(){greenEdit=true;greenDelConfirm=false;renderGreen();box.scrollTop=0;});
-      }else{
-        const form='<div class="gform">'+GFIELDS.map(function(f){
-          var v=b[f[0]]==null?'':String(b[f[0]]);
-          var im=f[2]==='number'?' inputmode="decimal"':'';
-          return '<label class="gfield"><span class="gl">'+f[1]+'</span><input data-f="'+f[0]+'" type="text"'+im+' value="'+esc(v)+'" /></label>';
-        }).join('')
-        +'<div class="gform-msg" id="green-msg"></div>'
-        +'<div class="gform-actions"><button class="gbtn ghost" id="green-cancel">取消</button><button class="gbtn" id="green-save">儲存</button></div>'
-        +'<div class="gdel">'+(greenDelConfirm
-            ?'<div class="gdel-msg">確定要刪除「'+esc(b.name)+'」？此動作無法復原。</div><div class="gform-actions"><button class="gbtn ghost" id="gdel-cancel">取消</button><button class="gbtn danger" id="gdel-yes">確定刪除</button></div>'
-            :'<button class="gbtn dghost" id="gdel">刪除這支豆子</button>')
-        +'</div></div>';
-        box.innerHTML='<div class="gdetail"><div class="gd-hero"><div class="gd-nm">編輯豆子</div></div>'+form+'</div>';
-        document.getElementById('green-cancel').addEventListener('click',function(){greenEdit=false;greenDelConfirm=false;renderGreen();box.scrollTop=0;});
-        document.getElementById('green-save').addEventListener('click',saveBean);
-        var gd=document.getElementById('gdel');if(gd)gd.addEventListener('click',function(){greenDelConfirm=true;renderGreen();});
-        var gdc=document.getElementById('gdel-cancel');if(gdc)gdc.addEventListener('click',function(){greenDelConfirm=false;renderGreen();});
-        var gdy=document.getElementById('gdel-yes');if(gdy)gdy.addEventListener('click',deleteBean);
-      }
-    }
-  }
-  async function saveBean(){
-    const msg=document.getElementById('green-msg');
-    const btn=document.getElementById('green-save');
-    const upd={};
-    document.querySelectorAll('#green-content [data-f]').forEach(function(inp){
-      const f=inp.dataset.f; let v=inp.value.trim();
-      if(f==='quantity'||f==='cost_per_kg'){upd[f]=(v===''||isNaN(parseFloat(v)))?null:parseFloat(v);}
-      else{upd[f]=v===''?null:v;}
-    });
-    if(!upd.name){msg.textContent='名稱不能空白';msg.className='gform-msg err';return;}
-    btn.disabled=true;msg.textContent='儲存中…';msg.className='gform-msg';
-    const {error}=await sb.from('beans').update(upd).eq('id',greenBeanId);
-    btn.disabled=false;
-    if(error){msg.textContent='儲存失敗：'+error.message;msg.className='gform-msg err';return;}
-    const i=BEANS.findIndex(function(x){return String(x.id)===String(greenBeanId);});
-    if(i>-1)BEANS[i]=Object.assign({},BEANS[i],upd);
-    greenEdit=false;renderGreen();
-  }
-  async function deleteBean(){
-    const id=greenBeanId;
-    const {error}=await sb.from('beans').delete().eq('id',id);
-    if(error){var m=document.getElementById('green-msg');if(m){m.textContent='刪除失敗：'+error.message;m.className='gform-msg err';}greenDelConfirm=false;renderGreen();return;}
-    BEANS=BEANS.filter(function(x){return String(x.id)!==String(id);});
-    greenEdit=false;greenDelConfirm=false;greenBeanId=null;
-    var stillHas=BEANS.some(function(x){return (x.country||'—')===greenCountry;});
-    greenView=stillHas?'beans':'countries';
-    renderGreen();
-  }
-  async function loadRoasts(){
-    const {data,error}=await sb.from('roasts').select('*').order('roast_date',{ascending:false}).order('created_at',{ascending:false});
-    if(!error)ROASTS=data||[];
-  }
-  function roastCard(r,tappable){
-    var badge=r.status==='cupped'?'<span class="rbadge done">已杯測</span>':'<span class="rbadge">待杯測</span>';
-    return '<div class="bean'+(tappable?' rcard':'')+'" data-id="'+esc(r.id)+'"><div class="bean-top"><span class="bean-nm">'+esc(r.bean_name||'—')+'</span>'+badge+'</div>'
-      +(r.country?'<div class="bean-sub">'+esc(r.country)+'</div>':'')
-      +'<div class="bean-meta"><span><b>'+esc(gnum(r.green_kg))+'</b> kg 生豆</span>'+(r.roast_time?'<span>'+esc(r.roast_time)+'</span>':'')+'</div></div>';
-  }
-  let ROAST_CART=[], roastDate='', roastTime='', roastBanner='', roastBannerErr=false, roastAddOpen={};
-  function renderRoast(){
-    const box=document.getElementById('green-content');
-    document.getElementById('green-title').textContent='Roasting';
-    document.getElementById('green-count').textContent=ROAST_CART.length?('本次 '+ROAST_CART.length):'';
-    const inCart={};ROAST_CART.forEach(function(r){inCart[r.id]=true;});
-    var top='<div class="ro-banner'+(roastBannerErr?' err':'')+'" id="ro-banner">'+esc(roastBanner)+'</div>'
-      +'<div class="ro-top">'
-      +'<label class="ro-dt"><span>日期（留空＝今天）</span><input id="ro-date" type="date" value="'+esc(roastDate)+'" /></label>'
-      +'</div>';
-    var cart='';
-    if(ROAST_CART.length){
-      cart='<div class="gsec">本次烘焙 ('+ROAST_CART.length+')</div><div class="ro-cart">'
-        +ROAST_CART.map(function(r,i){
-          var bean=BEANS.find(function(b){return String(b.id)===String(r.id);});
-          var rem=bean?gnum(bean.quantity!=null?bean.quantity:0):'?';
-          return '<div class="ro-row"><div class="ro-rh"><span class="ro-nm">'+esc(r.name)+'</span><button class="ro-x" data-i="'+i+'" aria-label="remove">✕</button></div>'
-            +'<div class="ro-rem">'+esc(r.country||'')+' · 庫存剩 '+rem+' kg</div>'
-            +'<div class="ro-qty"><button class="ro-step" data-d="-1" data-i="'+i+'">−</button>'
-            +'<input class="ro-in" data-i="'+i+'" type="text" inputmode="decimal" value="'+esc(r.kg)+'" />'
-            +'<span class="ro-unit">kg</span>'
-            +'<button class="ro-step" data-d="1" data-i="'+i+'">＋</button></div></div>';
-        }).join('')+'</div>';
-    }
-    var addable=BEANS.filter(function(b){return !inCart[b.id];}).sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
-    function aitem(b){return '<button class="ro-aitem" data-id="'+esc(b.id)+'"><div class="ro-am"><div class="ro-an">'+esc(b.name)+'</div><div class="ro-as">剩 '+gnum(b.quantity!=null?b.quantity:0)+' kg</div></div><span class="ro-plus">＋</span></button>';}
-    var add='<div class="gsec">加入生豆</div><div class="ro-add">';
-    if(!addable.length){add+='<div class="sempty" style="padding:18px">沒有可加入的生豆</div>';}
-    else{
-      var g={},order=[];
-      addable.forEach(function(b){var c=b.country||'—';if(!g[c]){g[c]=[];order.push(c);}g[c].push(b);});
-      order.sort(function(a,b){return g[b].length-g[a].length;});
-      add+=order.map(function(c){
-        var open=!!roastAddOpen[c];
-        var head='<button class="ro-chead'+(open?' open':'')+'" data-c="'+esc(c)+'"><span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span><span class="ro-cname">'+esc(c)+'</span><span class="rd-meta">'+g[c].length+' 支</span></button>';
-        var body=open?'<div class="ro-cbody">'+g[c].map(aitem).join('')+'</div>':'';
-        return '<div class="ro-cgroup">'+head+body+'</div>';
-      }).join('');
-    }
-    add+='</div>';
-    var saveBtn=ROAST_CART.length?'<div class="ro-save-wrap"><button class="gbtn" id="ro-save">記錄 '+ROAST_CART.length+' 筆烘焙</button></div>':'';
-    box.innerHTML=top+cart+add+saveBtn;
-    roastBanner='';
-    box.querySelectorAll('.ro-chead').forEach(function(el){el.addEventListener('click',function(){var c=el.dataset.c;roastAddOpen[c]=!roastAddOpen[c];renderRoast();});});
-    box.querySelectorAll('.ro-aitem').forEach(function(el){el.addEventListener('click',function(){
-      var id=el.dataset.id;var b=BEANS.find(function(x){return String(x.id)===String(id);});
-      if(b){ROAST_CART.push({id:b.id,name:b.name,country:b.country,kg:10});renderRoast();}
-    });});
-    box.querySelectorAll('.ro-x').forEach(function(el){el.addEventListener('click',function(){ROAST_CART.splice(+el.dataset.i,1);renderRoast();});});
-    box.querySelectorAll('.ro-step').forEach(function(el){el.addEventListener('click',function(){
-      var i=+el.dataset.i,d=+el.dataset.d,v=parseFloat(ROAST_CART[i].kg)||0;
-      ROAST_CART[i].kg=Math.max(0,Math.round((v+d)*10)/10);renderRoast();
-    });});
-    box.querySelectorAll('.ro-in').forEach(function(el){el.addEventListener('input',function(){ROAST_CART[+el.dataset.i].kg=el.value;});});
-    var de=document.getElementById('ro-date');if(de)de.addEventListener('change',function(){roastDate=de.value;});
-    var sv=document.getElementById('ro-save');if(sv)sv.addEventListener('click',saveRoast);
-  }
-  async function saveRoast(){
-    const btn=document.getElementById('ro-save');
-    var rows=ROAST_CART.map(function(r){return {r:r,kg:parseFloat(r.kg)};}).filter(function(x){return x.kg>0;});
-    if(!rows.length){roastBanner='請至少給一支豆子填數量';roastBannerErr=true;renderRoast();return;}
-    btn.disabled=true;btn.textContent='記錄中…';
-    var ok=0,fail=0,failMsg='';
-    for(var i=0;i<rows.length;i++){
-      var r=rows[i].r,kg=rows[i].kg;
-      var bean=BEANS.find(function(b){return String(b.id)===String(r.id);});
-      var rec={bean_id:r.id,bean_name:r.name,country:r.country,green_kg:kg,status:'pending_cupping'};
-      if(roastDate)rec.roast_date=roastDate;
-      var ins=await sb.from('roasts').insert(rec).select();
-      if(ins.error){fail++;failMsg=ins.error.message;continue;}
-      var newQty=Math.max(0,(Number(bean&&bean.quantity)||0)-kg);
-      await sb.from('beans').update({quantity:newQty}).eq('id',r.id);
-      if(bean)bean.quantity=newQty;
-      if(ins.data&&ins.data[0])ROASTS.unshift(ins.data[0]);
-      ok++;
-    }
-    ROAST_CART=[];
-    roastBanner=ok+' 筆已記錄並從庫存扣除'+(fail?('，'+fail+' 筆失敗：'+failMsg):'');
-    roastBannerErr=fail>0;
-    renderRoast();
-  }
-  let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false;
-  function fmtDate(d){if(!d||d==='—')return '無日期';var p=String(d).split('-');return p.length===3?(p[0]+'/'+p[1]+'/'+p[2]):d;}
-  function beansBack(){if(roastEdit){roastEdit=null;roastDelConfirm=false;renderRoasted();}else{closePage();}}
-  async function loadRoasted(){
-    const box=document.getElementById('beans-content');
-    box.innerHTML='<div class="sempty">載入中…</div>';
-    const {data,error}=await sb.from('roasts').select('*').order('roast_date',{ascending:false}).order('created_at',{ascending:false});
-    if(error){box.innerHTML='<div class="sempty">載入失敗：'+esc(error.message)+'</div>';return;}
-    ROASTS=data||[];
-    roastEdit=null;roastDelConfirm=false;
-    renderRoasted();
-  }
-  function renderRoasted(){
-    const box=document.getElementById('beans-content');
-    const title=document.getElementById('beans-title');
-    if(roastEdit){renderRoastEdit();return;}
-    if(title)title.textContent='Beans';
-    document.getElementById('beans-count').textContent=ROASTS.length+' roasts';
-    if(!ROASTS.length){box.innerHTML='<div class="sempty">尚無烘焙紀錄<br>到 Roast 記一筆</div>';return;}
-    var groups={}, order=[];
-    ROASTS.forEach(function(r){var d=r.roast_date||'—';if(!groups[d]){groups[d]=[];order.push(d);}groups[d].push(r);});
-    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">點日期展開，點紀錄可編輯</div>'+order.map(function(d){
-      var items=groups[d];
-      var pending=items.filter(function(r){return r.status!=='cupped';}).length;
-      var open=!!roastedOpen[d];
-      var head='<button class="rdate'+(open?' open':'')+'" data-d="'+esc(d)+'">'
-        +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
-        +'<span class="rd-date">'+esc(fmtDate(d))+'</span>'
-        +'<span class="rd-meta">'+items.length+' 支'+(pending?' · <b>'+pending+' 待杯測</b>':'')+'</span></button>';
-      var body=open?'<div class="rd-body">'+items.map(function(r){return roastCard(r,true);}).join('')+'</div>':'';
-      return '<div class="rgroup">'+head+body+'</div>';
-    }).join('');
-    box.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.d;roastedOpen[d]=!roastedOpen[d];renderRoasted();});});
-    box.querySelectorAll('.rcard').forEach(function(el){el.addEventListener('click',function(){roastEdit=el.dataset.id;roastDelConfirm=false;var r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});roastEditStatus=r?r.status:'pending_cupping';renderRoasted();document.getElementById('beans-content').scrollTop=0;});});
-  }
-  function renderRoastEdit(){
-    const box=document.getElementById('beans-content');
-    const title=document.getElementById('beans-title');
-    const r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});
-    if(!r){roastEdit=null;renderRoasted();return;}
-    if(title)title.textContent='編輯烘焙';
-    document.getElementById('beans-count').textContent='';
-    var seg='<div class="re-seg"><button class="re-opt'+(roastEditStatus!=='cupped'?' on':'')+'" data-s="pending_cupping">待杯測</button><button class="re-opt'+(roastEditStatus==='cupped'?' on':'')+'" data-s="cupped">已杯測</button></div>';
-    box.innerHTML='<div class="gdetail">'
-      +'<div class="gd-hero"><div class="gd-nm">'+esc(r.bean_name||'—')+'</div><div class="gd-ct">'+esc(r.country||'')+'</div></div>'
-      +'<div class="gform">'
-      +'<label class="gfield"><span class="gl">生豆用量 (kg)　改量會同步調整庫存</span><input id="re-kg" type="text" inputmode="decimal" value="'+esc(r.green_kg!=null?gnum(r.green_kg):'')+'" /></label>'
-      +'<label class="gfield"><span class="gl">烘焙日期</span><input id="re-date" type="date" value="'+esc(r.roast_date||'')+'" /></label>'
-      +'<div class="gfield"><span class="gl">狀態</span>'+seg+'</div>'
-      +'<div class="gform-msg" id="re-msg"></div>'
-      +'<div class="gform-actions"><button class="gbtn ghost" id="re-cancel">取消</button><button class="gbtn" id="re-save">儲存</button></div>'
-      +'<div class="gdel">'+(roastDelConfirm
-          ?'<div class="gdel-msg">確定刪除這筆烘焙？<br>會把 '+esc(gnum(r.green_kg))+' kg 加回「'+esc(r.bean_name||'')+'」庫存。</div><div class="gform-actions"><button class="gbtn ghost" id="re-del-cancel">取消</button><button class="gbtn danger" id="re-del-yes">確定刪除</button></div>'
-          :'<button class="gbtn dghost" id="re-del">刪除這筆烘焙</button>')
-      +'</div></div></div>';
-    box.querySelectorAll('.re-opt').forEach(function(el){el.addEventListener('click',function(){roastEditStatus=el.dataset.s;box.querySelectorAll('.re-opt').forEach(function(o){o.classList.toggle('on',o.dataset.s===roastEditStatus);});});});
-    document.getElementById('re-cancel').addEventListener('click',function(){roastEdit=null;roastDelConfirm=false;renderRoasted();});
-    document.getElementById('re-save').addEventListener('click',saveRoastEdit);
-    var rd=document.getElementById('re-del');if(rd)rd.addEventListener('click',function(){roastDelConfirm=true;renderRoastEdit();});
-    var rdc=document.getElementById('re-del-cancel');if(rdc)rdc.addEventListener('click',function(){roastDelConfirm=false;renderRoastEdit();});
-    var rdy=document.getElementById('re-del-yes');if(rdy)rdy.addEventListener('click',deleteRoast);
-  }
-  async function adjustStock(beanId,deltaKg){
-    if(!beanId||!deltaKg)return;
-    const {data}=await sb.from('beans').select('quantity').eq('id',beanId).single();
-    if(!data)return;
-    var nq=Math.max(0,(Number(data.quantity)||0)+deltaKg);
-    await sb.from('beans').update({quantity:nq}).eq('id',beanId);
-    var lb=BEANS.find(function(x){return String(x.id)===String(beanId);});
-    if(lb)lb.quantity=nq;
-  }
-  async function saveRoastEdit(){
-    const msg=document.getElementById('re-msg');
-    const btn=document.getElementById('re-save');
-    const r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});
-    if(!r)return;
-    var newKg=parseFloat(document.getElementById('re-kg').value);
-    var newDate=document.getElementById('re-date').value;
-    if(isNaN(newKg)||newKg<0){msg.textContent='請填正確的數量';msg.className='gform-msg err';return;}
-    btn.disabled=true;msg.textContent='儲存中…';msg.className='gform-msg';
-    var oldKg=Number(r.green_kg)||0;
-    var delta=newKg-oldKg; // 增加的量 → 要從庫存扣掉 delta
-    if(delta!==0)await adjustStock(r.bean_id, -delta);
-    var upd={green_kg:newKg,status:roastEditStatus};
-    if(newDate)upd.roast_date=newDate;
-    const {error}=await sb.from('roasts').update(upd).eq('id',r.id);
-    if(error){btn.disabled=false;msg.textContent='儲存失敗：'+error.message;msg.className='gform-msg err';return;}
-    r.green_kg=newKg;r.status=roastEditStatus;if(newDate)r.roast_date=newDate;
-    roastEdit=null;roastDelConfirm=false;renderRoasted();
-  }
-  async function deleteRoast(){
-    const r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});
-    if(!r)return;
-    await adjustStock(r.bean_id, Number(r.green_kg)||0); // 加回庫存
-    const {error}=await sb.from('roasts').delete().eq('id',r.id);
-    if(error){var m=document.getElementById('re-msg');if(m){m.textContent='刪除失敗：'+error.message;m.className='gform-msg err';}roastDelConfirm=false;renderRoastEdit();return;}
-    ROASTS=ROASTS.filter(function(x){return String(x.id)!==String(r.id);});
-    roastEdit=null;roastDelConfirm=false;renderRoasted();
-  }
-  let SAMPLES=[], smpPages=[], smpIdx=0, smpEdit=null, smpEditObj=null, smpDelConfirm=false, smpEditFrom='sample';
-  function nextNo(date){return SAMPLES.filter(function(x){return x.cupping_date===date;}).length+1;}
-  const SMP_FIELDS=[['fragrance','Fragrance / Aroma'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
-  function todayStr(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
-  function blankSmp(){return {cupping_date:todayStr(),supplier:'',sample_id:'',process:'',fragrance:null,acidity:null,sweetness:null,body:null,aftertaste:null,comment:''};}
-  function captureSmp(){
-    var p=smpPages[smpIdx];if(!p)return;
-    var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
-    p.cupping_date=g('smp-date')||todayStr();p.supplier=g('smp-supplier');p.sample_id=g('smp-id');p.process=g('smp-process');p.comment=g('smp-comment');
-  }
-  async function loadSamples(view){
-    const box=document.getElementById('green-content');
-    document.getElementById('green-title').textContent=view==='history'?'History':'Sample';
-    document.getElementById('green-count').textContent='';
-    box.innerHTML='<div class="sempty">載入中…</div>';
-    const {data,error}=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('no',{ascending:false}).order('created_at',{ascending:false});
-    SAMPLES=error?[]:(data||[]);
-    smpEdit=null;smpEditObj=null;smpDelConfirm=false;
-    if(view==='history'){greenView='history';renderHistory();}
-    else{smpPages=[blankSmp()];smpIdx=0;greenView='sample';renderSample(error?error.message:'');}
-  }
-  let historyOpen={};
-  function renderHistory(){
-    const box=document.getElementById('green-content');
-    if(smpEdit){renderSampleEdit();return;}
-    document.getElementById('green-title').textContent='History';
-    document.getElementById('green-count').textContent=SAMPLES.length+' 筆';
-    if(!SAMPLES.length){box.innerHTML='<div class="sempty">尚無樣品紀錄</div>';return;}
-    var groups={},order=[];
-    SAMPLES.forEach(function(s){var d=s.cupping_date||'—';if(!groups[d]){groups[d]=[];order.push(d);}groups[d].push(s);});
-    if(order.length&&historyOpen[order[0]]===undefined)historyOpen[order[0]]=true;
-    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">點日期展開，點紀錄可修改</div>'+order.map(function(d){
-      var items=groups[d];var open=!!historyOpen[d];
-      var buy=items.filter(function(x){return x.decision==='buy';}).length;
-      var head='<button class="rdate'+(open?' open':'')+'" data-d="'+esc(d)+'">'
-        +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
-        +'<span class="rd-date">'+esc(fmtDate(d))+'</span>'
-        +'<span class="rd-meta">'+items.length+' 支'+(buy?' · <b>'+buy+' Buy</b>':'')+'</span></button>';
-      var body=open?'<div class="rd-body">'+items.map(sampleCard).join('')+'</div>':'';
-      return '<div class="rgroup">'+head+body+'</div>';
-    }).join('');
-    box.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.d;historyOpen[d]=!historyOpen[d];renderHistory();});});
-    box.querySelectorAll('.smp-item').forEach(function(el){el.addEventListener('click',function(){
-      var s=SAMPLES.find(function(x){return String(x.id)===String(el.dataset.id);});
-      if(s){smpEdit=s.id;smpEditObj=Object.assign({},s);smpEditFrom='history';smpDelConfirm=false;renderHistory();box.scrollTop=0;}
-    });});
-  }
-  function dotRow(p,name){
-    var v=p[name]||0,d='';
-    for(var i=1;i<=5;i++){d+='<button class="dot'+(i<=v?' fill':'')+'" data-n="'+i+'" aria-label="'+i+'"></button>';}
-    return '<div class="dots" data-name="'+name+'">'+d+'</div>';
-  }
-  function renderSample(errMsg,okMsg){
-    const box=document.getElementById('green-content');
-    if(smpEdit){renderSampleEdit();return;}
-    document.getElementById('green-title').textContent='Sample';
-    document.getElementById('green-count').textContent=SAMPLES.length?(SAMPLES.length+' 筆'):'';
-    if(!smpPages.length)smpPages=[blankSmp()];
-    if(smpIdx<0)smpIdx=0;if(smpIdx>=smpPages.length)smpIdx=smpPages.length-1;
-    var p=smpPages[smpIdx];
-    var no=nextNo(p.cupping_date||todayStr());
-    var nav='<div class="smp-pager"><button class="smp-nav" id="smp-prev" aria-label="上一個">‹</button>'
-      +'<span class="smp-pos">樣品 '+(smpIdx+1)+' / '+smpPages.length+'</span>'
-      +'<button class="smp-nav" id="smp-next" aria-label="下一個">›</button>'
-      +'<button class="smp-add" id="smp-add">＋ 新增</button></div>'
-      +'<div class="smp-nohdr">No.'+no+'</div>';
-    var scores=SMP_FIELDS.map(function(f){return '<div class="smp-score"><span class="smp-sname">'+f[1]+'</span>'+dotRow(p,f[0])+'</div>';}).join('');
-    var form=''
-      +'<div class="smp-sec"><div class="smp-sec-h">樣品資料</div><div class="smp-fields">'
-      +'<label class="smp-f"><span>杯測日期</span><input id="smp-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" /></label>'
-      +'<div class="smp-f2"><label class="smp-f"><span>Supplier</span><input id="smp-supplier" type="text" value="'+esc(p.supplier||'')+'" /></label>'
-      +'<label class="smp-f"><span>ID</span><input id="smp-id" type="text" value="'+esc(p.sample_id||'')+'" /></label></div>'
-      +'<label class="smp-f"><span>Process</span><input id="smp-process" type="text" value="'+esc(p.process||'')+'" /></label>'
-      +'</div></div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">杯測評分　1–5</div><div class="smp-scores">'+scores+'</div></div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">Comment</div><textarea id="smp-comment" class="gta" rows="3">'+esc(p.comment||'')+'</textarea></div>'
-      +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':(okMsg?' ok':''))+'" id="smp-msg">'+(errMsg?('讀取失敗：'+esc(errMsg)+'（請先在 Supabase 跑 samples 建表 SQL）'):(okMsg?esc(okMsg):''))+'</div></div>'
-      +'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn skip" id="smp-skip">Skip</button><button class="gbtn buy" id="smp-buy">Buy</button></div></div>';
-    var today=todayStr();
-    var todays=SAMPLES.filter(function(x){return x.cupping_date===today;});
-    var list=todays.length?('<div class="smp-sec"><div class="smp-sec-h">今天的樣品　點一下可修改／刪除</div><div class="smp-list">'+todays.map(sampleCard).join('')+'</div><div class="smp-hint">更早的紀錄在 dock 的 History</div></div>'):'';
-    box.innerHTML=nav+form+list;
-    box.querySelectorAll('.dots').forEach(function(dr){
-      var name=dr.dataset.name;
-      dr.querySelectorAll('.dot').forEach(function(d){d.addEventListener('click',function(){
-        var n=+d.dataset.n;p[name]=(p[name]===n?null:n);
-        var v=p[name]||0;dr.querySelectorAll('.dot').forEach(function(x){x.classList.toggle('fill',+x.dataset.n<=v);});
-      });});
-    });
-    document.getElementById('smp-prev').addEventListener('click',function(){captureSmp();smpIdx=(smpIdx-1+smpPages.length)%smpPages.length;renderSample();box.scrollTop=0;});
-    document.getElementById('smp-next').addEventListener('click',function(){captureSmp();smpIdx=(smpIdx+1)%smpPages.length;renderSample();box.scrollTop=0;});
-    document.getElementById('smp-add').addEventListener('click',function(){captureSmp();smpPages.push(blankSmp());smpIdx=smpPages.length-1;renderSample();box.scrollTop=0;});
-    document.getElementById('smp-buy').addEventListener('click',function(){saveSample('buy');});
-    document.getElementById('smp-skip').addEventListener('click',function(){saveSample('skip');});
-    box.querySelectorAll('.smp-item').forEach(function(el){el.addEventListener('click',function(){
-      var s=SAMPLES.find(function(x){return String(x.id)===String(el.dataset.id);});
-      if(s){smpEdit=s.id;smpEditObj=Object.assign({},s);smpEditFrom='sample';smpDelConfirm=false;renderSample();box.scrollTop=0;}
-    });});
-  }
-  function renderSampleEdit(){
-    const box=document.getElementById('green-content');
-    document.getElementById('green-title').textContent='編輯樣品';
-    document.getElementById('green-count').textContent='';
-    var p=smpEditObj;
-    var scores=SMP_FIELDS.map(function(f){return '<div class="smp-score"><span class="smp-sname">'+f[1]+'</span>'+dotRow(p,f[0])+'</div>';}).join('');
-    var seg='<div class="re-seg"><button class="re-opt'+(p.decision==='buy'?' on':'')+'" data-s="buy">Buy</button><button class="re-opt'+(p.decision==='skip'?' on':'')+'" data-s="skip">Skip</button></div>';
-    box.innerHTML=''
-      +(p.no!=null?'<div class="smp-nohdr" style="padding-top:14px">No.'+p.no+'</div>':'')
-      +'<div class="smp-sec"'+(p.no!=null?' style="margin-top:4px"':'')+'><div class="smp-sec-h">樣品資料</div><div class="smp-fields">'
-      +'<label class="smp-f"><span>杯測日期</span><input id="se-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" /></label>'
-      +'<div class="smp-f2"><label class="smp-f"><span>Supplier</span><input id="se-supplier" type="text" value="'+esc(p.supplier||'')+'" /></label>'
-      +'<label class="smp-f"><span>ID</span><input id="se-id" type="text" value="'+esc(p.sample_id||'')+'" /></label></div>'
-      +'<label class="smp-f"><span>Process</span><input id="se-process" type="text" value="'+esc(p.process||'')+'" /></label>'
-      +'</div></div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">杯測評分　1–5</div><div class="smp-scores">'+scores+'</div></div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">決定</div>'+seg+'</div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">Comment</div><textarea id="se-comment" class="gta" rows="3">'+esc(p.comment||'')+'</textarea></div>'
-      +'<div class="smp-msg-wrap"><div class="gform-msg" id="se-msg"></div></div>'
-      +'<div class="smp-sec"><div class="gform-actions"><button class="gbtn ghost" id="se-cancel">返回</button><button class="gbtn" id="se-save">儲存修改</button></div>'
-      +'<div class="gdel">'+(smpDelConfirm
-          ?'<div class="gdel-msg">確定刪除這支樣品？此動作無法復原。</div><div class="gform-actions"><button class="gbtn ghost" id="se-del-cancel">取消</button><button class="gbtn danger" id="se-del-yes">確定刪除</button></div>'
-          :'<button class="gbtn dghost" id="se-del">刪除這支樣品</button>')
-      +'</div></div>';
-    box.querySelectorAll('.dots').forEach(function(dr){
-      var name=dr.dataset.name;
-      dr.querySelectorAll('.dot').forEach(function(d){d.addEventListener('click',function(){
-        var n=+d.dataset.n;p[name]=(p[name]===n?null:n);
-        var v=p[name]||0;dr.querySelectorAll('.dot').forEach(function(x){x.classList.toggle('fill',+x.dataset.n<=v);});
-      });});
-    });
-    box.querySelectorAll('.re-opt').forEach(function(o){o.addEventListener('click',function(){
-      p.decision=o.dataset.s;box.querySelectorAll('.re-opt').forEach(function(x){x.classList.toggle('on',x.dataset.s===p.decision);});
-    });});
-    document.getElementById('se-cancel').addEventListener('click',function(){smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpAfterEdit();box.scrollTop=0;});
-    document.getElementById('se-save').addEventListener('click',saveSampleEdit);
-    var dd=document.getElementById('se-del');if(dd)dd.addEventListener('click',function(){smpDelConfirm=true;renderSampleEdit();});
-    var dc=document.getElementById('se-del-cancel');if(dc)dc.addEventListener('click',function(){smpDelConfirm=false;renderSampleEdit();});
-    var dy=document.getElementById('se-del-yes');if(dy)dy.addEventListener('click',deleteSample);
-  }
-  async function saveSampleEdit(){
-    const msg=document.getElementById('se-msg');
-    const btn=document.getElementById('se-save');
-    var p=smpEditObj;var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
-    var upd={cupping_date:g('se-date')||todayStr(),supplier:g('se-supplier').trim()||null,sample_id:g('se-id').trim()||null,process:g('se-process').trim()||null,
-      fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,comment:g('se-comment').trim()||null,decision:p.decision||null};
-    if(!upd.supplier&&!upd.sample_id){msg.textContent='請至少填 Supplier 或 ID';msg.className='gform-msg err';return;}
-    btn.disabled=true;msg.textContent='儲存中…';msg.className='gform-msg';
-    const {error}=await sb.from('samples').update(upd).eq('id',smpEdit);
-    btn.disabled=false;
-    if(error){msg.textContent='儲存失敗：'+error.message;msg.className='gform-msg err';return;}
-    var i=SAMPLES.findIndex(function(x){return String(x.id)===String(smpEdit);});
-    if(i>-1)SAMPLES[i]=Object.assign({},SAMPLES[i],upd);
-    smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpAfterEdit();
-    document.getElementById('green-content').scrollTop=0;
-  }
-  function smpAfterEdit(){if(smpEditFrom==='history'){renderHistory();}else{renderSample();}}
-  async function deleteSample(){
-    const {error}=await sb.from('samples').delete().eq('id',smpEdit);
-    if(error){var m=document.getElementById('se-msg');if(m){m.textContent='刪除失敗：'+error.message;m.className='gform-msg err';}smpDelConfirm=false;renderSampleEdit();return;}
-    SAMPLES=SAMPLES.filter(function(x){return String(x.id)!==String(smpEdit);});
-    smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpAfterEdit();
-  }
-  function sampleCard(s){
-    var chips=[['F/A',s.fragrance],['Acid',s.acidity],['Sweet',s.sweetness],['Body',s.body],['After',s.aftertaste]].filter(function(x){return x[1]!=null;}).map(function(x){return '<span class="sc-chip">'+x[0]+'<b>'+x[1]+'</b></span>';}).join('');
-    var sub=[s.sample_id?'ID '+esc(s.sample_id):'',s.process?esc(s.process):''].filter(Boolean).join(' · ');
-    var dec=s.decision==='buy'?'<span class="smp-badge buy">Buy</span>':(s.decision==='skip'?'<span class="smp-badge skip">Skip</span>':'<span class="rd-meta">'+esc(fmtDate(s.cupping_date))+'</span>');
-    var nm=(s.no!=null?'<span class="smp-no">No.'+s.no+'</span> ':'')+esc(s.supplier||s.sample_id||'樣品');
-    return '<div class="smp-item" data-id="'+esc(s.id)+'"><div class="bean-top"><span class="bean-nm">'+nm+'</span>'+dec+'</div>'
-      +'<div class="bean-sub">'+esc(fmtDate(s.cupping_date))+(sub?' · '+sub:'')+'</div>'
-      +(chips?'<div class="smp-scoreline">'+chips+'</div>':'')
-      +(s.comment?'<div class="smp-cmt">'+esc(s.comment)+'</div>':'')+'</div>';
-  }
-  async function saveSample(decision){
-    captureSmp();
-    const msg=document.getElementById('smp-msg');
-    const buy=document.getElementById('smp-buy'),skip=document.getElementById('smp-skip');
-    var p=smpPages[smpIdx];
-    var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||null,sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,comment:(p.comment||'').trim()||null,decision:decision};
-    if(!rec.supplier&&!rec.sample_id){msg.textContent='請至少填 Supplier 或 ID';msg.className='gform-msg err';return;}
-    buy.disabled=true;skip.disabled=true;msg.textContent='儲存中…';msg.className='gform-msg';
-    const ins=await sb.from('samples').insert(rec).select();
-    if(ins.error){buy.disabled=false;skip.disabled=false;msg.textContent='儲存失敗：'+ins.error.message;msg.className='gform-msg err';return;}
-    if(ins.data&&ins.data[0])SAMPLES.unshift(ins.data[0]);
-    smpPages.splice(smpIdx,1);
-    if(!smpPages.length)smpPages=[blankSmp()];
-    if(smpIdx>=smpPages.length)smpIdx=smpPages.length-1;
-    renderSample('','已儲存（'+(decision==='buy'?'Buy':'Skip')+'），接著填下一支');
-    document.getElementById('green-content').scrollTop=0;
   }
   function swapSides(){const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
   function openFolder(){document.getElementById('ov').classList.add('open');}
