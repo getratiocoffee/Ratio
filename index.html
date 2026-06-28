@@ -191,6 +191,14 @@
   .ghome-tile.soon .gh-ic svg{color:var(--muted)}
   .ghome-tile.soon .gh-lab{color:#6B5E50}
   .ghome-tile.wide{grid-column:1 / -1;min-height:84px}
+  /* Beans home: two big buttons */
+  .beans-2up{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px}
+  .bhome-tile{background:var(--surface);border:1px solid var(--line);border-radius:22px;min-height:248px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;font-family:inherit;color:var(--ink);transition:transform .12s ease}
+  .bhome-tile:active{transform:scale(.97)}
+  .bhome-ic{width:66px;height:66px;border-radius:50%;background:#F4E4E0;display:flex;align-items:center;justify-content:center}
+  .bhome-ic svg{width:32px;height:32px;color:var(--accent)}
+  .bhome-lab{font-size:19px;font-weight:600;color:var(--ink)}
+  .bhome-zh{font-size:12px;color:var(--muted);margin-top:-8px}
   .gsel{border:1px solid var(--line);border-radius:11px;padding:11px 13px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit;-webkit-appearance:none;appearance:none}
   .gsel:focus{border-color:var(--accent)}
   .rbadge{font-size:11px;font-weight:600;color:#fff;background:var(--accent);border-radius:8px;padding:2px 9px;white-space:nowrap}
@@ -630,7 +638,7 @@ fill="#6F4A36" stroke="none">
     if(id==='timesheet'){openPage('timesheet');return;}
     if(id==='green'){openPage('green');loadBeans();return;}
     if(id==='roast'){openPage('green');loadBeans('roast');return;}
-    if(id==='beans'){openPage('beans');loadRoasted();return;}
+    if(id==='beans'){openPage('beans');beansView='home';renderBeansHome();return;}
     console.log('open:',id);/* TODO: route other modules */
   }
 
@@ -871,9 +879,41 @@ fill="#6F4A36" stroke="none">
     roastBannerErr=fail>0;
     renderRoast();
   }
+  let beansView='home';
+  function renderBeansHome(){
+    beansView='home';
+    const box=document.getElementById('beans-content');
+    const title=document.getElementById('beans-title');
+    if(title)title.textContent='Beans';
+    document.getElementById('beans-count').textContent='';
+    box.innerHTML='<div class="beans-2up">'
+      +'<button class="bhome-tile" data-k="retail">'
+        +'<span class="bhome-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9h12l-.8 11a1 1 0 0 1-1 .9H7.8a1 1 0 0 1-1-.9z"/><path d="M9 9V7a3 3 0 0 1 6 0v2"/></svg></span>'
+        +'<span class="bhome-lab">Retail Shelf</span><span class="bhome-zh">零售貨架</span></button>'
+      +'<button class="bhome-tile" data-k="prod">'
+        +'<span class="bhome-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V11l5 3V11l5 3V9l4 2v10"/><path d="M9 21v-4h3v4"/></svg></span>'
+        +'<span class="bhome-lab">Production</span><span class="bhome-zh">生產烘焙</span></button>'
+      +'</div>';
+    box.querySelectorAll('.bhome-tile').forEach(function(el){el.addEventListener('click',function(){
+      if(el.dataset.k==='prod'){beansView='production';loadRoasted();box.scrollTop=0;}
+      else{beansView='retail';renderBeansRetail();box.scrollTop=0;}
+    });});
+  }
+  function renderBeansRetail(){
+    beansView='retail';
+    const box=document.getElementById('beans-content');
+    const title=document.getElementById('beans-title');
+    if(title)title.textContent='Retail Shelf';
+    document.getElementById('beans-count').textContent='';
+    box.innerHTML='<div class="sempty">零售貨架之後再做<br>（等產品資料搬進 Supabase）</div>';
+  }
   let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false;
   function fmtDate(d){if(!d||d==='—')return '無日期';var p=String(d).split('-');return p.length===3?(p[0]+'/'+p[1]+'/'+p[2]):d;}
-  function beansBack(){if(roastEdit){roastEdit=null;roastDelConfirm=false;renderRoasted();}else{closePage();}}
+  function beansBack(){
+    if(roastEdit){roastEdit=null;roastDelConfirm=false;renderRoasted();return;}
+    if(beansView==='production'||beansView==='retail'){renderBeansHome();return;}
+    closePage();
+  }
   async function loadRoasted(){
     const box=document.getElementById('beans-content');
     box.innerHTML='<div class="sempty">載入中…</div>';
@@ -887,7 +927,7 @@ fill="#6F4A36" stroke="none">
     const box=document.getElementById('beans-content');
     const title=document.getElementById('beans-title');
     if(roastEdit){renderRoastEdit();return;}
-    if(title)title.textContent='Beans';
+    if(title)title.textContent='Production';
     document.getElementById('beans-count').textContent=ROASTS.length+' roasts';
     if(!ROASTS.length){box.innerHTML='<div class="sempty">尚無烘焙紀錄<br>到 Roast 記一筆</div>';return;}
     var groups={}, order=[];
