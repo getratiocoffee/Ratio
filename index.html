@@ -617,9 +617,13 @@ fill="#6F4A36" stroke="none">
   }
   async function delMessage(id){
     if(id==null||id==='null')return;
+    const {data,error}=await sb.from('messages').delete().eq('id',id).select();
+    if(error||!data||!data.length){
+      console.error('[Ratio] 訊息沒刪成功（多半是 messages 表缺 DELETE 的 RLS 政策）：',error&&(error.message||error));
+      loadMessages();/* re-sync so the feed shows the true state */
+      return;
+    }
     rows=rows.filter(r=>String(idOf(r))!==String(id));renderFeed();
-    const {error}=await sb.from('messages').delete().eq('id',id);
-    if(error){console.error('[Ratio] delete error:',error.message||error);loadMessages();}
   }
   renderFeed();
 
