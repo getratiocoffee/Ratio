@@ -447,69 +447,77 @@ fill="#6F4A36" stroke="none">
   function press(el){el.classList.remove('pressing');void el.offsetWidth;el.classList.add('pressing');}
   document.querySelector('.bar').addEventListener('pointerdown',e=>{const t=e.target.closest('.ic,.fgrid,#power,.dock-btn');if(t)press(t);});
   document.querySelector('.bar').addEventListener('click',e=>{
-    if(dockMode==='module'){const b=e.target.closest('.dock-btn');if(b)runModuleAction(b.dataset.act);return;}
+    if(dockStack.length){const b=e.target.closest('.dock-btn');if(b){if(b.dataset.to)dockTo(dockStack.concat(b.dataset.to));else if(b.dataset.act)runModuleAction(b.dataset.act);}return;}
     const it=e.target.closest('.item');if(it&&it.dataset.id)onOpen(it.dataset.id);
   });
 
-  /* ---- dock-morph: tap an app icon → its two buttons take over the dock (in place) ---- */
+  /* ---- dock-morph: tap an app icon → its two buttons take over the dock; supports nesting ---- */
   const DOCK_ICONS={
     bag:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9h12l-.8 11a1 1 0 0 1-1 .9H7.8a1 1 0 0 1-1-.9z"/><path d="M9 9V7a3 3 0 0 1 6 0v2"/></svg>`,
     factory:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V11l5 3V11l5 3V9l4 2v10"/><path d="M9 21v-4h3v4"/></svg>`,
-    history:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>`
+    history:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>`,
+    trade:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l3 3-3 3"/><path d="M20 6H9a4 4 0 0 0-4 4"/><path d="M7 21l-3-3 3-3"/><path d="M4 18h11a4 4 0 0 0 4-4"/></svg>`,
+    sample:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v5l-4.2 9.3A2 2 0 0 0 7.6 20h8.8a2 2 0 0 0 1.8-2.7L14 8V3"/></svg>`,
+    buy:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M2 3h3l2.4 12.3a1 1 0 0 0 1 .7h9.2a1 1 0 0 0 1-.8L21 7H6"/></svg>`,
+    sell:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 11 3.8a2 2 0 0 0-1.4-.6H4v5.6a2 2 0 0 0 .6 1.4l9.6 9.6a2 2 0 0 0 2.8 0l3.6-3.6a2 2 0 0 0 0-2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg>`,
+    analyse:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 21H3V3"/><path d="M7 14l3-4 3 2 5-7"/></svg>`
   };
-  /* each module = exactly two buttons (left / right). Add more modules here as they're built. */
-  const MODULE_ACTIONS={
-    beans:{name:'Beans',
-      left:{act:'beans:retail',label:'Retail Shelf',zh:'零售貨架',icon:'bag'},
-      right:{act:'beans:prod',label:'Pending',zh:'待杯測',icon:'factory'}},
-    roast:{name:'Roast',
-      left:{act:'roast:prod',label:'Production',zh:'生產烘焙',icon:'factory'},
-      right:{act:'roast:hist',label:'History',zh:'烘焙紀錄',icon:'history'}}
+  /* node tree. Each node = two buttons (left/right). A button has `act` (opens a screen) OR `to` (a deeper node). */
+  const DOCK_NODES={
+    beans:{left:{label:'Retail Shelf',zh:'零售貨架',icon:'bag',act:'beans:retail'},
+           right:{label:'Pending',zh:'待杯測',icon:'factory',act:'beans:prod'}},
+    roast:{left:{label:'Production',zh:'生產烘焙',icon:'factory',act:'roast:prod'},
+           right:{label:'History',zh:'烘焙紀錄',icon:'history',act:'roast:hist'}},
+    green:{left:{label:'Trade',zh:'交易',icon:'trade',to:'green.trade'},
+           right:{label:'Sample',zh:'樣品',icon:'sample',to:'green.sample'}},
+    'green.trade':{left:{label:'Buy',zh:'採購',icon:'buy',act:'green:buy'},
+                   right:{label:'Sell',zh:'販售',icon:'sell',act:'green:sell'}},
+    'green.sample':{left:{label:'Analyse',zh:'分析',icon:'analyse',act:'green:analyse'},
+                    right:{label:'History',zh:'樣品紀錄',icon:'history',act:'green:samplehist'}}
   };
-  let dockMode='apps', dockModule=null, _savedDock=null;
+  let dockStack=[], _savedDock=null;
   const GRID_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1.4"/><rect x="14" y="4" width="6" height="6" rx="1.4"/><rect x="4" y="14" width="6" height="6" rx="1.4"/><rect x="14" y="14" width="6" height="6" rx="1.4"/></svg>';
-  function dockBtnHTML(b){return `<button class="dock-btn" data-act="${b.act}"><span class="db-ic">${DOCK_ICONS[b.icon]||''}</span><span class="db-lab">${b.label}</span>${b.zh?`<span class="db-zh">${b.zh}</span>`:''}</button>`;}
-  function enterModule(key){
-    const m=MODULE_ACTIONS[key];if(!m)return;
+  function dockBtnHTML(b){return `<button class="dock-btn" ${b.to?`data-to="${b.to}"`:`data-act="${b.act}"`}><span class="db-ic">${DOCK_ICONS[b.icon]||''}</span><span class="db-lab">${b.label}</span>${b.zh?`<span class="db-zh">${b.zh}</span>`:''}</button>`;}
+  /* transition the dock to a given stack ([] = the app grid). Pill sizes are measured once
+     (apps→module) and stay locked to the dashboard size through every nested level. */
+  function dockTo(stack){
     const lp=document.querySelector('.pill[data-side="shop"]');
     const rp=document.querySelector('.pill[data-side="roastery"]');
     const cl=document.querySelectorAll('.cluster');
-    if(dockMode!=='module')_savedDock={l:lp.innerHTML,r:rp.innerHTML};
-    /* measure the dashboard pill sizes NOW (app mode) so the module buttons match exactly */
-    const lr=lp.getBoundingClientRect(), rr=rp.getBoundingClientRect();
-    dockMode='module';dockModule=key;
+    const wasApps=!dockStack.length, willApps=!stack.length;
+    let lr,rr;
+    if(wasApps&&!willApps){_savedDock={l:lp.innerHTML,r:rp.innerHTML};lr=lp.getBoundingClientRect();rr=rp.getBoundingClientRect();}
+    dockStack=stack.slice();
     cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});
     setTimeout(()=>{
-      document.querySelector('.bar').classList.add('module');
-      lp.innerHTML=dockBtnHTML(m.left);
-      rp.innerHTML=dockBtnHTML(m.right);
-      lp.style.width=Math.round(lr.width)+'px';lp.style.height=Math.round(lr.height)+'px';
-      rp.style.width=Math.round(rr.width)+'px';rp.style.height=Math.round(rr.height)+'px';
-      const sw=document.getElementById('swap');sw.classList.add('back');sw.innerHTML=GRID_ICON;
+      const bar=document.querySelector('.bar'),sw=document.getElementById('swap');
+      if(willApps){
+        bar.classList.remove('module');
+        lp.style.width='';lp.style.height='';rp.style.width='';rp.style.height='';
+        if(_savedDock){lp.innerHTML=_savedDock.l;rp.innerHTML=_savedDock.r;}
+        sw.classList.remove('back');sw.innerHTML=I.swap;
+      }else{
+        const node=DOCK_NODES[dockStack[dockStack.length-1]];
+        bar.classList.add('module');
+        lp.innerHTML=dockBtnHTML(node.left);
+        rp.innerHTML=dockBtnHTML(node.right);
+        if(lr){lp.style.width=Math.round(lr.width)+'px';lp.style.height=Math.round(lr.height)+'px';rp.style.width=Math.round(rr.width)+'px';rp.style.height=Math.round(rr.height)+'px';}
+        sw.classList.add('back');sw.innerHTML=GRID_ICON;
+      }
       cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});
       alignCenter();
     },140);
   }
-  function exitModule(){
-    const lp=document.querySelector('.pill[data-side="shop"]');
-    const rp=document.querySelector('.pill[data-side="roastery"]');
-    const cl=document.querySelectorAll('.cluster');
-    cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});
-    setTimeout(()=>{
-      document.querySelector('.bar').classList.remove('module');
-      lp.style.width='';lp.style.height='';rp.style.width='';rp.style.height='';
-      if(_savedDock){lp.innerHTML=_savedDock.l;rp.innerHTML=_savedDock.r;}
-      const sw=document.getElementById('swap');sw.classList.remove('back');sw.innerHTML=I.swap;
-      dockMode='apps';dockModule=null;
-      cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});
-      alignCenter();
-    },140);
-  }
+  function dockBack(){dockTo(dockStack.slice(0,-1));}
   function runModuleAction(act){
-    if(act==='beans:prod'){roastedTitle='Pending';openPage('beans');beansView='production';loadRoasted();}
-    else if(act==='beans:retail'){openPage('beans');beansView='retail';renderBeansRetail();}
+    if(act==='beans:retail'){openPage('beans');beansView='retail';renderBeansRetail();}
+    else if(act==='beans:prod'){roastedTitle='Pending';openPage('beans');beansView='production';loadRoasted();}
     else if(act==='roast:prod'){openPage('green');loadBeans('roast');}
     else if(act==='roast:hist'){roastedTitle='History';openPage('beans');beansView='production';loadRoasted();}
+    else if(act==='green:buy'){openPage('green');loadBeans('countries');}
+    else if(act==='green:sell'){openPage('green');greenSoon='Sell 販售';greenView='soon';renderGreen();}
+    else if(act==='green:analyse'){openPage('green');loadSamples();}
+    else if(act==='green:samplehist'){openPage('green');loadSamples('history');}
   }
 
   /* ---- Supabase live message feed ---- */
@@ -715,9 +723,8 @@ fill="#6F4A36" stroke="none">
   renderTimesheet(TIMESHEET_SAMPLE);
 
   function onOpen(id){
-    if(MODULE_ACTIONS[id]){enterModule(id);return;}
+    if(DOCK_NODES[id]){dockTo([id]);return;}
     if(id==='timesheet'){openPage('timesheet');return;}
-    if(id==='green'){openPage('green');loadBeans();return;}
     console.log('open:',id);/* TODO: route other modules */
   }
 
@@ -744,9 +751,9 @@ fill="#6F4A36" stroke="none">
     if(greenView==='detail'){greenView='beans';greenBeanId=null;greenEdit=false;greenDelConfirm=false;renderGreen();}
     else if(greenView==='beans'){greenView='countries';greenCountry=null;renderGreen();}
     else if(greenView==='roast'){closePage();}
-    else if(greenView==='sample'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderSample();}else{greenView='home';renderGreen();}}
-    else if(greenView==='history'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderHistory();}else{greenView='home';renderGreen();}}
-    else if(greenView==='countries'||greenView==='soon'){greenView='home';renderGreen();}
+    else if(greenView==='sample'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderSample();}else{closePage();}}
+    else if(greenView==='history'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderHistory();}else{closePage();}}
+    else if(greenView==='countries'||greenView==='soon'){closePage();}
     else{closePage();}
   }
 
@@ -787,7 +794,7 @@ fill="#6F4A36" stroke="none">
       box.innerHTML='<div class="sempty">「'+esc(greenSoon)+'」這塊之後再做</div>';
     }
     else if(greenView==='countries'){
-      title.textContent='Green';
+      title.textContent='Buy';
       count.textContent=BEANS.length+' beans';
       const t=totals(BEANS);
       const origins=new Set(BEANS.map(b=>b.country).filter(Boolean)).size;
@@ -1100,7 +1107,7 @@ fill="#6F4A36" stroke="none">
   }
   async function loadSamples(view){
     const box=document.getElementById('green-content');
-    document.getElementById('green-title').textContent=view==='history'?'History':'Sample';
+    document.getElementById('green-title').textContent=view==='history'?'History':'Analyse';
     document.getElementById('green-count').textContent='';
     box.innerHTML='<div class="sempty">載入中…</div>';
     const {data,error}=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('no',{ascending:false}).order('created_at',{ascending:false});
@@ -1143,7 +1150,7 @@ fill="#6F4A36" stroke="none">
   function renderSample(errMsg,okMsg){
     const box=document.getElementById('green-content');
     if(smpEdit){renderSampleEdit();return;}
-    document.getElementById('green-title').textContent='Sample';
+    document.getElementById('green-title').textContent='Analyse';
     document.getElementById('green-count').textContent=SAMPLES.length?(SAMPLES.length+' 筆'):'';
     if(!smpPages.length)smpPages=[blankSmp()];
     if(smpIdx<0)smpIdx=0;if(smpIdx>=smpPages.length)smpIdx=smpPages.length-1;
@@ -1277,7 +1284,7 @@ fill="#6F4A36" stroke="none">
     renderSample('','已儲存（'+(decision==='buy'?'Buy':'Skip')+'），接著填下一支');
     document.getElementById('green-content').scrollTop=0;
   }
-  function swapSides(){if(dockMode==='module'){exitModule();return;}const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
+  function swapSides(){if(dockStack.length){dockBack();return;}const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
   function openFolder(){document.getElementById('ov').classList.add('open');}
   function closeFolder(){document.getElementById('ov').classList.remove('open');}
 
