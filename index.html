@@ -128,21 +128,38 @@
   .re-opt.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .gta{border:1px solid var(--line);border-radius:11px;padding:11px 13px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit;resize:vertical;width:100%}
   .gta:focus{border-color:var(--accent)}
-  .smp-list{padding:0 16px 18px;display:flex;flex-direction:column;gap:10px}
-  .smp-cmt{font-size:13px;color:var(--ink);margin-top:7px;line-height:1.5}
-  .smp-two{display:flex;gap:10px}
-  .smp-two .gfield{flex:1;min-width:0}
-  .smp-rcard{margin:2px 16px 0;border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden}
-  .smp-rrow{padding:11px 13px;border-top:1px solid var(--line)}
-  .smp-rrow:first-child{border-top:none}
-  .smp-rlab{display:block;font-size:13px;color:var(--ink);font-weight:500;margin-bottom:8px}
-  .smp-rrow .re-seg{gap:6px}
-  .smp-rrow .re-opt{padding:9px 0;font-size:14px}
-  .smp-decide-wrap{position:sticky;bottom:0;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 14px);background:linear-gradient(to top,var(--bg) 72%,rgba(244,236,234,0))}
+  /* sample form (redesigned) */
+  .smp-sec{margin:0 16px 14px}
+  .smp-sec:first-child{margin-top:14px}
+  .smp-sec-h{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;padding-left:2px}
+  .smp-fields{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:13px;display:flex;flex-direction:column;gap:12px}
+  .smp-f{display:flex;flex-direction:column;gap:5px}
+  .smp-f span{font-size:12px;color:var(--muted);padding-left:2px}
+  .smp-f input{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;color:var(--ink);background:var(--bg);outline:none;font-family:inherit;width:100%}
+  .smp-f input:focus{border-color:var(--accent);background:var(--surface)}
+  .smp-f2{display:flex;gap:10px}
+  .smp-f2 .smp-f{flex:1;min-width:0}
+  .smp-scores{background:var(--surface);border:1px solid var(--line);border-radius:15px;overflow:hidden}
+  .smp-score{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;border-top:1px solid var(--line)}
+  .smp-score:first-child{border-top:none}
+  .smp-sname{font-size:14px;color:var(--ink);font-weight:500}
+  .dots{display:flex;gap:9px;align-items:center}
+  .dot{width:23px;height:23px;border-radius:50%;border:1.7px solid #D6C8C1;background:transparent;cursor:pointer;padding:0;transition:transform .12s ease,background .12s ease,border-color .12s ease}
+  .dot.fill{background:var(--accent);border-color:var(--accent)}
+  .dot:active{transform:scale(.85)}
+  .smp-msg-wrap{padding:0 18px}
+  .smp-decide-wrap{position:sticky;bottom:0;padding:10px 16px calc(env(safe-area-inset-bottom,0px) + 14px);background:linear-gradient(to top,var(--bg) 72%,rgba(244,236,234,0))}
   .smp-decide{display:flex;gap:11px}
+  .smp-decide .gbtn{padding:15px;font-size:15px;border-radius:14px}
   .gbtn.buy{background:#5E8C61;color:#fff}
   .gbtn.skip{background:var(--surface);color:#6B5E50;border:1px solid var(--line)}
-  .smp-badge{font-size:11px;font-weight:600;border-radius:8px;padding:2px 10px;color:#fff}
+  .smp-list{display:flex;flex-direction:column;gap:10px}
+  .smp-item{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 15px}
+  .smp-scoreline{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .sc-chip{font-size:11px;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:2px 8px}
+  .sc-chip b{color:var(--ink);margin-left:4px;font-family:ui-monospace,Menlo,monospace}
+  .smp-cmt{font-size:13px;color:var(--ink);margin-top:8px;line-height:1.5}
+  .smp-badge{font-size:11px;font-weight:600;border-radius:8px;padding:3px 11px;color:#fff}
   .smp-badge.buy{background:#5E8C61}
   .smp-badge.skip{background:#9A8B82}
   /* green home 2x2 */
@@ -942,46 +959,48 @@ fill="#6F4A36" stroke="none">
     smpRatings={fragrance:null,acidity:null,sweetness:null,body:null,aftertaste:null};
     renderSample(error?error.message:'');
   }
-  function smpSeg(name){
-    return '<div class="re-seg smp-seg" data-name="'+name+'">'+[1,2,3,4,5].map(function(n){
-      return '<button class="re-opt'+(smpRatings[name]===n?' on':'')+'" data-n="'+n+'">'+n+'</button>';
-    }).join('')+'</div>';
+  function dotRow(name){
+    var v=smpRatings[name]||0,d='';
+    for(var i=1;i<=5;i++){d+='<button class="dot'+(i<=v?' fill':'')+'" data-n="'+i+'" aria-label="'+i+'"></button>';}
+    return '<div class="dots" data-name="'+name+'">'+d+'</div>';
   }
   function renderSample(errMsg){
     const box=document.getElementById('green-content');
     document.getElementById('green-title').textContent='Sample';
     document.getElementById('green-count').textContent=SAMPLES.length?(SAMPLES.length+' 筆'):'';
-    var ratings=SMP_FIELDS.map(function(f){return '<div class="smp-rrow"><span class="smp-rlab">'+f[1]+'</span>'+smpSeg(f[0])+'</div>';}).join('');
-    var form='<div class="gform">'
-      +'<label class="gfield"><span class="gl">杯測日期</span><input id="smp-date" type="date" value="'+todayStr()+'" /></label>'
-      +'<div class="smp-two"><label class="gfield"><span class="gl">Supplier</span><input id="smp-supplier" type="text" /></label>'
-      +'<label class="gfield"><span class="gl">ID</span><input id="smp-id" type="text" /></label></div>'
-      +'<label class="gfield"><span class="gl">Process</span><input id="smp-process" type="text" /></label>'
-      +'</div>'
-      +'<div class="gsec">杯測評分（1-5）</div><div class="smp-rcard">'+ratings+'</div>'
-      +'<div class="gform" style="padding-top:12px">'
-      +'<label class="gfield"><span class="gl">Comment</span><textarea id="smp-comment" class="gta" rows="3"></textarea></label>'
-      +'<div class="gform-msg'+(errMsg?' err':'')+'" id="smp-msg">'+(errMsg?('讀取失敗：'+esc(errMsg)+'（請先在 Supabase 跑 samples 建表 SQL）'):'')+'</div>'
-      +'</div>'
+    var scores=SMP_FIELDS.map(function(f){return '<div class="smp-score"><span class="smp-sname">'+f[1]+'</span>'+dotRow(f[0])+'</div>';}).join('');
+    var form=''
+      +'<div class="smp-sec"><div class="smp-sec-h">樣品資料</div><div class="smp-fields">'
+      +'<label class="smp-f"><span>杯測日期</span><input id="smp-date" type="date" value="'+todayStr()+'" /></label>'
+      +'<div class="smp-f2"><label class="smp-f"><span>Supplier</span><input id="smp-supplier" type="text" /></label>'
+      +'<label class="smp-f"><span>ID</span><input id="smp-id" type="text" /></label></div>'
+      +'<label class="smp-f"><span>Process</span><input id="smp-process" type="text" /></label>'
+      +'</div></div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">杯測評分　1–5</div><div class="smp-scores">'+scores+'</div></div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Comment</div><textarea id="smp-comment" class="gta" rows="3"></textarea></div>'
+      +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':'')+'" id="smp-msg">'+(errMsg?('讀取失敗：'+esc(errMsg)+'（請先在 Supabase 跑 samples 建表 SQL）'):'')+'</div></div>'
       +'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn skip" id="smp-skip">Skip</button><button class="gbtn buy" id="smp-buy">Buy</button></div></div>';
-    var list=SAMPLES.length?('<div class="gsec">已存樣品</div><div class="smp-list">'+SAMPLES.map(sampleCard).join('')+'</div>'):'';
+    var list=SAMPLES.length?('<div class="smp-sec"><div class="smp-sec-h">已存樣品</div><div class="smp-list">'+SAMPLES.map(sampleCard).join('')+'</div></div>'):'';
     box.innerHTML=form+list;
-    box.querySelectorAll('.smp-seg').forEach(function(segEl){
-      segEl.querySelectorAll('.re-opt').forEach(function(b){b.addEventListener('click',function(){
-        var name=segEl.dataset.name;smpRatings[name]=+b.dataset.n;
-        segEl.querySelectorAll('.re-opt').forEach(function(o){o.classList.toggle('on',+o.dataset.n===smpRatings[name]);});
+    box.querySelectorAll('.dots').forEach(function(dr){
+      var name=dr.dataset.name;
+      dr.querySelectorAll('.dot').forEach(function(d){d.addEventListener('click',function(){
+        var n=+d.dataset.n;
+        smpRatings[name]=(smpRatings[name]===n?null:n);
+        var v=smpRatings[name]||0;
+        dr.querySelectorAll('.dot').forEach(function(x){x.classList.toggle('fill',+x.dataset.n<=v);});
       });});
     });
     document.getElementById('smp-buy').addEventListener('click',function(){saveSample('buy');});
     document.getElementById('smp-skip').addEventListener('click',function(){saveSample('skip');});
   }
   function sampleCard(s){
-    var sc=[['F/A',s.fragrance],['Acid',s.acidity],['Sweet',s.sweetness],['Body',s.body],['After',s.aftertaste]].filter(function(x){return x[1]!=null;}).map(function(x){return x[0]+' '+x[1];}).join(' · ');
+    var chips=[['F/A',s.fragrance],['Acid',s.acidity],['Sweet',s.sweetness],['Body',s.body],['After',s.aftertaste]].filter(function(x){return x[1]!=null;}).map(function(x){return '<span class="sc-chip">'+x[0]+'<b>'+x[1]+'</b></span>';}).join('');
     var sub=[s.sample_id?'ID '+esc(s.sample_id):'',s.process?esc(s.process):''].filter(Boolean).join(' · ');
-    var dec=s.decision==='buy'?'<span class="smp-badge buy">Buy</span>':(s.decision==='skip'?'<span class="smp-badge skip">Skip</span>':'');
-    return '<div class="bean"><div class="bean-top"><span class="bean-nm">'+esc(s.supplier||s.sample_id||'樣品')+'</span>'+(dec||'<span class="rd-meta">'+esc(fmtDate(s.cupping_date))+'</span>')+'</div>'
-      +'<div class="bean-sub">'+(dec?esc(fmtDate(s.cupping_date))+(sub?' · '+sub:''):sub)+'</div>'
-      +(sc?'<div class="bean-meta"><span>'+sc+'</span></div>':'')
+    var dec=s.decision==='buy'?'<span class="smp-badge buy">Buy</span>':(s.decision==='skip'?'<span class="smp-badge skip">Skip</span>':'<span class="rd-meta">'+esc(fmtDate(s.cupping_date))+'</span>');
+    return '<div class="smp-item"><div class="bean-top"><span class="bean-nm">'+esc(s.supplier||s.sample_id||'樣品')+'</span>'+dec+'</div>'
+      +'<div class="bean-sub">'+esc(fmtDate(s.cupping_date))+(sub?' · '+sub:'')+'</div>'
+      +(chips?'<div class="smp-scoreline">'+chips+'</div>':'')
       +(s.comment?'<div class="smp-cmt">'+esc(s.comment)+'</div>':'')+'</div>';
   }
   async function saveSample(decision){
