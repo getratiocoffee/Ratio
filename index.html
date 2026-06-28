@@ -15,7 +15,7 @@
   .bhead{background:#49423A;display:flex;align-items:center;justify-content:space-between;padding:9px 18px;color:#F4ECEA}
   .bhead svg path{fill:#F4ECEA}
   .bhead .logo{width:40px;height:40px;display:block}
-  .bhead .logo svg{width:100%;height:100%;display:block}
+  .bhead .logo img{width:100%;height:100%;display:block;filter:brightness(0) invert(1)}
   .htime{text-align:right;line-height:1}
   .htime .clock{font-size:30px;font-weight:600;font-family:-apple-system,system-ui,sans-serif;color:#F4ECEA}
   .feed{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -174,6 +174,13 @@
   .ro-as{font-size:12px;color:var(--muted);margin-top:2px}
   .ro-plus{width:32px;height:32px;border-radius:50%;background:#F4E4E0;color:var(--accent);font-size:19px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
   .ro-save-wrap{position:sticky;bottom:0;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 14px);background:linear-gradient(to top,var(--bg) 72%,rgba(244,236,234,0))}
+  .ro-cgroup{border-bottom:1px solid var(--line)}
+  .ro-chead{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;padding:13px 2px;cursor:pointer;font-family:inherit}
+  .ro-chead .rd-chev{color:var(--muted);display:flex;transition:transform .15s ease}
+  .ro-chead .rd-chev svg{width:18px;height:18px}
+  .ro-chead.open .rd-chev{transform:rotate(90deg)}
+  .ro-cname{font-size:14px;font-weight:600;color:var(--ink);flex:1}
+  .ro-cbody{display:flex;flex-direction:column;gap:8px;padding:2px 0 12px}
   .beans-search input{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit}
   .beans-search input:focus{border-color:var(--accent)}
   .bean{margin:8px 14px;padding:13px 15px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
@@ -204,8 +211,7 @@
   .auth-x{position:absolute;top:-14px;right:-6px;width:34px;height:34px;border:none;background:none;color:var(--muted);font-size:26px;line-height:1;cursor:pointer;font-family:inherit}
   .auth-x:active{opacity:.6}
   .auth-logo{width:54px;height:54px;margin:0 auto 14px}
-  .auth-logo svg{width:100%;height:100%;display:block}
-  .auth-logo svg path{fill:#49423A}
+  .auth-logo img{width:100%;height:100%;display:block}
   .auth h2{font-size:26px;font-weight:600;margin:0 0 4px;color:var(--ink);letter-spacing:.01em}
   .auth .sub{font-size:13px;color:var(--muted);margin:0 0 22px}
   .auth input{width:100%;border:1px solid var(--line);border-radius:14px;padding:13px 15px;font-size:15px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit;margin-bottom:10px}
@@ -234,7 +240,7 @@
 <body>
   <div class="auth" id="auth">
     <div class="auth-card">
-      <div class="auth-logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2921 2921" preserveAspectRatio="xMidYMid meet"><g transform="translate(0,2921) scale(0.1,-0.1)" fill="#49423A" stroke="none"><path d="M7245 25703 c-544 -47 -1035 -184 -1505 -419 -404 -202 -716 -429 -1050 -764 -335 -334 -562 -646 -764 -1050 -203 -407 -328 -810 -399 -1295 l-22 -150 -3 -7340 c-3 -8016 -7 -7459 53 -7812 146 -865 592 -1688 1235 -2281 703 -649 1560 -1018 2510 -1082 119 -8 2201 -10 7410 -8 6898 3 7252 4 7385 21 310 40 566 97 835 187 461 153 874 378 1260 686 173 138 486 451 624 624 486 610 770 1290 873 2095 17 133 18 487 21 7385 2 5209 0 7291 -8 7410 -78 1159 -623 2201 -1531 2926 -522 416 -1173 708 -1831 819 -351 59 199 55 -7757 53 -4013 -1 -7314 -3 -7336 -5z m14695 -693 c636 -58 1223 -285 1735 -670 162 -122 324 -267 441 -396 500 -550 791 -1182 881 -1914 17 -138 18 -490 18 -7420 0 -5948 -2 -7295 -13 -7385 -80 -672 -302 -1218 -708 -1745 -114 -148 -416 -450 -564 -564 -527 -406 -1073 -628 -1745 -708 -90 -11 -1437 -13 -7385 -13 -6930 0 -7282 1 -7420 18 -937 116 -1754 583 -2310 1322 -389 517 -619 1117 -670 1750 -8 103 -10 2076 -8 7415 l3 7275 22 135 c43 266 83 431 154 637 337 978 1114 1755 2092 2092 258 89 555 151 832 174 22 2 3300 4 7285 5 4958 1 7281 -1 7360 -8z"/><path d="M21490 21799 c-66 -29 -14039 -14001 -14075 -14073 -68 -135 9 -293 159 -327 44 -10 62 -9 112 5 l59 17 7022 7022 7022 7022 17 59 c14 50 15 68 5 112 -33 146 -186 224 -321 163z"/><path d="M13610 19973 c-96 -35 -238 -220 -370 -483 -303 -603 -810 -956 -1593 -1109 -222 -44 -392 -60 -714 -71 -440 -14 -702 -53 -996 -150 -240 -79 -519 -225 -687 -359 -210 -166 -591 -581 -742 -806 -262 -391 -321 -787 -163 -1094 105 -204 285 -354 601 -502 549 -257 1162 -284 1859 -82 916 265 1831 955 2463 1858 301 430 611 1056 771 1559 111 348 129 656 51 889 -39 116 -67 161 -147 241 -109 109 -227 148 -333 109z"/><path d="M18952 15211 c-86 -32 -134 -65 -208 -143 -91 -96 -123 -159 -254 -508 -198 -524 -310 -784 -462 -1065 -196 -362 -315 -538 -808 -1195 -146 -195 -296 -398 -332 -450 -299 -429 -464 -836 -543 -1340 -23 -141 -32 -576 -16 -736 52 -515 277 -1014 643 -1424 499 -559 1179 -892 1943 -950 308 -24 677 28 1019 144 458 155 811 378 1146 722 207 213 350 412 474 662 163 327 234 595 258 966 36 576 -98 1165 -376 1652 -110 192 -197 318 -486 704 -353 471 -461 621 -586 810 -261 397 -438 759 -673 1376 -170 443 -182 472 -223 535 -60 93 -144 171 -233 215 -96 48 -198 56 -283 25z"/></g></svg></div>
+      <div class="auth-logo"><img src="logo.png" alt="Ratio" /></div>
       <h2>Ratio</h2>
       <p class="sub" id="auth-sub">登入你的帳號</p>
       <input id="auth-name" type="text" placeholder="你的名字" autocomplete="name" style="display:none" />
@@ -247,58 +253,7 @@
   </div>
 
   <div class="board">
-    <header class="bhead"><span class="logo"><svg version="1.0" xmlns="http://www.w3.org/2000/svg"
- width="46" height="46" viewBox="0 0 2921.000000 2921.000000"
- preserveAspectRatio="xMidYMid meet">
-<metadata>
-Created by potrace 1.16, written by Peter Selinger 2001-2019
-</metadata>
-<g transform="translate(0.000000,2921.000000) scale(0.100000,-0.100000)"
-fill="#49423A" stroke="none">
-<path d="M7245 25703 c-544 -47 -1035 -184 -1505 -419 -404 -202 -716 -429
--1050 -764 -335 -334 -562 -646 -764 -1050 -203 -407 -328 -810 -399 -1295
-l-22 -150 -3 -7340 c-3 -8016 -7 -7459 53 -7812 146 -865 592 -1688 1235
--2281 703 -649 1560 -1018 2510 -1082 119 -8 2201 -10 7410 -8 6898 3 7252 4
-7385 21 310 40 566 97 835 187 461 153 874 378 1260 686 173 138 486 451 624
-624 486 610 770 1290 873 2095 17 133 18 487 21 7385 2 5209 0 7291 -8 7410
--78 1159 -623 2201 -1531 2926 -522 416 -1173 708 -1831 819 -351 59 199 55
--7757 53 -4013 -1 -7314 -3 -7336 -5z m14695 -693 c636 -58 1223 -285 1735
--670 162 -122 324 -267 441 -396 500 -550 791 -1182 881 -1914 17 -138 18
--490 18 -7420 0 -5948 -2 -7295 -13 -7385 -80 -672 -302 -1218 -708 -1745
--114 -148 -416 -450 -564 -564 -527 -406 -1073 -628 -1745 -708 -90 -11 -1437
--13 -7385 -13 -6930 0 -7282 1 -7420 18 -937 116 -1754 583 -2310 1322 -389
-517 -619 1117 -670 1750 -8 103 -10 2076 -8 7415 l3 7275 22 135 c43 266 83
-431 154 637 337 978 1114 1755 2092 2092 258 89 555 151 832 174 22 2 3300 4
-7285 5 4958 1 7281 -1 7360 -8z M11315 21814 c-411 -44 -770 -145 -1170 -332
--1030 -482 -1788 -1229 -2300 -2267 -322 -654 -469 -1187 -452 -1645 6 -163
-25 -248 83 -365 89 -183 223 -256 357 -197 96 42 327 307 562 642 369 527 651
-761 1165 968 402 162 724 217 1355 232 323 8 388 12 510 34 375 66 665 200
-920 424 101 88 369 382 489 536 204 262 308 456 373 694 33 124 37 310 9 412
--41 150 -137 288 -286 411 -284 236 -605 375 -1000 434 -111 17 -516 29 -615
-19z M21490 21799 c-66 -29 -14039 -14001 -14075 -14073 -68 -135 9 -293 159
--327 44 -10 62 -9 112 5 l59 17 7022 7022 7022 7022 17 59 c14 50 15 68 5 112
--33 146 -186 224 -321 163z M13610 19973 c-96 -35 -238 -220 -370 -483 -303
--603 -810 -956 -1593 -1109 -222 -44 -392 -60 -714 -71 -440 -14 -702 -53
--996 -150 -240 -79 -519 -225 -687 -359 -210 -166 -591 -581 -742 -806 -262
--391 -321 -787 -163 -1094 105 -204 285 -354 601 -502 549 -257 1162 -284
-1859 -82 916 265 1831 955 2463 1858 301 430 611 1056 771 1559 111 348 129
-656 51 889 -39 116 -67 161 -147 241 -109 109 -227 148 -333 109z M18952
-15211 c-86 -32 -134 -65 -208 -143 -91 -96 -123 -159 -254 -508 -198 -524
--310 -784 -462 -1065 -196 -362 -315 -538 -808 -1195 -146 -195 -296 -398
--332 -450 -299 -429 -464 -836 -543 -1340 -23 -141 -32 -576 -16 -736 52 -515
-277 -1014 643 -1424 499 -559 1179 -892 1943 -950 308 -24 677 28 1019 144
-458 155 811 378 1146 722 207 213 350 412 474 662 163 327 234 595 258 966 36
-576 -98 1165 -376 1652 -110 192 -197 318 -486 704 -353 471 -461 621 -586
-810 -261 397 -438 759 -673 1376 -170 443 -182 472 -223 535 -60 93 -144 171
--233 215 -96 48 -198 56 -283 25z m213 -986 c122 -324 199 -504 335 -780 234
--474 403 -739 879 -1379 581 -780 631 -860 747 -1211 91 -278 128 -507 128
--795 -1 -291 -43 -507 -150 -757 -255 -599 -794 -1066 -1453 -1262 -56 -17
--141 -38 -188 -47 -186 -34 -618 -34 -798 0 -241 47 -532 163 -759 304 -557
-344 -924 886 -1012 1492 -23 159 -15 504 15 673 65 366 187 678 373 957 46 69
-221 310 389 535 455 611 522 706 686 980 241 402 425 792 624 1323 48 129 86
-217 90 210 4 -7 46 -116 94 -243z"/>
-</g>
-</svg></span><div class="hright"><div class="hmeta"><span id="who"></span><button id="signout" class="signout">登出</button></div><div class="htime"><div class="clock" id="clock">9:41</div></div></div></header>
+    <header class="bhead"><span class="logo"><img src="logo.png" alt="Ratio" /></span><div class="hright"><div class="hmeta"><span id="who"></span><button id="signout" class="signout">登出</button></div><div class="htime"><div class="clock" id="clock">9:41</div></div></div></header>
     <div class="feed" id="feed"></div>
     <div class="composer">
       <input id="composer-input" type="text" placeholder="Write a message…" autocomplete="off" />
@@ -749,7 +704,7 @@ fill="#6F4A36" stroke="none">
       +(r.country?'<div class="bean-sub">'+esc(r.country)+'</div>':'')
       +'<div class="bean-meta"><span><b>'+esc(gnum(r.green_kg))+'</b> kg 生豆</span>'+(r.roast_time?'<span>'+esc(r.roast_time)+'</span>':'')+'</div></div>';
   }
-  let ROAST_CART=[], roastDate='', roastTime='', roastBanner='', roastBannerErr=false;
+  let ROAST_CART=[], roastDate='', roastTime='', roastBanner='', roastBannerErr=false, roastAddOpen={};
   function renderRoast(){
     const box=document.getElementById('green-content');
     document.getElementById('green-title').textContent='Roasting';
@@ -758,7 +713,6 @@ fill="#6F4A36" stroke="none">
     var top='<div class="ro-banner'+(roastBannerErr?' err':'')+'" id="ro-banner">'+esc(roastBanner)+'</div>'
       +'<div class="ro-top">'
       +'<label class="ro-dt"><span>日期（留空＝今天）</span><input id="ro-date" type="date" value="'+esc(roastDate)+'" /></label>'
-      +'<label class="ro-dt"><span>時間（選填）</span><input id="ro-time" type="time" value="'+esc(roastTime)+'" /></label>'
       +'</div>';
     var cart='';
     if(ROAST_CART.length){
@@ -775,17 +729,28 @@ fill="#6F4A36" stroke="none">
         }).join('')+'</div>';
     }
     var addable=BEANS.filter(function(b){return !inCart[b.id];}).sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
-    var add='<div class="gsec">加入生豆</div><div class="ro-add">'
-      +(addable.length?addable.map(function(b){
-        return '<button class="ro-aitem" data-id="'+esc(b.id)+'"><div class="ro-am"><div class="ro-an">'+esc(b.name)+'</div><div class="ro-as">'+esc(b.country||'')+' · 剩 '+gnum(b.quantity!=null?b.quantity:0)+' kg</div></div><span class="ro-plus">＋</span></button>';
-      }).join(''):'<div class="sempty" style="padding:18px">沒有可加入的生豆</div>')
-      +'</div>';
+    function aitem(b){return '<button class="ro-aitem" data-id="'+esc(b.id)+'"><div class="ro-am"><div class="ro-an">'+esc(b.name)+'</div><div class="ro-as">剩 '+gnum(b.quantity!=null?b.quantity:0)+' kg</div></div><span class="ro-plus">＋</span></button>';}
+    var add='<div class="gsec">加入生豆</div><div class="ro-add">';
+    if(!addable.length){add+='<div class="sempty" style="padding:18px">沒有可加入的生豆</div>';}
+    else{
+      var g={},order=[];
+      addable.forEach(function(b){var c=b.country||'—';if(!g[c]){g[c]=[];order.push(c);}g[c].push(b);});
+      order.sort(function(a,b){return g[b].length-g[a].length;});
+      add+=order.map(function(c){
+        var open=!!roastAddOpen[c];
+        var head='<button class="ro-chead'+(open?' open':'')+'" data-c="'+esc(c)+'"><span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span><span class="ro-cname">'+esc(c)+'</span><span class="rd-meta">'+g[c].length+' 支</span></button>';
+        var body=open?'<div class="ro-cbody">'+g[c].map(aitem).join('')+'</div>':'';
+        return '<div class="ro-cgroup">'+head+body+'</div>';
+      }).join('');
+    }
+    add+='</div>';
     var saveBtn=ROAST_CART.length?'<div class="ro-save-wrap"><button class="gbtn" id="ro-save">記錄 '+ROAST_CART.length+' 筆烘焙</button></div>':'';
     box.innerHTML=top+cart+add+saveBtn;
     roastBanner='';
+    box.querySelectorAll('.ro-chead').forEach(function(el){el.addEventListener('click',function(){var c=el.dataset.c;roastAddOpen[c]=!roastAddOpen[c];renderRoast();});});
     box.querySelectorAll('.ro-aitem').forEach(function(el){el.addEventListener('click',function(){
       var id=el.dataset.id;var b=BEANS.find(function(x){return String(x.id)===String(id);});
-      if(b){ROAST_CART.push({id:b.id,name:b.name,country:b.country,kg:1});renderRoast();}
+      if(b){ROAST_CART.push({id:b.id,name:b.name,country:b.country,kg:10});renderRoast();}
     });});
     box.querySelectorAll('.ro-x').forEach(function(el){el.addEventListener('click',function(){ROAST_CART.splice(+el.dataset.i,1);renderRoast();});});
     box.querySelectorAll('.ro-step').forEach(function(el){el.addEventListener('click',function(){
@@ -794,7 +759,6 @@ fill="#6F4A36" stroke="none">
     });});
     box.querySelectorAll('.ro-in').forEach(function(el){el.addEventListener('input',function(){ROAST_CART[+el.dataset.i].kg=el.value;});});
     var de=document.getElementById('ro-date');if(de)de.addEventListener('change',function(){roastDate=de.value;});
-    var te=document.getElementById('ro-time');if(te)te.addEventListener('change',function(){roastTime=te.value;});
     var sv=document.getElementById('ro-save');if(sv)sv.addEventListener('click',saveRoast);
   }
   async function saveRoast(){
@@ -808,7 +772,6 @@ fill="#6F4A36" stroke="none">
       var bean=BEANS.find(function(b){return String(b.id)===String(r.id);});
       var rec={bean_id:r.id,bean_name:r.name,country:r.country,green_kg:kg,status:'pending_cupping'};
       if(roastDate)rec.roast_date=roastDate;
-      if(roastTime)rec.roast_time=roastTime;
       var ins=await sb.from('roasts').insert(rec).select();
       if(ins.error){fail++;failMsg=ins.error.message;continue;}
       var newQty=Math.max(0,(Number(bean&&bean.quantity)||0)-kg);
