@@ -368,7 +368,7 @@ fill="#6F4A36" stroke="none">
       await applyRole(session.user);
     }
     sb.auth.getSession().then(({data})=>onSession(data.session));
-    sb.auth.onAuthStateChange((_e,session)=>onSession(session));
+    sb.auth.onAuthStateChange((_e,session)=>{setTimeout(()=>onSession(session),0);});
 
     async function submit(){
       const email=emailEl.value.trim();
