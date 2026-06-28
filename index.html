@@ -47,6 +47,18 @@
   .fgrid{width:44px;height:44px;border-radius:13px;background:var(--surface);border:.5px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:5px}
   .fgrid span{background:var(--accent);border-radius:2px;opacity:.85}
   #power{width:44px;height:44px;border-radius:13px;background:var(--surface);border:.5px solid var(--line);display:grid;place-items:center;color:#5FA45C;cursor:pointer;padding:0;transition:color .2s ease}
+  /* dock-morph: tapping an app swaps the two side clusters for that module's two buttons */
+  .bar.module{gap:10px}
+  .bar.module .cluster{flex:1;min-width:0}
+  .bar.module .pill{grid-template-columns:1fr;background:transparent;border:none;padding:0;width:100%}
+  .bar.module .cname{display:none}
+  .dock-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;width:100%;min-height:150px;border:1px solid var(--line);border-radius:26px;background:var(--surface);cursor:pointer;font-family:inherit;color:var(--ink);transition:transform .12s ease}
+  .dock-btn:active{transform:scale(.96)}
+  .dock-btn .db-ic{width:52px;height:52px;border-radius:50%;background:#F4E4E0;display:flex;align-items:center;justify-content:center}
+  .dock-btn .db-ic svg{width:27px;height:27px;color:var(--accent)}
+  .dock-btn .db-lab{font-size:14px;font-weight:600;color:var(--ink);line-height:1.15;text-align:center;padding:0 6px}
+  .dock-btn .db-zh{font-size:10px;color:var(--muted);margin-top:-4px}
+  .swap.back{color:var(--accent)}
   @keyframes press-pf{0%{transform:scale(1)}30%{transform:scale(.84);background:var(--tint)}60%{transform:scale(1.1);background:var(--tint)}100%{transform:scale(1)}}
   .pressing{animation:press-pf .42s ease}
   .item[data-id="beans"] .ic svg{transform:scale(.7)}
@@ -434,8 +446,61 @@ fill="#6F4A36" stroke="none">
   function alignCenter(){const pill=document.querySelector('.pill');const c=document.querySelector('.center');if(pill&&c)c.style.height=Math.round(pill.getBoundingClientRect().height)+'px';}
   alignCenter();window.addEventListener('resize',alignCenter);setTimeout(alignCenter,300);
   function press(el){el.classList.remove('pressing');void el.offsetWidth;el.classList.add('pressing');}
-  document.querySelector('.bar').addEventListener('pointerdown',e=>{const t=e.target.closest('.ic,.fgrid,#power');if(t)press(t);});
-  document.querySelector('.bar').addEventListener('click',e=>{const it=e.target.closest('.item');if(it&&it.dataset.id)onOpen(it.dataset.id);});
+  document.querySelector('.bar').addEventListener('pointerdown',e=>{const t=e.target.closest('.ic,.fgrid,#power,.dock-btn');if(t)press(t);});
+  document.querySelector('.bar').addEventListener('click',e=>{
+    if(dockMode==='module'){const b=e.target.closest('.dock-btn');if(b)runModuleAction(b.dataset.act);return;}
+    const it=e.target.closest('.item');if(it&&it.dataset.id)onOpen(it.dataset.id);
+  });
+
+  /* ---- dock-morph: tap an app icon → its two buttons take over the dock (in place) ---- */
+  const DOCK_ICONS={
+    bag:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9h12l-.8 11a1 1 0 0 1-1 .9H7.8a1 1 0 0 1-1-.9z"/><path d="M9 9V7a3 3 0 0 1 6 0v2"/></svg>`,
+    factory:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V11l5 3V11l5 3V9l4 2v10"/><path d="M9 21v-4h3v4"/></svg>`
+  };
+  /* each module = exactly two buttons (left / right). Add more modules here as they're built. */
+  const MODULE_ACTIONS={
+    beans:{name:'Beans',
+      left:{act:'beans:retail',label:'Retail Shelf',zh:'零售貨架',icon:'bag'},
+      right:{act:'beans:prod',label:'Production',zh:'生產烘焙',icon:'factory'}}
+  };
+  let dockMode='apps', dockModule=null, _savedDock=null;
+  const GRID_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1.4"/><rect x="14" y="4" width="6" height="6" rx="1.4"/><rect x="4" y="14" width="6" height="6" rx="1.4"/><rect x="14" y="14" width="6" height="6" rx="1.4"/></svg>';
+  function dockBtnHTML(b){return `<button class="dock-btn" data-act="${b.act}"><span class="db-ic">${DOCK_ICONS[b.icon]||''}</span><span class="db-lab">${b.label}</span>${b.zh?`<span class="db-zh">${b.zh}</span>`:''}</button>`;}
+  function enterModule(key){
+    const m=MODULE_ACTIONS[key];if(!m)return;
+    const lp=document.querySelector('.pill[data-side="shop"]');
+    const rp=document.querySelector('.pill[data-side="roastery"]');
+    const cl=document.querySelectorAll('.cluster');
+    if(dockMode!=='module')_savedDock={l:lp.innerHTML,r:rp.innerHTML};
+    dockMode='module';dockModule=key;
+    cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});
+    setTimeout(()=>{
+      document.querySelector('.bar').classList.add('module');
+      lp.innerHTML=dockBtnHTML(m.left);
+      rp.innerHTML=dockBtnHTML(m.right);
+      const sw=document.getElementById('swap');sw.classList.add('back');sw.innerHTML=GRID_ICON;
+      cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});
+      alignCenter();
+    },140);
+  }
+  function exitModule(){
+    const lp=document.querySelector('.pill[data-side="shop"]');
+    const rp=document.querySelector('.pill[data-side="roastery"]');
+    const cl=document.querySelectorAll('.cluster');
+    cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});
+    setTimeout(()=>{
+      document.querySelector('.bar').classList.remove('module');
+      if(_savedDock){lp.innerHTML=_savedDock.l;rp.innerHTML=_savedDock.r;}
+      const sw=document.getElementById('swap');sw.classList.remove('back');sw.innerHTML=I.swap;
+      dockMode='apps';dockModule=null;
+      cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});
+      alignCenter();
+    },140);
+  }
+  function runModuleAction(act){
+    if(act==='beans:prod'){openPage('beans');beansView='production';loadRoasted();}
+    else if(act==='beans:retail'){openPage('beans');beansView='retail';renderBeansRetail();}
+  }
 
   /* ---- Supabase live message feed ---- */
   const SUPABASE_URL='https://kjhudxzvidhynpabnalp.supabase.co';
@@ -640,10 +705,10 @@ fill="#6F4A36" stroke="none">
   renderTimesheet(TIMESHEET_SAMPLE);
 
   function onOpen(id){
+    if(MODULE_ACTIONS[id]){enterModule(id);return;}
     if(id==='timesheet'){openPage('timesheet');return;}
     if(id==='green'){openPage('green');loadBeans();return;}
     if(id==='roast'){openPage('green');loadBeans('roast');return;}
-    if(id==='beans'){openPage('beans');beansView='home';renderBeansHome();return;}
     console.log('open:',id);/* TODO: route other modules */
   }
 
@@ -916,7 +981,6 @@ fill="#6F4A36" stroke="none">
   function fmtDate(d){if(!d||d==='—')return '無日期';var p=String(d).split('-');return p.length===3?(p[0]+'/'+p[1]+'/'+p[2]):d;}
   function beansBack(){
     if(roastEdit){roastEdit=null;roastDelConfirm=false;renderRoasted();return;}
-    if(beansView==='production'||beansView==='retail'){renderBeansHome();return;}
     closePage();
   }
   async function loadRoasted(){
@@ -1204,7 +1268,7 @@ fill="#6F4A36" stroke="none">
     renderSample('','已儲存（'+(decision==='buy'?'Buy':'Skip')+'），接著填下一支');
     document.getElementById('green-content').scrollTop=0;
   }
-  function swapSides(){const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
+  function swapSides(){if(dockMode==='module'){exitModule();return;}const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
   function openFolder(){document.getElementById('ov').classList.add('open');}
   function closeFolder(){document.getElementById('ov').classList.remove('open');}
 
