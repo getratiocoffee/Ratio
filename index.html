@@ -21,6 +21,8 @@
   #who:empty{display:none}
   .clock{font-size:26px;font-weight:600;font-family:-apple-system,system-ui,sans-serif;color:var(--on-brand);letter-spacing:.5px}
   .feed{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .ctitle{display:none;padding:13px 16px 10px;font-size:15px;font-weight:700;color:var(--ink);border-bottom:1px solid var(--line)}
+  .ctitle.show{display:block}
   .msg{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
   .msg:last-child{border-bottom:none}
   .dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex:0 0 auto}
@@ -306,6 +308,7 @@
 
   <div class="board">
     <header class="bhead"><span class="logo"><img src="logo.png" alt="Ratio" /></span><div class="hright"><span id="who"></span><div class="clock" id="clock">9:41</div></div></header>
+    <div class="ctitle" id="ctitle"></div>
     <div class="feed" id="feed"></div>
     <div class="composer">
       <input id="composer-input" type="text" placeholder="Write a message…" autocomplete="off" />
@@ -438,7 +441,8 @@ fill="#6F4A36" stroke="none">
   };
   /* node tree. Each node = two buttons (left/right). A button has `act` (opens a screen) OR `to` (a deeper node). */
   const DOCK_NODES={
-    beans:{left:{label:'Retail Shelf',zh:'零售貨架',icon:'bag',act:'beans:retail'},
+    beans:{contentTitle:'Retail Reminder',
+           left:{label:'Retail Shelf',zh:'零售貨架',icon:'bag',act:'beans:retail'},
            right:{label:'Pending',zh:'待杯測',icon:'factory',act:'beans:prod'}},
     roast:{left:{label:'Production',zh:'生產烘焙',icon:'factory',act:'roast:prod'},
            right:{label:'History',zh:'烘焙紀錄',icon:'history',act:'roast:hist'}},
@@ -470,6 +474,7 @@ fill="#6F4A36" stroke="none">
         lp.style.width='';lp.style.height='';rp.style.width='';rp.style.height='';
         if(_savedDock){lp.innerHTML=_savedDock.l;rp.innerHTML=_savedDock.r;}
         sw.classList.remove('back');sw.innerHTML=I.swap;
+        setContentTitle('');
       }else{
         const node=DOCK_NODES[dockStack[dockStack.length-1]];
         bar.classList.add('module');
@@ -477,12 +482,14 @@ fill="#6F4A36" stroke="none">
         rp.innerHTML=dockBtnHTML(node.right);
         if(lr){lp.style.width=Math.round(lr.width)+'px';lp.style.height=Math.round(lr.height)+'px';rp.style.width=Math.round(rr.width)+'px';rp.style.height=Math.round(rr.height)+'px';}
         sw.classList.add('back');sw.innerHTML=GRID_ICON;
+        setContentTitle(node.contentTitle||'');
       }
       cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});
       alignCenter();
     },140);
   }
   function dockBack(){dockTo(dockStack.slice(0,-1));}
+  function setContentTitle(t){const el=document.getElementById('ctitle');if(!el)return;el.textContent=t||'';el.classList.toggle('show',!!t);}
   function runModuleAction(act){
     if(act==='beans:retail'){openPage('beans');beansView='retail';renderBeansRetail();}
     else if(act==='beans:prod'){roastedTitle='Pending';openPage('beans');beansView='production';loadRoasted();}
