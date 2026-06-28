@@ -126,6 +126,10 @@
   .re-seg{display:flex;gap:8px}
   .re-opt{flex:1;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:12px;padding:11px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer}
   .re-opt.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .gta{border:1px solid var(--line);border-radius:11px;padding:11px 13px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit;resize:vertical;width:100%}
+  .gta:focus{border-color:var(--accent)}
+  .smp-list{padding:0 16px 18px;display:flex;flex-direction:column;gap:10px}
+  .smp-cmt{font-size:13px;color:var(--ink);margin-top:7px;line-height:1.5}
   /* green home 2x2 */
   .ghome{display:grid;grid-template-columns:1fr 1fr;gap:13px;padding:16px}
   .ghome-tile{background:var(--surface);border:1px solid var(--line);border-radius:20px;min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;transition:transform .12s ease}
@@ -601,7 +605,7 @@ fill="#6F4A36" stroke="none">
   function greenBack(){
     if(greenView==='detail'){greenView='beans';greenBeanId=null;greenEdit=false;greenDelConfirm=false;renderGreen();}
     else if(greenView==='beans'){greenView='countries';greenCountry=null;renderGreen();}
-    else if(greenView==='countries'||greenView==='roast'||greenView==='soon'){greenView='home';renderGreen();}
+    else if(greenView==='countries'||greenView==='roast'||greenView==='soon'||greenView==='sample'){greenView='home';renderGreen();}
     else{closePage();}
   }
 
@@ -615,11 +619,11 @@ fill="#6F4A36" stroke="none">
       const tiles=[
         ['buy','Buy','採購','M6 8h12l-1 11a2 2 0 0 1-2 1.8H9A2 2 0 0 1 7 19z M9 8a3 3 0 0 1 6 0'],
         ['sell','Sell','販售','M4 4h7l9 9-7 7-9-9z'],
-        ['other','Other','之後再想',''],
+        ['sample','Sample','樣品杯測','M9 3h6 M10 3v5l-4 9a2 2 0 0 0 2 3h8a2 2 0 0 0 2-3l-4-9V3'],
         ['inventory','Inventory','庫存','M12 3l9 5-9 5-9-5z M3 12l9 5 9-5 M3 16l9 5 9-5']
       ];
       box.innerHTML='<div class="ghome">'+tiles.map(function(t){
-        var cls='ghome-tile'+(t[0]==='other'?' soon':'');
+        var cls='ghome-tile';
         var icon=t[3]
           ?'<span class="gh-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="'+t[3]+'"/></svg></span>'
           :'<span class="gh-ic"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18" cy="12" r="1.6" fill="currentColor"/></svg></span>';
@@ -627,12 +631,13 @@ fill="#6F4A36" stroke="none">
       }).join('')+'</div>';
       box.querySelectorAll('.ghome-tile').forEach(function(el){el.addEventListener('click',function(){
         var k=el.dataset.k;
-        if(k==='buy'||k==='inventory'){greenView='countries';}
-        else{greenSoon=(k==='sell'?'Sell 販售':'Other');greenView='soon';}
-        renderGreen();box.scrollTop=0;
+        if(k==='buy'||k==='inventory'){greenView='countries';renderGreen();box.scrollTop=0;}
+        else if(k==='sample'){greenView='sample';loadSamples();box.scrollTop=0;}
+        else{greenSoon='Sell 販售';greenView='soon';renderGreen();box.scrollTop=0;}
       });});
     }
     else if(greenView==='roast'){renderRoast();}
+    else if(greenView==='sample'){renderSample();}
     else if(greenView==='soon'){
       title.textContent=greenSoon;count.textContent='';
       box.innerHTML='<div class="sempty">「'+esc(greenSoon)+'」這塊之後再做</div>';
@@ -907,6 +912,78 @@ fill="#6F4A36" stroke="none">
     if(error){var m=document.getElementById('re-msg');if(m){m.textContent='刪除失敗：'+error.message;m.className='gform-msg err';}roastDelConfirm=false;renderRoastEdit();return;}
     ROASTS=ROASTS.filter(function(x){return String(x.id)!==String(r.id);});
     roastEdit=null;roastDelConfirm=false;renderRoasted();
+  }
+  let SAMPLES=[], smpRatings={fragrance:null,acidity:null,sweetness:null,body:null,aftertaste:null};
+  const SMP_FIELDS=[['fragrance','Fragrance / Aroma'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
+  function todayStr(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+  async function loadSamples(){
+    const box=document.getElementById('green-content');
+    document.getElementById('green-title').textContent='Sample';
+    document.getElementById('green-count').textContent='';
+    box.innerHTML='<div class="sempty">載入中…</div>';
+    const {data,error}=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('created_at',{ascending:false});
+    SAMPLES=error?[]:(data||[]);
+    smpRatings={fragrance:null,acidity:null,sweetness:null,body:null,aftertaste:null};
+    renderSample(error?error.message:'');
+  }
+  function smpSeg(name){
+    return '<div class="re-seg smp-seg" data-name="'+name+'">'+[1,2,3].map(function(n){
+      return '<button class="re-opt'+(smpRatings[name]===n?' on':'')+'" data-n="'+n+'">'+n+'</button>';
+    }).join('')+'</div>';
+  }
+  function renderSample(errMsg){
+    const box=document.getElementById('green-content');
+    document.getElementById('green-title').textContent='Sample';
+    document.getElementById('green-count').textContent=SAMPLES.length?(SAMPLES.length+' 筆'):'';
+    var ratings=SMP_FIELDS.map(function(f){return '<div class="gfield"><span class="gl">'+f[1]+'（1-3）</span>'+smpSeg(f[0])+'</div>';}).join('');
+    var form='<div class="gform">'
+      +'<label class="gfield"><span class="gl">杯測日期</span><input id="smp-date" type="date" value="'+todayStr()+'" /></label>'
+      +'<label class="gfield"><span class="gl">Supplier</span><input id="smp-supplier" type="text" /></label>'
+      +'<label class="gfield"><span class="gl">ID</span><input id="smp-id" type="text" /></label>'
+      +'<label class="gfield"><span class="gl">Process</span><input id="smp-process" type="text" /></label>'
+      +ratings
+      +'<label class="gfield"><span class="gl">Comment</span><textarea id="smp-comment" class="gta" rows="3"></textarea></label>'
+      +'<div class="gform-msg'+(errMsg?' err':'')+'" id="smp-msg">'+(errMsg?('讀取失敗：'+esc(errMsg)+'（請先在 Supabase 跑 samples 建表 SQL）'):'')+'</div>'
+      +'<button class="gbtn" id="smp-save">儲存杯測</button>'
+      +'</div>';
+    var list=SAMPLES.length?('<div class="gsec">已存樣品</div><div class="smp-list">'+SAMPLES.map(sampleCard).join('')+'</div>'):'';
+    box.innerHTML=form+list;
+    box.querySelectorAll('.smp-seg').forEach(function(segEl){
+      segEl.querySelectorAll('.re-opt').forEach(function(b){b.addEventListener('click',function(){
+        var name=segEl.dataset.name;smpRatings[name]=+b.dataset.n;
+        segEl.querySelectorAll('.re-opt').forEach(function(o){o.classList.toggle('on',+o.dataset.n===smpRatings[name]);});
+      });});
+    });
+    document.getElementById('smp-save').addEventListener('click',saveSample);
+  }
+  function sampleCard(s){
+    var sc=[['F/A',s.fragrance],['Acid',s.acidity],['Sweet',s.sweetness],['Body',s.body],['After',s.aftertaste]].filter(function(x){return x[1]!=null;}).map(function(x){return x[0]+' '+x[1];}).join(' · ');
+    var sub=[s.sample_id?'ID '+esc(s.sample_id):'',s.process?esc(s.process):''].filter(Boolean).join(' · ');
+    return '<div class="bean"><div class="bean-top"><span class="bean-nm">'+esc(s.supplier||s.sample_id||'樣品')+'</span><span class="rd-meta">'+esc(fmtDate(s.cupping_date))+'</span></div>'
+      +(sub?'<div class="bean-sub">'+sub+'</div>':'')
+      +(sc?'<div class="bean-meta"><span>'+sc+'</span></div>':'')
+      +(s.comment?'<div class="smp-cmt">'+esc(s.comment)+'</div>':'')+'</div>';
+  }
+  async function saveSample(){
+    const msg=document.getElementById('smp-msg');
+    const btn=document.getElementById('smp-save');
+    var rec={
+      cupping_date:document.getElementById('smp-date').value||todayStr(),
+      supplier:document.getElementById('smp-supplier').value.trim()||null,
+      sample_id:document.getElementById('smp-id').value.trim()||null,
+      process:document.getElementById('smp-process').value.trim()||null,
+      fragrance:smpRatings.fragrance,acidity:smpRatings.acidity,sweetness:smpRatings.sweetness,body:smpRatings.body,aftertaste:smpRatings.aftertaste,
+      comment:document.getElementById('smp-comment').value.trim()||null
+    };
+    if(!rec.supplier&&!rec.sample_id){msg.textContent='請至少填 Supplier 或 ID';msg.className='gform-msg err';return;}
+    btn.disabled=true;msg.textContent='儲存中…';msg.className='gform-msg';
+    const ins=await sb.from('samples').insert(rec).select();
+    btn.disabled=false;
+    if(ins.error){msg.textContent='儲存失敗：'+ins.error.message;msg.className='gform-msg err';return;}
+    if(ins.data&&ins.data[0])SAMPLES.unshift(ins.data[0]);
+    smpRatings={fragrance:null,acidity:null,sweetness:null,body:null,aftertaste:null};
+    renderSample();
+    var m2=document.getElementById('smp-msg');if(m2){m2.textContent='已儲存樣品杯測';m2.className='gform-msg ok';}
   }
   function swapSides(){const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
   function openFolder(){document.getElementById('ov').classList.add('open');}
