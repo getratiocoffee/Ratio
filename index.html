@@ -139,6 +139,7 @@
   .smp-no{font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;color:#fff;background:var(--accent);border-radius:7px;padding:1px 7px;margin-right:2px}
   .smp-item{cursor:pointer}
   .smp-item:active{background:#FAF2EF}
+  .smp-hint{font-size:12px;color:var(--muted);text-align:center;padding:10px 4px 0}
   .smp-sec{margin:0 16px 14px}
   .smp-sec:first-child{margin-top:14px}
   .smp-sec-h{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;padding-left:2px}
@@ -394,6 +395,7 @@ fill="#6F4A36" stroke="none">
     order:`<svg viewBox="0 0 48 48"><rect x="14" y="11" width="20" height="26" rx="3.5" fill="#FCF6F4" ${O}/><path d="M18.5 18 h11 M18.5 22 h11 M18.5 26 h7" stroke="#CFC4B8" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M19 31 l2 2 3.5-4" fill="none" stroke="#9DAE86" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     fx:`<svg viewBox="0 0 48 48"><path d="M14 11 V36 H39" fill="none" stroke="#6B5E50" stroke-width="2" stroke-linecap="round"/><path d="M14 11 l-2.2 3 M14 11 l2.2 3" ${O} fill="none"/><path d="M39 36 l-3 -2.2 M39 36 l-3 2.2" ${O} fill="none"/><path d="M18 22 L24 31 L36 15" fill="none" stroke="#BE7C86" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18" cy="22" r="1.6" fill="#BE7C86"/><circle cx="24" cy="31" r="1.6" fill="#BE7C86"/><circle cx="36" cy="15" r="1.6" fill="#BE7C86"/></svg>`,
     coffee:`<svg viewBox="0 0 24 24" ${s}><path d="M4 11h13v3a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 11h2a2 2 0 0 1 0 6h-1"/></svg>`,
+    history:`<svg viewBox="0 0 48 48"><g transform="translate(0 1)" stroke="#9A8B82" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 23a13 13 0 1 1 1.5 6"/><path d="M11 16v7h7"/><path d="M24 17v7l5 3" stroke="#BE7C86"/></g></svg>`,
     qr:`<svg viewBox="0 0 24 24" ${s}><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h3v3M20 14v6M14 20h3"/></svg>`,
     repeat:`<svg viewBox="0 0 24 24" ${s}><path d="M17 3l3 3-3 3"/><path d="M20 6H9a4 4 0 0 0-4 4v1"/><path d="M7 21l-3-3 3-3"/><path d="M4 18h11a4 4 0 0 0 4-4v-1"/></svg>`,
     news:`<svg viewBox="0 0 24 24" ${s}><path d="M16 5H6a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h11a2 2 0 0 0 2-2V5z"/><path d="M8 9h5M8 13h5"/></svg>`,
@@ -404,7 +406,7 @@ fill="#6F4A36" stroke="none">
     swap:`<svg viewBox="0 0 24 24" ${s}><path d="M5 8h13M15 5l3 3-3 3"/><path d="M19 16H6M9 13l-3 3 3 3"/></svg>`
   };
   const shop=[['timesheet','Timesheet'],['beans','Beans'],['task','Task'],['tools','Tools']];
-  const roastery=[['roast','Roast'],['green','Green'],['order','Order'],['fx','F(x)']];
+  const roastery=[['roast','Roast'],['green','Green'],['order','Order'],['fx','F(x)'],['history','History']];
   const folder=[['coffee','Order'],['qr','Pay'],['repeat','Subscribe'],['news','News'],['gift','Gifts'],['user','Account'],['cog','Settings'],['bag','Shop']];
 
   function fill(side,arr){const el=document.querySelector(`.pill[data-side="${side}"]`);el.innerHTML='';
@@ -622,6 +624,7 @@ fill="#6F4A36" stroke="none">
     if(id==='green'){openPage('green');loadBeans();return;}
     if(id==='roast'){openPage('green');loadBeans('roast');return;}
     if(id==='beans'){openPage('beans');loadRoasted();return;}
+    if(id==='history'){openPage('green');greenView='history';loadSamples('history');return;}
     console.log('open:',id);/* TODO: route other modules */
   }
 
@@ -649,6 +652,7 @@ fill="#6F4A36" stroke="none">
     else if(greenView==='beans'){greenView='countries';greenCountry=null;renderGreen();}
     else if(greenView==='roast'){closePage();}
     else if(greenView==='sample'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderSample();}else{greenView='home';renderGreen();}}
+    else if(greenView==='history'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderHistory();}else{closePage();}}
     else if(greenView==='countries'||greenView==='soon'){greenView='home';renderGreen();}
     else{closePage();}
   }
@@ -682,6 +686,7 @@ fill="#6F4A36" stroke="none">
     }
     else if(greenView==='roast'){renderRoast();}
     else if(greenView==='sample'){renderSample();}
+    else if(greenView==='history'){renderHistory();}
     else if(greenView==='soon'){
       title.textContent=greenSoon;count.textContent='';
       box.innerHTML='<div class="sempty">「'+esc(greenSoon)+'」這塊之後再做</div>';
@@ -957,7 +962,7 @@ fill="#6F4A36" stroke="none">
     ROASTS=ROASTS.filter(function(x){return String(x.id)!==String(r.id);});
     roastEdit=null;roastDelConfirm=false;renderRoasted();
   }
-  let SAMPLES=[], smpPages=[], smpIdx=0, smpEdit=null, smpEditObj=null, smpDelConfirm=false;
+  let SAMPLES=[], smpPages=[], smpIdx=0, smpEdit=null, smpEditObj=null, smpDelConfirm=false, smpEditFrom='sample';
   function nextNo(date){return SAMPLES.filter(function(x){return x.cupping_date===date;}).length+1;}
   const SMP_FIELDS=[['fragrance','Fragrance / Aroma'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
   function todayStr(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
@@ -967,15 +972,42 @@ fill="#6F4A36" stroke="none">
     var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
     p.cupping_date=g('smp-date')||todayStr();p.supplier=g('smp-supplier');p.sample_id=g('smp-id');p.process=g('smp-process');p.comment=g('smp-comment');
   }
-  async function loadSamples(){
+  async function loadSamples(view){
     const box=document.getElementById('green-content');
-    document.getElementById('green-title').textContent='Sample';
+    document.getElementById('green-title').textContent=view==='history'?'History':'Sample';
     document.getElementById('green-count').textContent='';
     box.innerHTML='<div class="sempty">載入中…</div>';
-    const {data,error}=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('created_at',{ascending:false});
+    const {data,error}=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('no',{ascending:false}).order('created_at',{ascending:false});
     SAMPLES=error?[]:(data||[]);
-    smpPages=[blankSmp()];smpIdx=0;
-    renderSample(error?error.message:'');
+    smpEdit=null;smpEditObj=null;smpDelConfirm=false;
+    if(view==='history'){greenView='history';renderHistory();}
+    else{smpPages=[blankSmp()];smpIdx=0;greenView='sample';renderSample(error?error.message:'');}
+  }
+  let historyOpen={};
+  function renderHistory(){
+    const box=document.getElementById('green-content');
+    if(smpEdit){renderSampleEdit();return;}
+    document.getElementById('green-title').textContent='History';
+    document.getElementById('green-count').textContent=SAMPLES.length+' 筆';
+    if(!SAMPLES.length){box.innerHTML='<div class="sempty">尚無樣品紀錄</div>';return;}
+    var groups={},order=[];
+    SAMPLES.forEach(function(s){var d=s.cupping_date||'—';if(!groups[d]){groups[d]=[];order.push(d);}groups[d].push(s);});
+    if(order.length&&historyOpen[order[0]]===undefined)historyOpen[order[0]]=true;
+    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">點日期展開，點紀錄可修改</div>'+order.map(function(d){
+      var items=groups[d];var open=!!historyOpen[d];
+      var buy=items.filter(function(x){return x.decision==='buy';}).length;
+      var head='<button class="rdate'+(open?' open':'')+'" data-d="'+esc(d)+'">'
+        +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
+        +'<span class="rd-date">'+esc(fmtDate(d))+'</span>'
+        +'<span class="rd-meta">'+items.length+' 支'+(buy?' · <b>'+buy+' Buy</b>':'')+'</span></button>';
+      var body=open?'<div class="rd-body">'+items.map(sampleCard).join('')+'</div>':'';
+      return '<div class="rgroup">'+head+body+'</div>';
+    }).join('');
+    box.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.d;historyOpen[d]=!historyOpen[d];renderHistory();});});
+    box.querySelectorAll('.smp-item').forEach(function(el){el.addEventListener('click',function(){
+      var s=SAMPLES.find(function(x){return String(x.id)===String(el.dataset.id);});
+      if(s){smpEdit=s.id;smpEditObj=Object.assign({},s);smpEditFrom='history';smpDelConfirm=false;renderHistory();box.scrollTop=0;}
+    });});
   }
   function dotRow(p,name){
     var v=p[name]||0,d='';
@@ -1008,7 +1040,9 @@ fill="#6F4A36" stroke="none">
       +'<div class="smp-sec"><div class="smp-sec-h">Comment</div><textarea id="smp-comment" class="gta" rows="3">'+esc(p.comment||'')+'</textarea></div>'
       +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':(okMsg?' ok':''))+'" id="smp-msg">'+(errMsg?('讀取失敗：'+esc(errMsg)+'（請先在 Supabase 跑 samples 建表 SQL）'):(okMsg?esc(okMsg):''))+'</div></div>'
       +'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn skip" id="smp-skip">Skip</button><button class="gbtn buy" id="smp-buy">Buy</button></div></div>';
-    var list=SAMPLES.length?('<div class="smp-sec"><div class="smp-sec-h">已存樣品　點一下可修改</div><div class="smp-list">'+SAMPLES.map(sampleCard).join('')+'</div></div>'):'';
+    var today=todayStr();
+    var todays=SAMPLES.filter(function(x){return x.cupping_date===today;});
+    var list=todays.length?('<div class="smp-sec"><div class="smp-sec-h">今天的樣品　點一下可修改／刪除</div><div class="smp-list">'+todays.map(sampleCard).join('')+'</div><div class="smp-hint">更早的紀錄在 dock 的 History</div></div>'):'';
     box.innerHTML=nav+form+list;
     box.querySelectorAll('.dots').forEach(function(dr){
       var name=dr.dataset.name;
@@ -1024,7 +1058,7 @@ fill="#6F4A36" stroke="none">
     document.getElementById('smp-skip').addEventListener('click',function(){saveSample('skip');});
     box.querySelectorAll('.smp-item').forEach(function(el){el.addEventListener('click',function(){
       var s=SAMPLES.find(function(x){return String(x.id)===String(el.dataset.id);});
-      if(s){smpEdit=s.id;smpEditObj=Object.assign({},s);smpDelConfirm=false;renderSample();box.scrollTop=0;}
+      if(s){smpEdit=s.id;smpEditObj=Object.assign({},s);smpEditFrom='sample';smpDelConfirm=false;renderSample();box.scrollTop=0;}
     });});
   }
   function renderSampleEdit(){
@@ -1061,7 +1095,7 @@ fill="#6F4A36" stroke="none">
     box.querySelectorAll('.re-opt').forEach(function(o){o.addEventListener('click',function(){
       p.decision=o.dataset.s;box.querySelectorAll('.re-opt').forEach(function(x){x.classList.toggle('on',x.dataset.s===p.decision);});
     });});
-    document.getElementById('se-cancel').addEventListener('click',function(){smpEdit=null;smpEditObj=null;smpDelConfirm=false;renderSample();box.scrollTop=0;});
+    document.getElementById('se-cancel').addEventListener('click',function(){smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpAfterEdit();box.scrollTop=0;});
     document.getElementById('se-save').addEventListener('click',saveSampleEdit);
     var dd=document.getElementById('se-del');if(dd)dd.addEventListener('click',function(){smpDelConfirm=true;renderSampleEdit();});
     var dc=document.getElementById('se-del-cancel');if(dc)dc.addEventListener('click',function(){smpDelConfirm=false;renderSampleEdit();});
@@ -1080,14 +1114,15 @@ fill="#6F4A36" stroke="none">
     if(error){msg.textContent='儲存失敗：'+error.message;msg.className='gform-msg err';return;}
     var i=SAMPLES.findIndex(function(x){return String(x.id)===String(smpEdit);});
     if(i>-1)SAMPLES[i]=Object.assign({},SAMPLES[i],upd);
-    smpEdit=null;smpEditObj=null;smpDelConfirm=false;renderSample();
+    smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpAfterEdit();
     document.getElementById('green-content').scrollTop=0;
   }
+  function smpAfterEdit(){if(smpEditFrom==='history'){renderHistory();}else{renderSample();}}
   async function deleteSample(){
     const {error}=await sb.from('samples').delete().eq('id',smpEdit);
     if(error){var m=document.getElementById('se-msg');if(m){m.textContent='刪除失敗：'+error.message;m.className='gform-msg err';}smpDelConfirm=false;renderSampleEdit();return;}
     SAMPLES=SAMPLES.filter(function(x){return String(x.id)!==String(smpEdit);});
-    smpEdit=null;smpEditObj=null;smpDelConfirm=false;renderSample();
+    smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpAfterEdit();
   }
   function sampleCard(s){
     var chips=[['F/A',s.fragrance],['Acid',s.acidity],['Sweet',s.sweetness],['Body',s.body],['After',s.aftertaste]].filter(function(x){return x[1]!=null;}).map(function(x){return '<span class="sc-chip">'+x[0]+'<b>'+x[1]+'</b></span>';}).join('');
