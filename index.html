@@ -202,7 +202,7 @@ l-22 -150 -3 -7340 c-3 -8016 -7 -7459 53 -7812 146 -865 592 -1688 1235
     <div class="center">
       <button class="swap" id="swap" onclick="swapSides()" aria-label="swap sides"></button>
       <div class="folder" onclick="openFolder()"><div class="fgrid" id="fgrid"></div></div>
-      <button id="power" onclick="togglePower()" aria-label="power"></button>
+      <button id="power" aria-label="logout"></button>
     </div>
     <div class="cluster"><div class="pill" data-side="roastery"></div><div class="cname">Roastery</div></div>
   </div>
@@ -341,6 +341,12 @@ fill="#6F4A36" stroke="none">
     });
     const xBtn=document.getElementById('auth-x');
     if(xBtn)xBtn.addEventListener('click',hideGate);
+    const pwrBtn=document.getElementById('power');
+    if(pwrBtn)pwrBtn.addEventListener('click',async()=>{
+      const {data}=await sb.auth.getSession();
+      if(data.session){await sb.auth.signOut();location.reload();}
+      else if(siBtn){siBtn.click();}
+    });
 
     async function sendCode(){
       const email=document.getElementById('auth-email').value.trim();
