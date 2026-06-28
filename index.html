@@ -136,6 +136,34 @@
   .rbadge{font-size:11px;font-weight:600;color:#fff;background:var(--accent);border-radius:8px;padding:2px 9px;white-space:nowrap}
   .rbadge.done{background:#7E9B7A}
   .rcard{cursor:pointer}
+  /* roasting cart UI */
+  .ro-banner{margin:12px 16px 0;font-size:13px;font-weight:500;color:#5b7a57}
+  .ro-banner.err{color:var(--accent)}
+  .ro-banner:empty{display:none}
+  .ro-top{display:flex;gap:10px;padding:12px 16px 2px}
+  .ro-dt{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+  .ro-dt span{font-size:11px;color:var(--muted);padding-left:2px}
+  .ro-dt input{border:1px solid var(--line);border-radius:11px;padding:10px 12px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit;width:100%}
+  .ro-dt input:focus{border-color:var(--accent)}
+  .ro-cart{padding:2px 16px 6px;display:flex;flex-direction:column;gap:10px}
+  .ro-row{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:12px 14px}
+  .ro-rh{display:flex;justify-content:space-between;align-items:center}
+  .ro-nm{font-size:15px;font-weight:600;color:var(--ink)}
+  .ro-x{border:none;background:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px 6px;line-height:1}
+  .ro-rem{font-size:11px;color:var(--muted);margin-top:2px}
+  .ro-qty{display:flex;align-items:center;gap:10px;margin-top:11px}
+  .ro-step{width:46px;height:46px;border-radius:13px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-family:inherit}
+  .ro-step:active{background:#EDE3DF}
+  .ro-in{flex:1;min-width:0;text-align:center;border:1px solid var(--line);border-radius:13px;padding:11px;font-size:19px;font-weight:600;color:var(--ink);background:var(--bg);outline:none;font-family:ui-monospace,Menlo,monospace}
+  .ro-in:focus{border-color:var(--accent)}
+  .ro-unit{font-size:13px;color:var(--muted);flex:0 0 auto}
+  .ro-add{padding:2px 16px 16px;display:flex;flex-direction:column;gap:8px}
+  .ro-aitem{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 15px;cursor:pointer;font-family:inherit}
+  .ro-aitem:active{background:#FAF2EF}
+  .ro-an{font-size:15px;font-weight:600;color:var(--ink)}
+  .ro-as{font-size:12px;color:var(--muted);margin-top:2px}
+  .ro-plus{width:32px;height:32px;border-radius:50%;background:#F4E4E0;color:var(--accent);font-size:19px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .ro-save-wrap{position:sticky;bottom:0;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 14px);background:linear-gradient(to top,var(--bg) 72%,rgba(244,236,234,0))}
   .beans-search input{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit}
   .beans-search input:focus{border-color:var(--accent)}
   .bean{margin:8px 14px;padding:13px 15px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
@@ -712,54 +740,78 @@ fill="#6F4A36" stroke="none">
       +(r.country?'<div class="bean-sub">'+esc(r.country)+'</div>':'')
       +'<div class="bean-meta"><span><b>'+esc(gnum(r.green_kg))+'</b> kg 生豆</span>'+(when?'<span>'+esc(when)+'</span>':'')+'</div></div>';
   }
+  let ROAST_CART=[], roastDate='', roastTime='', roastBanner='', roastBannerErr=false;
   function renderRoast(){
     const box=document.getElementById('green-content');
     document.getElementById('green-title').textContent='Roasting';
-    document.getElementById('green-count').textContent='';
-    const opts=BEANS.slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));}).map(function(b){
-      var rem=gnum(b.quantity!=null?b.quantity:0);
-      return '<option value="'+esc(b.id)+'">'+esc(b.name)+' · 剩 '+rem+'kg</option>';
-    }).join('');
-    const recent=ROASTS.slice(0,5).map(function(r){return roastCard(r,false);}).join('')||'<div class="sempty" style="padding:22px">尚無烘焙紀錄</div>';
-    box.innerHTML=
-      '<div class="gform">'
-      +'<label class="gfield"><span class="gl">生豆</span><select id="ro-bean" class="gsel">'+opts+'</select></label>'
-      +'<label class="gfield"><span class="gl">生豆用量 (kg)</span><input id="ro-kg" type="text" inputmode="decimal" placeholder="例如 12" /></label>'
-      +'<label class="gfield"><span class="gl">烘焙日期（留空＝今天）</span><input id="ro-date" type="date" /></label>'
-      +'<label class="gfield"><span class="gl">時間（選填）</span><input id="ro-time" type="time" /></label>'
-      +'<div class="gform-msg" id="ro-msg"></div>'
-      +'<button class="gbtn" id="ro-save">記錄烘焙</button>'
-      +'</div>'
-      +'<div class="gsec">最近烘焙</div><div style="padding-bottom:14px">'+recent+'</div>';
-    document.getElementById('ro-save').addEventListener('click',saveRoast);
+    document.getElementById('green-count').textContent=ROAST_CART.length?('本次 '+ROAST_CART.length):'';
+    const inCart={};ROAST_CART.forEach(function(r){inCart[r.id]=true;});
+    var top='<div class="ro-banner'+(roastBannerErr?' err':'')+'" id="ro-banner">'+esc(roastBanner)+'</div>'
+      +'<div class="ro-top">'
+      +'<label class="ro-dt"><span>日期（留空＝今天）</span><input id="ro-date" type="date" value="'+esc(roastDate)+'" /></label>'
+      +'<label class="ro-dt"><span>時間（選填）</span><input id="ro-time" type="time" value="'+esc(roastTime)+'" /></label>'
+      +'</div>';
+    var cart='';
+    if(ROAST_CART.length){
+      cart='<div class="gsec">本次烘焙 ('+ROAST_CART.length+')</div><div class="ro-cart">'
+        +ROAST_CART.map(function(r,i){
+          var bean=BEANS.find(function(b){return String(b.id)===String(r.id);});
+          var rem=bean?gnum(bean.quantity!=null?bean.quantity:0):'?';
+          return '<div class="ro-row"><div class="ro-rh"><span class="ro-nm">'+esc(r.name)+'</span><button class="ro-x" data-i="'+i+'" aria-label="remove">✕</button></div>'
+            +'<div class="ro-rem">'+esc(r.country||'')+' · 庫存剩 '+rem+' kg</div>'
+            +'<div class="ro-qty"><button class="ro-step" data-d="-1" data-i="'+i+'">−</button>'
+            +'<input class="ro-in" data-i="'+i+'" type="text" inputmode="decimal" value="'+esc(r.kg)+'" />'
+            +'<span class="ro-unit">kg</span>'
+            +'<button class="ro-step" data-d="1" data-i="'+i+'">＋</button></div></div>';
+        }).join('')+'</div>';
+    }
+    var addable=BEANS.filter(function(b){return !inCart[b.id];}).sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
+    var add='<div class="gsec">加入生豆</div><div class="ro-add">'
+      +(addable.length?addable.map(function(b){
+        return '<button class="ro-aitem" data-id="'+esc(b.id)+'"><div class="ro-am"><div class="ro-an">'+esc(b.name)+'</div><div class="ro-as">'+esc(b.country||'')+' · 剩 '+gnum(b.quantity!=null?b.quantity:0)+' kg</div></div><span class="ro-plus">＋</span></button>';
+      }).join(''):'<div class="sempty" style="padding:18px">沒有可加入的生豆</div>')
+      +'</div>';
+    var saveBtn=ROAST_CART.length?'<div class="ro-save-wrap"><button class="gbtn" id="ro-save">記錄 '+ROAST_CART.length+' 筆烘焙</button></div>':'';
+    box.innerHTML=top+cart+add+saveBtn;
+    roastBanner='';
+    box.querySelectorAll('.ro-aitem').forEach(function(el){el.addEventListener('click',function(){
+      var id=el.dataset.id;var b=BEANS.find(function(x){return String(x.id)===String(id);});
+      if(b){ROAST_CART.push({id:b.id,name:b.name,country:b.country,kg:1});renderRoast();}
+    });});
+    box.querySelectorAll('.ro-x').forEach(function(el){el.addEventListener('click',function(){ROAST_CART.splice(+el.dataset.i,1);renderRoast();});});
+    box.querySelectorAll('.ro-step').forEach(function(el){el.addEventListener('click',function(){
+      var i=+el.dataset.i,d=+el.dataset.d,v=parseFloat(ROAST_CART[i].kg)||0;
+      ROAST_CART[i].kg=Math.max(0,Math.round((v+d)*10)/10);renderRoast();
+    });});
+    box.querySelectorAll('.ro-in').forEach(function(el){el.addEventListener('input',function(){ROAST_CART[+el.dataset.i].kg=el.value;});});
+    var de=document.getElementById('ro-date');if(de)de.addEventListener('change',function(){roastDate=de.value;});
+    var te=document.getElementById('ro-time');if(te)te.addEventListener('change',function(){roastTime=te.value;});
+    var sv=document.getElementById('ro-save');if(sv)sv.addEventListener('click',saveRoast);
   }
   async function saveRoast(){
-    const msg=document.getElementById('ro-msg');
     const btn=document.getElementById('ro-save');
-    const beanId=document.getElementById('ro-bean').value;
-    const kg=parseFloat(document.getElementById('ro-kg').value);
-    const date=document.getElementById('ro-date').value;
-    const time=document.getElementById('ro-time').value;
-    const bean=BEANS.find(function(b){return String(b.id)===String(beanId);});
-    if(!bean){msg.textContent='請選擇生豆';msg.className='gform-msg err';return;}
-    if(!kg||kg<=0){msg.textContent='請填正確的數量';msg.className='gform-msg err';return;}
-    btn.disabled=true;msg.textContent='記錄中…';msg.className='gform-msg';
-    const rec={bean_id:bean.id,bean_name:bean.name,country:bean.country,green_kg:kg,status:'pending_cupping'};
-    if(date)rec.roast_date=date;
-    if(time)rec.roast_time=time;
-    const ins=await sb.from('roasts').insert(rec).select();
-    if(ins.error){btn.disabled=false;msg.textContent='失敗：'+ins.error.message;msg.className='gform-msg err';return;}
-    const newQty=Math.max(0,(Number(bean.quantity)||0)-kg);
-    const upd=await sb.from('beans').update({quantity:newQty}).eq('id',bean.id);
-    bean.quantity=newQty;
-    if(ins.data&&ins.data[0])ROASTS.unshift(ins.data[0]);
-    btn.disabled=false;
-    renderRoast();
-    const m2=document.getElementById('ro-msg');
-    if(m2){
-      if(upd.error){m2.textContent='紀錄已存，但庫存扣除失敗：'+upd.error.message;m2.className='gform-msg err';}
-      else{m2.textContent='已記錄，並從庫存扣除 '+gnum(kg)+' kg（'+esc(bean.name)+' 剩 '+gnum(newQty)+' kg）';m2.className='gform-msg ok';}
+    var rows=ROAST_CART.map(function(r){return {r:r,kg:parseFloat(r.kg)};}).filter(function(x){return x.kg>0;});
+    if(!rows.length){roastBanner='請至少給一支豆子填數量';roastBannerErr=true;renderRoast();return;}
+    btn.disabled=true;btn.textContent='記錄中…';
+    var ok=0,fail=0,failMsg='';
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i].r,kg=rows[i].kg;
+      var bean=BEANS.find(function(b){return String(b.id)===String(r.id);});
+      var rec={bean_id:r.id,bean_name:r.name,country:r.country,green_kg:kg,status:'pending_cupping'};
+      if(roastDate)rec.roast_date=roastDate;
+      if(roastTime)rec.roast_time=roastTime;
+      var ins=await sb.from('roasts').insert(rec).select();
+      if(ins.error){fail++;failMsg=ins.error.message;continue;}
+      var newQty=Math.max(0,(Number(bean&&bean.quantity)||0)-kg);
+      await sb.from('beans').update({quantity:newQty}).eq('id',r.id);
+      if(bean)bean.quantity=newQty;
+      if(ins.data&&ins.data[0])ROASTS.unshift(ins.data[0]);
+      ok++;
     }
+    ROAST_CART=[];
+    roastBanner=ok+' 筆已記錄並從庫存扣除'+(fail?('，'+fail+' 筆失敗：'+failMsg):'');
+    roastBannerErr=fail>0;
+    renderRoast();
   }
   async function loadRoasted(){
     const box=document.getElementById('beans-content');
