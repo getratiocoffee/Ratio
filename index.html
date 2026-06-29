@@ -334,7 +334,7 @@
   <div class="screen" id="screen-timesheet">
     <header class="shead">
       <button class="back" onclick="closePage()" aria-label="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
-      <h1>Timesheet</h1>
+      <h1 id="ts-title">Timesheet</h1>
       <span class="wk" id="ts-week"></span>
     </header>
     <div class="sbody" id="timesheet-body"></div>
@@ -438,10 +438,14 @@ fill="#6F4A36" stroke="none">
     sample:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v5l-4.2 9.3A2 2 0 0 0 7.6 20h8.8a2 2 0 0 0 1.8-2.7L14 8V3"/></svg>`,
     buy:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M2 3h3l2.4 12.3a1 1 0 0 0 1 .7h9.2a1 1 0 0 0 1-.8L21 7H6"/></svg>`,
     sell:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 11 3.8a2 2 0 0 0-1.4-.6H4v5.6a2 2 0 0 0 .6 1.4l9.6 9.6a2 2 0 0 0 2.8 0l3.6-3.6a2 2 0 0 0 0-2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg>`,
-    analyse:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 21H3V3"/><path d="M7 14l3-4 3 2 5-7"/></svg>`
+    analyse:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 21H3V3"/><path d="M7 14l3-4 3 2 5-7"/></svg>`,
+    calendar:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>`
   };
   /* node tree. Each node = two buttons (left/right). A button has `act` (opens a screen) OR `to` (a deeper node). */
   const DOCK_NODES={
+    timesheet:{contentTitle:'Timesheet Reminder',
+           left:{label:'This Week',zh:'本週',icon:'calendar',act:'timesheet:week'},
+           right:{label:'History',zh:'歷史',icon:'history',act:'timesheet:hist'}},
     beans:{contentTitle:'Retail Reminder',
            left:{label:'Retail Shelf',zh:'零售貨架',icon:'bag',act:'beans:retail'},
            right:{label:'Pending',zh:'待杯測',icon:'factory',act:'beans:prod'}},
@@ -514,6 +518,15 @@ fill="#6F4A36" stroke="none">
     else if(act==='green:sell'){openPage('green');greenSoon='Sell 販售';greenView='soon';renderGreen();}
     else if(act==='green:analyse'){openPage('green');loadSamples();}
     else if(act==='green:samplehist'){openPage('green');loadSamples('history');}
+    else if(act==='timesheet:week'){openTimesheet('This Week','Jun 30 – Jul 4',TIMESHEET_SAMPLE);}
+    else if(act==='timesheet:hist'){openTimesheet('History','',null);}
+  }
+  function openTimesheet(title,week,groups){
+    document.getElementById('ts-title').textContent=title;
+    document.getElementById('ts-week').textContent=week||'';
+    if(groups)renderTimesheet(groups);
+    else document.getElementById('timesheet-body').innerHTML='<div class="sempty">歷史紀錄之後再做<br>（等資料搬進 Supabase）</div>';
+    openPage('timesheet');
   }
 
   /* ---- Supabase live message feed ---- */
@@ -724,7 +737,6 @@ fill="#6F4A36" stroke="none">
 
   function onOpen(id){
     if(DOCK_NODES[id]){dockTo([id]);return;}
-    if(id==='timesheet'){openPage('timesheet');return;}
     console.log('open:',id);/* TODO: route other modules */
   }
 
