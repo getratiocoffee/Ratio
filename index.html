@@ -94,9 +94,9 @@
   /* ---- full-screen module page (Timesheet, etc.) ---- */
   .screen{position:fixed;inset:0;margin:calc(env(safe-area-inset-top,0px) + 16px) 16px calc(env(safe-area-inset-bottom,0px) + 16px);background:var(--bg);border:1px solid rgba(50,43,42,0.16);border-radius:28px;overflow:hidden;z-index:20;display:flex;flex-direction:column;transform:translateX(calc(100% + 24px));transition:transform .28s cubic-bezier(.4,0,.2,1);visibility:hidden}
   .screen.open{transform:none;visibility:visible}
-  .shead{display:flex;align-items:center;gap:10px;padding:0 14px;min-height:60px;background:var(--brand);color:var(--on-brand)}
+  .shead{display:flex;align-items:center;gap:10px;padding:0 18px;min-height:60px;background:var(--brand);color:var(--on-brand)}
   .shead .back{width:36px;height:36px;border-radius:11px;border:none;background:rgba(244,236,234,.14);color:var(--on-brand);display:grid;place-items:center;cursor:pointer;padding:0;transition:background .15s ease}
-  .shead .logo{width:36px;height:36px;display:block;flex:0 0 auto}
+  .shead .logo{width:38px;height:38px;display:block;flex:0 0 auto}
   .shead .logo img{width:100%;height:100%;display:block;filter:brightness(0) invert(1)}
   .shead .back:active{background:rgba(244,236,234,.24)}
   .shead .back svg{width:20px;height:20px}
@@ -1334,13 +1334,12 @@ fill="#6F4A36" stroke="none">
     else if(greenView==='detail'){
       const b=BEANS.find(function(x){return String(x.id)===String(greenBeanId);});
       if(!b){greenBack();return;}
-      title.textContent='';
-      count.textContent='';
       if(!greenEdit){
+        title.textContent=b.name;count.textContent=b.country||'';
         const val=(Number(b.quantity)||0)*(Number(b.cost_per_kg)||0);
         const rows=[['Country',b.country],['Region',b.region],['Station',b.station],['Process',b.process],['Variety',b.variety],['Harvest',b.harvest],['Altitude',b.altitude?b.altitude+' m':''],['Quantity',b.quantity!=null?gnum(b.quantity)+' kg':'',true],['Cost',b.cost_per_kg!=null?'$'+b.cost_per_kg+' /kg':'',true],['Value',val?gmoney(val):'',true],['Supplier',b.supplier]].filter(function(r){return r[1];});
         const list='<div class="gd-list">'+rows.map(function(r){return '<div class="grow"><span class="gk">'+r[0]+'</span><span class="gv'+(r[2]?' mono':'')+'">'+esc(r[1])+'</span></div>';}).join('')+'</div>';
-        box.innerHTML='<div class="gdetail"><div class="gd-hero"><div class="gd-nm">'+esc(b.name)+'</div><div class="gd-ct">'+esc(b.country||'')+'</div></div><button class="gbtn ghost" id="green-edit">編輯</button>'+list+'</div>';
+        box.innerHTML='<div class="gdetail"><button class="gbtn ghost" id="green-edit" style="margin-top:14px">編輯</button>'+list+'</div>';
         document.getElementById('green-edit').addEventListener('click',function(){greenEdit=true;greenDelConfirm=false;renderGreen();box.scrollTop=0;});
       }else{
         const form='<div class="gform">'+GFIELDS.map(function(f){
@@ -1354,7 +1353,8 @@ fill="#6F4A36" stroke="none">
             ?'<div class="gdel-msg">確定要刪除「'+esc(b.name)+'」？此動作無法復原。</div><div class="gform-actions"><button class="gbtn ghost" id="gdel-cancel">取消</button><button class="gbtn danger" id="gdel-yes">確定刪除</button></div>'
             :'<button class="gbtn dghost" id="gdel">刪除這支豆子</button>')
         +'</div></div>';
-        box.innerHTML='<div class="gdetail"><div class="gd-hero"><div class="gd-nm">編輯豆子</div></div>'+form+'</div>';
+        title.textContent='編輯豆子';count.textContent='';
+        box.innerHTML='<div class="gdetail" style="padding-top:8px">'+form+'</div>';
         document.getElementById('green-cancel').addEventListener('click',function(){greenEdit=false;greenDelConfirm=false;renderGreen();box.scrollTop=0;});
         document.getElementById('green-save').addEventListener('click',saveBean);
         var gd=document.getElementById('gdel');if(gd)gd.addEventListener('click',function(){greenDelConfirm=true;renderGreen();});
