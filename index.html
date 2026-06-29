@@ -652,8 +652,8 @@ fill="#6F4A36" stroke="none">
     else if(act==='green:sell'){openPage('green');greenSoon='Sell 販售';greenView='soon';renderGreen();}
     else if(act==='green:analyse'){openPage('green');loadSamples();}
     else if(act==='green:samplehist'){openPage('green');loadSamples('history');}
-    else if(act==='timesheet:next'){var pw=planWeeksFromToday();openWeekPlan(pw.next,'下一週');setActiveDock(act);}
-    else if(act==='timesheet:after'){var pw=planWeeksFromToday();openWeekPlan(pw.after,'再下一週');setActiveDock(act);}
+    else if(act==='timesheet:next'){var pw=planWeeksFromToday();openWeekView(pw.next,'下一週');setActiveDock(act);}
+    else if(act==='timesheet:after'){var pw=planWeeksFromToday();openWeekView(pw.after,'再下一週');setActiveDock(act);}
     else if(act==='timesheet:hist'){document.getElementById('ts-title').textContent='History';document.getElementById('ts-week').textContent='';renderTimesheetWeeks(historyWeeks());openPage('timesheet');setActiveDock(null);}
   }
 
@@ -1075,6 +1075,32 @@ fill="#6F4A36" stroke="none">
     document.getElementById('ts-title').textContent=label;
     document.getElementById('ts-week').textContent=weekRangeOf(ws);
     renderWeekPlan();openPage('timesheet');
+  }
+  /* ---- read view: show an already-saved future-week roster (with staff tabs) ---- */
+  let wvWeek='', wvLabel='', wvFilter=null;
+  function openWeekView(ws,label){
+    var sub=submittedRoster(ws);
+    if(!sub||!sub.length){openWeekPlan(ws,label);return;}
+    wvWeek=ws;wvLabel=label;wvFilter=null;
+    document.getElementById('ts-title').textContent=label;
+    document.getElementById('ts-week').textContent=weekRangeOf(ws);
+    renderWeekView();openPage('timesheet');
+  }
+  function renderWeekView(){
+    const body=document.getElementById('timesheet-body');
+    var sub=submittedRoster(wvWeek);
+    var w=sub?weekFromShifts(wvWeek,sub):null;
+    if(!w){openWeekPlan(wvWeek,wvLabel);return;}
+    var names=w.staff.map(function(s){return s.name;});
+    if(wvFilter&&names.indexOf(wvFilter)<0)wvFilter=null;
+    var chips='<div class="ts-filter"><button class="tf-chip'+(wvFilter?'':' on')+'" data-n="">全部</button>'
+      +names.map(function(n){return '<button class="tf-chip'+(wvFilter===n?' on':'')+'" data-n="'+esc(n)+'">'+esc(n)+'</button>';}).join('')+'</div>';
+    var gs=filterGroups(w.groups,wvFilter);
+    var sched=gs.length?tsGroupsHTML(gs,wvWeek,!!wvFilter):'<div class="sempty">'+esc(wvFilter||'')+' 這週沒有班</div>';
+    var editBtn='<div style="padding:12px 16px 16px"><button class="gbtn" id="wv-edit">編輯班表</button></div>';
+    body.innerHTML=chips+sched+editBtn;
+    body.querySelectorAll('.tf-chip').forEach(function(c){c.addEventListener('click',function(){wvFilter=c.dataset.n||null;renderWeekView();});});
+    var eb=document.getElementById('wv-edit');if(eb)eb.addEventListener('click',function(){openWeekPlan(wvWeek,wvLabel);});
   }
   function planStaffTotals(){
     var t={};planShifts.forEach(function(s){t[s.name]=(t[s.name]||0)+tsPaidBr(s.start,s.end,s.br);});
