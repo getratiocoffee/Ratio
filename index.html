@@ -512,7 +512,7 @@ fill="#6F4A36" stroke="none">
     history:`<svg viewBox="0 0 48 48"><g transform="translate(0 1)" stroke="#9A8B82" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 23a13 13 0 1 1 1.5 6"/><path d="M11 16v7h7"/><path d="M24 17v7l5 3" stroke="#BE7C86"/></g></svg>`,
     qr:`<svg viewBox="0 0 24 24" ${s}><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h3v3M20 14v6M14 20h3"/></svg>`,
     repeat:`<svg viewBox="0 0 24 24" ${s}><path d="M17 3l3 3-3 3"/><path d="M20 6H9a4 4 0 0 0-4 4v1"/><path d="M7 21l-3-3 3-3"/><path d="M4 18h11a4 4 0 0 0 4-4v-1"/></svg>`,
-    news:`<svg viewBox="0 0 24 24" ${s}><path d="M16 5H6a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h11a2 2 0 0 0 2-2V5z"/><path d="M8 9h5M8 13h5"/></svg>`,
+    news:`<svg viewBox="0 0 24 24" ${s}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>`,
     gift:`<svg viewBox="0 0 24 24" ${s}><path d="M4 11h16v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M3 8h18v3H3z"/><path d="M12 8v12"/></svg>`,
     user:`<svg viewBox="0 0 24 24" ${s}><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>`,
     cog:`<svg viewBox="0 0 24 24" ${s}><circle cx="12" cy="12" r="3"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2M6 6l1.5 1.5M16.5 16.5L18 18M18 6l-1.5 1.5M7.5 16.5L6 18"/></svg>`,
@@ -521,7 +521,7 @@ fill="#6F4A36" stroke="none">
   };
   const shop=[['timesheet','Timesheet'],['beans','Beans'],['task','Task'],['recipe','Recipe']];
   const roastery=[['roast','Roast'],['green','Green'],['order','Order'],['fx','F(x)']];
-  const folder=[['coffee','Order'],['qr','Pay'],['repeat','Subscribe'],['news','News'],['gift','Gifts'],['user','Account'],['cog','Settings'],['bag','Shop']];
+  const folder=[['coffee','Order'],['qr','Pay'],['repeat','Subscribe'],['news','Generate Invoice'],['gift','Gifts'],['user','Account'],['cog','Settings'],['bag','Shop']];
 
   function fill(side,arr){const el=document.querySelector(`.pill[data-side="${side}"]`);el.innerHTML='';
     arr.forEach(([ic,lb])=>{const d=document.createElement('div');d.className='item';d.dataset.id=ic;
