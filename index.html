@@ -82,6 +82,7 @@
   .swap.back{color:var(--accent)}
   .dock-soon{width:100%;height:100%;display:flex;align-items:center;justify-content:center;border:1.5px dashed #CBBEB7;border-radius:30px;background:var(--bg);color:var(--muted);font-size:13px;font-weight:600}
   @keyframes press-pf{0%{transform:scale(1)}30%{transform:scale(.84);background:var(--tint)}60%{transform:scale(1.1);background:var(--tint)}100%{transform:scale(1)}}
+  @keyframes cp-rowup{from{opacity:0;transform:translateY(11px)}to{opacity:1;transform:none}}
   .pressing{animation:press-pf .42s ease}
   .item[data-id="beans"] .ic svg{transform:scale(.7)}
   .item[data-id="roast"] .ic svg{transform:translateY(3px) scale(1.2)}
@@ -624,7 +625,16 @@ fill="#6F4A36" stroke="none">
   function showCPanel(html){
     document.getElementById('feed').style.display='none';
     document.querySelector('.composer').style.display='none';
-    const c=document.getElementById('cpanel');c.innerHTML=html;c.classList.add('show');c.scrollTop=0;
+    const c=document.getElementById('cpanel');
+    const fresh=!c.classList.contains('show');
+    c.innerHTML=html;c.classList.add('show');c.scrollTop=0;
+    if(fresh){
+      var kids=c.children;
+      for(var i=0;i<kids.length;i++){
+        kids[i].style.animation='cp-rowup .4s ease both';
+        kids[i].style.animationDelay=Math.min(i*0.06,0.42)+'s';
+      }
+    }
   }
   function hideCPanel(){
     const c=document.getElementById('cpanel');c.classList.remove('show');c.innerHTML='';
@@ -1150,6 +1160,8 @@ fill="#6F4A36" stroke="none">
   }
   function renderWeekView(){
     const body=document.getElementById('timesheet-body');
+    document.getElementById('ts-title').textContent=wvLabel||'Timesheet';
+    document.getElementById('ts-week').textContent=wvWeek?weekRangeOf(wvWeek):'';
     var sub=submittedRoster(wvWeek);
     var w=sub?weekFromShifts(wvWeek,sub):null;
     if(!w){openWeekPlan(wvWeek,wvLabel);return;}
@@ -1170,6 +1182,8 @@ fill="#6F4A36" stroke="none">
   }
   function renderWeekPlan(){
     const body=document.getElementById('timesheet-body');const sc=body.scrollTop;
+    document.getElementById('ts-title').textContent=planLabel||'Timesheet';
+    document.getElementById('ts-week').textContent=planWeek?weekRangeOf(planWeek):'';
     if(planDone){
       body.innerHTML='<div class="plan-done">'
         +'<div class="pd-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11"/></svg></div>'
