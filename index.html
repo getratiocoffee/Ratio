@@ -109,6 +109,20 @@
   .cashrow .ch{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--muted);margin-top:1px}
   .cash-toggle{border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;font-family:inherit;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer;min-width:64px}
   .cash-toggle.on{background:#5E8C61;border-color:#5E8C61;color:#fff}
+  .dayhd.today{color:var(--accent);background:var(--accent-tint,#F3DDE0)}
+  .rdate.today .rd-date{color:var(--accent)}
+  .dayhd .td-now{font-size:10px;font-weight:700;color:#fff;background:var(--accent);border-radius:7px;padding:1px 7px;margin-left:8px;vertical-align:middle}
+  .ts-filter{display:flex;gap:7px;overflow-x:auto;padding:12px 16px 8px;-webkit-overflow-scrolling:touch}
+  .tf-chip{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;font-family:inherit;font-size:12px;font-weight:600;padding:6px 13px;cursor:pointer}
+  .tf-chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .ps-submit{padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 18px)}
+  .ts-del{flex:0 0 auto;display:flex;align-items:center;border:none;border-left:1px solid var(--line);background:none;color:#B2544E;padding:0 13px;cursor:pointer}
+  .ts-del:active{background:#F6DEDC}
+  .ts-del svg{width:17px;height:17px}
+  .ts-delbar{padding:4px 4px 8px;display:flex;flex-direction:column;gap:10px}
+  .ts-delbar span{font-size:13px;color:var(--ink);line-height:1.5}
+  .ts-delact{display:flex;gap:10px}
+  .ts-delact .gbtn{margin:0}
   /* New: roster planner */
   .plan-week{padding:14px 16px 6px}
   .plan-week .gl{font-size:12px;color:var(--muted);padding-left:2px}
@@ -577,15 +591,31 @@ fill="#6F4A36" stroke="none">
     document.getElementById('feed').style.display='';
     document.querySelector('.composer').style.display='';
   }
+  let tsFilter=null;
   function renderModulePanel(rootKey){
     if(rootKey==='timesheet'){
       const cw=currentWeekStart();
       const w=thisWeekEntry();
-      var histBtn='<button class="ts-hist" id="ts-hist-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg><span>歷史與付款 PDF</span><span class="ts-hist-arr">›</span></button>';
-      showCPanel((w?tsGroupsHTML(w.groups):'<div class="sempty">本週還沒有班表紀錄<br>（過往班表在下方歷史）</div>')+histBtn);
       var ct=document.getElementById('ctitle');
-      ct.innerHTML='<div class="ct-week">本週 · '+esc(weekRangeOf(cw))+'</div>'+(w?'<div class="ct-sub">時數已扣週一至週五 30 分鐘休息</div>':'');
+      ct.innerHTML='<div class="ct-week">本週 · '+esc(weekRangeOf(cw))+'</div>';
       ct.classList.add('show');
+      var histBtn='<button class="ts-hist" id="ts-hist-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg><span>歷史與付款 PDF</span><span class="ts-hist-arr">›</span></button>';
+      var html;
+      if(w){
+        var names=w.staff.map(function(s){return s.name;});
+        if(tsFilter&&names.indexOf(tsFilter)<0)tsFilter=null;
+        var chips='<div class="ts-filter"><button class="tf-chip'+(tsFilter?'':' on')+'" data-n="">本週全部</button>'
+          +names.map(function(n){return '<button class="tf-chip'+(tsFilter===n?' on':'')+'" data-n="'+esc(n)+'">'+esc(n)+'</button>';}).join('')+'</div>';
+        var gs=filterGroups(w.groups,tsFilter);
+        var body=gs.length?tsGroupsHTML(gs,cw):'<div class="sempty">'+esc(tsFilter||'')+' 本週沒有班</div>';
+        html=chips+body+histBtn;
+      }else{
+        html='<div class="sempty" style="padding:38px 24px 18px">本週還沒有班表<br>幫這週排班並上傳吧</div>'
+          +'<div style="padding:0 16px 8px"><button class="gbtn" id="ts-fillweek">排這週的班表</button></div>'+histBtn;
+      }
+      showCPanel(html);
+      var fw=document.getElementById('ts-fillweek');if(fw)fw.addEventListener('click',function(){openWeekPlan(cw,'本週');});
+      document.querySelectorAll('#cpanel .tf-chip').forEach(function(c){c.addEventListener('click',function(){tsFilter=c.dataset.n||null;renderModulePanel('timesheet');});});
       var hl=document.getElementById('ts-hist-link');
       if(hl)hl.addEventListener('click',function(){runModuleAction('timesheet:hist');});
     }else{
@@ -781,14 +811,21 @@ fill="#6F4A36" stroke="none">
 
   /* placeholder roster — replace with live Supabase `shifts` data later */
   const TIMESHEET_WEEKS=[
-    {weekStart:"2026-06-22",range:"Jun 22 – Jun 28",staff:[{"name": "Daniel", "hrs": 27.0, "hl": "27h", "wd": 16.0, "sat": 9.0, "sun": 2.0}, {"name": "Joshua", "hrs": 16.5, "hl": "16.5h", "wd": 16.5, "sat": 0.0, "sun": 0.0}, {"name": "Juwa", "hrs": 8.0, "hl": "8h", "wd": 0.0, "sat": 0.0, "sun": 8.0}, {"name": "Manami", "hrs": 18.0, "hl": "18h", "wd": 11.0, "sat": 0.0, "sun": 7.0}, {"name": "Samuel", "hrs": 8.0, "hl": "8h", "wd": 0.0, "sat": 8.0, "sun": 0.0}, {"name": "Yi", "hrs": 40.0, "hl": "40h", "wd": 24.0, "sat": 8.0, "sun": 8.0}],cash:[],groups:[{"day": "Mon · Jun 22", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Tue · Jun 23", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Wed · Jun 24", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Thu · Jun 25", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Fri · Jun 26", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Sat · Jun 27", "rows": [{"nm": "Daniel", "tm": "06:00–15:00", "hrs": "9h"}, {"nm": "Samuel", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Yi", "tm": "08:15–16:15", "hrs": "8h"}]}, {"day": "Sun · Jun 28", "rows": [{"nm": "Daniel", "tm": "06:15–08:15", "hrs": "2h"}, {"nm": "Yi", "tm": "08:00–16:00", "hrs": "8h"}, {"nm": "Juwa", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Manami", "tm": "09:15–16:15", "hrs": "7h"}]}]},
-    {weekStart:"2026-06-15",range:"Jun 15 – Jun 21",staff:[{"name": "Daniel", "hrs": 27.0, "hl": "27h", "wd": 16.0, "sat": 9.0, "sun": 2.0}, {"name": "Joshua", "hrs": 16.5, "hl": "16.5h", "wd": 16.5, "sat": 0.0, "sun": 0.0}, {"name": "Juwa", "hrs": 8.0, "hl": "8h", "wd": 0.0, "sat": 0.0, "sun": 8.0}, {"name": "Manami", "hrs": 18.0, "hl": "18h", "wd": 11.0, "sat": 0.0, "sun": 7.0}, {"name": "Samuel", "hrs": 8.0, "hl": "8h", "wd": 0.0, "sat": 8.0, "sun": 0.0}, {"name": "Yi", "hrs": 40.0, "hl": "40h", "wd": 24.0, "sat": 8.0, "sun": 8.0}],cash:["Joshua", "Daniel"],groups:[{"day": "Mon · Jun 15", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Tue · Jun 16", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Wed · Jun 17", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Thu · Jun 18", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Fri · Jun 19", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Sat · Jun 20", "rows": [{"nm": "Daniel", "tm": "06:00–15:00", "hrs": "9h"}, {"nm": "Samuel", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Yi", "tm": "08:15–16:15", "hrs": "8h"}]}, {"day": "Sun · Jun 21", "rows": [{"nm": "Daniel", "tm": "06:15–08:15", "hrs": "2h"}, {"nm": "Yi", "tm": "08:00–16:00", "hrs": "8h"}, {"nm": "Juwa", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Manami", "tm": "09:15–16:15", "hrs": "7h"}]}]},
+    {weekStart:"2026-06-22",range:"Jun 22 – Jun 28",staff:[{"name": "Daniel", "hrs": 27.0, "hl": "27h", "wd": 16.0, "sat": 9.0, "sun": 2.0}, {"name": "Joshua", "hrs": 16.5, "hl": "16.5h", "wd": 16.5, "sat": 0.0, "sun": 0.0}, {"name": "Juwa", "hrs": 8.0, "hl": "8h", "wd": 0.0, "sat": 0.0, "sun": 8.0}, {"name": "Manami", "hrs": 18.0, "hl": "18h", "wd": 11.0, "sat": 0.0, "sun": 7.0}, {"name": "Samuel", "hrs": 8.0, "hl": "8h", "wd": 0.0, "sat": 8.0, "sun": 0.0}, {"name": "Yi", "hrs": 40.0, "hl": "40h", "wd": 24.0, "sat": 8.0, "sun": 8.0}],cash:[],groups:[{"day": "Mon · Jun 22", "dk": "mon", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Tue · Jun 23", "dk": "tue", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Wed · Jun 24", "dk": "wed", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Thu · Jun 25", "dk": "thu", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Fri · Jun 26", "dk": "fri", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Sat · Jun 27", "dk": "sat", "rows": [{"nm": "Daniel", "tm": "06:00–15:00", "hrs": "9h"}, {"nm": "Samuel", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Yi", "tm": "08:15–16:15", "hrs": "8h"}]}, {"day": "Sun · Jun 28", "dk": "sun", "rows": [{"nm": "Daniel", "tm": "06:15–08:15", "hrs": "2h"}, {"nm": "Yi", "tm": "08:00–16:00", "hrs": "8h"}, {"nm": "Juwa", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Manami", "tm": "09:15–16:15", "hrs": "7h"}]}]},
+    {weekStart:"2026-06-15",range:"Jun 15 – Jun 21",staff:[{"name": "Daniel", "hrs": 27.0, "hl": "27h", "wd": 16.0, "sat": 9.0, "sun": 2.0}, {"name": "Joshua", "hrs": 16.5, "hl": "16.5h", "wd": 16.5, "sat": 0.0, "sun": 0.0}, {"name": "Juwa", "hrs": 8.0, "hl": "8h", "wd": 0.0, "sat": 0.0, "sun": 8.0}, {"name": "Manami", "hrs": 18.0, "hl": "18h", "wd": 11.0, "sat": 0.0, "sun": 7.0}, {"name": "Samuel", "hrs": 8.0, "hl": "8h", "wd": 0.0, "sat": 8.0, "sun": 0.0}, {"name": "Yi", "hrs": 40.0, "hl": "40h", "wd": 24.0, "sat": 8.0, "sun": 8.0}],cash:["Joshua", "Daniel"],groups:[{"day": "Mon · Jun 15", "dk": "mon", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Tue · Jun 16", "dk": "tue", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Wed · Jun 17", "dk": "wed", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Thu · Jun 18", "dk": "thu", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Fri · Jun 19", "dk": "fri", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Sat · Jun 20", "dk": "sat", "rows": [{"nm": "Daniel", "tm": "06:00–15:00", "hrs": "9h"}, {"nm": "Samuel", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Yi", "tm": "08:15–16:15", "hrs": "8h"}]}, {"day": "Sun · Jun 21", "dk": "sun", "rows": [{"nm": "Daniel", "tm": "06:15–08:15", "hrs": "2h"}, {"nm": "Yi", "tm": "08:00–16:00", "hrs": "8h"}, {"nm": "Juwa", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Manami", "tm": "09:15–16:15", "hrs": "7h"}]}]},
   ];
-  function tsGroupsHTML(groups){
-    return (groups||[]).map(g=>{
-      const rows=g.rows.map(r=>`<div class="shift"><div class="who"><div class="nm">${esc(r.nm)}</div>${r.role?`<div class="role">${esc(r.role)}</div>`:''}</div><div class="rt"><div class="tm">${esc(r.tm)}</div>${r.hrs?`<div class="hrs">${esc(r.hrs)}</div>`:''}</div></div>`).join('');
-      return `<div class="dayhd">${esc(g.day)}</div>${rows}`;
+  function tsGroupsHTML(groups,ws){
+    var todayIso=isoDate(new Date());
+    return (groups||[]).map(function(g){
+      var isToday=false;
+      if(ws&&g.dk){var di=TS_ORDER.indexOf(g.dk);if(di>=0){var dd=new Date(ws+'T00:00:00');dd.setDate(dd.getDate()+di);isToday=isoDate(dd)===todayIso;}}
+      var rows=g.rows.map(function(r){return '<div class="shift"><div class="who"><div class="nm">'+esc(r.nm)+'</div>'+(r.role?'<div class="role">'+esc(r.role)+'</div>':'')+'</div><div class="rt"><div class="tm">'+esc(r.tm)+'</div>'+(r.hrs?'<div class="hrs">'+esc(r.hrs)+'</div>':'')+'</div></div>';}).join('');
+      return '<div class="dayhd'+(isToday?' today':'')+'">'+esc(g.day)+(isToday?'<span class="td-now">今天</span>':'')+'</div>'+rows;
     }).join('');
+  }
+  function filterGroups(groups,name){
+    if(!name)return groups;
+    return (groups||[]).map(function(g){return {day:g.day,dk:g.dk,rows:g.rows.filter(function(r){return r.nm===name;})};}).filter(function(g){return g.rows.length;});
   }
   function renderTimesheet(groups){
     const body=document.getElementById('timesheet-body');
@@ -796,7 +833,7 @@ fill="#6F4A36" stroke="none">
     body.innerHTML=tsGroupsHTML(groups);
   }
   /* cash-payment selection per week (persisted on this device; seeded from backup) */
-  let tsHistOpen={};
+  let tsHistOpen={}, tsDelW=null;
   function cashKey(ws){return 'ratio_cash_'+ws;}
   function getCashSet(w){
     try{const s=localStorage.getItem(cashKey(w.weekStart));if(s)return new Set(JSON.parse(s));}catch(e){}
@@ -807,7 +844,7 @@ fill="#6F4A36" stroke="none">
   function renderTimesheetWeeks(weeks){
     const body=document.getElementById('timesheet-body');
     if(!weeks||!weeks.length){body.innerHTML='<div class="sempty">尚無歷史紀錄</div>';return;}
-    body.innerHTML='<div class="gsec" style="padding:12px 18px 2px">點日期展開，右側可產生付款 PDF</div>'+weeks.map(function(w){
+    body.innerHTML='<div class="gsec" style="padding:12px 18px 2px">點日期展開；右側可產生付款 PDF 或刪除</div>'+weeks.map(function(w){
       var open=!!tsHistOpen[w.weekStart];
       var cash=getCashSet(w);
       var head='<div class="thw-head">'
@@ -815,25 +852,32 @@ fill="#6F4A36" stroke="none">
         +'<span class="rd-date">'+esc(w.range)+'</span>'
         +'<span class="rd-meta">'+w.staff.length+' 人'+(cash.size?' · <b>'+cash.size+' 現金</b>':'')+'</span></button>'
         +'<button class="ts-pdf" data-w="'+esc(w.weekStart)+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 17h6M9 13h2"/></svg>PDF</button>'
+        +'<button class="ts-del" data-w="'+esc(w.weekStart)+'" aria-label="delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/></svg></button>'
         +'</div>';
       var bodyHtml='';
-      if(open){
+      if(tsDelW===w.weekStart){
+        bodyHtml='<div class="rd-body"><div class="ts-delbar"><span>刪除「'+esc(w.range)+'」班表？此動作無法復原。</span><div class="ts-delact"><button class="gbtn ghost" data-del-cancel="1">取消</button><button class="gbtn danger" data-del-yes="'+esc(w.weekStart)+'">確定刪除</button></div></div></div>';
+      }else if(open){
         var cashList=w.staff.map(function(s){
           var on=cash.has(s.name);
           return '<div class="cashrow"><div><div class="cn">'+esc(s.name)+'</div><div class="ch">'+esc(s.hl)+'</div></div>'
             +'<button class="cash-toggle'+(on?' on':'')+'" data-w="'+esc(w.weekStart)+'" data-n="'+esc(s.name)+'">'+(on?'Cash':'Bank')+'</button></div>';
         }).join('');
-        bodyHtml='<div class="rd-body"><div class="cash-sec"><div class="cash-sec-h">付款方式　點一下切換 Cash／Bank</div><div class="cash-list">'+cashList+'</div></div>'+tsGroupsHTML(w.groups)+'</div>';
+        bodyHtml='<div class="rd-body"><div class="cash-sec"><div class="cash-sec-h">付款方式　點一下切換 Cash／Bank</div><div class="cash-list">'+cashList+'</div></div>'+tsGroupsHTML(w.groups,w.weekStart)+'</div>';
       }
       return '<div class="thw">'+head+bodyHtml+'</div>';
     }).join('');
-    body.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){var k=el.dataset.w;tsHistOpen[k]=!tsHistOpen[k];renderTimesheetWeeks(weeks);});});
+    var reload=function(){renderTimesheetWeeks(historyWeeks());};
+    body.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){var k=el.dataset.w;tsDelW=null;tsHistOpen[k]=!tsHistOpen[k];renderTimesheetWeeks(weeks);});});
     body.querySelectorAll('.cash-toggle').forEach(function(el){el.addEventListener('click',function(){
       var w=weeks.find(function(x){return x.weekStart===el.dataset.w;});if(!w)return;
       var set=getCashSet(w);var n=el.dataset.n;if(set.has(n))set.delete(n);else set.add(n);setCashSet(w,set);
       renderTimesheetWeeks(weeks);
     });});
     body.querySelectorAll('.ts-pdf').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();var w=weeks.find(function(x){return x.weekStart===el.dataset.w;});if(w)generatePaymentPDF(w);});});
+    body.querySelectorAll('.ts-del').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();tsDelW=(tsDelW===el.dataset.w?null:el.dataset.w);renderTimesheetWeeks(weeks);});});
+    var dc=body.querySelector('[data-del-cancel]');if(dc)dc.addEventListener('click',function(){tsDelW=null;renderTimesheetWeeks(weeks);});
+    var dy=body.querySelector('[data-del-yes]');if(dy)dy.addEventListener('click',function(){deleteWeek(dy.dataset.delYes);tsDelW=null;reload();});
   }
   function generatePaymentPDF(w){
     var JS=window.jspdf&&window.jspdf.jsPDF;
@@ -901,12 +945,43 @@ fill="#6F4A36" stroke="none">
   function mondayOf(d){var wd=(d.getDay()+6)%7;var m=new Date(d);m.setDate(m.getDate()-wd);m.setHours(0,0,0,0);return m;}
   function weekRangeOf(monIso){var a=new Date(monIso+'T00:00:00');var b=new Date(a);b.setDate(b.getDate()+6);return TS_MON[a.getMonth()]+' '+a.getDate()+' – '+TS_MON[b.getMonth()]+' '+b.getDate();}
   function dayLabelOf(monIso,i){var a=new Date(monIso+'T00:00:00');a.setDate(a.getDate()+i);return TS_DAYLBL[TS_ORDER[i]]+' · '+TS_MON[a.getMonth()]+' '+a.getDate();}
-  /* date-aware split: a week is "this week" only while it contains today; once its Sunday passes it is History */
+  /* ---- roster data layer: static TIMESHEET_WEEKS + localStorage submitted rosters ---- */
+  function rosterKey(ws){return 'ratio_roster_'+ws;}
+  function submittedRoster(ws){try{var s=localStorage.getItem(rosterKey(ws));if(s){var a=JSON.parse(s);if(a&&a.length)return a;}}catch(e){}return null;}
+  function saveRoster(ws,shifts){try{localStorage.setItem(rosterKey(ws),JSON.stringify(shifts));}catch(e){}}
+  function deletedSet(){try{var s=localStorage.getItem('ratio_ts_deleted');if(s)return new Set(JSON.parse(s));}catch(e){}return new Set();}
+  function writeDeleted(set){try{localStorage.setItem('ratio_ts_deleted',JSON.stringify(Array.from(set)));}catch(e){}}
+  function deleteWeek(ws){try{localStorage.removeItem(rosterKey(ws));}catch(e){}var d=deletedSet();d.add(ws);writeDeleted(d);}
+  function submitRoster(ws,shifts){saveRoster(ws,shifts);var d=deletedSet();if(d.has(ws)){d.delete(ws);writeDeleted(d);}}
+  function staticWeek(ws){return TIMESHEET_WEEKS.find(function(w){return w.weekStart===ws;})||null;}
+  function weekFromShifts(ws,shifts){
+    var byDay={};shifts.forEach(function(s){(byDay[s.day]=byDay[s.day]||[]).push(s);});
+    var groups=[],tot={},wd={},sat={},sun={};var r1=function(x){return Math.round(x*10)/10;};
+    TS_ORDER.forEach(function(dk,i){
+      var arr=byDay[dk];if(!arr||!arr.length)return;
+      arr=arr.slice().sort(function(a,b){return tsHM(a.start)-tsHM(b.start);});
+      var rows=arr.map(function(s){
+        var h=tsPaidBr(s.start,s.end,s.br);
+        if(s.name){tot[s.name]=(tot[s.name]||0)+h;if(i<5)wd[s.name]=(wd[s.name]||0)+h;else if(i===5)sat[s.name]=(sat[s.name]||0)+h;else sun[s.name]=(sun[s.name]||0)+h;}
+        return {nm:s.name,tm:s.start+'–'+s.end,hrs:tsHH(r1(h))};
+      });
+      groups.push({day:dayLabelOf(ws,i),dk:dk,rows:rows});
+    });
+    var staff=Object.keys(tot).sort().map(function(n){return {name:n,hrs:r1(tot[n]),hl:tsHH(r1(tot[n])),wd:r1(wd[n]||0),sat:r1(sat[n]||0),sun:r1(sun[n]||0)};});
+    return {weekStart:ws,range:weekRangeOf(ws),groups:groups,staff:staff,cash:[]};
+  }
+  function effectiveWeek(ws){if(deletedSet().has(ws))return null;var sub=submittedRoster(ws);return sub?weekFromShifts(ws,sub):staticWeek(ws);}
+  function allWeekStarts(){
+    var set={};TIMESHEET_WEEKS.forEach(function(w){set[w.weekStart]=1;});
+    try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf('ratio_roster_')===0)set[k.slice(13)]=1;}}catch(e){}
+    var del=deletedSet();
+    return Object.keys(set).filter(function(ws){return !del.has(ws);}).sort(function(a,b){return a<b?1:-1;});
+  }
   function currentWeekStart(){return isoDate(mondayOf(new Date()));}
-  function thisWeekEntry(){var cw=currentWeekStart();return TIMESHEET_WEEKS.find(function(w){return w.weekStart===cw;})||null;}
-  function historyWeeks(){var cw=currentWeekStart();return TIMESHEET_WEEKS.filter(function(w){return w.weekStart!==cw;});}
+  function thisWeekEntry(){return effectiveWeek(currentWeekStart());}
+  function historyWeeks(){var cw=currentWeekStart();return allWeekStarts().filter(function(ws){return ws<cw;}).map(effectiveWeek).filter(Boolean);}
 
-  let planWeek='', planLabel='', planShifts=[], planOpen={};
+  let planWeek='', planLabel='', planShifts=[], planOpen={}, planMsg='';
   function planKey(ws){return 'ratio_plan_'+ws;}
   function loadPlan(ws){try{var s=localStorage.getItem(planKey(ws));if(s)return JSON.parse(s);}catch(e){}return [];}
   function savePlan(){try{localStorage.setItem(planKey(planWeek),JSON.stringify(planShifts));}catch(e){}}
@@ -917,7 +992,9 @@ fill="#6F4A36" stroke="none">
     return {next:isoDate(n),after:isoDate(a)};
   }
   function openWeekPlan(ws,label){
-    planWeek=ws;planLabel=label;planShifts=loadPlan(ws);planOpen={};
+    planWeek=ws;planLabel=label;planMsg='';planOpen={};
+    var sub=submittedRoster(ws);var draft=loadPlan(ws);
+    planShifts=(draft&&draft.length)?draft:(sub?sub.slice():[]);
     document.getElementById('ts-title').textContent=label;
     document.getElementById('ts-week').textContent=weekRangeOf(ws);
     renderWeekPlan();openPage('timesheet');
@@ -933,11 +1010,12 @@ fill="#6F4A36" stroke="none">
     var days=TS_ORDER.map(function(dk){
       var idx=TS_ORDER.indexOf(dk);var arr=byDay[dk]||[];var open=(planOpen[dk]!==undefined)?planOpen[dk]:(arr.length>0);
       var p0=presetFor(dk,0);
+      var dd=new Date(planWeek+'T00:00:00');dd.setDate(dd.getDate()+idx);var isToday=isoDate(dd)===isoDate(new Date());
       var tot=arr.reduce(function(a,s){return a+tsPaidBr(s.start,s.end,s.br);},0);
       var meta=arr.length?(arr.length+' 班 · <b>'+tsHH(Math.round(tot*10)/10)+'</b>'):('預設 '+p0.start+'–'+p0.end+' …');
-      var head='<button class="rdate'+(open?' open':'')+'" data-d="'+dk+'">'
+      var head='<button class="rdate'+(open?' open':'')+(isToday?' today':'')+'" data-d="'+dk+'">'
         +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
-        +'<span class="rd-date">'+esc(dayLabelOf(planWeek,idx))+'</span>'
+        +'<span class="rd-date">'+esc(dayLabelOf(planWeek,idx))+(isToday?' <span class="td-now">今天</span>':'')+'</span>'
         +'<span class="rd-meta">'+meta+'</span></button>';
       var bd='';
       if(open){
@@ -964,7 +1042,15 @@ fill="#6F4A36" stroke="none">
         +st.map(function(s){return '<div class="cashrow"><div class="cn">'+esc(s.name)+'</div><div class="ch" style="margin:0;font-size:13px;color:var(--ink)">'+esc(s.hl)+'</div></div>';}).join('')
         +'</div></div>';
     }
-    body.innerHTML=note+days+totals;
+    var submitBtn=planShifts.length?('<div class="plan-msg ok" id="plan-msg">'+esc(planMsg||'')+'</div><div class="ps-submit"><button class="gbtn" id="plan-submit">遞件上傳（存成正式班表）</button></div>'):'';
+    body.innerHTML=note+days+totals+submitBtn;
+    var subBtn=document.getElementById('plan-submit');
+    if(subBtn)subBtn.addEventListener('click',function(){
+      submitRoster(planWeek,planShifts);
+      planMsg='已上傳：'+weekRangeOf(planWeek)+' 已存成正式班表（會顯示在本週／歷史）';
+      try{renderModulePanel('timesheet');}catch(e){}
+      renderWeekPlan();body.scrollTop=body.scrollHeight;
+    });
     body.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){
       var dk=el.dataset.d;var has=planShifts.some(function(s){return s.day===dk;});
       var cur=(planOpen[dk]!==undefined)?planOpen[dk]:has;planOpen[dk]=!cur;renderWeekPlan();
