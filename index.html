@@ -132,6 +132,8 @@
   .ps-t:focus{border-color:var(--accent)}
   .ps-dash{color:var(--muted)}
   .ps-h{margin-left:auto;font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:600;color:var(--accent)}
+  .ps-br{border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;font-family:inherit;font-size:11px;font-weight:600;padding:5px 9px;cursor:pointer;flex:0 0 auto}
+  .ps-br.on{background:#6E5B50;border-color:#6E5B50;color:#fff}
   .ps-add{padding:10px 14px}
   .ps-addsel{width:100%;border:1px dashed var(--line-strong,rgba(50,43,42,.22));border-radius:11px;padding:11px 12px;font-size:14px;color:var(--accent);background:var(--bg);outline:none;font-family:inherit;-webkit-appearance:none;appearance:none}
   .ps-addsel:focus{border-color:var(--accent)}
@@ -497,8 +499,8 @@ fill="#6F4A36" stroke="none">
   /* node tree. Each node = two buttons (left/right). A button has `act` (opens a screen) OR `to` (a deeper node). */
   const DOCK_NODES={
     timesheet:{contentTitle:'Timesheet Reminder',
-           left:{label:'Next Week',zh:'下一週',icon:'calendar',act:'timesheet:next'},
-           right:{label:'Week After',zh:'再下一週',icon:'calendar',act:'timesheet:after'}},
+           left:{label:'下一週',dateKey:'next',icon:'calendar',act:'timesheet:next'},
+           right:{label:'再下一週',dateKey:'after',icon:'calendar',act:'timesheet:after'}},
     beans:{contentTitle:'Retail Reminder',
            left:{label:'Retail Shelf',zh:'零售貨架',icon:'bag',act:'beans:retail'},
            right:{label:'Pending',zh:'待杯測',icon:'factory',act:'beans:prod'}},
@@ -520,7 +522,7 @@ fill="#6F4A36" stroke="none">
   let dockStack=[], _savedDock=null;
   const DASHBOARD_TITLE='Version Updates:';
   const GRID_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1.4"/><rect x="14" y="4" width="6" height="6" rx="1.4"/><rect x="4" y="14" width="6" height="6" rx="1.4"/><rect x="14" y="14" width="6" height="6" rx="1.4"/></svg>';
-  function dockBtnHTML(b){return `<button class="dock-btn" ${b.to?`data-to="${b.to}"`:`data-act="${b.act}"`}><span class="db-ic">${DOCK_ICONS[b.icon]||''}</span><span class="db-lab">${b.label}</span>${b.zh?`<span class="db-zh">${b.zh}</span>`:''}</button>`;}
+  function dockBtnHTML(b){var sub=b.zh||'';if(b.dateKey){try{sub=weekRangeOf(planWeeksFromToday()[b.dateKey]);}catch(e){}}return `<button class="dock-btn" ${b.to?`data-to="${b.to}"`:`data-act="${b.act}"`}><span class="db-ic">${DOCK_ICONS[b.icon]||''}</span><span class="db-lab">${b.label}</span>${sub?`<span class="db-zh">${sub}</span>`:''}</button>`;}
   /* transition the dock to a given stack ([] = the app grid). Pill sizes are measured once
      (apps→module) and stay locked to the dashboard size through every nested level. */
   function dockTo(stack){
@@ -875,6 +877,20 @@ fill="#6F4A36" stroke="none">
     return x<0?0:x;
   }
   function tsHH(x){return (x===Math.round(x)?String(x):String(Math.round(x*10)/10))+'h';}
+  function tsPaidBr(start,end,br){
+    if(!start||!end)return 0;
+    var x=(tsHM(end)-tsHM(start))/60;if(x<0)x+=24;
+    if(br)x-=0.5;
+    return x<0?0:x;
+  }
+  /* default shift slots per day type — [start, end, hasBreak]; just defaults, all editable */
+  const DAY_PRESETS={
+    weekday:[['05:45','14:15',true],['08:15','14:15',false]],
+    sat:[['06:15','15:15',false],['08:15','16:15',false],['08:15','16:15',false]],
+    sun:[['06:15','08:15',false],['08:15','16:15',false],['08:15','16:15',false],['09:15','16:15',false]]
+  };
+  function dayPresetList(dk){return dk==='sat'?DAY_PRESETS.sat:(dk==='sun'?DAY_PRESETS.sun:DAY_PRESETS.weekday);}
+  function presetFor(dk,n){var L=dayPresetList(dk);var p=L[Math.min(n,L.length-1)];return {start:p[0],end:p[1],br:p[2]};}
   function isoDate(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
   function mondayOf(d){var wd=(d.getDay()+6)%7;var m=new Date(d);m.setDate(m.getDate()-wd);m.setHours(0,0,0,0);return m;}
   function weekRangeOf(monIso){var a=new Date(monIso+'T00:00:00');var b=new Date(a);b.setDate(b.getDate()+6);return TS_MON[a.getMonth()]+' '+a.getDate()+' – '+TS_MON[b.getMonth()]+' '+b.getDate();}
@@ -884,7 +900,6 @@ fill="#6F4A36" stroke="none">
   function planKey(ws){return 'ratio_plan_'+ws;}
   function loadPlan(ws){try{var s=localStorage.getItem(planKey(ws));if(s)return JSON.parse(s);}catch(e){}return [];}
   function savePlan(){try{localStorage.setItem(planKey(planWeek),JSON.stringify(planShifts));}catch(e){}}
-  function dayDefaults(dk){return (dk==='sat'||dk==='sun')?{start:'06:15',end:'16:15'}:{start:'05:45',end:'14:15'};}
   function planWeeksFromToday(){
     var m=mondayOf(new Date());
     var n=new Date(m);n.setDate(n.getDate()+7);
@@ -898,17 +913,18 @@ fill="#6F4A36" stroke="none">
     renderWeekPlan();openPage('timesheet');
   }
   function planStaffTotals(){
-    var t={};planShifts.forEach(function(s){t[s.name]=(t[s.name]||0)+tsPaid(s.day,s.start,s.end);});
+    var t={};planShifts.forEach(function(s){t[s.name]=(t[s.name]||0)+tsPaidBr(s.start,s.end,s.br);});
     return Object.keys(t).sort().map(function(n){return {name:n,hl:tsHH(Math.round(t[n]*10)/10)};});
   }
   function renderWeekPlan(){
     const body=document.getElementById('timesheet-body');const sc=body.scrollTop;
     var byDay={};planShifts.forEach(function(s,i){(byDay[s.day]=byDay[s.day]||[]).push(Object.assign({i:i},s));});
-    var note='<div class="plan-note">每天已帶入預設班表（平日 05:45–14:15、六日 06:15–16:15），可逐人調整，時間以 15 分鐘為單位。週一至週五每班扣 30 分鐘無薪休息。草稿自動存在這台裝置。</div>';
+    var note='<div class="plan-note">每天已帶入預設班次（平日 2 班、週六 3 班、週日 4 班），時間與休息可逐筆調整、15 分鐘為單位。標「扣30」的班會扣 30 分鐘無薪休息。草稿自動存在這台裝置。</div>';
     var days=TS_ORDER.map(function(dk){
-      var idx=TS_ORDER.indexOf(dk);var arr=byDay[dk]||[];var def=dayDefaults(dk);var open=(planOpen[dk]!==undefined)?planOpen[dk]:(arr.length>0);
-      var tot=arr.reduce(function(a,s){return a+tsPaid(s.day,s.start,s.end);},0);
-      var meta=arr.length?(arr.length+' 班 · <b>'+tsHH(Math.round(tot*10)/10)+'</b>'):('標準 '+def.start+'–'+def.end);
+      var idx=TS_ORDER.indexOf(dk);var arr=byDay[dk]||[];var open=(planOpen[dk]!==undefined)?planOpen[dk]:(arr.length>0);
+      var p0=presetFor(dk,0);
+      var tot=arr.reduce(function(a,s){return a+tsPaidBr(s.start,s.end,s.br);},0);
+      var meta=arr.length?(arr.length+' 班 · <b>'+tsHH(Math.round(tot*10)/10)+'</b>'):('預設 '+p0.start+'–'+p0.end+' …');
       var head='<button class="rdate'+(open?' open':'')+'" data-d="'+dk+'">'
         +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
         +'<span class="rd-date">'+esc(dayLabelOf(planWeek,idx))+'</span>'
@@ -920,10 +936,12 @@ fill="#6F4A36" stroke="none">
             +'<div class="ps-times"><input class="ps-t" type="time" step="900" data-i="'+s.i+'" data-f="start" value="'+esc(s.start)+'" />'
             +'<span class="ps-dash">–</span>'
             +'<input class="ps-t" type="time" step="900" data-i="'+s.i+'" data-f="end" value="'+esc(s.end)+'" />'
-            +'<div class="ps-h">'+tsHH(Math.round(tsPaid(s.day,s.start,s.end)*10)/10)+'</div></div></div>';
+            +'<button class="ps-br'+(s.br?' on':'')+'" data-i="'+s.i+'">'+(s.br?'扣30':'無休')+'</button>'
+            +'<div class="ps-h">'+tsHH(Math.round(tsPaidBr(s.start,s.end,s.br)*10)/10)+'</div></div></div>';
         }).join('');
         var taken={};arr.forEach(function(s){taken[s.name]=1;});
-        var opts='<option value="">＋ 加入員工（預設 '+def.start+'–'+def.end+'）</option>'+STAFF_NAMES.filter(function(n){return !taken[n];}).map(function(n){return '<option>'+esc(n)+'</option>';}).join('');
+        var np=presetFor(dk,arr.length);
+        var opts='<option value="">＋ 加入員工（預設 '+np.start+'–'+np.end+'）</option>'+STAFF_NAMES.filter(function(n){return !taken[n];}).map(function(n){return '<option>'+esc(n)+'</option>';}).join('');
         var add='<div class="ps-add"><select class="ps-addsel" data-d="'+dk+'">'+opts+'</select></div>';
         bd='<div class="rd-body">'+(rows||'<div class="sempty" style="padding:18px">這天還沒排人</div>')+add+'</div>';
       }
@@ -942,13 +960,18 @@ fill="#6F4A36" stroke="none">
       var cur=(planOpen[dk]!==undefined)?planOpen[dk]:has;planOpen[dk]=!cur;renderWeekPlan();
     });});
     body.querySelectorAll('.ps-addsel').forEach(function(sel){sel.addEventListener('change',function(){
-      var nm=sel.value;if(!nm)return;var dk=sel.dataset.d;var def=dayDefaults(dk);
-      planShifts.push({day:dk,name:nm,start:def.start,end:def.end});
+      var nm=sel.value;if(!nm)return;var dk=sel.dataset.d;
+      var n=planShifts.filter(function(s){return s.day===dk;}).length;
+      var pr=presetFor(dk,n);
+      planShifts.push({day:dk,name:nm,start:pr.start,end:pr.end,br:pr.br});
       planShifts.sort(function(a,b){return TS_ORDER.indexOf(a.day)-TS_ORDER.indexOf(b.day)||tsHM(a.start)-tsHM(b.start)||String(a.name).localeCompare(b.name);});
       planOpen[dk]=true;savePlan();renderWeekPlan();body.scrollTop=sc;
     });});
     body.querySelectorAll('.ps-t').forEach(function(inp){inp.addEventListener('change',function(){
       var i=+inp.dataset.i;if(!planShifts[i])return;planShifts[i][inp.dataset.f]=inp.value;savePlan();renderWeekPlan();body.scrollTop=sc;
+    });});
+    body.querySelectorAll('.ps-br').forEach(function(el){el.addEventListener('click',function(){
+      var i=+el.dataset.i;if(!planShifts[i])return;planShifts[i].br=!planShifts[i].br;savePlan();renderWeekPlan();body.scrollTop=sc;
     });});
     body.querySelectorAll('.ps-x').forEach(function(el){el.addEventListener('click',function(){planShifts.splice(+el.dataset.i,1);savePlan();renderWeekPlan();body.scrollTop=sc;});});
   }
