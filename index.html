@@ -608,13 +608,15 @@ fill="#6F4A36" stroke="none">
           +names.map(function(n){return '<button class="tf-chip'+(tsFilter===n?' on':'')+'" data-n="'+esc(n)+'">'+esc(n)+'</button>';}).join('')+'</div>';
         var gs=filterGroups(w.groups,tsFilter);
         var body=gs.length?tsGroupsHTML(gs,cw):'<div class="sempty">'+esc(tsFilter||'')+' 本週沒有班</div>';
-        html=chips+body+histBtn;
+        var editBtn='<div style="padding:8px 16px 2px"><button class="gbtn ghost" id="ts-editweek">編輯本週班表</button></div>';
+        html=chips+body+editBtn+histBtn;
       }else{
         html='<div class="sempty" style="padding:38px 24px 18px">本週還沒有班表<br>幫這週排班並上傳吧</div>'
           +'<div style="padding:0 16px 8px"><button class="gbtn" id="ts-fillweek">排這週的班表</button></div>'+histBtn;
       }
       showCPanel(html);
       var fw=document.getElementById('ts-fillweek');if(fw)fw.addEventListener('click',function(){openWeekPlan(cw,'本週');});
+      var ew=document.getElementById('ts-editweek');if(ew)ew.addEventListener('click',function(){openWeekPlan(cw,'本週');});
       document.querySelectorAll('#cpanel .tf-chip').forEach(function(c){c.addEventListener('click',function(){tsFilter=c.dataset.n||null;renderModulePanel('timesheet');});});
       var hl=document.getElementById('ts-hist-link');
       if(hl)hl.addEventListener('click',function(){runModuleAction('timesheet:hist');});
@@ -991,10 +993,17 @@ fill="#6F4A36" stroke="none">
     var a=new Date(m);a.setDate(a.getDate()+14);
     return {next:isoDate(n),after:isoDate(a)};
   }
+  function staticToShifts(w){
+    var out=[];(w&&w.groups||[]).forEach(function(g){var dk=g.dk;(g.rows||[]).forEach(function(r){
+      var t=String(r.tm||'').split(/[–-]/);
+      if(t.length===2&&r.nm){out.push({day:dk,name:r.nm,start:t[0].trim(),end:t[1].trim(),br:['mon','tue','wed','thu','fri'].indexOf(dk)>-1});}
+    });});
+    return out;
+  }
   function openWeekPlan(ws,label){
     planWeek=ws;planLabel=label;planMsg='';planOpen={};
-    var sub=submittedRoster(ws);var draft=loadPlan(ws);
-    planShifts=(draft&&draft.length)?draft:(sub?sub.slice():[]);
+    var draft=loadPlan(ws);var sub=submittedRoster(ws);var stat=staticWeek(ws);
+    planShifts=(draft&&draft.length)?draft : (sub?sub.slice() : (stat?staticToShifts(stat):[]));
     document.getElementById('ts-title').textContent=label;
     document.getElementById('ts-week').textContent=weekRangeOf(ws);
     renderWeekPlan();openPage('timesheet');
