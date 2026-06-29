@@ -892,18 +892,38 @@ fill="#6F4A36" stroke="none">
   function generatePaymentPDF(w){
     var JS=window.jspdf&&window.jspdf.jsPDF;
     if(!JS){alert('PDF 元件還在載入，請稍後再試');return;}
+    var img=new Image();
+    img.onload=function(){buildPaymentPDF(w,img);};
+    img.onerror=function(){buildPaymentPDF(w,null);};
+    img.src='logo.png';
+  }
+  function buildPaymentPDF(w,logo){
+    var JS=window.jspdf.jsPDF;
     var cash=getCashSet(w);
     var doc=new JS({unit:'pt',format:'a4'});
-    var L=48,y=64;
+    var L=48,R=547,y=60;
     var cWd=210,cSat=280,cSun=345,cTot=410,cMet=478;
     var hcol=function(x){x=Number(x)||0;return x>0?((Math.round(x*10)/10)+'h'):'–';};
-    doc.setFont('helvetica','bold');doc.setFontSize(20);doc.text('Ratio — Payment',L,y);
-    doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(120);
-    y+=20;doc.text(w.range+'  (week of '+w.weekStart+')',L,y);
+    /* ---- header: logo + company ---- */
+    if(logo){try{doc.addImage(logo,'PNG',L,y-6,46,46);}catch(e){}}
+    var cx=logo?(L+62):L;
+    doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(20);
+    doc.text('Ratio Coffee Pty Ltd',cx,y+8);
+    doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(120);
+    doc.text('ABN 57 658 829 899',cx,y+22);
+    doc.text('Shop 2, 473 Pacific Highway, Crows Nest NSW 2065',cx,y+34);
+    doc.text('getratiocoffee@gmail.com',cx,y+46);
+    y+=72;doc.setDrawColor(210);doc.line(L,y,R,y);
+    /* ---- title ---- */
+    y+=26;doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(20);
+    doc.text('Payment Summary',L,y);
+    doc.setFont('helvetica','normal');doc.setFontSize(10.5);doc.setTextColor(120);
+    y+=16;doc.text(w.range+'  (week of '+w.weekStart+')',L,y);
     doc.setTextColor(20);
-    y+=28;doc.setFont('helvetica','bold');doc.setFontSize(10.5);
+    /* ---- table ---- */
+    y+=26;doc.setFont('helvetica','bold');doc.setFontSize(10.5);
     doc.text('Staff',L,y);doc.text('Weekday',cWd,y);doc.text('Sat',cSat,y);doc.text('Sun',cSun,y);doc.text('Total',cTot,y);doc.text('Method',cMet,y);
-    doc.setDrawColor(210);y+=8;doc.line(L,y,547,y);
+    doc.setDrawColor(210);y+=8;doc.line(L,y,R,y);
     doc.setFont('helvetica','normal');doc.setFontSize(11.5);
     var tWd=0,tSat=0,tSun=0,totH=0,cashCount=0;
     w.staff.forEach(function(s){
@@ -914,13 +934,23 @@ fill="#6F4A36" stroke="none">
       doc.text(String(s.hl),cTot,y);
       doc.text(isCash?'Cash':'Bank',cMet,y);
     });
-    y+=10;doc.setDrawColor(210);doc.line(L,y,547,y);
+    y+=10;doc.setDrawColor(210);doc.line(L,y,R,y);
     y+=22;doc.setFont('helvetica','bold');
     doc.text('Total',L,y);doc.text(hcol(tWd),cWd,y);doc.text(hcol(tSat),cSat,y);doc.text(hcol(tSun),cSun,y);
     doc.text((Math.round(totH*10)/10)+'h',cTot,y);doc.text(cashCount+' cash',cMet,y);
-    y+=30;doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(150);
+    /* ---- bank details ---- */
+    y+=34;doc.setDrawColor(210);doc.setFillColor(247,242,239);doc.rect(L,y,R-L,78,'F');
+    var by=y+20;doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(20);
+    doc.text('Bank Details',L+14,by);
+    doc.setFont('helvetica','normal');doc.setFontSize(10.5);doc.setTextColor(60);
+    by+=17;doc.text('Account Name: Ratio Coffee Pty Ltd',L+14,by);
+    by+=14;doc.text('BSB: 062-151',L+14,by);
+    by+=14;doc.text('Account Number: 10497845',L+14,by);
+    y+=78;
+    /* ---- footer ---- */
+    y+=22;doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(150);
     doc.text('Weekday hours already exclude the Mon-Fri 30 min unpaid break.',L,y);
-    y+=14;doc.text('Generated '+new Date().toLocaleString()+' · Ratio',L,y);
+    y+=14;doc.text('Generated '+new Date().toLocaleString()+' · Ratio Coffee Pty Ltd',L,y);
     doc.save('Ratio_Payment_'+w.weekStart+'.pdf');
   }
 
