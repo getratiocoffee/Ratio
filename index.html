@@ -133,16 +133,17 @@
   .dayhd.today .dh-dow,.dayhd.today .dh-date{color:var(--accent)}
   .shift.today{background:var(--accent-tint,#F3DDE0);box-shadow:inset 3px 0 0 var(--accent)}
   .shift.today .tm,.shift.today .nm{color:var(--accent-ink,#6E2F39)}
-  .shift.solo{display:flex;align-items:baseline;gap:6px;padding:13px 18px}
-  .shift.solo .sl-day{font-size:14px;font-weight:700;color:var(--ink);letter-spacing:.03em}
-  .shift.solo .sl-c{color:var(--muted)}
-  .shift.solo .tm{font-size:14px}
-  .shift.solo .hrs{font-size:13px}
-  .shift.solo.today .sl-day,.shift.solo.today .tm{color:var(--accent-ink,#6E2F39)}
+  .shift.solo{display:flex;align-items:baseline;gap:5px;padding:13px 18px}
+  .shift.solo .sl-dow{font-size:17px;font-weight:700;color:var(--ink);letter-spacing:.05em}
+  .shift.solo .sl-date{font-size:12px;font-weight:500;color:var(--muted)}
+  .shift.solo .sl-c{font-size:12px;color:var(--muted)}
+  .shift.solo .tm{font-size:16px;font-weight:700;color:var(--ink)}
+  .shift.solo .hrs{font-size:12px;font-weight:600}
+  .shift.solo.today .sl-dow,.shift.solo.today .tm{color:var(--accent-ink,#6E2F39)}
   .rdate.today .rd-date{color:var(--accent)}
   .dayhd .td-now{font-size:10px;font-weight:700;color:#fff;background:var(--accent);border-radius:7px;padding:1px 7px;margin-left:8px;vertical-align:middle}
-  .ts-filter{display:flex;gap:6px;padding:12px 16px 8px}
-  .tf-chip{flex:1 1 0;min-width:0;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;font-family:inherit;font-size:11px;font-weight:600;padding:7px 6px;cursor:pointer;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em}
+  .ts-filter{display:flex;gap:6px;padding:12px 16px 8px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tf-chip{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;font-family:inherit;font-size:12px;font-weight:600;padding:6px 13px;cursor:pointer;white-space:nowrap;letter-spacing:.01em}
   .tf-chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .ps-submit{padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 18px)}
   .ts-del{flex:0 0 auto;display:flex;align-items:center;border:none;border-left:1px solid var(--line);background:none;color:#B2544E;padding:0 13px;cursor:pointer}
@@ -878,7 +879,8 @@ fill="#6F4A36" stroke="none">
       if(hideName){
         return g.rows.map(function(r){
           return '<div class="shift solo'+(isToday?' today':'')+'">'
-            +'<span class="sl-day">'+esc(dow)+', '+esc(dat)+'</span><span class="sl-c">,</span>'
+            +'<span class="sl-dow">'+esc(dow)+'</span><span class="sl-c">,</span>'
+            +'<span class="sl-date">'+esc(dat)+'</span><span class="sl-c">,</span>'
             +'<span class="tm">'+esc(r.tm)+'</span>'
             +(r.hrs?'<span class="sl-c">,</span><span class="hrs">'+esc(r.hrs)+'</span>':'')
             +(isToday?'<span class="td-now">TODAY</span>':'')
