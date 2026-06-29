@@ -949,13 +949,14 @@ fill="#6F4A36" stroke="none">
   const feedEl=document.getElementById('feed');
   let rows=[];
   /* each module can have its own message feed; dashboard uses 'general' */
-  const FEED_CHANNELS={beans:'beans'};
+  const FEED_CHANNELS={beans:'beans',task:'task'};
   let feedChannel='general';
   const chOf=r=>(r&&r.channel)?r.channel:'general';
+  const FEED_PLACEHOLDER={beans:'Write a Beans note…',task:'Write a Task note…'};
   function setFeedChannel(ch){
     ch=ch||'general';
     var inp=document.getElementById('composer-input');
-    if(inp)inp.placeholder=(ch==='beans')?'Write a Beans note…':'Write a message…';
+    if(inp)inp.placeholder=FEED_PLACEHOLDER[ch]||'Write a message…';
     if(feedChannel===ch){return;}
     feedChannel=ch;loadMessages();
   }
@@ -1118,10 +1119,10 @@ fill="#6F4A36" stroke="none">
   let tsHistOpen={}, tsDelW=null;
   function cashKey(ws){return 'ratio_cash_'+ws;}
   function getCashSet(w){
-    try{const s=localStorage.getItem(cashKey(w.weekStart));if(s)return new Set(JSON.parse(s));}catch(e){}
+    var r=ROSTERS[w.weekStart];if(r&&r.cash)return new Set(r.cash);
     return new Set(w.cash||[]);
   }
-  function setCashSet(w,set){try{localStorage.setItem(cashKey(w.weekStart),JSON.stringify([...set]));}catch(e){}}
+  function setCashSet(w,set){var r=rosterRow(w.weekStart);r.cash=Array.from(set);saveRosterRow(w.weekStart);}
   function chevSVG(){return '<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>';}
   function renderTimesheetWeeks(weeks){
     const body=document.getElementById('timesheet-body');
@@ -1475,14 +1476,41 @@ fill="#6F4A36" stroke="none">
   function mondayOf(d){var wd=(d.getDay()+6)%7;var m=new Date(d);m.setDate(m.getDate()-wd);m.setHours(0,0,0,0);return m;}
   function weekRangeOf(monIso){var a=new Date(monIso+'T00:00:00');var b=new Date(a);b.setDate(b.getDate()+6);return TS_MON[a.getMonth()]+' '+a.getDate()+' – '+TS_MON[b.getMonth()]+' '+b.getDate();}
   function dayLabelOf(monIso,i){var a=new Date(monIso+'T00:00:00');a.setDate(a.getDate()+i);return TS_DAYLBL[TS_ORDER[i]]+' · '+TS_MON[a.getMonth()]+' '+a.getDate();}
-  /* ---- roster data layer: static TIMESHEET_WEEKS + localStorage submitted rosters ---- */
-  function rosterKey(ws){return 'ratio_roster_'+ws;}
-  function submittedRoster(ws){try{var s=localStorage.getItem(rosterKey(ws));if(s){var a=JSON.parse(s);if(a&&a.length)return a;}}catch(e){}return null;}
-  function saveRoster(ws,shifts){try{localStorage.setItem(rosterKey(ws),JSON.stringify(shifts));}catch(e){}}
-  function deletedSet(){try{var s=localStorage.getItem('ratio_ts_deleted');if(s)return new Set(JSON.parse(s));}catch(e){}return new Set();}
-  function writeDeleted(set){try{localStorage.setItem('ratio_ts_deleted',JSON.stringify(Array.from(set)));}catch(e){}}
-  function deleteWeek(ws){try{localStorage.removeItem(rosterKey(ws));}catch(e){}var d=deletedSet();d.add(ws);writeDeleted(d);}
-  function submitRoster(ws,shifts){saveRoster(ws,shifts);var d=deletedSet();if(d.has(ws)){d.delete(ws);writeDeleted(d);}}
+  /* ---- roster data layer: static seed + Supabase `rosters` (cached in ROSTERS) ---- */
+  const ROSTERS={}; let rostersLoaded=false;
+  function rosterRow(ws){return ROSTERS[ws]||(ROSTERS[ws]={shifts:[],cash:[],deleted:false});}
+  function saveRosterRow(ws){
+    if(!sb)return;var r=rosterRow(ws);
+    sb.from('rosters').upsert({week_start:ws,shifts:r.shifts||[],cash:r.cash||[],deleted:!!r.deleted,updated_at:new Date().toISOString()},{onConflict:'week_start'}).then(function(res){if(res.error)console.error('[Ratio] roster save:',res.error.message||res.error);});
+  }
+  async function loadRosters(){
+    if(!sb)return;
+    try{
+      var res=await sb.from('rosters').select('*');
+      if(res.error){console.error('[Ratio] rosters load:',res.error.message||res.error);return;}
+      (res.data||[]).forEach(function(r){ROSTERS[r.week_start]={shifts:r.shifts||[],cash:r.cash||[],deleted:!!r.deleted};});
+      rostersLoaded=true;refreshTimesheetIfOpen();
+    }catch(e){console.error('[Ratio] rosters load:',e);}
+  }
+  function refreshTimesheetIfOpen(){
+    try{if(dockStack[0]==='timesheet')renderModulePanel('timesheet');}catch(e){}
+    try{var t=document.getElementById('ts-title');var scr=document.getElementById('screen-timesheet');
+      if(scr&&scr.classList.contains('open')&&t&&t.textContent==='History')renderTimesheetWeeks(historyWeeks());}catch(e){}
+  }
+  function submittedRoster(ws){var r=ROSTERS[ws];return (r&&!r.deleted&&r.shifts&&r.shifts.length)?r.shifts:null;}
+  function saveRoster(ws,shifts){var r=rosterRow(ws);r.shifts=shifts;saveRosterRow(ws);}
+  function deletedSet(){var s=new Set();for(var k in ROSTERS){if(ROSTERS[k]&&ROSTERS[k].deleted)s.add(k);}return s;}
+  function deleteWeek(ws){var r=rosterRow(ws);r.deleted=true;saveRosterRow(ws);}
+  function submitRoster(ws,shifts){var r=rosterRow(ws);r.shifts=shifts;r.deleted=false;saveRosterRow(ws);}
+  if(sb){
+    loadRosters();
+    try{sb.channel('rosters-feed').on('postgres_changes',{event:'*',schema:'public',table:'rosters'},function(p){
+      var r=p.new||p.old;if(!r||!r.week_start)return;
+      if(p.eventType==='DELETE'){delete ROSTERS[r.week_start];}
+      else{ROSTERS[r.week_start]={shifts:r.shifts||[],cash:r.cash||[],deleted:!!r.deleted};}
+      refreshTimesheetIfOpen();
+    }).subscribe();}catch(e){}
+  }
   function staticWeek(ws){return TIMESHEET_WEEKS.find(function(w){return w.weekStart===ws;})||null;}
   function weekFromShifts(ws,shifts){
     var byDay={};shifts.forEach(function(s){(byDay[s.day]=byDay[s.day]||[]).push(s);});
@@ -1503,7 +1531,7 @@ fill="#6F4A36" stroke="none">
   function effectiveWeek(ws){if(deletedSet().has(ws))return null;var sub=submittedRoster(ws);return sub?weekFromShifts(ws,sub):staticWeek(ws);}
   function allWeekStarts(){
     var set={};TIMESHEET_WEEKS.forEach(function(w){set[w.weekStart]=1;});
-    try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf('ratio_roster_')===0)set[k.slice(13)]=1;}}catch(e){}
+    for(var k in ROSTERS){if(ROSTERS[k]&&ROSTERS[k].shifts&&ROSTERS[k].shifts.length)set[k]=1;}
     var del=deletedSet();
     return Object.keys(set).filter(function(ws){return !del.has(ws);}).sort(function(a,b){return a<b?1:-1;});
   }
