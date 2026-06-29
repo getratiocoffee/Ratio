@@ -374,6 +374,37 @@
   .composer button{flex:0 0 auto;width:36px;height:36px;border-radius:50%;border:none;background:var(--accent);color:#fff;display:grid;place-items:center;cursor:pointer;padding:0;transition:opacity .15s ease}
   .composer button:active{opacity:.7}
   .composer button svg{width:18px;height:18px}
+  /* ---- invoice generator ---- */
+  .inv-rowcard{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:12px 14px;margin:0 16px 10px}
+  .inv-rh{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .inv-catsel{border:none;border-radius:8px;padding:6px 26px 6px 10px;font-size:12px;font-weight:600;font-family:inherit;color:var(--accent-ink,#6E2F39);background:var(--accent-tint,#F3DDE0) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236E2F39' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 9px center;-webkit-appearance:none;appearance:none;outline:none;cursor:pointer}
+  .inv-x{border:none;background:none;color:var(--muted);font-size:15px;cursor:pointer;padding:2px 6px;line-height:1}
+  .inv-f{display:flex;flex-direction:column;gap:5px;margin-top:9px}
+  .inv-f span{font-size:11px;color:var(--muted);padding-left:2px}
+  .inv-f input{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;color:var(--ink);background:var(--bg);outline:none;font-family:inherit;width:100%}
+  .inv-f input:focus{border-color:var(--accent);background:var(--surface)}
+  .inv-f2{display:flex;gap:10px}
+  .inv-f2 .inv-f{flex:1;min-width:0}
+  .inv-line{display:flex;justify-content:space-between;align-items:baseline;margin-top:11px;font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--ink)}
+  .inv-line .l{font-size:11px;font-weight:400;color:var(--muted);font-family:var(--font-ui)}
+  .inv-add{display:flex;flex-wrap:wrap;gap:8px;padding:2px 16px 8px}
+  .inv-add button{flex:1 1 calc(50% - 4px);border:1px dashed var(--line-strong,rgba(50,43,42,.18));background:var(--surface);color:var(--ink);border-radius:12px;padding:11px 8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
+  .inv-add button:active{background:#FAF2EF}
+  .inv-gst{display:flex;align-items:center;justify-content:space-between;margin:12px 16px 0;font-size:14px;color:var(--ink)}
+  .inv-gst .sub{font-size:11px;color:var(--muted)}
+  .inv-toggle{position:relative;width:46px;height:26px;border-radius:999px;border:none;background:#cdbfb8;cursor:pointer;flex:0 0 auto;padding:0}
+  .inv-toggle.on{background:var(--accent)}
+  .inv-toggle::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .15s ease}
+  .inv-toggle.on::after{transform:translateX(20px)}
+  .inv-totals{margin:12px 16px 0;background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:13px 15px}
+  .inv-trow{display:flex;justify-content:space-between;align-items:center;font-size:14px;color:var(--ink);padding:4px 0}
+  .inv-rowfoot{margin-top:11px}
+  .inv-gstseg{gap:8px}
+  .inv-gstseg .re-opt{padding:9px;font-size:13px}
+  .inv-free{display:inline-block;font-size:11px;font-weight:600;color:var(--success-ink,#3C5236);background:var(--success-tint,#E2EADD);border-radius:8px;padding:5px 11px}
+  .inv-trow .v{font-family:var(--font-mono)}
+  .inv-trow.grand{font-weight:700;font-size:18px;border-top:1px solid var(--line);margin-top:6px;padding-top:10px}
+  .inv-gen-wrap{position:sticky;bottom:0;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 14px);background:linear-gradient(to top,var(--bg) 72%,rgba(244,236,234,0))}
   @media(min-width:520px){body{max-width:430px;left:50%;right:auto;transform:translateX(-50%);border-left:.5px solid var(--line);border-right:.5px solid var(--line)}}
   /* ---- login gate ---- */
   .auth{position:fixed;inset:0;z-index:50;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:28px}
@@ -470,6 +501,17 @@
     <div class="stitle" id="beans-title">Beans</div>
     <div class="sbody">
       <div id="beans-content"></div>
+    </div>
+  </div>
+
+  <div class="screen" id="screen-invoice">
+    <header class="shead">
+      <span class="logo"><img src="logo.png" alt="Ratio" /></span>
+      <span class="hkey" id="invoice-key"></span>
+    </header>
+    <div class="stitle" id="invoice-title">Invoice</div>
+    <div class="sbody">
+      <div id="invoice-content"></div>
     </div>
   </div>
 
@@ -1066,6 +1108,173 @@ fill="#6F4A36" stroke="none">
     doc.save('Ratio_Payment_'+w.weekStart+'.pdf');
   }
 
+  /* ============ Invoice generator (More → Generate Invoice) ============ */
+  const INV_CATS=['Roasted Beans','Green Beans','Shipping','Catering'];
+  let INV={buyerName:'',buyerEmail:'',buyerAddr:'',items:[],notes:'',date:'',due:''};
+  function invTaxable(cat){return cat==='Catering'||cat==='Shipping';}
+  function blankInvItem(cat){cat=cat||INV_CATS[0];return {cat:cat,desc:'',qty:'1',unit:'',gstMode:'plus'};}
+  function openInvoice(){closeFolder();openPage('invoice');if(!INV.date)INV.date=todayStr();if(!INV.items.length)INV.items=[blankInvItem('Roasted Beans')];renderInvoice();}
+  function invRaw(it){return (parseFloat(it.qty)||0)*(parseFloat(it.unit)||0);}
+  function invEx(it){var amt=invRaw(it);if(!invTaxable(it.cat))return amt;return it.gstMode==='inc'?amt/1.1:amt;}
+  function invGstLine(it){if(!invTaxable(it.cat))return 0;var amt=invRaw(it);return it.gstMode==='inc'?(amt-amt/1.1):amt*0.1;}
+  function invLineTotal(it){return invEx(it)+invGstLine(it);}
+  function invSubtotal(){var t=0;INV.items.forEach(function(it){t+=invEx(it);});return t;}
+  function invGstAmt(){var t=0;INV.items.forEach(function(it){t+=invGstLine(it);});return t;}
+  function invTotal(){return invSubtotal()+invGstAmt();}
+  function invMoney(n){return '$'+(Number(n)||0).toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  function invLineHTML(it){
+    if(invTaxable(it.cat))return '<span class="l">Ex '+invMoney(invEx(it))+' · GST '+invMoney(invGstLine(it))+'</span><span>'+invMoney(invLineTotal(it))+'</span>';
+    return '<span class="l">Line total</span><span>'+invMoney(invLineTotal(it))+'</span>';
+  }
+  function captureInv(){
+    var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
+    INV.buyerName=g('inv-bname');INV.buyerEmail=g('inv-bemail');INV.buyerAddr=g('inv-baddr');
+    INV.date=g('inv-date')||todayStr();INV.due=g('inv-due');INV.notes=g('inv-notes');
+    document.querySelectorAll('#invoice-content .inv-rowcard[data-i]').forEach(function(card){
+      var i=+card.dataset.i;if(!INV.items[i])return;
+      var q=function(f){var e=card.querySelector('[data-f="'+f+'"]');return e?e.value:'';};
+      INV.items[i].cat=q('cat')||INV.items[i].cat;INV.items[i].desc=q('desc');INV.items[i].qty=q('qty');INV.items[i].unit=q('unit');
+    });
+  }
+  function renderInvoice(){
+    var box=document.getElementById('invoice-content');
+    document.getElementById('invoice-title').textContent='Invoice';
+    document.getElementById('invoice-key').textContent=INV.items.length?invMoney(invTotal()):'';
+    var buyer='<div class="gsec" style="padding:14px 18px 4px">Bill To</div>'
+      +'<div class="inv-rowcard">'
+      +'<label class="inv-f" style="margin-top:0"><span>Buyer / company</span><input id="inv-bname" type="text" value="'+esc(INV.buyerName)+'" placeholder="Acme Cafe Pty Ltd" /></label>'
+      +'<label class="inv-f"><span>Email</span><input id="inv-bemail" type="email" value="'+esc(INV.buyerEmail)+'" /></label>'
+      +'<label class="inv-f"><span>Address</span><input id="inv-baddr" type="text" value="'+esc(INV.buyerAddr)+'" /></label>'
+      +'<div class="inv-f2"><label class="inv-f"><span>Invoice date</span><input id="inv-date" type="date" value="'+esc(INV.date||todayStr())+'" /></label>'
+      +'<label class="inv-f"><span>Due date</span><input id="inv-due" type="date" value="'+esc(INV.due||'')+'" /></label></div></div>';
+    var itemsHTML=INV.items.map(function(it,i){
+      var opts=INV_CATS.map(function(c){return '<option'+(c===it.cat?' selected':'')+'>'+c+'</option>';}).join('');
+      var tax=invTaxable(it.cat);
+      var unitLab=!tax?'Unit price':(it.gstMode==='inc'?'Unit price (inc GST)':'Unit price (ex GST)');
+      var gstCtrl=tax
+        ?'<div class="re-seg inv-gstseg"><button class="re-opt'+(it.gstMode!=='inc'?' on':'')+'" data-gst="plus" data-i="'+i+'">Plus GST</button><button class="re-opt'+(it.gstMode==='inc'?' on':'')+'" data-gst="inc" data-i="'+i+'">GST inc</button></div>'
+        :'<div class="inv-free">GST-free</div>';
+      return '<div class="inv-rowcard" data-i="'+i+'">'
+        +'<div class="inv-rh"><select class="inv-catsel" data-f="cat">'+opts+'</select><button class="inv-x" data-del="'+i+'" aria-label="remove">\u2715</button></div>'
+        +'<label class="inv-f"><span>Description</span><input data-f="desc" type="text" value="'+esc(it.desc)+'" placeholder="'+esc(it.cat==='Shipping'?'Freight / courier':(it.cat==='Catering'?'Catering \u2014 event':'Bean name'))+'" /></label>'
+        +'<div class="inv-f2"><label class="inv-f"><span>'+(tax?'Qty':'Qty (kg/bags)')+'</span><input data-f="qty" type="text" inputmode="decimal" value="'+esc(it.qty)+'" /></label>'
+        +'<label class="inv-f"><span>'+unitLab+'</span><input data-f="unit" type="text" inputmode="decimal" value="'+esc(it.unit)+'" /></label></div>'
+        +'<div class="inv-rowfoot">'+gstCtrl+'</div>'
+        +'<div class="inv-line">'+invLineHTML(it)+'</div></div>';
+    }).join('');
+    var add='<div class="inv-add">'+INV_CATS.map(function(c){return '<button data-add="'+esc(c)+'">+ '+c+'</button>';}).join('')+'</div>';
+    var totals='<div class="inv-totals" id="inv-totals"></div>';
+    var notes='<div class="gsec" style="padding:14px 18px 4px">Notes (optional)</div><div class="inv-rowcard"><textarea id="inv-notes" class="gta" rows="2" placeholder="Payment terms, PO number\u2026">'+esc(INV.notes||'')+'</textarea></div>';
+    var gen='<div class="inv-gen-wrap"><button class="gbtn" id="inv-gen">Generate PDF invoice</button></div>';
+    box.innerHTML=buyer+'<div class="gsec" style="padding:8px 18px 4px">Items</div>'+itemsHTML+add+totals+notes+gen;
+    renderInvTotals(document.getElementById('inv-totals'));
+    box.querySelectorAll('.inv-catsel').forEach(function(sel){sel.addEventListener('change',function(){captureInv();renderInvoice();});});
+    box.querySelectorAll('[data-del]').forEach(function(b){b.addEventListener('click',function(){captureInv();INV.items.splice(+b.dataset.del,1);renderInvoice();});});
+    box.querySelectorAll('[data-add]').forEach(function(b){b.addEventListener('click',function(){captureInv();INV.items.push(blankInvItem(b.dataset.add));renderInvoice();box.scrollTop=box.scrollHeight;});});
+    box.querySelectorAll('[data-gst]').forEach(function(b){b.addEventListener('click',function(){captureInv();var i=+b.dataset.i;if(INV.items[i]){INV.items[i].gstMode=b.dataset.gst;}renderInvoice();});});
+    box.querySelectorAll('[data-f="qty"],[data-f="unit"]').forEach(function(inp){inp.addEventListener('input',function(){captureInv();
+      var card=inp.closest('.inv-rowcard');var i=+card.dataset.i;var ln=card.querySelector('.inv-line');if(ln)ln.innerHTML=invLineHTML(INV.items[i]);
+      document.getElementById('invoice-key').textContent=invMoney(invTotal());
+      renderInvTotals(document.getElementById('inv-totals'));
+    });});
+    document.getElementById('inv-gen').addEventListener('click',function(){captureInv();generateInvoicePDF();});
+  }
+  function renderInvTotals(el){
+    if(!el)return;
+    el.innerHTML='<div class="inv-trow"><span>Subtotal (ex GST)</span><span class="v">'+invMoney(invSubtotal())+'</span></div>'
+      +'<div class="inv-trow"><span>GST 10%</span><span class="v">'+invMoney(invGstAmt())+'</span></div>'
+      +'<div class="inv-trow grand"><span>Total</span><span class="v">'+invMoney(invTotal())+'</span></div>';
+  }
+  function invNextNo(dateStr){
+    var d=(dateStr||todayStr()).replace(/-/g,'');var key='ratio_inv_seq_'+d;var n=1;
+    try{n=(parseInt(localStorage.getItem(key),10)||0)+1;}catch(e){}
+    return {no:'INV-'+d+'-'+String(n).padStart(3,'0'),commit:function(){try{localStorage.setItem(key,String(n));}catch(e){}}};
+  }
+  function generateInvoicePDF(){
+    var JS=window.jspdf&&window.jspdf.jsPDF;
+    if(!JS){alert('PDF tool still loading, please try again');return;}
+    if(!invSubtotal()){alert('Add at least one item with a price first.');return;}
+    var img=new Image();
+    img.onload=function(){buildInvoicePDF(img);};
+    img.onerror=function(){buildInvoicePDF(null);};
+    img.src='logo.png';
+  }
+  function buildInvoicePDF(logo){
+    var JS=window.jspdf.jsPDF;
+    var doc=new JS({unit:'pt',format:'a4'});
+    var L=48,R=547,y=60;
+    var seq=invNextNo(INV.date);
+    var money=function(n){return '$'+(Number(n)||0).toFixed(2);};
+    /* header: logo + company */
+    if(logo){try{doc.addImage(logo,'PNG',L,y-6,46,46);}catch(e){}}
+    var cx=logo?(L+62):L;
+    doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(20);
+    doc.text('Ratio Coffee Pty Ltd',cx,y+8);
+    doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(120);
+    doc.text('ABN 57 658 829 899',cx,y+22);
+    doc.text('Shop 2, 473 Pacific Highway, Crows Nest NSW 2065',cx,y+34);
+    doc.text('getratiocoffee@gmail.com',cx,y+46);
+    /* TAX INVOICE label (right) */
+    doc.setFont('helvetica','bold');doc.setFontSize(18);doc.setTextColor(20);
+    doc.text(INV.items.some(function(it){return invTaxable(it.cat);})?'TAX INVOICE':'INVOICE',R,y+6,{align:'right'});
+    doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(120);
+    doc.text(seq.no,R,y+22,{align:'right'});
+    doc.text('Date: '+(INV.date||todayStr()),R,y+34,{align:'right'});
+    if(INV.due)doc.text('Due: '+INV.due,R,y+46,{align:'right'});
+    y+=72;doc.setDrawColor(210);doc.line(L,y,R,y);
+    /* bill to */
+    y+=24;doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.setTextColor(20);
+    doc.text('Bill To',L,y);
+    doc.setFont('helvetica','normal');doc.setFontSize(10.5);doc.setTextColor(60);
+    y+=15;doc.text(INV.buyerName||'—',L,y);
+    if(INV.buyerEmail){y+=14;doc.text(INV.buyerEmail,L,y);}
+    if(INV.buyerAddr){y+=14;doc.text(INV.buyerAddr,L,y);}
+    /* items table header */
+    var cDesc=L,cQty=350,cUnit=410,cAmt=R;
+    y+=28;doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(20);
+    doc.text('Description',cDesc,y);doc.text('Qty',cQty,y,{align:'right'});doc.text('Unit',cUnit,y,{align:'right'});doc.text('Amount',cAmt,y,{align:'right'});
+    y+=8;doc.setDrawColor(210);doc.line(L,y,R,y);
+    doc.setFont('helvetica','normal');doc.setFontSize(10.5);
+    INV.items.forEach(function(it){
+      if(invLineTotal(it)===0 && !it.desc)return;
+      if(y>770){doc.addPage();y=60;}
+      y+=20;doc.setTextColor(20);
+      var q=parseFloat(it.qty)||0;var exLine=invEx(it);var unitEx=q?exLine/q:exLine;
+      doc.text(String(it.desc||it.cat).substring(0,52),cDesc,y);
+      doc.setTextColor(130);doc.setFontSize(8.5);
+      doc.text(it.cat+(invTaxable(it.cat)?'':'  (GST-free)'),cDesc,y+11);
+      doc.setFontSize(10.5);doc.setTextColor(20);
+      doc.text(String(q),cQty,y,{align:'right'});
+      doc.text(money(unitEx),cUnit,y,{align:'right'});
+      doc.text(money(exLine),cAmt,y,{align:'right'});
+      y+=8;
+    });
+    y+=4;doc.setDrawColor(210);doc.line(L,y,R,y);
+    /* totals */
+    var tl=380;
+    y+=22;doc.setFont('helvetica','normal');doc.setFontSize(10.5);doc.setTextColor(60);
+    doc.text('Subtotal (ex GST)',tl,y);doc.setTextColor(20);doc.text(money(invSubtotal()),cAmt,y,{align:'right'});
+    y+=16;doc.setTextColor(60);doc.text('GST 10%',tl,y);doc.setTextColor(20);doc.text(money(invGstAmt()),cAmt,y,{align:'right'});
+    y+=20;doc.setFont('helvetica','bold');doc.setFontSize(12.5);
+    doc.text('Total',tl,y);doc.text(money(invTotal()),cAmt,y,{align:'right'});
+    /* bank details */
+    y+=30;if(y>720){doc.addPage();y=60;}
+    doc.setDrawColor(210);doc.setFillColor(247,242,239);doc.rect(L,y,R-L,78,'F');
+    var by=y+20;doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(20);
+    doc.text('Payment — Bank Transfer',L+14,by);
+    doc.setFont('helvetica','normal');doc.setFontSize(10.5);doc.setTextColor(60);
+    by+=17;doc.text('Account Name: Ratio Coffee Pty Ltd',L+14,by);
+    by+=14;doc.text('BSB: 062-151',L+14,by);
+    by+=14;doc.text('Account Number: 10497845',L+14,by);
+    y+=78;
+    /* notes + footer */
+    if(INV.notes){y+=22;doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(90);doc.text(String(INV.notes).substring(0,120),L,y);}
+    y+=22;doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(150);
+    doc.text('Generated '+new Date().toLocaleString()+' · Ratio Coffee Pty Ltd',L,y);
+    seq.commit();
+    doc.save(seq.no+'.pdf');
+  }
+
   /* ---- New: roster planner ---- */
   const STAFF_NAMES=['Yi','Manami','Joshua','Juwa','Daniel','Samuel','Nina','Lovey'];
   const TS_ORDER=['mon','tue','wed','thu','fri','sat','sun'];
@@ -1275,6 +1484,7 @@ fill="#6F4A36" stroke="none">
 
 
   function onOpen(id){
+    if(id==='news'){openInvoice();return;}
     if(DOCK_NODES[id]){dockTo([id]);return;}
     console.log('open:',id);/* TODO: route other modules */
   }
