@@ -694,6 +694,7 @@ fill="#6F4A36" stroke="none">
     host.appendChild(sc);
   }
   function runModuleAction(act){
+    if(typeof act==='string'&&act.indexOf('timesheet:')===0)tsFilter=null;
     if(act==='beans:retail'){openPage('beans');beansView='retail';renderBeansRetail();}
     else if(act==='beans:prod'){roastedTitle='Pending';openPage('beans');beansView='production';loadRoasted();}
     else if(act==='roast:prod'){openPage('green');loadBeans('roast');}
