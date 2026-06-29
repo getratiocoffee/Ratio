@@ -86,7 +86,7 @@
   .pressing{animation:press-pf .42s ease}
   .item[data-id="beans"] .ic svg{transform:scale(.7)}
   .item[data-id="roast"] .ic svg{transform:translateY(3px) scale(1.2)}
-  .item[data-id="tools"] .ic svg{transform:scale(1.2)}
+  .ic img{width:34px;height:34px;object-fit:contain;display:block}
   .ov{position:fixed;inset:0;background:rgba(50,43,42,0.45);display:none;align-items:center;justify-content:center;padding:24px;z-index:10}
   .ov.open{display:flex}
   .panel{background:var(--surface);border-radius:26px;padding:20px 18px 22px;width:100%;max-width:330px;transform:scale(.85);opacity:0;transition:transform .22s ease,opacity .22s ease}
@@ -495,6 +495,7 @@ fill="#6F4A36" stroke="none">
 </svg>`,
     task:`<svg viewBox="0 0 48 48"><rect x="13" y="12" width="22" height="27" rx="6" fill="#FCF6F4" ${O}/><rect x="19.5" y="8.5" width="9" height="6" rx="2.4" fill="#9DAE86" ${O}/><path d="M17.5 24 l2.6 2.6 5-5.6" fill="none" stroke="#9DAE86" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 30 h12 M18 34 h8" fill="none" stroke="#D8CFC6" stroke-width="1.8" stroke-linecap="round"/></svg>`,
     tools:`<svg viewBox="0 0 48 48"><path d="M31 13a5.5 5.5 0 0 0-7 7L13.5 30.5l4 4L28 24a5.5 5.5 0 0 0 7-7l-3.3 3.3-2.7-2.7L32.3 14z" fill="#B7ADA0" ${O}/></svg>`,
+    recipe:`<img src="drop.png" alt="Recipe" />`,
     roast:`<svg viewBox="0 0 48 48"><path d="M24 8c4 6 9 9 9 16a9 9 0 0 1-18 0c0-4 2-6 3.6-7.6.8 2.6 2.6 3.2 3.6 3.5 0-3.6-1.6-7.4-1.8-11.9z" fill="#D99B6E" ${O}/><path d="M24 22c2 2 3.2 4 3.2 6a4.6 4.6 0 0 1-9.2 0c0-2 1-3.6 2.1-4.6.5 1.6 1.6 2 2.1 2.2 0-1.4-.3-2.4-.2-3.6z" fill="#EFC9A0" stroke="none"/></svg>`,
     green:`<svg viewBox="0 0 48 48"><g transform="translate(24 20) scale(1.3) translate(-24 -24)" ${O}><path d="M24 40 V18" fill="none" stroke="#8DA06E" stroke-width="2.4"/><path d="M24 26 C16 22 11 24 9 29 C16 32 21 29 24 26z" fill="#9DAE86"/><path d="M24 22 C32 17 37 19 39 24 C31 28 26 25 24 22z" fill="#B7C49E"/></g></svg>`,
     order:`<svg viewBox="0 0 48 48"><rect x="14" y="11" width="20" height="26" rx="3.5" fill="#FCF6F4" ${O}/><path d="M18.5 18 h11 M18.5 22 h11 M18.5 26 h7" stroke="#CFC4B8" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M19 31 l2 2 3.5-4" fill="none" stroke="#9DAE86" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
@@ -510,7 +511,7 @@ fill="#6F4A36" stroke="none">
     bag:`<svg viewBox="0 0 24 24" ${s}><path d="M6 9h12l-.8 11a1 1 0 0 1-1 .9H7.8a1 1 0 0 1-1-.9z"/><path d="M9 9V7a3 3 0 0 1 6 0v2"/></svg>`,
     swap:`<svg viewBox="0 0 24 24" ${s}><path d="M5 8h13M15 5l3 3-3 3"/><path d="M19 16H6M9 13l-3 3 3 3"/></svg>`
   };
-  const shop=[['timesheet','Timesheet'],['beans','Beans'],['task','Task'],['tools','Tools']];
+  const shop=[['timesheet','Timesheet'],['beans','Beans'],['task','Task'],['recipe','Recipe']];
   const roastery=[['roast','Roast'],['green','Green'],['order','Order'],['fx','F(x)']];
   const folder=[['coffee','Order'],['qr','Pay'],['repeat','Subscribe'],['news','News'],['gift','Gifts'],['user','Account'],['cog','Settings'],['bag','Shop']];
 
