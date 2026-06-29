@@ -107,9 +107,9 @@
   .shift .who{flex:1;min-width:0}
   .shift .nm{font-size:15px;font-weight:600;color:var(--ink)}
   .shift .role{font-size:11px;color:var(--muted);margin-top:2px}
-  .shift .rt{text-align:right;white-space:nowrap}
+  .shift .rt{display:flex;align-items:baseline;gap:9px;white-space:nowrap}
   .shift .tm{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:15px;font-weight:600;color:var(--ink)}
-  .shift .hrs{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--accent);margin-top:2px}
+  .shift .hrs{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--accent)}
   .sempty{text-align:center;color:var(--muted);font-size:13px;padding:56px 24px}
   /* timesheet History: collapsible week + PDF + cash select */
   .thw-head{display:flex;align-items:stretch;border-bottom:1px solid var(--line);background:var(--surface)}
@@ -868,7 +868,7 @@ fill="#6F4A36" stroke="none">
         if(hideName){
           return '<div class="'+sc+'"><div class="who"><div class="nm">'+esc(r.tm)+'</div></div><div class="rt">'+(r.hrs?'<div class="hrs">'+esc(r.hrs)+'</div>':'')+'</div></div>';
         }
-        return '<div class="'+sc+'"><div class="who"><div class="nm">'+esc(r.nm)+'</div>'+(r.role?'<div class="role">'+esc(r.role)+'</div>':'')+'</div><div class="rt"><div class="tm">'+esc(r.tm)+'</div>'+(r.hrs?'<div class="hrs">'+esc(r.hrs)+'</div>':'')+'</div></div>';
+        return '<div class="'+sc+'"><div class="who"><div class="nm">'+esc(r.nm)+'</div></div><div class="rt"><span class="tm">'+esc(r.tm)+'</span>'+(r.hrs?'<span class="hrs">'+esc(r.hrs)+'</span>':'')+'</div></div>';
       }).join('');
       var parts=String(g.day).split(' · ');
       var dow=(parts[0]||'').toUpperCase();
