@@ -22,6 +22,8 @@
   .clock{font-size:26px;font-weight:600;font-family:-apple-system,system-ui,sans-serif;color:var(--on-brand);letter-spacing:.5px}
   .feed{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .ctitle{display:none;padding:13px 16px 10px;font-size:15px;font-weight:700;color:var(--ink);border-bottom:1px solid var(--line)}
+  .ctitle .ct-week{font-size:15px;font-weight:700;color:var(--ink)}
+  .ctitle .ct-sub{font-size:11px;font-weight:500;color:var(--muted);margin-top:2px}
   .ctitle.show{display:block}
   .cpanel{display:none}
   .cpanel.show{display:block;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--bg)}
@@ -137,7 +139,7 @@
   .ps-add{padding:10px 14px}
   .ps-addsel{width:100%;border:1px dashed var(--line-strong,rgba(50,43,42,.22));border-radius:11px;padding:11px 12px;font-size:14px;color:var(--accent);background:var(--bg);outline:none;font-family:inherit;-webkit-appearance:none;appearance:none}
   .ps-addsel:focus{border-color:var(--accent)}
-  .ts-hist{display:flex;align-items:center;gap:9px;margin:12px 16px 2px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:13px;color:var(--accent);font-weight:600;font-size:13px;cursor:pointer;font-family:inherit;width:calc(100% - 32px)}
+  .ts-hist{display:flex;align-items:center;gap:9px;margin:16px 16px 14px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:13px;color:var(--accent);font-weight:600;font-size:13px;cursor:pointer;font-family:inherit;width:calc(100% - 32px)}
   .ts-hist svg{width:17px;height:17px;flex:0 0 auto}
   .ts-hist .ts-hist-arr{margin-left:auto;font-size:18px;color:var(--muted)}
   .ts-hist:active{background:var(--bg)}
@@ -498,7 +500,7 @@ fill="#6F4A36" stroke="none">
   };
   /* node tree. Each node = two buttons (left/right). A button has `act` (opens a screen) OR `to` (a deeper node). */
   const DOCK_NODES={
-    timesheet:{contentTitle:'Timesheet Reminder',
+    timesheet:{contentTitle:'',
            left:{label:'下一週',dateKey:'next',icon:'calendar',act:'timesheet:next'},
            right:{label:'再下一週',dateKey:'after',icon:'calendar',act:'timesheet:after'}},
     beans:{contentTitle:'Retail Reminder',
@@ -577,9 +579,13 @@ fill="#6F4A36" stroke="none">
   }
   function renderModulePanel(rootKey){
     if(rootKey==='timesheet'){
-      const w=TIMESHEET_WEEKS[0];
+      const cw=currentWeekStart();
+      const w=thisWeekEntry();
       var histBtn='<button class="ts-hist" id="ts-hist-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg><span>歷史與付款 PDF</span><span class="ts-hist-arr">›</span></button>';
-      showCPanel(histBtn+(w?('<div class="gsec" style="padding:14px 18px 2px">本週 · '+esc(w.range)+'</div><div class="plan-note" style="padding-bottom:4px">時數已扣週一至週五 30 分鐘休息</div>'+tsGroupsHTML(w.groups)):'<div class="sempty">尚無班表</div>'));
+      showCPanel((w?tsGroupsHTML(w.groups):'<div class="sempty">本週還沒有班表紀錄<br>（過往班表在下方歷史）</div>')+histBtn);
+      var ct=document.getElementById('ctitle');
+      ct.innerHTML='<div class="ct-week">本週 · '+esc(weekRangeOf(cw))+'</div>'+(w?'<div class="ct-sub">時數已扣週一至週五 30 分鐘休息</div>':'');
+      ct.classList.add('show');
       var hl=document.getElementById('ts-hist-link');
       if(hl)hl.addEventListener('click',function(){runModuleAction('timesheet:hist');});
     }else{
@@ -598,7 +604,7 @@ fill="#6F4A36" stroke="none">
     else if(act==='green:samplehist'){openPage('green');loadSamples('history');}
     else if(act==='timesheet:next'){var pw=planWeeksFromToday();openWeekPlan(pw.next,'下一週');}
     else if(act==='timesheet:after'){var pw=planWeeksFromToday();openWeekPlan(pw.after,'再下一週');}
-    else if(act==='timesheet:hist'){document.getElementById('ts-title').textContent='History';document.getElementById('ts-week').textContent='';renderTimesheetWeeks(TIMESHEET_WEEKS.slice(1));openPage('timesheet');}
+    else if(act==='timesheet:hist'){document.getElementById('ts-title').textContent='History';document.getElementById('ts-week').textContent='';renderTimesheetWeeks(historyWeeks());openPage('timesheet');}
   }
 
   /* ---- Supabase live message feed ---- */
@@ -895,6 +901,10 @@ fill="#6F4A36" stroke="none">
   function mondayOf(d){var wd=(d.getDay()+6)%7;var m=new Date(d);m.setDate(m.getDate()-wd);m.setHours(0,0,0,0);return m;}
   function weekRangeOf(monIso){var a=new Date(monIso+'T00:00:00');var b=new Date(a);b.setDate(b.getDate()+6);return TS_MON[a.getMonth()]+' '+a.getDate()+' – '+TS_MON[b.getMonth()]+' '+b.getDate();}
   function dayLabelOf(monIso,i){var a=new Date(monIso+'T00:00:00');a.setDate(a.getDate()+i);return TS_DAYLBL[TS_ORDER[i]]+' · '+TS_MON[a.getMonth()]+' '+a.getDate();}
+  /* date-aware split: a week is "this week" only while it contains today; once its Sunday passes it is History */
+  function currentWeekStart(){return isoDate(mondayOf(new Date()));}
+  function thisWeekEntry(){var cw=currentWeekStart();return TIMESHEET_WEEKS.find(function(w){return w.weekStart===cw;})||null;}
+  function historyWeeks(){var cw=currentWeekStart();return TIMESHEET_WEEKS.filter(function(w){return w.weekStart<cw;}).sort(function(a,b){return a.weekStart<b.weekStart?1:-1;});}
 
   let planWeek='', planLabel='', planShifts=[], planOpen={};
   function planKey(ws){return 'ratio_plan_'+ws;}
