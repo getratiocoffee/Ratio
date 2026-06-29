@@ -400,12 +400,12 @@
     <div class="auth-card">
       <div class="auth-logo"><img src="logo.png" alt="Ratio" /></div>
       <h2>Ratio</h2>
-      <p class="sub" id="auth-sub">登入你的帳號</p>
-      <input id="auth-name" type="text" placeholder="你的名字" autocomplete="name" style="display:none" />
+      <p class="sub" id="auth-sub">Sign in to your account</p>
+      <input id="auth-name" type="text" placeholder="Your name" autocomplete="name" style="display:none" />
       <input id="auth-email" type="email" placeholder="Email" autocomplete="email" inputmode="email" />
-      <input id="auth-pass" type="password" placeholder="密碼（至少 6 位）" inputmode="numeric" autocomplete="current-password" />
-      <button class="go" id="auth-go">登入</button>
-      <button class="lnk" id="auth-toggle">還沒有帳號？申請一個</button>
+      <input id="auth-pass" type="password" placeholder="Password (min 6 chars)" inputmode="numeric" autocomplete="current-password" />
+      <button class="go" id="auth-go">Sign in</button>
+      <button class="lnk" id="auth-toggle">No account yet? Sign up</button>
       <p class="hint" id="auth-hint"></p>
     </div>
   </div>
@@ -472,7 +472,7 @@
   const O='stroke="#6B5E50" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"';
   const s='stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"';
   const I={
-    timesheet:`<svg viewBox="0 0 48 48"><path d="M12 14 H36 M24 14 V34 M19 34 H29" fill="none" stroke="#49423A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    timesheet:`<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14" fill="none" stroke="#49423A" stroke-width="3.2"/><path d="M24 15 V24 L30.5 28" fill="none" stroke="#49423A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     beans:`<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
  viewBox="0 0 715.000000 704.000000"
  preserveAspectRatio="xMidYMid meet">
@@ -551,22 +551,22 @@ fill="#6F4A36" stroke="none">
   /* node tree. Each node = two buttons (left/right). A button has `act` (opens a screen) OR `to` (a deeper node). */
   const DOCK_NODES={
     timesheet:{contentTitle:'',
-           left:{label:'下一週',dateKey:'next',icon:'calendar',act:'timesheet:next'},
-           right:{label:'再下一週',dateKey:'after',icon:'calendar',act:'timesheet:after'}},
+           left:{label:'Next week',dateKey:'next',icon:'calendar',act:'timesheet:next'},
+           right:{label:'Week after',dateKey:'after',icon:'calendar',act:'timesheet:after'}},
     beans:{contentTitle:'Retail Reminder',
-           left:{label:'Retail Shelf',zh:'零售貨架',icon:'bag',act:'beans:retail'},
-           right:{label:'Pending',zh:'待杯測',icon:'factory',act:'beans:prod'}},
+           left:{label:'Retail Shelf',zh:'',icon:'bag',act:'beans:retail'},
+           right:{label:'Pending',zh:'',icon:'factory',act:'beans:prod'}},
     roast:{contentTitle:'Roasting Reminder',
-           left:{label:'Production',zh:'生產烘焙',icon:'factory',act:'roast:prod'},
-           right:{label:'History',zh:'烘焙紀錄',icon:'history',act:'roast:hist'}},
+           left:{label:'Production',zh:'',icon:'factory',act:'roast:prod'},
+           right:{label:'History',zh:'',icon:'history',act:'roast:hist'}},
     green:{contentTitle:'Green Bean Reminder',
-           left:{label:'Trade',zh:'交易',icon:'trade',to:'green.trade'},
-           right:{label:'Sample',zh:'樣品',icon:'sample',to:'green.sample'}},
-    'green.trade':{left:{label:'Buy',zh:'採購',icon:'buy',act:'green:buy'},
-                   right:{label:'Sell',zh:'販售',icon:'sell',act:'green:sell'}},
-    'green.sample':{left:{label:'Analyse',zh:'分析',icon:'analyse',act:'green:analyse'},
-                    right:{label:'History',zh:'樣品紀錄',icon:'history',act:'green:samplehist'}},
-    /* not built yet — tapping shows the reminder title + a "開發中" placeholder dock */
+           left:{label:'Trade',zh:'',icon:'trade',to:'green.trade'},
+           right:{label:'Sample',zh:'',icon:'sample',to:'green.sample'}},
+    'green.trade':{left:{label:'Buy',zh:'',icon:'buy',act:'green:buy'},
+                   right:{label:'Sell',zh:'',icon:'sell',act:'green:sell'}},
+    'green.sample':{left:{label:'Analyse',zh:'',icon:'analyse',act:'green:analyse'},
+                    right:{label:'History',zh:'',icon:'history',act:'green:samplehist'}},
+    /* not built yet — tapping shows the reminder title + a "Coming soon" placeholder dock */
     task:{soon:true,contentTitle:'Task Reminder'},
     order:{soon:true,contentTitle:'Order Reminder'},
     program:{soon:true,contentTitle:'Program Reminder'}
@@ -601,8 +601,8 @@ fill="#6F4A36" stroke="none">
         const root=DOCK_NODES[dockStack[0]];
         bar.classList.add('module');
         if(node.soon){
-          lp.innerHTML='<div class="dock-soon">開發中</div>';
-          rp.innerHTML='<div class="dock-soon">開發中</div>';
+          lp.innerHTML='<div class="dock-soon">Coming soon</div>';
+          rp.innerHTML='<div class="dock-soon">Coming soon</div>';
         }else{
           lp.innerHTML=dockBtnHTML(node.left);
           rp.innerHTML=dockBtnHTML(node.right);
@@ -652,8 +652,8 @@ fill="#6F4A36" stroke="none">
       const cw=currentWeekStart();
       const w=thisWeekEntry();
       var ct=document.getElementById('ctitle');
-      var histBtn='<button class="ct-hist" id="ts-hist-link"><span>歷史與付款 PDF</span><span class="ct-hist-arr">›</span></button>';
-      ct.innerHTML='<div class="ct-row"><div class="ct-week">本週 · '+esc(weekRangeOf(cw))+'</div>'+histBtn+'</div>';
+      var histBtn='<button class="ct-hist" id="ts-hist-link"><span>History & pay PDF</span><span class="ct-hist-arr">›</span></button>';
+      ct.innerHTML='<div class="ct-row"><div class="ct-week">This week · '+esc(weekRangeOf(cw))+'</div>'+histBtn+'</div>';
       ct.classList.add('show');
       var html;
       if(w){
@@ -662,16 +662,16 @@ fill="#6F4A36" stroke="none">
         var chips='<div class="ts-filter"><button class="tf-chip'+(tsFilter?'':' on')+'" data-n="">All</button>'
           +names.map(function(n){return '<button class="tf-chip'+(tsFilter===n?' on':'')+'" data-n="'+esc(n)+'">'+esc(n)+'</button>';}).join('')+'</div>';
         var gs=filterGroups(w.groups,tsFilter);
-        var body=gs.length?tsGroupsHTML(gs,cw,!!tsFilter):'<div class="sempty">'+esc(tsFilter||'')+' 本週沒有班</div>';
-        var editBtn='<div style="padding:8px 16px 14px"><button class="gbtn ghost" id="ts-editweek">編輯本週班表</button></div>';
+        var body=gs.length?tsGroupsHTML(gs,cw,!!tsFilter):'<div class="sempty">'+esc(tsFilter||'')+' no shifts this week</div>';
+        var editBtn='<div style="padding:8px 16px 14px"><button class="gbtn ghost" id="ts-editweek">Edit this week</button></div>';
         html=chips+body+editBtn;
       }else{
-        html='<div class="sempty" style="padding:38px 24px 18px">本週還沒有班表<br>幫這週排班並上傳吧</div>'
-          +'<div style="padding:0 16px 14px"><button class="gbtn" id="ts-fillweek">排這週的班表</button></div>';
+        html='<div class="sempty" style="padding:38px 24px 18px">No roster yet<br>Plan and upload this week</div>'
+          +'<div style="padding:0 16px 14px"><button class="gbtn" id="ts-fillweek">Plan this week</button></div>';
       }
       showCPanel(html);
-      var fw=document.getElementById('ts-fillweek');if(fw)fw.addEventListener('click',function(){openWeekPlan(cw,'本週');});
-      var ew=document.getElementById('ts-editweek');if(ew)ew.addEventListener('click',function(){openWeekPlan(cw,'本週');});
+      var fw=document.getElementById('ts-fillweek');if(fw)fw.addEventListener('click',function(){openWeekPlan(cw,'This week');});
+      var ew=document.getElementById('ts-editweek');if(ew)ew.addEventListener('click',function(){openWeekPlan(cw,'This week');});
       document.querySelectorAll('#cpanel .tf-chip').forEach(function(c){c.addEventListener('click',function(){tsFilter=c.dataset.n||null;renderModulePanel('timesheet');});});
       var hl=document.getElementById('ts-hist-link');
       if(hl)hl.addEventListener('click',function(){runModuleAction('timesheet:hist');});
@@ -713,11 +713,11 @@ fill="#6F4A36" stroke="none">
     else if(act==='roast:prod'){openPage('green');loadBeans('roast');}
     else if(act==='roast:hist'){roastedTitle='History';openPage('beans');beansView='production';loadRoasted();}
     else if(act==='green:buy'){openPage('green');loadBeans('countries');}
-    else if(act==='green:sell'){openPage('green');greenSoon='Sell 販售';greenView='soon';renderGreen();}
+    else if(act==='green:sell'){openPage('green');greenSoon='Sell';greenView='soon';renderGreen();}
     else if(act==='green:analyse'){openPage('green');loadSamples();}
     else if(act==='green:samplehist'){openPage('green');loadSamples('history');}
-    else if(act==='timesheet:next'){var pw=planWeeksFromToday();openWeekView(pw.next,'下一週');}
-    else if(act==='timesheet:after'){var pw=planWeeksFromToday();openWeekView(pw.after,'再下一週');}
+    else if(act==='timesheet:next'){var pw=planWeeksFromToday();openWeekView(pw.next,'Next week');}
+    else if(act==='timesheet:after'){var pw=planWeeksFromToday();openWeekView(pw.after,'Week after');}
     else if(act==='timesheet:hist'){document.getElementById('ts-title').textContent='History';document.getElementById('ts-week').textContent='';renderTimesheetWeeks(historyWeeks());openPage('timesheet');}
     setActiveDock(act);
   }
@@ -746,11 +746,11 @@ fill="#6F4A36" stroke="none">
     function setMode(m){
       mode=m;
       if(m==='signup'){
-        subEl.textContent='申請新帳號';nameEl.style.display='';
-        goBtn.textContent='申請帳號';toggleBtn.textContent='已經有帳號？登入';
+        subEl.textContent='Create account';nameEl.style.display='';
+        goBtn.textContent='Sign up';toggleBtn.textContent='Have an account? Sign in';
       }else{
-        subEl.textContent='登入你的帳號';nameEl.style.display='none';
-        goBtn.textContent='登入';toggleBtn.textContent='還沒有帳號？申請一個';
+        subEl.textContent='Sign in to your account';nameEl.style.display='none';
+        goBtn.textContent='Sign in';toggleBtn.textContent='No account yet? Sign up';
       }
       setHint('',null);
     }
@@ -764,7 +764,7 @@ fill="#6F4A36" stroke="none">
       document.body.classList.remove('role-staff','role-customer');
       document.body.classList.add(role==='staff'?'role-staff':'role-customer');
       const who=document.getElementById('who');
-      if(who)who.textContent=name+' · '+(role==='staff'?'員工':'客人');
+      if(who)who.textContent=name+' · '+(role==='staff'?'Staff':'Customer');
       if(typeof alignCenter==='function')alignCenter();
     }
     async function onSession(session){
@@ -778,20 +778,20 @@ fill="#6F4A36" stroke="none">
     async function submit(){
       const email=emailEl.value.trim();
       const pass=passEl.value;
-      if(!email||!pass){setHint('請填 Email 和密碼','err');return;}
-      if(mode==='signup'&&pass.length<6){setHint('密碼至少 6 位','err');return;}
-      goBtn.disabled=true;setHint(mode==='signup'?'申請中…':'登入中…','ok');
+      if(!email||!pass){setHint('Enter email and password','err');return;}
+      if(mode==='signup'&&pass.length<6){setHint('Password needs 6+ characters','err');return;}
+      goBtn.disabled=true;setHint(mode==='signup'?'Creating…':'Signing in…','ok');
       let error;
       if(mode==='signup'){
         const r=await sb.auth.signUp({email,password:pass,options:{data:{name:nameEl.value.trim()}}});
         error=r.error;
-        if(!error && !r.data.session){goBtn.disabled=false;setHint('帳號建立成功，請收信點確認連結後再登入','ok');return;}
+        if(!error && !r.data.session){goBtn.disabled=false;setHint('Account created — check your email to confirm, then sign in','ok');return;}
       }else{
         const r=await sb.auth.signInWithPassword({email,password:pass});
         error=r.error;
       }
       goBtn.disabled=false;
-      if(error){setHint('失敗：'+error.message,'err');return;}
+      if(error){setHint('Failed: '+error.message,'err');return;}
       setHint('',null);
     }
     goBtn.addEventListener('click',submit);
@@ -847,7 +847,7 @@ fill="#6F4A36" stroke="none">
     if(id==null||id==='null')return;
     const {data,error}=await sb.from('messages').delete().eq('id',id).select();
     if(error||!data||!data.length){
-      console.error('[Ratio] 訊息沒刪成功（多半是 messages 表缺 DELETE 的 RLS 政策）：',error&&(error.message||error));
+      console.error('[Ratio] Message delete failed (messages table likely missing a DELETE RLS policy): ',error&&(error.message||error));
       loadMessages();/* re-sync so the feed shows the true state */
       return;
     }
@@ -958,8 +958,8 @@ fill="#6F4A36" stroke="none">
   function chevSVG(){return '<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>';}
   function renderTimesheetWeeks(weeks){
     const body=document.getElementById('timesheet-body');
-    if(!weeks||!weeks.length){body.innerHTML='<div class="sempty">尚無歷史紀錄</div>';return;}
-    body.innerHTML='<div class="gsec" style="padding:12px 18px 2px">點日期展開；右側可產生付款 PDF 或刪除</div>'+weeks.map(function(w){
+    if(!weeks||!weeks.length){body.innerHTML='<div class="sempty">No history yet</div>';return;}
+    body.innerHTML='<div class="gsec" style="padding:12px 18px 2px">Tap a date to expand; use the right side to make a pay PDF or delete</div>'+weeks.map(function(w){
       var open=!!tsHistOpen[w.weekStart];
       var cash=getCashSet(w);
       var head='<div class="thw-head">'
@@ -971,14 +971,14 @@ fill="#6F4A36" stroke="none">
         +'</div>';
       var bodyHtml='';
       if(tsDelW===w.weekStart){
-        bodyHtml='<div class="rd-body"><div class="ts-delbar"><span>刪除「'+esc(w.range)+'」班表？此動作無法復原。</span><div class="ts-delact"><button class="gbtn ghost" data-del-cancel="1">取消</button><button class="gbtn danger" data-del-yes="'+esc(w.weekStart)+'">確定刪除</button></div></div></div>';
+        bodyHtml='<div class="rd-body"><div class="ts-delbar"><span>Delete "'+esc(w.range)+'" roster? This cannot be undone.</span><div class="ts-delact"><button class="gbtn ghost" data-del-cancel="1">Cancel</button><button class="gbtn danger" data-del-yes="'+esc(w.weekStart)+'">Delete</button></div></div></div>';
       }else if(open){
         var cashList=w.staff.map(function(s){
           var on=cash.has(s.name);
           return '<div class="cashrow"><div><div class="cn">'+esc(s.name)+'</div><div class="ch">'+esc(s.hl)+'</div></div>'
             +'<button class="cash-toggle'+(on?' on':'')+'" data-w="'+esc(w.weekStart)+'" data-n="'+esc(s.name)+'">'+(on?'Cash':'Bank')+'</button></div>';
         }).join('');
-        bodyHtml='<div class="rd-body"><div class="cash-sec"><div class="cash-sec-h">付款方式　點一下切換 Cash／Bank</div><div class="cash-list">'+cashList+'</div></div>'+tsGroupsHTML(w.groups,w.weekStart)+'</div>';
+        bodyHtml='<div class="rd-body"><div class="cash-sec"><div class="cash-sec-h">Payment method · tap to toggle Cash/Bank</div><div class="cash-list">'+cashList+'</div></div>'+tsGroupsHTML(w.groups,w.weekStart)+'</div>';
       }
       return '<div class="thw">'+head+bodyHtml+'</div>';
     }).join('');
@@ -996,7 +996,7 @@ fill="#6F4A36" stroke="none">
   }
   function generatePaymentPDF(w){
     var JS=window.jspdf&&window.jspdf.jsPDF;
-    if(!JS){alert('PDF 元件還在載入，請稍後再試');return;}
+    if(!JS){alert('PDF tool still loading, please try again');return;}
     var img=new Image();
     img.onload=function(){buildPaymentPDF(w,img);};
     img.onerror=function(){buildPaymentPDF(w,null);};
@@ -1173,8 +1173,8 @@ fill="#6F4A36" stroke="none">
     var chips='<div class="ts-filter"><button class="tf-chip'+(wvFilter?'':' on')+'" data-n="">All</button>'
       +names.map(function(n){return '<button class="tf-chip'+(wvFilter===n?' on':'')+'" data-n="'+esc(n)+'">'+esc(n)+'</button>';}).join('')+'</div>';
     var gs=filterGroups(w.groups,wvFilter);
-    var sched=gs.length?tsGroupsHTML(gs,wvWeek,!!wvFilter):'<div class="sempty">'+esc(wvFilter||'')+' 這週沒有班</div>';
-    var editBtn='<div style="padding:12px 16px 16px"><button class="gbtn" id="wv-edit">編輯班表</button></div>';
+    var sched=gs.length?tsGroupsHTML(gs,wvWeek,!!wvFilter):'<div class="sempty">'+esc(wvFilter||'')+' no shifts this week</div>';
+    var editBtn='<div style="padding:12px 16px 16px"><button class="gbtn" id="wv-edit">Edit roster</button></div>';
     body.innerHTML=chips+sched+editBtn;
     body.querySelectorAll('.tf-chip').forEach(function(c){c.addEventListener('click',function(){wvFilter=c.dataset.n||null;renderWeekView();});});
     var eb=document.getElementById('wv-edit');if(eb)eb.addEventListener('click',function(){openWeekPlan(wvWeek,wvLabel);});
@@ -1190,23 +1190,23 @@ fill="#6F4A36" stroke="none">
     if(planDone){
       body.innerHTML='<div class="plan-done">'
         +'<div class="pd-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11"/></svg></div>'
-        +'<div class="pd-t">已存成正式班表</div>'
-        +'<div class="pd-s">'+esc(weekRangeOf(planWeek))+'<br>已顯示在「本週」與「歷史」</div>'
-        +'<button class="gbtn" id="plan-done-ok">完成</button>'
-        +'<button class="gbtn ghost" id="plan-done-edit">繼續編輯</button>'
+        +'<div class="pd-t">Saved as the official roster</div>'
+        +'<div class="pd-s">'+esc(weekRangeOf(planWeek))+'<br>Now shown in This Week and History</div>'
+        +'<button class="gbtn" id="plan-done-ok">Done</button>'
+        +'<button class="gbtn ghost" id="plan-done-edit">Keep editing</button>'
         +'</div>';
       var okB=document.getElementById('plan-done-ok');if(okB)okB.addEventListener('click',function(){closePage();});
       var edB=document.getElementById('plan-done-edit');if(edB)edB.addEventListener('click',function(){planDone=false;renderWeekPlan();});
       return;
     }
     var byDay={};planShifts.forEach(function(s,i){(byDay[s.day]=byDay[s.day]||[]).push(Object.assign({i:i},s));});
-    var note='<div class="plan-note">每天已帶入預設班次（平日 2 班、週六 3 班、週日 4 班），時間可逐筆調整、15 分鐘為單位。已依預設自動計算無薪休息。草稿自動存在這台裝置。</div>';
+    var note='<div class="plan-note">Each day is pre-filled with default shifts (2 on weekdays, 3 on Sat, 4 on Sun). Adjust each one in 15-min steps. Unpaid breaks are applied automatically. Draft saves on this device.</div>';
     var days=TS_ORDER.map(function(dk){
       var idx=TS_ORDER.indexOf(dk);var arr=byDay[dk]||[];var open=(planOpen[dk]!==undefined)?planOpen[dk]:(arr.length>0);
       var p0=presetFor(dk,0);
       var dd=new Date(planWeek+'T00:00:00');dd.setDate(dd.getDate()+idx);var isToday=isoDate(dd)===isoDate(new Date());
       var tot=arr.reduce(function(a,s){return a+tsPaidBr(s.start,s.end,s.br);},0);
-      var meta=arr.length?(arr.length+' 班 · <b>'+tsHH(Math.round(tot*10)/10)+'</b>'):('預設 '+p0.start+'–'+p0.end+' …');
+      var meta=arr.length?(arr.length+' shifts · <b>'+tsHH(Math.round(tot*10)/10)+'</b>'):('default '+p0.start+'–'+p0.end+' …');
       var head='<button class="rdate'+(open?' open':'')+(isToday?' today':'')+'" data-d="'+dk+'">'
         +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
         +'<span class="rd-date">'+esc(dayLabelOf(planWeek,idx))+(isToday?' <span class="td-now">TODAY</span>':'')+'</span>'
@@ -1222,20 +1222,20 @@ fill="#6F4A36" stroke="none">
         }).join('');
         var taken={};arr.forEach(function(s){taken[s.name]=1;});
         var np=presetFor(dk,arr.length);
-        var opts='<option value="">＋ 加入員工（預設 '+np.start+'–'+np.end+'）</option>'+STAFF_NAMES.filter(function(n){return !taken[n];}).map(function(n){return '<option>'+esc(n)+'</option>';}).join('');
+        var opts='<option value="">+ Add staff (default '+np.start+'–'+np.end+')</option>'+STAFF_NAMES.filter(function(n){return !taken[n];}).map(function(n){return '<option>'+esc(n)+'</option>';}).join('');
         var add='<div class="ps-add"><select class="ps-addsel" data-d="'+dk+'">'+opts+'</select></div>';
-        bd='<div class="rd-body">'+(rows||'<div class="sempty" style="padding:18px">這天還沒排人</div>')+add+'</div>';
+        bd='<div class="rd-body">'+(rows||'<div class="sempty" style="padding:18px">No one scheduled</div>')+add+'</div>';
       }
       return '<div class="thw">'+head+bd+'</div>';
     }).join('');
     var totals='';
     var st=planStaffTotals();
     if(st.length){
-      totals='<div class="cash-sec"><div class="cash-sec-h">本週時數合計</div><div class="cash-list">'
+      totals='<div class="cash-sec"><div class="cash-sec-h">Week hours total</div><div class="cash-list">'
         +st.map(function(s){return '<div class="cashrow"><div class="cn">'+esc(s.name)+'</div><div class="ch" style="margin:0;font-size:13px;color:var(--ink)">'+esc(s.hl)+'</div></div>';}).join('')
         +'</div></div>';
     }
-    var submitBtn=planShifts.length?('<div class="plan-msg ok" id="plan-msg">'+esc(planMsg||'')+'</div><div class="ps-submit"><button class="gbtn" id="plan-submit">遞件上傳（存成正式班表）</button></div>'):'';
+    var submitBtn=planShifts.length?('<div class="plan-msg ok" id="plan-msg">'+esc(planMsg||'')+'</div><div class="ps-submit"><button class="gbtn" id="plan-submit">Submit · save as official roster</button></div>'):'';
     body.innerHTML=note+days+totals+submitBtn;
     var subBtn=document.getElementById('plan-submit');
     if(subBtn)subBtn.addEventListener('click',function(){
@@ -1274,15 +1274,15 @@ fill="#6F4A36" stroke="none">
 
   /* ---- Green module: country → bean → detail drill-down ---- */
   let BEANS=[], ROASTS=[], greenView='home', greenCountry=null, greenBeanId=null, greenEdit=false, greenSoon='', greenDelConfirm=false;
-  const GFIELDS=[['name','名稱','text'],['country','國家','text'],['region','產區','text'],['station','處理站','text'],['process','處理法','text'],['variety','品種','text'],['harvest','年份','text'],['altitude','海拔','text'],['quantity','數量 (kg)','number'],['cost_per_kg','每公斤成本','number'],['supplier','供應商','text']];
+  const GFIELDS=[['name','Name','text'],['country','Country','text'],['region','Region','text'],['station','Station','text'],['process','Process','text'],['variety','Variety','text'],['harvest','Harvest','text'],['altitude','Altitude','text'],['quantity','Quantity (kg)','number'],['cost_per_kg','Cost per kg','number'],['supplier','Supplier','text']];
   const gnum=n=>{const x=Number(n);return isNaN(x)?n:(x%1===0?x:Math.round(x*10)/10);};
   const gmoney=n=>'$'+Math.round(Number(n)||0).toLocaleString('en-US');
 
   async function loadBeans(view){
     const box=document.getElementById('green-content');
-    box.innerHTML='<div class="sempty">載入中…</div>';
+    box.innerHTML='<div class="sempty">Loading…</div>';
     const {data,error}=await sb.from('beans').select('*').order('name');
-    if(error){box.innerHTML='<div class="sempty">載入失敗：'+esc(error.message)+'</div>';return;}
+    if(error){box.innerHTML='<div class="sempty">Load failed: '+esc(error.message)+'</div>';return;}
     BEANS=data||[];
     await loadRoasts();
     greenView=view||'home';greenCountry=null;greenBeanId=null;greenEdit=false;
@@ -1310,7 +1310,7 @@ fill="#6F4A36" stroke="none">
     else if(greenView==='history'){renderHistory();}
     else if(greenView==='soon'){
       title.textContent=greenSoon;count.textContent='';
-      box.innerHTML='<div class="sempty">「'+esc(greenSoon)+'」這塊之後再做</div>';
+      box.innerHTML='<div class="sempty">"'+esc(greenSoon)+'" — coming later</div>';
     }
     else if(greenView==='countries'){
       title.textContent='Buy';
@@ -1320,7 +1320,7 @@ fill="#6F4A36" stroke="none">
       const tiles=[['Beans',BEANS.length,''],['Green weight',gnum(t.kg),' kg'],['Value',gmoney(t.val),''],['Origins',origins,'']];
       const summary='<div class="green-summary">'+tiles.map(function(x){return '<div class="green-stat"><div class="lab">'+x[0]+'</div><div class="val">'+esc(x[1])+(x[2]?'<small>'+x[2]+'</small>':'')+'</div></div>';}).join('')+'</div>';
       const grid='<div class="gcountries">'+countryList().map(function(e){var c=e[0],n=e[1];var ct=totals(BEANS.filter(function(b){return (b.country||'—')===c;}));return '<div class="gcard" data-c="'+esc(c)+'"><div class="gc-name">'+esc(c)+'</div><div class="gc-sub"><span class="gc-n">'+n+' beans</span><br>'+gnum(ct.kg)+' kg · '+gmoney(ct.val)+'</div></div>';}).join('')+'</div>';
-      box.innerHTML=summary+'<div class="gsec">選擇產國</div>'+grid;
+      box.innerHTML=summary+'<div class="gsec">Choose origin</div>'+grid;
       box.querySelectorAll('.gcard').forEach(function(el){el.addEventListener('click',function(){greenCountry=el.dataset.c;greenView='beans';renderGreen();box.scrollTop=0;});});
     }
     else if(greenView==='beans'){
@@ -1341,7 +1341,7 @@ fill="#6F4A36" stroke="none">
         const val=(Number(b.quantity)||0)*(Number(b.cost_per_kg)||0);
         const rows=[['Country',b.country],['Region',b.region],['Station',b.station],['Process',b.process],['Variety',b.variety],['Harvest',b.harvest],['Altitude',b.altitude?b.altitude+' m':''],['Quantity',b.quantity!=null?gnum(b.quantity)+' kg':'',true],['Cost',b.cost_per_kg!=null?'$'+b.cost_per_kg+' /kg':'',true],['Value',val?gmoney(val):'',true],['Supplier',b.supplier]].filter(function(r){return r[1];});
         const list='<div class="gd-list">'+rows.map(function(r){return '<div class="grow"><span class="gk">'+r[0]+'</span><span class="gv'+(r[2]?' mono':'')+'">'+esc(r[1])+'</span></div>';}).join('')+'</div>';
-        box.innerHTML='<div class="gdetail"><button class="gbtn ghost" id="green-edit" style="margin-top:14px">編輯</button>'+list+'</div>';
+        box.innerHTML='<div class="gdetail"><button class="gbtn ghost" id="green-edit" style="margin-top:14px">Edit</button>'+list+'</div>';
         document.getElementById('green-edit').addEventListener('click',function(){greenEdit=true;greenDelConfirm=false;renderGreen();box.scrollTop=0;});
       }else{
         const form='<div class="gform">'+GFIELDS.map(function(f){
@@ -1350,10 +1350,10 @@ fill="#6F4A36" stroke="none">
           return '<label class="gfield"><span class="gl">'+f[1]+'</span><input data-f="'+f[0]+'" type="text"'+im+' value="'+esc(v)+'" /></label>';
         }).join('')
         +'<div class="gform-msg" id="green-msg"></div>'
-        +'<div class="gform-actions"><button class="gbtn ghost" id="green-cancel">取消</button><button class="gbtn" id="green-save">儲存</button></div>'
+        +'<div class="gform-actions"><button class="gbtn ghost" id="green-cancel">Cancel</button><button class="gbtn" id="green-save">Save</button></div>'
         +'<div class="gdel">'+(greenDelConfirm
-            ?'<div class="gdel-msg">確定要刪除「'+esc(b.name)+'」？此動作無法復原。</div><div class="gform-actions"><button class="gbtn ghost" id="gdel-cancel">取消</button><button class="gbtn danger" id="gdel-yes">確定刪除</button></div>'
-            :'<button class="gbtn dghost" id="gdel">刪除這支豆子</button>')
+            ?'<div class="gdel-msg">Delete "'+esc(b.name)+'"? This cannot be undone.</div><div class="gform-actions"><button class="gbtn ghost" id="gdel-cancel">Cancel</button><button class="gbtn danger" id="gdel-yes">Delete</button></div>'
+            :'<button class="gbtn dghost" id="gdel">Delete this bean</button>')
         +'</div></div>';
         title.textContent=b.name;count.textContent=b.country||'';
         box.innerHTML='<div class="gdetail" style="padding-top:8px">'+form+'</div>';
@@ -1374,11 +1374,11 @@ fill="#6F4A36" stroke="none">
       if(f==='quantity'||f==='cost_per_kg'){upd[f]=(v===''||isNaN(parseFloat(v)))?null:parseFloat(v);}
       else{upd[f]=v===''?null:v;}
     });
-    if(!upd.name){msg.textContent='名稱不能空白';msg.className='gform-msg err';return;}
-    btn.disabled=true;msg.textContent='儲存中…';msg.className='gform-msg';
+    if(!upd.name){msg.textContent='Name cannot be empty';msg.className='gform-msg err';return;}
+    btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
     const {error}=await sb.from('beans').update(upd).eq('id',greenBeanId);
     btn.disabled=false;
-    if(error){msg.textContent='儲存失敗：'+error.message;msg.className='gform-msg err';return;}
+    if(error){msg.textContent='Save failed: '+error.message;msg.className='gform-msg err';return;}
     const i=BEANS.findIndex(function(x){return String(x.id)===String(greenBeanId);});
     if(i>-1)BEANS[i]=Object.assign({},BEANS[i],upd);
     greenEdit=false;renderGreen();
@@ -1386,7 +1386,7 @@ fill="#6F4A36" stroke="none">
   async function deleteBean(){
     const id=greenBeanId;
     const {error}=await sb.from('beans').delete().eq('id',id);
-    if(error){var m=document.getElementById('green-msg');if(m){m.textContent='刪除失敗：'+error.message;m.className='gform-msg err';}greenDelConfirm=false;renderGreen();return;}
+    if(error){var m=document.getElementById('green-msg');if(m){m.textContent='Delete failed: '+error.message;m.className='gform-msg err';}greenDelConfirm=false;renderGreen();return;}
     BEANS=BEANS.filter(function(x){return String(x.id)!==String(id);});
     greenEdit=false;greenDelConfirm=false;greenBeanId=null;
     var stillHas=BEANS.some(function(x){return (x.country||'—')===greenCountry;});
@@ -1398,10 +1398,10 @@ fill="#6F4A36" stroke="none">
     if(!error)ROASTS=data||[];
   }
   function roastCard(r,tappable){
-    var badge=r.status==='cupped'?'<span class="rbadge done">已杯測</span>':'<span class="rbadge">待杯測</span>';
+    var badge=r.status==='cupped'?'<span class="rbadge done">Cupped</span>':'<span class="rbadge">Pending</span>';
     return '<div class="bean'+(tappable?' rcard':'')+'" data-id="'+esc(r.id)+'"><div class="bean-top"><span class="bean-nm">'+esc(r.bean_name||'—')+'</span>'+badge+'</div>'
       +(r.country?'<div class="bean-sub">'+esc(r.country)+'</div>':'')
-      +'<div class="bean-meta"><span><b>'+esc(gnum(r.green_kg))+'</b> kg 生豆</span>'+(r.roast_time?'<span>'+esc(r.roast_time)+'</span>':'')+'</div></div>';
+      +'<div class="bean-meta"><span><b>'+esc(gnum(r.green_kg))+'</b> kg green</span>'+(r.roast_time?'<span>'+esc(r.roast_time)+'</span>':'')+'</div></div>';
   }
   let ROAST_CART=[], roastDate='', roastTime='', roastBanner='', roastBannerErr=false, roastAddOpen={};
   function renderRoast(){
@@ -1411,16 +1411,16 @@ fill="#6F4A36" stroke="none">
     const inCart={};ROAST_CART.forEach(function(r){inCart[r.id]=true;});
     var top='<div class="ro-banner'+(roastBannerErr?' err':'')+'" id="ro-banner">'+esc(roastBanner)+'</div>'
       +'<div class="ro-top">'
-      +'<label class="ro-dt"><span>日期（留空＝今天）</span><input id="ro-date" type="date" value="'+esc(roastDate)+'" /></label>'
+      +'<label class="ro-dt"><span>Date (blank = today)</span><input id="ro-date" type="date" value="'+esc(roastDate)+'" /></label>'
       +'</div>';
     var cart='';
     if(ROAST_CART.length){
-      cart='<div class="gsec">本次烘焙 ('+ROAST_CART.length+')</div><div class="ro-cart">'
+      cart='<div class="gsec">This batch ('+ROAST_CART.length+')</div><div class="ro-cart">'
         +ROAST_CART.map(function(r,i){
           var bean=BEANS.find(function(b){return String(b.id)===String(r.id);});
           var rem=bean?gnum(bean.quantity!=null?bean.quantity:0):'?';
           return '<div class="ro-row"><div class="ro-rh"><span class="ro-nm">'+esc(r.name)+'</span><button class="ro-x" data-i="'+i+'" aria-label="remove">✕</button></div>'
-            +'<div class="ro-rem">'+esc(r.country||'')+' · 庫存剩 '+rem+' kg</div>'
+            +'<div class="ro-rem">'+esc(r.country||'')+' · stock '+rem+' kg</div>'
             +'<div class="ro-qty"><button class="ro-step" data-d="-1" data-i="'+i+'">−</button>'
             +'<input class="ro-in" data-i="'+i+'" type="text" inputmode="decimal" value="'+esc(r.kg)+'" />'
             +'<span class="ro-unit">kg</span>'
@@ -1428,22 +1428,22 @@ fill="#6F4A36" stroke="none">
         }).join('')+'</div>';
     }
     var addable=BEANS.filter(function(b){return !inCart[b.id];}).sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
-    function aitem(b){return '<button class="ro-aitem" data-id="'+esc(b.id)+'"><div class="ro-am"><div class="ro-an">'+esc(b.name)+'</div><div class="ro-as">剩 '+gnum(b.quantity!=null?b.quantity:0)+' kg</div></div><span class="ro-plus">＋</span></button>';}
-    var add='<div class="gsec">加入生豆</div><div class="ro-add">';
-    if(!addable.length){add+='<div class="sempty" style="padding:18px">沒有可加入的生豆</div>';}
+    function aitem(b){return '<button class="ro-aitem" data-id="'+esc(b.id)+'"><div class="ro-am"><div class="ro-an">'+esc(b.name)+'</div><div class="ro-as">'+gnum(b.quantity!=null?b.quantity:0)+' kg left</div></div><span class="ro-plus">＋</span></button>';}
+    var add='<div class="gsec">Add green</div><div class="ro-add">';
+    if(!addable.length){add+='<div class="sempty" style="padding:18px">No beans to add</div>';}
     else{
       var g={},order=[];
       addable.forEach(function(b){var c=b.country||'—';if(!g[c]){g[c]=[];order.push(c);}g[c].push(b);});
       order.sort(function(a,b){return g[b].length-g[a].length;});
       add+=order.map(function(c){
         var open=!!roastAddOpen[c];
-        var head='<button class="ro-chead'+(open?' open':'')+'" data-c="'+esc(c)+'"><span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span><span class="ro-cname">'+esc(c)+'</span><span class="rd-meta">'+g[c].length+' 支</span></button>';
+        var head='<button class="ro-chead'+(open?' open':'')+'" data-c="'+esc(c)+'"><span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span><span class="ro-cname">'+esc(c)+'</span><span class="rd-meta">'+g[c].length+' beans</span></button>';
         var body=open?'<div class="ro-cbody">'+g[c].map(aitem).join('')+'</div>':'';
         return '<div class="ro-cgroup">'+head+body+'</div>';
       }).join('');
     }
     add+='</div>';
-    var saveBtn=ROAST_CART.length?'<div class="ro-save-wrap"><button class="gbtn" id="ro-save">記錄 '+ROAST_CART.length+' 筆烘焙</button></div>':'';
+    var saveBtn=ROAST_CART.length?'<div class="ro-save-wrap"><button class="gbtn" id="ro-save">Log '+ROAST_CART.length+' roasts</button></div>':'';
     box.innerHTML=top+cart+add+saveBtn;
     roastBanner='';
     box.querySelectorAll('.ro-chead').forEach(function(el){el.addEventListener('click',function(){var c=el.dataset.c;roastAddOpen[c]=!roastAddOpen[c];renderRoast();});});
@@ -1463,8 +1463,8 @@ fill="#6F4A36" stroke="none">
   async function saveRoast(){
     const btn=document.getElementById('ro-save');
     var rows=ROAST_CART.map(function(r){return {r:r,kg:parseFloat(r.kg)};}).filter(function(x){return x.kg>0;});
-    if(!rows.length){roastBanner='請至少給一支豆子填數量';roastBannerErr=true;renderRoast();return;}
-    btn.disabled=true;btn.textContent='記錄中…';
+    if(!rows.length){roastBanner='Enter a quantity for at least one bean';roastBannerErr=true;renderRoast();return;}
+    btn.disabled=true;btn.textContent='Logging…';
     var ok=0,fail=0,failMsg='';
     for(var i=0;i<rows.length;i++){
       var r=rows[i].r,kg=rows[i].kg;
@@ -1480,7 +1480,7 @@ fill="#6F4A36" stroke="none">
       ok++;
     }
     ROAST_CART=[];
-    roastBanner=ok+' 筆已記錄並從庫存扣除'+(fail?('，'+fail+' 筆失敗：'+failMsg):'');
+    roastBanner=ok+' logged and deducted from stock'+(fail?(', '+fail+' failed: '+failMsg):'');
     roastBannerErr=fail>0;
     renderRoast();
   }
@@ -1491,19 +1491,19 @@ fill="#6F4A36" stroke="none">
     const title=document.getElementById('beans-title');
     if(title)title.textContent='Retail Shelf';
     document.getElementById('beans-count').textContent='';
-    box.innerHTML='<div class="sempty">零售貨架之後再做<br>（等產品資料搬進 Supabase）</div>';
+    box.innerHTML='<div class="sempty">Retail shelf — coming later<br> (once products move into Supabase)</div>';
   }
   let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending';
-  function fmtDate(d){if(!d||d==='—')return '無日期';var p=String(d).split('-');return p.length===3?(p[0]+'/'+p[1]+'/'+p[2]):d;}
+  function fmtDate(d){if(!d||d==='—')return 'No date';var p=String(d).split('-');return p.length===3?(p[0]+'/'+p[1]+'/'+p[2]):d;}
   function beansBack(){
     if(roastEdit){roastEdit=null;roastDelConfirm=false;renderRoasted();return;}
     closePage();
   }
   async function loadRoasted(){
     const box=document.getElementById('beans-content');
-    box.innerHTML='<div class="sempty">載入中…</div>';
+    box.innerHTML='<div class="sempty">Loading…</div>';
     const {data,error}=await sb.from('roasts').select('*').order('roast_date',{ascending:false}).order('created_at',{ascending:false});
-    if(error){box.innerHTML='<div class="sempty">載入失敗：'+esc(error.message)+'</div>';return;}
+    if(error){box.innerHTML='<div class="sempty">Load failed: '+esc(error.message)+'</div>';return;}
     ROASTS=data||[];
     roastEdit=null;roastDelConfirm=false;
     renderRoasted();
@@ -1514,17 +1514,17 @@ fill="#6F4A36" stroke="none">
     if(roastEdit){renderRoastEdit();return;}
     if(title)title.textContent=roastedTitle;
     document.getElementById('beans-count').textContent=ROASTS.length+' roasts';
-    if(!ROASTS.length){box.innerHTML='<div class="sempty">尚無烘焙紀錄<br>到 Roast 記一筆</div>';return;}
+    if(!ROASTS.length){box.innerHTML='<div class="sempty">No roasts yet<br>Log one in Roast</div>';return;}
     var groups={}, order=[];
     ROASTS.forEach(function(r){var d=r.roast_date||'—';if(!groups[d]){groups[d]=[];order.push(d);}groups[d].push(r);});
-    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">點日期展開，點紀錄可編輯</div>'+order.map(function(d){
+    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">Tap a date to expand; tap a record to edit</div>'+order.map(function(d){
       var items=groups[d];
       var pending=items.filter(function(r){return r.status!=='cupped';}).length;
       var open=!!roastedOpen[d];
       var head='<button class="rdate'+(open?' open':'')+'" data-d="'+esc(d)+'">'
         +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
         +'<span class="rd-date">'+esc(fmtDate(d))+'</span>'
-        +'<span class="rd-meta">'+items.length+' 支'+(pending?' · <b>'+pending+' 待杯測</b>':'')+'</span></button>';
+        +'<span class="rd-meta">'+items.length+' roasts'+(pending?' · <b>'+pending+' Pending</b>':'')+'</span></button>';
       var body=open?'<div class="rd-body">'+items.map(function(r){return roastCard(r,true);}).join('')+'</div>':'';
       return '<div class="rgroup">'+head+body+'</div>';
     }).join('');
@@ -1538,17 +1538,17 @@ fill="#6F4A36" stroke="none">
     if(!r){roastEdit=null;renderRoasted();return;}
     if(title)title.textContent=r.bean_name||'Roast';
     document.getElementById('beans-count').textContent=r.country||'';
-    var seg='<div class="re-seg"><button class="re-opt'+(roastEditStatus!=='cupped'?' on':'')+'" data-s="pending_cupping">待杯測</button><button class="re-opt'+(roastEditStatus==='cupped'?' on':'')+'" data-s="cupped">已杯測</button></div>';
+    var seg='<div class="re-seg"><button class="re-opt'+(roastEditStatus!=='cupped'?' on':'')+'" data-s="pending_cupping">Pending</button><button class="re-opt'+(roastEditStatus==='cupped'?' on':'')+'" data-s="cupped">Cupped</button></div>';
     box.innerHTML='<div class="gdetail" style="padding-top:8px">'
       +'<div class="gform">'
-      +'<label class="gfield"><span class="gl">生豆用量 (kg)　改量會同步調整庫存</span><input id="re-kg" type="text" inputmode="decimal" value="'+esc(r.green_kg!=null?gnum(r.green_kg):'')+'" /></label>'
-      +'<label class="gfield"><span class="gl">烘焙日期</span><input id="re-date" type="date" value="'+esc(r.roast_date||'')+'" /></label>'
-      +'<div class="gfield"><span class="gl">狀態</span>'+seg+'</div>'
+      +'<label class="gfield"><span class="gl">Green used (kg) · changing it adjusts stock</span><input id="re-kg" type="text" inputmode="decimal" value="'+esc(r.green_kg!=null?gnum(r.green_kg):'')+'" /></label>'
+      +'<label class="gfield"><span class="gl">Roast date</span><input id="re-date" type="date" value="'+esc(r.roast_date||'')+'" /></label>'
+      +'<div class="gfield"><span class="gl">Status</span>'+seg+'</div>'
       +'<div class="gform-msg" id="re-msg"></div>'
-      +'<div class="gform-actions"><button class="gbtn ghost" id="re-cancel">取消</button><button class="gbtn" id="re-save">儲存</button></div>'
+      +'<div class="gform-actions"><button class="gbtn ghost" id="re-cancel">Cancel</button><button class="gbtn" id="re-save">Save</button></div>'
       +'<div class="gdel">'+(roastDelConfirm
-          ?'<div class="gdel-msg">確定刪除這筆烘焙？<br>會把 '+esc(gnum(r.green_kg))+' kg 加回「'+esc(r.bean_name||'')+'」庫存。</div><div class="gform-actions"><button class="gbtn ghost" id="re-del-cancel">取消</button><button class="gbtn danger" id="re-del-yes">確定刪除</button></div>'
-          :'<button class="gbtn dghost" id="re-del">刪除這筆烘焙</button>')
+          ?'<div class="gdel-msg">Delete this roast?<br>Adds '+esc(gnum(r.green_kg))+' kg back to "'+esc(r.bean_name||'')+'" stock.</div><div class="gform-actions"><button class="gbtn ghost" id="re-del-cancel">Cancel</button><button class="gbtn danger" id="re-del-yes">Delete</button></div>'
+          :'<button class="gbtn dghost" id="re-del">Delete this roast</button>')
       +'</div></div></div>';
     box.querySelectorAll('.re-opt').forEach(function(el){el.addEventListener('click',function(){roastEditStatus=el.dataset.s;box.querySelectorAll('.re-opt').forEach(function(o){o.classList.toggle('on',o.dataset.s===roastEditStatus);});});});
     document.getElementById('re-cancel').addEventListener('click',function(){roastEdit=null;roastDelConfirm=false;renderRoasted();});
@@ -1573,24 +1573,24 @@ fill="#6F4A36" stroke="none">
     if(!r)return;
     var newKg=parseFloat(document.getElementById('re-kg').value);
     var newDate=document.getElementById('re-date').value;
-    if(isNaN(newKg)||newKg<0){msg.textContent='請填正確的數量';msg.className='gform-msg err';return;}
-    btn.disabled=true;msg.textContent='儲存中…';msg.className='gform-msg';
+    if(isNaN(newKg)||newKg<0){msg.textContent='Enter a valid quantity';msg.className='gform-msg err';return;}
+    btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
     var oldKg=Number(r.green_kg)||0;
-    var delta=newKg-oldKg; // 增加的量 → 要從庫存扣掉 delta
+    var delta=newKg-oldKg; // extra amount → deduct from stock
     if(delta!==0)await adjustStock(r.bean_id, -delta);
     var upd={green_kg:newKg,status:roastEditStatus};
     if(newDate)upd.roast_date=newDate;
     const {error}=await sb.from('roasts').update(upd).eq('id',r.id);
-    if(error){btn.disabled=false;msg.textContent='儲存失敗：'+error.message;msg.className='gform-msg err';return;}
+    if(error){btn.disabled=false;msg.textContent='Save failed: '+error.message;msg.className='gform-msg err';return;}
     r.green_kg=newKg;r.status=roastEditStatus;if(newDate)r.roast_date=newDate;
     roastEdit=null;roastDelConfirm=false;renderRoasted();
   }
   async function deleteRoast(){
     const r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});
     if(!r)return;
-    await adjustStock(r.bean_id, Number(r.green_kg)||0); // 加回庫存
+    await adjustStock(r.bean_id, Number(r.green_kg)||0); // add back to stock
     const {error}=await sb.from('roasts').delete().eq('id',r.id);
-    if(error){var m=document.getElementById('re-msg');if(m){m.textContent='刪除失敗：'+error.message;m.className='gform-msg err';}roastDelConfirm=false;renderRoastEdit();return;}
+    if(error){var m=document.getElementById('re-msg');if(m){m.textContent='Delete failed: '+error.message;m.className='gform-msg err';}roastDelConfirm=false;renderRoastEdit();return;}
     ROASTS=ROASTS.filter(function(x){return String(x.id)!==String(r.id);});
     roastEdit=null;roastDelConfirm=false;renderRoasted();
   }
@@ -1608,7 +1608,7 @@ fill="#6F4A36" stroke="none">
     const box=document.getElementById('green-content');
     document.getElementById('green-title').textContent=view==='history'?'History':'Analyse';
     document.getElementById('green-count').textContent='';
-    box.innerHTML='<div class="sempty">載入中…</div>';
+    box.innerHTML='<div class="sempty">Loading…</div>';
     const {data,error}=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('no',{ascending:false}).order('created_at',{ascending:false});
     SAMPLES=error?[]:(data||[]);
     smpEdit=null;smpEditObj=null;smpDelConfirm=false;
@@ -1621,17 +1621,17 @@ fill="#6F4A36" stroke="none">
     if(smpEdit){renderSampleEdit();return;}
     document.getElementById('green-title').textContent='History';
     document.getElementById('green-count').textContent=SAMPLES.length+' samples';
-    if(!SAMPLES.length){box.innerHTML='<div class="sempty">尚無樣品紀錄</div>';return;}
+    if(!SAMPLES.length){box.innerHTML='<div class="sempty">No samples yet</div>';return;}
     var groups={},order=[];
     SAMPLES.forEach(function(s){var d=s.cupping_date||'—';if(!groups[d]){groups[d]=[];order.push(d);}groups[d].push(s);});
     if(order.length&&historyOpen[order[0]]===undefined)historyOpen[order[0]]=true;
-    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">點日期展開，點紀錄可修改</div>'+order.map(function(d){
+    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">Tap a date to expand; tap a record to edit</div>'+order.map(function(d){
       var items=groups[d];var open=!!historyOpen[d];
       var buy=items.filter(function(x){return x.decision==='buy';}).length;
       var head='<button class="rdate'+(open?' open':'')+'" data-d="'+esc(d)+'">'
         +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
         +'<span class="rd-date">'+esc(fmtDate(d))+'</span>'
-        +'<span class="rd-meta">'+items.length+' 支'+(buy?' · <b>'+buy+' Buy</b>':'')+'</span></button>';
+        +'<span class="rd-meta">'+items.length+' samples'+(buy?' · <b>'+buy+' Buy</b>':'')+'</span></button>';
       var body=open?'<div class="rd-body">'+items.map(sampleCard).join('')+'</div>':'';
       return '<div class="rgroup">'+head+body+'</div>';
     }).join('');
@@ -1655,26 +1655,26 @@ fill="#6F4A36" stroke="none">
     if(smpIdx<0)smpIdx=0;if(smpIdx>=smpPages.length)smpIdx=smpPages.length-1;
     var p=smpPages[smpIdx];
     var no=nextNo(p.cupping_date||todayStr());
-    var nav='<div class="smp-pager"><button class="smp-nav" id="smp-prev" aria-label="上一個">‹</button>'
-      +'<span class="smp-pos">樣品 '+(smpIdx+1)+' / '+smpPages.length+'</span>'
-      +'<button class="smp-nav" id="smp-next" aria-label="下一個">›</button>'
-      +'<button class="smp-add" id="smp-add">＋ 新增</button></div>'
+    var nav='<div class="smp-pager"><button class="smp-nav" id="smp-prev" aria-label="Previous">‹</button>'
+      +'<span class="smp-pos">Sample '+(smpIdx+1)+' / '+smpPages.length+'</span>'
+      +'<button class="smp-nav" id="smp-next" aria-label="Next">›</button>'
+      +'<button class="smp-add" id="smp-add">+ Add</button></div>'
       +'<div class="smp-nohdr">No.'+no+'</div>';
     var scores=SMP_FIELDS.map(function(f){return '<div class="smp-score"><span class="smp-sname">'+f[1]+'</span>'+dotRow(p,f[0])+'</div>';}).join('');
     var form=''
-      +'<div class="smp-sec"><div class="smp-sec-h">樣品資料</div><div class="smp-fields">'
-      +'<label class="smp-f"><span>杯測日期</span><input id="smp-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" /></label>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Sample details</div><div class="smp-fields">'
+      +'<label class="smp-f"><span>Cupping date</span><input id="smp-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" /></label>'
       +'<div class="smp-f2"><label class="smp-f"><span>Supplier</span><input id="smp-supplier" type="text" value="'+esc(p.supplier||'')+'" /></label>'
       +'<label class="smp-f"><span>ID</span><input id="smp-id" type="text" value="'+esc(p.sample_id||'')+'" /></label></div>'
       +'<label class="smp-f"><span>Process</span><input id="smp-process" type="text" value="'+esc(p.process||'')+'" /></label>'
       +'</div></div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">杯測評分　1–5</div><div class="smp-scores">'+scores+'</div></div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Cupping scores · 1–5</div><div class="smp-scores">'+scores+'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Comment</div><textarea id="smp-comment" class="gta" rows="3">'+esc(p.comment||'')+'</textarea></div>'
-      +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':(okMsg?' ok':''))+'" id="smp-msg">'+(errMsg?('讀取失敗：'+esc(errMsg)+'（請先在 Supabase 跑 samples 建表 SQL）'):(okMsg?esc(okMsg):''))+'</div></div>'
+      +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':(okMsg?' ok':''))+'" id="smp-msg">'+(errMsg?('Load failed: '+esc(errMsg)+' (run the samples table SQL in Supabase first)'):(okMsg?esc(okMsg):''))+'</div></div>'
       +'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn skip" id="smp-skip">Skip</button><button class="gbtn buy" id="smp-buy">Buy</button></div></div>';
     var today=todayStr();
     var todays=SAMPLES.filter(function(x){return x.cupping_date===today;});
-    var list=todays.length?('<div class="smp-sec"><div class="smp-sec-h">今天的樣品　點一下可修改／刪除</div><div class="smp-list">'+todays.map(sampleCard).join('')+'</div><div class="smp-hint">更早的紀錄在 dock 的 History</div></div>'):'';
+    var list=todays.length?('<div class="smp-sec"><div class="smp-sec-h">Samples today · tap to edit/delete</div><div class="smp-list">'+todays.map(sampleCard).join('')+'</div><div class="smp-hint">Older records live under History in the dock</div></div>'):'';
     box.innerHTML=nav+form+list;
     box.querySelectorAll('.dots').forEach(function(dr){
       var name=dr.dataset.name;
@@ -1701,20 +1701,20 @@ fill="#6F4A36" stroke="none">
     var scores=SMP_FIELDS.map(function(f){return '<div class="smp-score"><span class="smp-sname">'+f[1]+'</span>'+dotRow(p,f[0])+'</div>';}).join('');
     var seg='<div class="re-seg"><button class="re-opt'+(p.decision==='buy'?' on':'')+'" data-s="buy">Buy</button><button class="re-opt'+(p.decision==='skip'?' on':'')+'" data-s="skip">Skip</button></div>';
     box.innerHTML=''
-      +'<div class="smp-sec" style="margin-top:14px"><div class="smp-sec-h">樣品資料</div><div class="smp-fields">'
-      +'<label class="smp-f"><span>杯測日期</span><input id="se-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" /></label>'
+      +'<div class="smp-sec" style="margin-top:14px"><div class="smp-sec-h">Sample details</div><div class="smp-fields">'
+      +'<label class="smp-f"><span>Cupping date</span><input id="se-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" /></label>'
       +'<div class="smp-f2"><label class="smp-f"><span>Supplier</span><input id="se-supplier" type="text" value="'+esc(p.supplier||'')+'" /></label>'
       +'<label class="smp-f"><span>ID</span><input id="se-id" type="text" value="'+esc(p.sample_id||'')+'" /></label></div>'
       +'<label class="smp-f"><span>Process</span><input id="se-process" type="text" value="'+esc(p.process||'')+'" /></label>'
       +'</div></div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">杯測評分　1–5</div><div class="smp-scores">'+scores+'</div></div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">決定</div>'+seg+'</div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Cupping scores · 1–5</div><div class="smp-scores">'+scores+'</div></div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Decision</div>'+seg+'</div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Comment</div><textarea id="se-comment" class="gta" rows="3">'+esc(p.comment||'')+'</textarea></div>'
       +'<div class="smp-msg-wrap"><div class="gform-msg" id="se-msg"></div></div>'
-      +'<div class="smp-sec"><div class="gform-actions"><button class="gbtn ghost" id="se-cancel">返回</button><button class="gbtn" id="se-save">儲存修改</button></div>'
+      +'<div class="smp-sec"><div class="gform-actions"><button class="gbtn ghost" id="se-cancel">Back</button><button class="gbtn" id="se-save">Save changes</button></div>'
       +'<div class="gdel">'+(smpDelConfirm
-          ?'<div class="gdel-msg">確定刪除這支樣品？此動作無法復原。</div><div class="gform-actions"><button class="gbtn ghost" id="se-del-cancel">取消</button><button class="gbtn danger" id="se-del-yes">確定刪除</button></div>'
-          :'<button class="gbtn dghost" id="se-del">刪除這支樣品</button>')
+          ?'<div class="gdel-msg">Delete this sample? This cannot be undone.</div><div class="gform-actions"><button class="gbtn ghost" id="se-del-cancel">Cancel</button><button class="gbtn danger" id="se-del-yes">Delete</button></div>'
+          :'<button class="gbtn dghost" id="se-del">Delete this sample</button>')
       +'</div></div>';
     box.querySelectorAll('.dots').forEach(function(dr){
       var name=dr.dataset.name;
@@ -1738,11 +1738,11 @@ fill="#6F4A36" stroke="none">
     var p=smpEditObj;var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
     var upd={cupping_date:g('se-date')||todayStr(),supplier:g('se-supplier').trim()||null,sample_id:g('se-id').trim()||null,process:g('se-process').trim()||null,
       fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,comment:g('se-comment').trim()||null,decision:p.decision||null};
-    if(!upd.supplier&&!upd.sample_id){msg.textContent='請至少填 Supplier 或 ID';msg.className='gform-msg err';return;}
-    btn.disabled=true;msg.textContent='儲存中…';msg.className='gform-msg';
+    if(!upd.supplier&&!upd.sample_id){msg.textContent='Enter at least Supplier or ID';msg.className='gform-msg err';return;}
+    btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
     const {error}=await sb.from('samples').update(upd).eq('id',smpEdit);
     btn.disabled=false;
-    if(error){msg.textContent='儲存失敗：'+error.message;msg.className='gform-msg err';return;}
+    if(error){msg.textContent='Save failed: '+error.message;msg.className='gform-msg err';return;}
     var i=SAMPLES.findIndex(function(x){return String(x.id)===String(smpEdit);});
     if(i>-1)SAMPLES[i]=Object.assign({},SAMPLES[i],upd);
     smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpAfterEdit();
@@ -1751,7 +1751,7 @@ fill="#6F4A36" stroke="none">
   function smpAfterEdit(){if(smpEditFrom==='history'){renderHistory();}else{renderSample();}}
   async function deleteSample(){
     const {error}=await sb.from('samples').delete().eq('id',smpEdit);
-    if(error){var m=document.getElementById('se-msg');if(m){m.textContent='刪除失敗：'+error.message;m.className='gform-msg err';}smpDelConfirm=false;renderSampleEdit();return;}
+    if(error){var m=document.getElementById('se-msg');if(m){m.textContent='Delete failed: '+error.message;m.className='gform-msg err';}smpDelConfirm=false;renderSampleEdit();return;}
     SAMPLES=SAMPLES.filter(function(x){return String(x.id)!==String(smpEdit);});
     smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpAfterEdit();
   }
@@ -1759,7 +1759,7 @@ fill="#6F4A36" stroke="none">
     var chips=[['F/A',s.fragrance],['Acid',s.acidity],['Sweet',s.sweetness],['Body',s.body],['After',s.aftertaste]].filter(function(x){return x[1]!=null;}).map(function(x){return '<span class="sc-chip">'+x[0]+'<b>'+x[1]+'</b></span>';}).join('');
     var sub=[s.sample_id?'ID '+esc(s.sample_id):'',s.process?esc(s.process):''].filter(Boolean).join(' · ');
     var dec=s.decision==='buy'?'<span class="smp-badge buy">Buy</span>':(s.decision==='skip'?'<span class="smp-badge skip">Skip</span>':'<span class="rd-meta">'+esc(fmtDate(s.cupping_date))+'</span>');
-    var nm=(s.no!=null?'<span class="smp-no">No.'+s.no+'</span> ':'')+esc(s.supplier||s.sample_id||'樣品');
+    var nm=(s.no!=null?'<span class="smp-no">No.'+s.no+'</span> ':'')+esc(s.supplier||s.sample_id||'Sample');
     return '<div class="smp-item" data-id="'+esc(s.id)+'"><div class="bean-top"><span class="bean-nm">'+nm+'</span>'+dec+'</div>'
       +'<div class="bean-sub">'+esc(fmtDate(s.cupping_date))+(sub?' · '+sub:'')+'</div>'
       +(chips?'<div class="smp-scoreline">'+chips+'</div>':'')
@@ -1771,15 +1771,15 @@ fill="#6F4A36" stroke="none">
     const buy=document.getElementById('smp-buy'),skip=document.getElementById('smp-skip');
     var p=smpPages[smpIdx];
     var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||null,sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,comment:(p.comment||'').trim()||null,decision:decision};
-    if(!rec.supplier&&!rec.sample_id){msg.textContent='請至少填 Supplier 或 ID';msg.className='gform-msg err';return;}
-    buy.disabled=true;skip.disabled=true;msg.textContent='儲存中…';msg.className='gform-msg';
+    if(!rec.supplier&&!rec.sample_id){msg.textContent='Enter at least Supplier or ID';msg.className='gform-msg err';return;}
+    buy.disabled=true;skip.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
     const ins=await sb.from('samples').insert(rec).select();
-    if(ins.error){buy.disabled=false;skip.disabled=false;msg.textContent='儲存失敗：'+ins.error.message;msg.className='gform-msg err';return;}
+    if(ins.error){buy.disabled=false;skip.disabled=false;msg.textContent='Save failed: '+ins.error.message;msg.className='gform-msg err';return;}
     if(ins.data&&ins.data[0])SAMPLES.unshift(ins.data[0]);
     smpPages.splice(smpIdx,1);
     if(!smpPages.length)smpPages=[blankSmp()];
     if(smpIdx>=smpPages.length)smpIdx=smpPages.length-1;
-    renderSample('','已儲存（'+(decision==='buy'?'Buy':'Skip')+'），接著填下一支');
+    renderSample('','Saved ('+(decision==='buy'?'Buy':'Skip')+') — on to the next');
     document.getElementById('green-content').scrollTop=0;
   }
   function swapSides(){const pg=document.querySelector('.screen.open');if(pg){if(pg.id==='screen-green'&&typeof greenBack==='function'){greenBack();return;}if(pg.id==='screen-beans'&&typeof beansBack==='function'){beansBack();return;}closePage();return;}if(dockStack.length){dockBack();return;}const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
