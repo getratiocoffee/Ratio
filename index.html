@@ -100,14 +100,16 @@
   .shead h1{font-size:18px;font-weight:600;margin:0;flex:1}
   .shead .wk{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--on-brand-dim)}
   .sbody{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
-  .dayhd{position:sticky;top:0;background:var(--bg);font-size:12px;font-weight:600;color:var(--muted);padding:14px 18px 6px;letter-spacing:.02em;z-index:1}
-  .shift{display:flex;align-items:center;gap:12px;padding:11px 18px;background:var(--surface);border-bottom:1px solid var(--line)}
+  .dayhd{position:sticky;top:0;background:var(--bg);padding:15px 18px 7px;z-index:1;display:flex;align-items:baseline;gap:9px}
+  .dayhd .dh-dow{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:.07em}
+  .dayhd .dh-date{font-size:12px;font-weight:600;color:var(--muted)}
+  .shift{display:flex;align-items:center;gap:12px;padding:13px 18px;background:var(--surface);border-bottom:1px solid var(--line)}
   .shift .who{flex:1;min-width:0}
-  .shift .nm{font-size:14px;font-weight:600;color:var(--ink)}
+  .shift .nm{font-size:15px;font-weight:600;color:var(--ink)}
   .shift .role{font-size:11px;color:var(--muted);margin-top:2px}
   .shift .rt{text-align:right;white-space:nowrap}
-  .shift .tm{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;color:var(--ink)}
-  .shift .hrs{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;color:var(--accent);margin-top:2px}
+  .shift .tm{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:15px;font-weight:600;color:var(--ink)}
+  .shift .hrs{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--accent);margin-top:2px}
   .sempty{text-align:center;color:var(--muted);font-size:13px;padding:56px 24px}
   /* timesheet History: collapsible week + PDF + cash select */
   .thw-head{display:flex;align-items:stretch;border-bottom:1px solid var(--line);background:var(--surface)}
@@ -125,7 +127,8 @@
   .cashrow .ch{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--muted);margin-top:1px}
   .cash-toggle{border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;font-family:inherit;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer;min-width:64px}
   .cash-toggle.on{background:#5E8C61;border-color:#5E8C61;color:#fff}
-  .dayhd.today{color:var(--accent);background:var(--accent-tint,#F3DDE0);box-shadow:inset 3px 0 0 var(--accent)}
+  .dayhd.today{background:var(--accent-tint,#F3DDE0);box-shadow:inset 3px 0 0 var(--accent)}
+  .dayhd.today .dh-dow,.dayhd.today .dh-date{color:var(--accent)}
   .shift.today{background:var(--accent-tint,#F3DDE0);box-shadow:inset 3px 0 0 var(--accent)}
   .shift.today .tm,.shift.today .nm{color:var(--accent-ink,#6E2F39)}
   .rdate.today .rd-date{color:var(--accent)}
@@ -860,7 +863,10 @@ fill="#6F4A36" stroke="none">
         }
         return '<div class="'+sc+'"><div class="who"><div class="nm">'+esc(r.nm)+'</div>'+(r.role?'<div class="role">'+esc(r.role)+'</div>':'')+'</div><div class="rt"><div class="tm">'+esc(r.tm)+'</div>'+(r.hrs?'<div class="hrs">'+esc(r.hrs)+'</div>':'')+'</div></div>';
       }).join('');
-      return '<div class="dayhd'+(isToday?' today':'')+'">'+esc(g.day)+(isToday?'<span class="td-now">今天</span>':'')+'</div>'+rows;
+      var parts=String(g.day).split(' · ');
+      var dow=(parts[0]||'').toUpperCase();
+      var dat=parts.slice(1).join(' · ');
+      return '<div class="dayhd'+(isToday?' today':'')+'"><span class="dh-dow">'+esc(dow)+'</span>'+(dat?'<span class="dh-date">'+esc(dat)+'</span>':'')+(isToday?'<span class="td-now">TODAY</span>':'')+'</div>'+rows;
     }).join('');
   }
   function filterGroups(groups,name){
@@ -890,7 +896,7 @@ fill="#6F4A36" stroke="none">
       var head='<div class="thw-head">'
         +'<button class="rdate'+(open?' open':'')+'" data-w="'+esc(w.weekStart)+'">'+chevSVG()
         +'<span class="rd-date">'+esc(w.range)+'</span>'
-        +'<span class="rd-meta">'+w.staff.length+' 人'+(cash.size?' · <b>'+cash.size+' 現金</b>':'')+'</span></button>'
+        +'<span class="rd-meta">'+w.staff.length+' staff</span></button>'
         +'<button class="ts-pdf" data-w="'+esc(w.weekStart)+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 17h6M9 13h2"/></svg>PDF</button>'
         +'<button class="ts-del" data-w="'+esc(w.weekStart)+'" aria-label="delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/></svg></button>'
         +'</div>';
@@ -1130,7 +1136,7 @@ fill="#6F4A36" stroke="none">
       var meta=arr.length?(arr.length+' 班 · <b>'+tsHH(Math.round(tot*10)/10)+'</b>'):('預設 '+p0.start+'–'+p0.end+' …');
       var head='<button class="rdate'+(open?' open':'')+(isToday?' today':'')+'" data-d="'+dk+'">'
         +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
-        +'<span class="rd-date">'+esc(dayLabelOf(planWeek,idx))+(isToday?' <span class="td-now">今天</span>':'')+'</span>'
+        +'<span class="rd-date">'+esc(dayLabelOf(planWeek,idx))+(isToday?' <span class="td-now">TODAY</span>':'')+'</span>'
         +'<span class="rd-meta">'+meta+'</span></button>';
       var bd='';
       if(open){
