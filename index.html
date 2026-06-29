@@ -681,7 +681,7 @@ fill="#6F4A36" stroke="none">
   }
   setContentTitle(DASHBOARD_TITLE);
   /* ---- C Market chart (Coffee C futures), shown under Green → Trade ---- */
-  const CM_SYMBOL='ICEUS:KC1!';   /* Coffee "C" front-month. Fallback if blank: CAPITALCOM:COFFEE */
+  const CM_SYMBOL='CAPITALCOM:COFFEE';   /* Coffee CFD, tracks the ICE "C" market, free real-time on TV widgets. Alt: PEPPERSTONE:COFFEE */
   function renderCMarket(){
     var ct=document.getElementById('ctitle');if(ct){ct.textContent='C Market';ct.classList.add('show');}
     showCPanel('<div class="cm-wrap"><div class="cm-chart" id="cm-chart"><div class="cm-load">Loading C market chart…</div><div class="tradingview-widget-container" style="height:100%;width:100%"><div class="tradingview-widget-container__widget" style="height:100%;width:100%"></div></div></div></div>');
@@ -1355,7 +1355,7 @@ fill="#6F4A36" stroke="none">
             ?'<div class="gdel-msg">確定要刪除「'+esc(b.name)+'」？此動作無法復原。</div><div class="gform-actions"><button class="gbtn ghost" id="gdel-cancel">取消</button><button class="gbtn danger" id="gdel-yes">確定刪除</button></div>'
             :'<button class="gbtn dghost" id="gdel">刪除這支豆子</button>')
         +'</div></div>';
-        title.textContent='編輯豆子';count.textContent='';
+        title.textContent=b.name;count.textContent=b.country||'';
         box.innerHTML='<div class="gdetail" style="padding-top:8px">'+form+'</div>';
         document.getElementById('green-cancel').addEventListener('click',function(){greenEdit=false;greenDelConfirm=false;renderGreen();box.scrollTop=0;});
         document.getElementById('green-save').addEventListener('click',saveBean);
@@ -1407,7 +1407,7 @@ fill="#6F4A36" stroke="none">
   function renderRoast(){
     const box=document.getElementById('green-content');
     document.getElementById('green-title').textContent='Roasting';
-    document.getElementById('green-count').textContent=ROAST_CART.length?('本次 '+ROAST_CART.length):'';
+    document.getElementById('green-count').textContent=ROAST_CART.length?(ROAST_CART.length+' in cart'):'';
     const inCart={};ROAST_CART.forEach(function(r){inCart[r.id]=true;});
     var top='<div class="ro-banner'+(roastBannerErr?' err':'')+'" id="ro-banner">'+esc(roastBanner)+'</div>'
       +'<div class="ro-top">'
@@ -1536,11 +1536,10 @@ fill="#6F4A36" stroke="none">
     const title=document.getElementById('beans-title');
     const r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});
     if(!r){roastEdit=null;renderRoasted();return;}
-    if(title)title.textContent='編輯烘焙';
-    document.getElementById('beans-count').textContent='';
+    if(title)title.textContent=r.bean_name||'Roast';
+    document.getElementById('beans-count').textContent=r.country||'';
     var seg='<div class="re-seg"><button class="re-opt'+(roastEditStatus!=='cupped'?' on':'')+'" data-s="pending_cupping">待杯測</button><button class="re-opt'+(roastEditStatus==='cupped'?' on':'')+'" data-s="cupped">已杯測</button></div>';
-    box.innerHTML='<div class="gdetail">'
-      +'<div class="gd-hero"><div class="gd-nm">'+esc(r.bean_name||'—')+'</div><div class="gd-ct">'+esc(r.country||'')+'</div></div>'
+    box.innerHTML='<div class="gdetail" style="padding-top:8px">'
       +'<div class="gform">'
       +'<label class="gfield"><span class="gl">生豆用量 (kg)　改量會同步調整庫存</span><input id="re-kg" type="text" inputmode="decimal" value="'+esc(r.green_kg!=null?gnum(r.green_kg):'')+'" /></label>'
       +'<label class="gfield"><span class="gl">烘焙日期</span><input id="re-date" type="date" value="'+esc(r.roast_date||'')+'" /></label>'
@@ -1621,7 +1620,7 @@ fill="#6F4A36" stroke="none">
     const box=document.getElementById('green-content');
     if(smpEdit){renderSampleEdit();return;}
     document.getElementById('green-title').textContent='History';
-    document.getElementById('green-count').textContent=SAMPLES.length+' 筆';
+    document.getElementById('green-count').textContent=SAMPLES.length+' samples';
     if(!SAMPLES.length){box.innerHTML='<div class="sempty">尚無樣品紀錄</div>';return;}
     var groups={},order=[];
     SAMPLES.forEach(function(s){var d=s.cupping_date||'—';if(!groups[d]){groups[d]=[];order.push(d);}groups[d].push(s);});
@@ -1651,7 +1650,7 @@ fill="#6F4A36" stroke="none">
     const box=document.getElementById('green-content');
     if(smpEdit){renderSampleEdit();return;}
     document.getElementById('green-title').textContent='Analyse';
-    document.getElementById('green-count').textContent=SAMPLES.length?(SAMPLES.length+' 筆'):'';
+    document.getElementById('green-count').textContent=SAMPLES.length?(SAMPLES.length+' samples'):'';
     if(!smpPages.length)smpPages=[blankSmp()];
     if(smpIdx<0)smpIdx=0;if(smpIdx>=smpPages.length)smpIdx=smpPages.length-1;
     var p=smpPages[smpIdx];
@@ -1696,14 +1695,13 @@ fill="#6F4A36" stroke="none">
   }
   function renderSampleEdit(){
     const box=document.getElementById('green-content');
-    document.getElementById('green-title').textContent='編輯樣品';
-    document.getElementById('green-count').textContent='';
+    document.getElementById('green-title').textContent=(smpEditObj.supplier||(smpEditObj.no!=null?'No.'+smpEditObj.no:'Sample'));
+    document.getElementById('green-count').textContent=(smpEditObj.no!=null?'No.'+smpEditObj.no:'');
     var p=smpEditObj;
     var scores=SMP_FIELDS.map(function(f){return '<div class="smp-score"><span class="smp-sname">'+f[1]+'</span>'+dotRow(p,f[0])+'</div>';}).join('');
     var seg='<div class="re-seg"><button class="re-opt'+(p.decision==='buy'?' on':'')+'" data-s="buy">Buy</button><button class="re-opt'+(p.decision==='skip'?' on':'')+'" data-s="skip">Skip</button></div>';
     box.innerHTML=''
-      +(p.no!=null?'<div class="smp-nohdr" style="padding-top:14px">No.'+p.no+'</div>':'')
-      +'<div class="smp-sec"'+(p.no!=null?' style="margin-top:4px"':'')+'><div class="smp-sec-h">樣品資料</div><div class="smp-fields">'
+      +'<div class="smp-sec" style="margin-top:14px"><div class="smp-sec-h">樣品資料</div><div class="smp-fields">'
       +'<label class="smp-f"><span>杯測日期</span><input id="se-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" /></label>'
       +'<div class="smp-f2"><label class="smp-f"><span>Supplier</span><input id="se-supplier" type="text" value="'+esc(p.supplier||'')+'" /></label>'
       +'<label class="smp-f"><span>ID</span><input id="se-id" type="text" value="'+esc(p.sample_id||'')+'" /></label></div>'
@@ -1784,7 +1782,7 @@ fill="#6F4A36" stroke="none">
     renderSample('','已儲存（'+(decision==='buy'?'Buy':'Skip')+'），接著填下一支');
     document.getElementById('green-content').scrollTop=0;
   }
-  function swapSides(){const pg=document.querySelector('.screen.open');if(pg){closePage();return;}if(dockStack.length){dockBack();return;}const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
+  function swapSides(){const pg=document.querySelector('.screen.open');if(pg){if(pg.id==='screen-green'&&typeof greenBack==='function'){greenBack();return;}if(pg.id==='screen-beans'&&typeof beansBack==='function'){beansBack();return;}closePage();return;}if(dockStack.length){dockBack();return;}const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
   function openFolder(){document.getElementById('ov').classList.add('open');}
   function closeFolder(){document.getElementById('ov').classList.remove('open');}
 
