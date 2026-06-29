@@ -109,7 +109,9 @@
   .cashrow .ch{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--muted);margin-top:1px}
   .cash-toggle{border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;font-family:inherit;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer;min-width:64px}
   .cash-toggle.on{background:#5E8C61;border-color:#5E8C61;color:#fff}
-  .dayhd.today{color:var(--accent);background:var(--accent-tint,#F3DDE0)}
+  .dayhd.today{color:var(--accent);background:var(--accent-tint,#F3DDE0);box-shadow:inset 3px 0 0 var(--accent)}
+  .shift.today{background:var(--accent-tint,#F3DDE0);box-shadow:inset 3px 0 0 var(--accent)}
+  .shift.today .tm,.shift.today .nm{color:var(--accent-ink,#6E2F39)}
   .rdate.today .rd-date{color:var(--accent)}
   .dayhd .td-now{font-size:10px;font-weight:700;color:#fff;background:var(--accent);border-radius:7px;padding:1px 7px;margin-left:8px;vertical-align:middle}
   .ts-filter{display:flex;gap:7px;overflow-x:auto;padding:12px 16px 8px;-webkit-overflow-scrolling:touch}
@@ -822,10 +824,11 @@ fill="#6F4A36" stroke="none">
       var isToday=false;
       if(ws&&g.dk){var di=TS_ORDER.indexOf(g.dk);if(di>=0){var dd=new Date(ws+'T00:00:00');dd.setDate(dd.getDate()+di);isToday=isoDate(dd)===todayIso;}}
       var rows=g.rows.map(function(r){
+        var sc='shift'+(isToday?' today':'');
         if(hideName){
-          return '<div class="shift"><div class="who"><div class="nm">'+esc(r.tm)+'</div></div><div class="rt">'+(r.hrs?'<div class="hrs">'+esc(r.hrs)+'</div>':'')+'</div></div>';
+          return '<div class="'+sc+'"><div class="who"><div class="nm">'+esc(r.tm)+'</div></div><div class="rt">'+(r.hrs?'<div class="hrs">'+esc(r.hrs)+'</div>':'')+'</div></div>';
         }
-        return '<div class="shift"><div class="who"><div class="nm">'+esc(r.nm)+'</div>'+(r.role?'<div class="role">'+esc(r.role)+'</div>':'')+'</div><div class="rt"><div class="tm">'+esc(r.tm)+'</div>'+(r.hrs?'<div class="hrs">'+esc(r.hrs)+'</div>':'')+'</div></div>';
+        return '<div class="'+sc+'"><div class="who"><div class="nm">'+esc(r.nm)+'</div>'+(r.role?'<div class="role">'+esc(r.role)+'</div>':'')+'</div><div class="rt"><div class="tm">'+esc(r.tm)+'</div>'+(r.hrs?'<div class="hrs">'+esc(r.hrs)+'</div>':'')+'</div></div>';
       }).join('');
       return '<div class="dayhd'+(isToday?' today':'')+'">'+esc(g.day)+(isToday?'<span class="td-now">今天</span>':'')+'</div>'+rows;
     }).join('');
@@ -1020,7 +1023,7 @@ fill="#6F4A36" stroke="none">
   function renderWeekPlan(){
     const body=document.getElementById('timesheet-body');const sc=body.scrollTop;
     var byDay={};planShifts.forEach(function(s,i){(byDay[s.day]=byDay[s.day]||[]).push(Object.assign({i:i},s));});
-    var note='<div class="plan-note">每天已帶入預設班次（平日 2 班、週六 3 班、週日 4 班），時間與休息可逐筆調整、15 分鐘為單位。標「扣30」的班會扣 30 分鐘無薪休息。草稿自動存在這台裝置。</div>';
+    var note='<div class="plan-note">每天已帶入預設班次（平日 2 班、週六 3 班、週日 4 班），時間可逐筆調整、15 分鐘為單位。已依預設自動計算無薪休息。草稿自動存在這台裝置。</div>';
     var days=TS_ORDER.map(function(dk){
       var idx=TS_ORDER.indexOf(dk);var arr=byDay[dk]||[];var open=(planOpen[dk]!==undefined)?planOpen[dk]:(arr.length>0);
       var p0=presetFor(dk,0);
@@ -1038,7 +1041,6 @@ fill="#6F4A36" stroke="none">
             +'<div class="ps-times"><input class="ps-t" type="time" step="900" data-i="'+s.i+'" data-f="start" value="'+esc(s.start)+'" />'
             +'<span class="ps-dash">–</span>'
             +'<input class="ps-t" type="time" step="900" data-i="'+s.i+'" data-f="end" value="'+esc(s.end)+'" />'
-            +'<button class="ps-br'+(s.br?' on':'')+'" data-i="'+s.i+'">'+(s.br?'扣30':'無休')+'</button>'
             +'<div class="ps-h">'+tsHH(Math.round(tsPaidBr(s.start,s.end,s.br)*10)/10)+'</div></div></div>';
         }).join('');
         var taken={};arr.forEach(function(s){taken[s.name]=1;});
