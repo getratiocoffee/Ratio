@@ -385,6 +385,9 @@
   .composer{display:flex;gap:8px;align-items:center;padding:10px 14px;border-top:1px solid var(--line);background:var(--surface)}
   .composer input{flex:1;min-width:0;border:1px solid var(--line);border-radius:18px;padding:9px 14px;font-size:13px;color:var(--ink);background:var(--bg);outline:none;font-family:inherit}
   .composer input::placeholder{color:var(--muted)}
+  .bean-cta{margin-top:11px;width:100%;border:none;border-radius:11px;padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;background:var(--accent);color:#fff}
+  .bean-cta:active{opacity:.85}
+  .smp-cuphdr{padding:14px 4px 6px;font-size:15px;font-weight:600;color:var(--ink)}
   .composer button{flex:0 0 auto;width:36px;height:36px;border-radius:50%;border:none;background:var(--accent);color:#fff;display:grid;place-items:center;cursor:pointer;padding:0;transition:opacity .15s ease}
   .composer button:active{opacity:.7}
   .composer button svg{width:18px;height:18px}
@@ -1875,7 +1878,7 @@ fill="#6F4A36" stroke="none">
     if(greenView==='detail'){greenView='beans';greenBeanId=null;greenEdit=false;greenDelConfirm=false;renderGreen();}
     else if(greenView==='beans'){greenView='countries';greenCountry=null;renderGreen();}
     else if(greenView==='roast'){closePage();}
-    else if(greenView==='sample'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderSample();}else{closePage();}}
+    else if(greenView==='sample'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderSample();}else if(smpCuppingRoast){smpCuppingRoast=null;smpPages=[blankSmp()];smpIdx=0;roastedTitle='Pending';beansView='production';openPage('beans');renderRoasted();}else{closePage();}}
     else if(greenView==='history'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderHistory();}else{closePage();}}
     else if(greenView==='countries'||greenView==='soon'){closePage();}
     else{closePage();}
@@ -1979,9 +1982,10 @@ fill="#6F4A36" stroke="none">
   }
   function roastCard(r,tappable){
     var badge=r.status==='cupped'?'<span class="rbadge done">Cupped</span>':'<span class="rbadge">Pending</span>';
+    var cta=(tappable&&r.status!=='cupped')?'<button class="bean-cta" data-aid="'+esc(r.id)+'">Analyse</button>':'';
     return '<div class="bean'+(tappable?' rcard':'')+'" data-id="'+esc(r.id)+'"><div class="bean-top"><span class="bean-nm">'+esc(r.bean_name||'—')+'</span>'+badge+'</div>'
       +(r.country?'<div class="bean-sub">'+esc(r.country)+'</div>':'')
-      +'<div class="bean-meta"><span><b>'+esc(gnum(r.green_kg))+'</b> kg green</span>'+(r.roast_time?'<span>'+esc(r.roast_time)+'</span>':'')+'</div></div>';
+      +'<div class="bean-meta"><span><b>'+esc(gnum(r.green_kg))+'</b> kg green</span>'+(r.roast_time?'<span>'+esc(r.roast_time)+'</span>':'')+'</div>'+cta+'</div>';
   }
   let ROAST_CART=[], roastDate='', roastTime='', roastBanner='', roastBannerErr=false, roastAddOpen={};
   function renderRoast(){
@@ -2065,13 +2069,19 @@ fill="#6F4A36" stroke="none">
     renderRoast();
   }
   let beansView='home';
-  function renderBeansRetail(){
+  async function renderBeansRetail(){
     beansView='retail';
     const box=document.getElementById('beans-content');
     const title=document.getElementById('beans-title');
     if(title)title.textContent='Retail Shelf';
     document.getElementById('beans-count').textContent='';
-    box.innerHTML='<div class="sempty">Retail shelf — coming later<br> (once products move into Supabase)</div>';
+    box.innerHTML='<div class="sempty">Loading…</div>';
+    var res=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false});
+    if(res.error){box.innerHTML='<div class="sempty">Load failed: '+esc(res.error.message)+'</div>';return;}
+    var rows=res.data||[];
+    document.getElementById('beans-count').textContent=rows.length?(rows.length+(rows.length===1?' bean':' beans')):'';
+    if(!rows.length){box.innerHTML='<div class="sempty">No cupped beans yet<br>Cup a bean from Pending</div>';return;}
+    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">In-house cupping records</div><div class="smp-list" style="padding:0 16px 18px">'+rows.map(sampleCard).join('')+'</div>';
   }
   let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending';
   function fmtDate(d){if(!d||d==='—')return 'No date';var p=String(d).split('-');return p.length===3?(p[0]+'/'+p[1]+'/'+p[2]):d;}
@@ -2110,6 +2120,7 @@ fill="#6F4A36" stroke="none">
     }).join('');
     box.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.d;roastedOpen[d]=!roastedOpen[d];renderRoasted();});});
     box.querySelectorAll('.rcard').forEach(function(el){el.addEventListener('click',function(){roastEdit=el.dataset.id;roastDelConfirm=false;var r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});roastEditStatus=r?r.status:'pending_cupping';renderRoasted();document.getElementById('beans-content').scrollTop=0;});});
+    box.querySelectorAll('.bean-cta').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();openCupping(el.dataset.aid);});});
   }
   function renderRoastEdit(){
     const box=document.getElementById('beans-content');
@@ -2174,7 +2185,7 @@ fill="#6F4A36" stroke="none">
     ROASTS=ROASTS.filter(function(x){return String(x.id)!==String(r.id);});
     roastEdit=null;roastDelConfirm=false;renderRoasted();
   }
-  let SAMPLES=[], smpPages=[], smpIdx=0, smpEdit=null, smpEditObj=null, smpDelConfirm=false, smpEditFrom='sample';
+  let SAMPLES=[], smpPages=[], smpIdx=0, smpEdit=null, smpEditObj=null, smpDelConfirm=false, smpEditFrom='sample', smpCuppingRoast=null;
   function nextNo(date){return SAMPLES.filter(function(x){return x.cupping_date===date;}).length+1;}
   const SMP_FIELDS=[['fragrance','Fragrance / Aroma'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
   function todayStr(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
@@ -2191,7 +2202,7 @@ fill="#6F4A36" stroke="none">
     box.innerHTML='<div class="sempty">Loading…</div>';
     const {data,error}=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('no',{ascending:false}).order('created_at',{ascending:false});
     SAMPLES=error?[]:(data||[]);
-    smpEdit=null;smpEditObj=null;smpDelConfirm=false;
+    smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpCuppingRoast=null;
     if(view==='history'){greenView='history';renderHistory();}
     else{smpPages=[blankSmp()];smpIdx=0;greenView='sample';renderSample(error?error.message:'');}
   }
@@ -2246,8 +2257,11 @@ fill="#6F4A36" stroke="none">
     if(!smpPages.length)smpPages=[blankSmp()];
     if(smpIdx<0)smpIdx=0;if(smpIdx>=smpPages.length)smpIdx=smpPages.length-1;
     var p=smpPages[smpIdx];
+    var cupping=!!smpCuppingRoast;
     var no=nextNo(p.cupping_date||todayStr());
-    var nav='<div class="smp-pager"><button class="smp-nav" id="smp-prev" aria-label="Previous">‹</button>'
+    var nav=cupping
+      ?'<div class="smp-cuphdr">Cupping · <b>'+esc(p.sample_id||'')+'</b></div>'
+      :'<div class="smp-pager"><button class="smp-nav" id="smp-prev" aria-label="Previous">‹</button>'
       +'<span class="smp-pos">Sample '+(smpIdx+1)+' / '+smpPages.length+'</span>'
       +'<button class="smp-nav" id="smp-next" aria-label="Next">›</button>'
       +'<button class="smp-add" id="smp-add">+ Add</button></div>'
@@ -2263,10 +2277,10 @@ fill="#6F4A36" stroke="none">
       +'<div class="smp-sec"><div class="smp-sec-h">Cupping scores · 1–5</div><div class="smp-scores">'+scores+'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Comment · what makes it unique</div><textarea id="smp-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
       +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':(okMsg?' ok':''))+'" id="smp-msg">'+(errMsg?('Load failed: '+esc(errMsg)+' (run the samples table SQL in Supabase first)'):(okMsg?esc(okMsg):''))+'</div></div>'
-      +'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn skip" id="smp-skip">Skip</button><button class="gbtn buy" id="smp-buy">Buy</button></div></div>';
+      +(cupping?'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn buy" id="smp-submit">Submit</button></div></div>':'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn skip" id="smp-skip">Skip</button><button class="gbtn buy" id="smp-buy">Buy</button></div></div>');
     var today=todayStr();
     var todays=SAMPLES.filter(function(x){return x.cupping_date===today;});
-    var list=todays.length?('<div class="smp-sec"><div class="smp-sec-h">Samples today · tap to edit/delete</div><div class="smp-list">'+todays.map(sampleCard).join('')+'</div><div class="smp-hint">Older records live under History in the dock</div></div>'):'';
+    var list=cupping?'':(todays.length?('<div class="smp-sec"><div class="smp-sec-h">Samples today · tap to edit/delete</div><div class="smp-list">'+todays.map(sampleCard).join('')+'</div><div class="smp-hint">Older records live under History in the dock</div></div>'):'');
     box.innerHTML=nav+form+list;
     box.querySelectorAll('.dots').forEach(function(dr){
       var name=dr.dataset.name;
@@ -2276,11 +2290,12 @@ fill="#6F4A36" stroke="none">
       });});
     });
     wirePicks(box,p);
-    document.getElementById('smp-prev').addEventListener('click',function(){captureSmp();smpIdx=(smpIdx-1+smpPages.length)%smpPages.length;renderSample();box.scrollTop=0;});
-    document.getElementById('smp-next').addEventListener('click',function(){captureSmp();smpIdx=(smpIdx+1)%smpPages.length;renderSample();box.scrollTop=0;});
-    document.getElementById('smp-add').addEventListener('click',function(){captureSmp();smpPages.push(blankSmp());smpIdx=smpPages.length-1;renderSample();box.scrollTop=0;});
-    document.getElementById('smp-buy').addEventListener('click',function(){saveSample('buy');});
-    document.getElementById('smp-skip').addEventListener('click',function(){saveSample('skip');});
+    var _prev=document.getElementById('smp-prev');if(_prev)_prev.addEventListener('click',function(){captureSmp();smpIdx=(smpIdx-1+smpPages.length)%smpPages.length;renderSample();box.scrollTop=0;});
+    var _next=document.getElementById('smp-next');if(_next)_next.addEventListener('click',function(){captureSmp();smpIdx=(smpIdx+1)%smpPages.length;renderSample();box.scrollTop=0;});
+    var _add=document.getElementById('smp-add');if(_add)_add.addEventListener('click',function(){captureSmp();smpPages.push(blankSmp());smpIdx=smpPages.length-1;renderSample();box.scrollTop=0;});
+    var _buy=document.getElementById('smp-buy');if(_buy)_buy.addEventListener('click',function(){saveSample('buy');});
+    var _skip=document.getElementById('smp-skip');if(_skip)_skip.addEventListener('click',function(){saveSample('skip');});
+    var _submit=document.getElementById('smp-submit');if(_submit)_submit.addEventListener('click',submitCupping);
     box.querySelectorAll('.smp-item').forEach(function(el){el.addEventListener('click',function(){
       var s=SAMPLES.find(function(x){return String(x.id)===String(el.dataset.id);});
       if(s){smpEdit=s.id;smpEditObj=Object.assign({},s);smpEditFrom='sample';smpDelConfirm=false;renderSample();box.scrollTop=0;}
@@ -2363,6 +2378,50 @@ fill="#6F4A36" stroke="none">
       +(chips?'<div class="smp-scoreline">'+chips+'</div>':'')
       +feats
       +(s.comment?'<div class="smp-cmt">'+esc(s.comment)+'</div>':'')+'</div>';
+  }
+  async function openCupping(roastId){
+    var r=ROASTS.find(function(x){return String(x.id)===String(roastId);});
+    if(!r)return;
+    var proc='';
+    var bean=BEANS.find(function(b){return String(b.id)===String(r.bean_id);});
+    if(bean){proc=bean.process||'';}
+    openPage('green');
+    document.getElementById('green-title').textContent='Analyse';
+    document.getElementById('green-count').textContent='';
+    document.getElementById('green-content').innerHTML='<div class="sempty">Loading…</div>';
+    if(!bean&&r.bean_id){try{var bq=await sb.from('beans').select('process').eq('id',r.bean_id).single();if(bq&&bq.data)proc=bq.data.process||'';}catch(e){}}
+    var res=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('no',{ascending:false}).order('created_at',{ascending:false});
+    SAMPLES=res.error?[]:(res.data||[]);
+    smpEdit=null;smpEditObj=null;smpDelConfirm=false;
+    smpCuppingRoast=r.id;
+    smpPages=[Object.assign(blankSmp(),{supplier:'Ratio Coffee',sample_id:r.bean_name||'',process:proc})];
+    smpIdx=0;greenView='sample';
+    renderSample(res.error?res.error.message:'');
+  }
+  async function submitCupping(){
+    captureSmp();
+    var p=smpPages[smpIdx];
+    var msg=document.getElementById('smp-msg');
+    var btn=document.getElementById('smp-submit');
+    var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||'Ratio Coffee',sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:null};
+    if(!rec.sample_id){if(msg){msg.textContent='Missing coffee name (ID)';msg.className='gform-msg err';}return;}
+    if(btn)btn.disabled=true;if(msg){msg.textContent='Saving…';msg.className='gform-msg';}
+    let ins=await sb.from('samples').insert(rec).select();
+    if(ins.error&&rec.features!==undefined){var r2=Object.assign({},rec);delete r2.features;ins=await sb.from('samples').insert(r2).select();}
+    if(ins.error){if(btn)btn.disabled=false;if(msg){msg.textContent='Save failed: '+ins.error.message;msg.className='gform-msg err';}return;}
+    if(ins.data&&ins.data[0])SAMPLES.unshift(ins.data[0]);
+    var rid=smpCuppingRoast;
+    if(rid){
+      var up=await sb.from('roasts').update({status:'cupped'}).eq('id',rid);
+      if(up&&up.error){if(btn)btn.disabled=false;if(msg){msg.textContent='Saved sample, but status update failed: '+up.error.message;msg.className='gform-msg err';}return;}
+      var lr=ROASTS.find(function(x){return String(x.id)===String(rid);});
+      if(lr)lr.status='cupped';
+    }
+    smpCuppingRoast=null;
+    smpPages=[blankSmp()];smpIdx=0;
+    roastedTitle='Pending';beansView='production';
+    openPage('beans');
+    renderRoasted();
   }
   async function saveSample(decision){
     captureSmp();
