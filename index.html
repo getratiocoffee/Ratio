@@ -29,6 +29,13 @@
   .ct-hist:active{opacity:.75}
   .ct-hist .ct-hist-arr{font-size:15px;line-height:1;margin-left:1px}
   .ctitle.show{display:block}
+  .plan-done{display:flex;flex-direction:column;align-items:center;text-align:center;padding:64px 28px 40px}
+  .plan-done .pd-ic{width:64px;height:64px;border-radius:50%;background:var(--success-tint,#E2EADD);color:var(--success,#5E8C61);display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+  .plan-done .pd-ic svg{width:34px;height:34px}
+  .plan-done .pd-t{font-size:20px;font-weight:700;color:var(--ink);font-family:var(--font-display,inherit)}
+  .plan-done .pd-s{font-size:13px;color:var(--muted);margin:8px 0 26px;line-height:1.6}
+  .plan-done .gbtn{width:100%;max-width:280px}
+  .plan-done .gbtn.ghost{margin-top:10px}
   .cpanel{display:none}
   .cpanel.show{display:block;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--bg)}
   .msg{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
@@ -1025,7 +1032,7 @@ fill="#6F4A36" stroke="none">
   function thisWeekEntry(){return effectiveWeek(currentWeekStart());}
   function historyWeeks(){var cw=currentWeekStart();return allWeekStarts().filter(function(ws){return ws<cw;}).map(effectiveWeek).filter(Boolean);}
 
-  let planWeek='', planLabel='', planShifts=[], planOpen={}, planMsg='';
+  let planWeek='', planLabel='', planShifts=[], planOpen={}, planMsg='', planDone=false;
   function planKey(ws){return 'ratio_plan_'+ws;}
   function loadPlan(ws){try{var s=localStorage.getItem(planKey(ws));if(s)return JSON.parse(s);}catch(e){}return [];}
   function savePlan(){try{localStorage.setItem(planKey(planWeek),JSON.stringify(planShifts));}catch(e){}}
@@ -1043,7 +1050,7 @@ fill="#6F4A36" stroke="none">
     return out;
   }
   function openWeekPlan(ws,label){
-    planWeek=ws;planLabel=label;planMsg='';planOpen={};
+    planWeek=ws;planLabel=label;planMsg='';planOpen={};planDone=false;
     var draft=loadPlan(ws);var sub=submittedRoster(ws);var stat=staticWeek(ws);
     planShifts=(draft&&draft.length)?draft : (sub?sub.slice() : (stat?staticToShifts(stat):[]));
     document.getElementById('ts-title').textContent=label;
@@ -1056,6 +1063,18 @@ fill="#6F4A36" stroke="none">
   }
   function renderWeekPlan(){
     const body=document.getElementById('timesheet-body');const sc=body.scrollTop;
+    if(planDone){
+      body.innerHTML='<div class="plan-done">'
+        +'<div class="pd-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11"/></svg></div>'
+        +'<div class="pd-t">已存成正式班表</div>'
+        +'<div class="pd-s">'+esc(weekRangeOf(planWeek))+'<br>已顯示在「本週」與「歷史」</div>'
+        +'<button class="gbtn" id="plan-done-ok">完成</button>'
+        +'<button class="gbtn ghost" id="plan-done-edit">繼續編輯</button>'
+        +'</div>';
+      var okB=document.getElementById('plan-done-ok');if(okB)okB.addEventListener('click',function(){closePage();});
+      var edB=document.getElementById('plan-done-edit');if(edB)edB.addEventListener('click',function(){planDone=false;renderWeekPlan();});
+      return;
+    }
     var byDay={};planShifts.forEach(function(s,i){(byDay[s.day]=byDay[s.day]||[]).push(Object.assign({i:i},s));});
     var note='<div class="plan-note">每天已帶入預設班次（平日 2 班、週六 3 班、週日 4 班），時間可逐筆調整、15 分鐘為單位。已依預設自動計算無薪休息。草稿自動存在這台裝置。</div>';
     var days=TS_ORDER.map(function(dk){
@@ -1097,9 +1116,9 @@ fill="#6F4A36" stroke="none">
     var subBtn=document.getElementById('plan-submit');
     if(subBtn)subBtn.addEventListener('click',function(){
       submitRoster(planWeek,planShifts);
-      planMsg='已上傳：'+weekRangeOf(planWeek)+' 已存成正式班表（會顯示在本週／歷史）';
+      planMsg='';planDone=true;
       try{renderModulePanel('timesheet');}catch(e){}
-      renderWeekPlan();body.scrollTop=body.scrollHeight;
+      renderWeekPlan();body.scrollTop=0;
     });
     body.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){
       var dk=el.dataset.d;var has=planShifts.some(function(s){return s.day===dk;});
