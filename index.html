@@ -20,7 +20,7 @@
   #who{font-size:11px;color:var(--on-brand);opacity:.7;font-weight:500}
   #who:empty{display:none}
   .clock{font-size:26px;font-weight:600;font-family:-apple-system,system-ui,sans-serif;color:var(--on-brand);letter-spacing:.5px}
-  .feed{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .feed{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .ctitle{display:none;padding:11px 16px 10px;font-size:15px;font-weight:700;color:var(--ink);border-bottom:1px solid var(--line)}
   .ctitle .ct-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .ctitle .ct-week{font-size:15px;font-weight:700;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -37,7 +37,7 @@
   .plan-done .gbtn{width:100%;max-width:280px}
   .plan-done .gbtn.ghost{margin-top:10px}
   .cpanel{display:none}
-  .cpanel.show{display:block;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--bg)}
+  .cpanel.show{display:block;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--bg)}
   .msg{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
   .msg:last-child{border-bottom:none}
   .dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex:0 0 auto}
@@ -94,7 +94,7 @@
   /* ---- full-screen module page (Timesheet, etc.) ---- */
   .screen{position:fixed;inset:0;margin:calc(env(safe-area-inset-top,0px) + 16px) 16px calc(env(safe-area-inset-bottom,0px) + 16px);background:var(--bg);border:1px solid rgba(50,43,42,0.16);border-radius:28px;overflow:hidden;z-index:20;display:flex;flex-direction:column;transform:translateX(calc(100% + 24px));transition:transform .28s cubic-bezier(.4,0,.2,1);visibility:hidden}
   .screen.open{transform:none;visibility:visible}
-  .shead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;min-height:60px;background:var(--brand);color:var(--on-brand)}
+  .shead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;min-height:60px;background:var(--brand);color:var(--on-brand);flex:0 0 auto}
   .shead .back{width:36px;height:36px;border-radius:11px;border:none;background:rgba(244,236,234,.14);color:var(--on-brand);display:grid;place-items:center;cursor:pointer;padding:0;transition:background .15s ease}
   .shead .logo{width:38px;height:38px;display:block;flex:0 0 auto}
   .shead .logo img{width:100%;height:100%;display:block;filter:brightness(0) invert(1)}
@@ -102,9 +102,9 @@
   .shead .back svg{width:20px;height:20px}
   .shead .hkey{font-size:13px;font-weight:500;color:var(--on-brand);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .shead .hkey:empty{display:none}
-  .stitle{padding:11px 18px;font-size:15px;font-weight:700;color:var(--ink);background:var(--surface);border-bottom:1px solid var(--line)}
+  .stitle{padding:11px 18px;font-size:15px;font-weight:700;color:var(--ink);background:var(--surface);border-bottom:1px solid var(--line);flex:0 0 auto}
   .stitle:empty{display:none}
-  .sbody{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
+  .sbody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
   .dayhd{position:sticky;top:0;background:var(--bg);padding:15px 18px 7px;z-index:1;display:flex;align-items:baseline;gap:9px}
   .dayhd .dh-dow{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:.07em}
   .dayhd .dh-date{font-size:12px;font-weight:600;color:var(--muted)}
