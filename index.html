@@ -383,6 +383,8 @@
   .inv-f span{font-size:11px;color:var(--muted);padding-left:2px}
   .inv-f input{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;color:var(--ink);background:var(--bg);outline:none;font-family:inherit;width:100%}
   .inv-f input:focus{border-color:var(--accent);background:var(--surface)}
+  .inv-sel{border:1px solid var(--line);border-radius:10px;padding:10px 30px 10px 12px;font-size:15px;color:var(--ink);background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238C8079' stroke-width='2.4'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 11px center;outline:none;font-family:inherit;width:100%;-webkit-appearance:none;appearance:none}
+  .inv-sel:focus{border-color:var(--accent);background-color:var(--surface)}
   .inv-f2{display:flex;gap:10px}
   .inv-f2 .inv-f{flex:1;min-width:0}
   .inv-line{display:flex;justify-content:space-between;align-items:baseline;margin-top:11px;font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--ink)}
@@ -1110,21 +1112,45 @@ fill="#6F4A36" stroke="none">
 
   /* ============ Invoice generator (More → Generate Invoice) ============ */
   const INV_CATS=['Roasted Beans','Green Beans','Shipping','Catering'];
+  const ROAST_PACKS=['100g','150g','200g','250g'];
+  const HANDLE_FEE=5;   /* per green-bean line, GST inclusive */
   let INV={buyerName:'',buyerEmail:'',buyerAddr:'',items:[],notes:'',date:'',due:''};
   function invTaxable(cat){return cat==='Catering'||cat==='Shipping';}
-  function blankInvItem(cat){cat=cat||INV_CATS[0];return {cat:cat,desc:'',qty:'1',unit:'',gstMode:'plus'};}
-  function openInvoice(){closeFolder();openPage('invoice');if(!INV.date)INV.date=todayStr();if(!INV.items.length)INV.items=[blankInvItem('Roasted Beans')];renderInvoice();}
+  function invIsGreen(it){return it.cat==='Green Beans';}
+  function invHasHandle(it){return invIsGreen(it)&&!!it.beanId;}
+  function blankInvItem(cat){cat=cat||INV_CATS[0];return {cat:cat,desc:'',qty:'1',unit:'',gstMode:'plus',pack:'250g',beanId:'',beanName:'',country:''};}
+  function openInvoice(){closeFolder();openPage('invoice');if(!INV.date)INV.date=todayStr();if(!INV.items.length)INV.items=[blankInvItem('Roasted Beans')];renderInvoice();ensureBeansForInvoice().then(function(){captureInv();renderInvoice();});}
+  async function ensureBeansForInvoice(){if(BEANS&&BEANS.length)return;try{var r=await sb.from('beans').select('*').order('name');if(r&&r.data)BEANS=r.data;}catch(e){}}
   function invRaw(it){return (parseFloat(it.qty)||0)*(parseFloat(it.unit)||0);}
-  function invEx(it){var amt=invRaw(it);if(!invTaxable(it.cat))return amt;return it.gstMode==='inc'?amt/1.1:amt;}
-  function invGstLine(it){if(!invTaxable(it.cat))return 0;var amt=invRaw(it);return it.gstMode==='inc'?(amt-amt/1.1):amt*0.1;}
+  function invGreenCost(it){return (parseFloat(it.qty)||0)*(parseFloat(it.unit)||0);}
+  function invEx(it){
+    if(invIsGreen(it)){var ex=invGreenCost(it);if(invHasHandle(it))ex+=HANDLE_FEE/1.1;return ex;}
+    if(it.cat==='Roasted Beans')return invRaw(it);
+    var amt=invRaw(it);return it.gstMode==='inc'?amt/1.1:amt;
+  }
+  function invGstLine(it){
+    if(invIsGreen(it))return invHasHandle(it)?(HANDLE_FEE-HANDLE_FEE/1.1):0;
+    if(it.cat==='Roasted Beans')return 0;
+    var amt=invRaw(it);return it.gstMode==='inc'?(amt-amt/1.1):amt*0.1;
+  }
   function invLineTotal(it){return invEx(it)+invGstLine(it);}
   function invSubtotal(){var t=0;INV.items.forEach(function(it){t+=invEx(it);});return t;}
   function invGstAmt(){var t=0;INV.items.forEach(function(it){t+=invGstLine(it);});return t;}
   function invTotal(){return invSubtotal()+invGstAmt();}
   function invMoney(n){return '$'+(Number(n)||0).toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});}
   function invLineHTML(it){
-    if(invTaxable(it.cat))return '<span class="l">Ex '+invMoney(invEx(it))+' · GST '+invMoney(invGstLine(it))+'</span><span>'+invMoney(invLineTotal(it))+'</span>';
-    return '<span class="l">Line total</span><span>'+invMoney(invLineTotal(it))+'</span>';
+    if(invIsGreen(it)){var gc=invGreenCost(it);var l='Green '+invMoney(gc)+' · GST-free'+(invHasHandle(it)?' + Handle $5.00':'');return '<span class="l">'+l+'</span><span>'+invMoney(invLineTotal(it))+'</span>';}
+    if(it.cat==='Roasted Beans')return '<span class="l">GST-free</span><span>'+invMoney(invLineTotal(it))+'</span>';
+    return '<span class="l">Ex '+invMoney(invEx(it))+' · GST '+invMoney(invGstLine(it))+'</span><span>'+invMoney(invLineTotal(it))+'</span>';
+  }
+  function invBeanOptions(it){
+    var o='<option value="">— pick green bean —</option>';
+    (BEANS||[]).forEach(function(b){
+      var sel=String(b.id)===String(it.beanId)?' selected':'';
+      var stock=(b.quantity!=null)?(' · '+gnum(b.quantity)+'kg in stock'):'';
+      o+='<option value="'+esc(b.id)+'"'+sel+'>'+esc(b.name)+(b.country?' · '+esc(b.country):'')+' — $'+(b.cost_per_kg!=null?b.cost_per_kg:'?')+'/kg'+stock+'</option>';
+    });
+    return o;
   }
   function captureInv(){
     var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
@@ -1132,8 +1158,13 @@ fill="#6F4A36" stroke="none">
     INV.date=g('inv-date')||todayStr();INV.due=g('inv-due');INV.notes=g('inv-notes');
     document.querySelectorAll('#invoice-content .inv-rowcard[data-i]').forEach(function(card){
       var i=+card.dataset.i;if(!INV.items[i])return;
-      var q=function(f){var e=card.querySelector('[data-f="'+f+'"]');return e?e.value:'';};
-      INV.items[i].cat=q('cat')||INV.items[i].cat;INV.items[i].desc=q('desc');INV.items[i].qty=q('qty');INV.items[i].unit=q('unit');
+      var q=function(f){var e=card.querySelector('[data-f="'+f+'"]');return e?e.value:undefined;};
+      var v;
+      v=q('cat');if(v!==undefined)INV.items[i].cat=v||INV.items[i].cat;
+      v=q('desc');if(v!==undefined)INV.items[i].desc=v;
+      v=q('qty');if(v!==undefined)INV.items[i].qty=v;
+      v=q('unit');if(v!==undefined)INV.items[i].unit=v;
+      v=q('pack');if(v!==undefined)INV.items[i].pack=v;
     });
   }
   function renderInvoice(){
@@ -1149,18 +1180,29 @@ fill="#6F4A36" stroke="none">
       +'<label class="inv-f"><span>Due date</span><input id="inv-due" type="date" value="'+esc(INV.due||'')+'" /></label></div></div>';
     var itemsHTML=INV.items.map(function(it,i){
       var opts=INV_CATS.map(function(c){return '<option'+(c===it.cat?' selected':'')+'>'+c+'</option>';}).join('');
-      var tax=invTaxable(it.cat);
-      var unitLab=!tax?'Unit price':(it.gstMode==='inc'?'Unit price (inc GST)':'Unit price (ex GST)');
-      var gstCtrl=tax
-        ?'<div class="re-seg inv-gstseg"><button class="re-opt'+(it.gstMode!=='inc'?' on':'')+'" data-gst="plus" data-i="'+i+'">Plus GST</button><button class="re-opt'+(it.gstMode==='inc'?' on':'')+'" data-gst="inc" data-i="'+i+'">GST inc</button></div>'
-        :'<div class="inv-free">GST-free</div>';
-      return '<div class="inv-rowcard" data-i="'+i+'">'
-        +'<div class="inv-rh"><select class="inv-catsel" data-f="cat">'+opts+'</select><button class="inv-x" data-del="'+i+'" aria-label="remove">\u2715</button></div>'
-        +'<label class="inv-f"><span>Description</span><input data-f="desc" type="text" value="'+esc(it.desc)+'" placeholder="'+esc(it.cat==='Shipping'?'Freight / courier':(it.cat==='Catering'?'Catering \u2014 event':'Bean name'))+'" /></label>'
-        +'<div class="inv-f2"><label class="inv-f"><span>'+(tax?'Qty':'Qty (kg/bags)')+'</span><input data-f="qty" type="text" inputmode="decimal" value="'+esc(it.qty)+'" /></label>'
-        +'<label class="inv-f"><span>'+unitLab+'</span><input data-f="unit" type="text" inputmode="decimal" value="'+esc(it.unit)+'" /></label></div>'
-        +'<div class="inv-rowfoot">'+gstCtrl+'</div>'
-        +'<div class="inv-line">'+invLineHTML(it)+'</div></div>';
+      var head='<div class="inv-rh"><select class="inv-catsel" data-f="cat">'+opts+'</select><button class="inv-x" data-del="'+i+'" aria-label="remove">\u2715</button></div>';
+      var mid='';
+      if(invIsGreen(it)){
+        mid='<label class="inv-f"><span>Green bean (from inventory)</span><select class="inv-sel" data-f="bean">'+invBeanOptions(it)+'</select></label>'
+          +'<div class="inv-f2"><label class="inv-f"><span>Qty (kg)</span><input data-f="qty" type="text" inputmode="decimal" value="'+esc(it.qty)+'" /></label>'
+          +'<label class="inv-f"><span>Cost $/kg</span><input data-f="unit" type="text" inputmode="decimal" value="'+esc(it.unit)+'" /></label></div>'
+          +'<div class="inv-rowfoot"><div class="inv-free">GST-free beans · +$5 handle / item (inc GST)</div></div>';
+      }else if(it.cat==='Roasted Beans'){
+        var pk=ROAST_PACKS.map(function(p){return '<option'+(p===it.pack?' selected':'')+'>'+p+'</option>';}).join('');
+        mid='<label class="inv-f"><span>Description</span><input data-f="desc" type="text" value="'+esc(it.desc)+'" placeholder="Roast name" /></label>'
+          +'<div class="inv-f2"><label class="inv-f"><span>Pack size</span><select class="inv-sel" data-f="pack">'+pk+'</select></label>'
+          +'<label class="inv-f"><span>Qty (packs)</span><input data-f="qty" type="text" inputmode="decimal" value="'+esc(it.qty)+'" /></label></div>'
+          +'<label class="inv-f"><span>Price $/pack</span><input data-f="unit" type="text" inputmode="decimal" value="'+esc(it.unit)+'" /></label>'
+          +'<div class="inv-rowfoot"><div class="inv-free">GST-free</div></div>';
+      }else{
+        var unitLab=(it.gstMode==='inc'?'Unit price (inc GST)':'Unit price (ex GST)');
+        var seg='<div class="re-seg inv-gstseg"><button class="re-opt'+(it.gstMode!=='inc'?' on':'')+'" data-gst="plus" data-i="'+i+'">Plus GST</button><button class="re-opt'+(it.gstMode==='inc'?' on':'')+'" data-gst="inc" data-i="'+i+'">GST inc</button></div>';
+        mid='<label class="inv-f"><span>Description</span><input data-f="desc" type="text" value="'+esc(it.desc)+'" placeholder="'+esc(it.cat==='Shipping'?'Freight / courier':'Catering \u2014 event')+'" /></label>'
+          +'<div class="inv-f2"><label class="inv-f"><span>Qty</span><input data-f="qty" type="text" inputmode="decimal" value="'+esc(it.qty)+'" /></label>'
+          +'<label class="inv-f"><span>'+unitLab+'</span><input data-f="unit" type="text" inputmode="decimal" value="'+esc(it.unit)+'" /></label></div>'
+          +'<div class="inv-rowfoot">'+seg+'</div>';
+      }
+      return '<div class="inv-rowcard" data-i="'+i+'">'+head+mid+'<div class="inv-line">'+invLineHTML(it)+'</div></div>';
     }).join('');
     var add='<div class="inv-add">'+INV_CATS.map(function(c){return '<button data-add="'+esc(c)+'">+ '+c+'</button>';}).join('')+'</div>';
     var totals='<div class="inv-totals" id="inv-totals"></div>';
@@ -1169,6 +1211,7 @@ fill="#6F4A36" stroke="none">
     box.innerHTML=buyer+'<div class="gsec" style="padding:8px 18px 4px">Items</div>'+itemsHTML+add+totals+notes+gen;
     renderInvTotals(document.getElementById('inv-totals'));
     box.querySelectorAll('.inv-catsel').forEach(function(sel){sel.addEventListener('change',function(){captureInv();renderInvoice();});});
+    box.querySelectorAll('[data-f="bean"]').forEach(function(sel){sel.addEventListener('change',function(){captureInv();var card=sel.closest('.inv-rowcard');var i=+card.dataset.i;var b=(BEANS||[]).find(function(x){return String(x.id)===sel.value;});if(INV.items[i]){if(b){INV.items[i].beanId=b.id;INV.items[i].beanName=b.name;INV.items[i].country=b.country;INV.items[i].unit=(b.cost_per_kg!=null?String(b.cost_per_kg):'');}else{INV.items[i].beanId='';INV.items[i].beanName='';}}renderInvoice();});});
     box.querySelectorAll('[data-del]').forEach(function(b){b.addEventListener('click',function(){captureInv();INV.items.splice(+b.dataset.del,1);renderInvoice();});});
     box.querySelectorAll('[data-add]').forEach(function(b){b.addEventListener('click',function(){captureInv();INV.items.push(blankInvItem(b.dataset.add));renderInvoice();box.scrollTop=box.scrollHeight;});});
     box.querySelectorAll('[data-gst]').forEach(function(b){b.addEventListener('click',function(){captureInv();var i=+b.dataset.i;if(INV.items[i]){INV.items[i].gstMode=b.dataset.gst;}renderInvoice();});});
@@ -1216,7 +1259,7 @@ fill="#6F4A36" stroke="none">
     doc.text('getratiocoffee@gmail.com',cx,y+46);
     /* TAX INVOICE label (right) */
     doc.setFont('helvetica','bold');doc.setFontSize(18);doc.setTextColor(20);
-    doc.text(INV.items.some(function(it){return invTaxable(it.cat);})?'TAX INVOICE':'INVOICE',R,y+6,{align:'right'});
+    doc.text(invGstAmt()>0?'TAX INVOICE':'INVOICE',R,y+6,{align:'right'});
     doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(120);
     doc.text(seq.no,R,y+22,{align:'right'});
     doc.text('Date: '+(INV.date||todayStr()),R,y+34,{align:'right'});
@@ -1235,18 +1278,28 @@ fill="#6F4A36" stroke="none">
     doc.text('Description',cDesc,y);doc.text('Qty',cQty,y,{align:'right'});doc.text('Unit',cUnit,y,{align:'right'});doc.text('Amount',cAmt,y,{align:'right'});
     y+=8;doc.setDrawColor(210);doc.line(L,y,R,y);
     doc.setFont('helvetica','normal');doc.setFontSize(10.5);
+    var pdfRows=[];
     INV.items.forEach(function(it){
-      if(invLineTotal(it)===0 && !it.desc)return;
+      var q=parseFloat(it.qty)||0;
+      if(invIsGreen(it)){
+        var gc=invGreenCost(it);
+        if(gc>0||it.beanName)pdfRows.push({desc:it.beanName||'Green beans',cat:'Green Beans  (GST-free)',qty:q,unit:(parseFloat(it.unit)||0),amt:gc});
+        if(invHasHandle(it))pdfRows.push({desc:'Handling fee',cat:'GST inc $5.00 / item',qty:1,unit:HANDLE_FEE/1.1,amt:HANDLE_FEE/1.1});
+      }else if(it.cat==='Roasted Beans'){
+        if(invRaw(it)>0||it.desc)pdfRows.push({desc:(it.desc||'Roasted beans')+(it.pack?' \u00b7 '+it.pack:''),cat:'Roasted Beans  (GST-free)',qty:q,unit:(parseFloat(it.unit)||0),amt:invRaw(it)});
+      }else{
+        if(invRaw(it)>0||it.desc){var ex=invEx(it);pdfRows.push({desc:it.desc||it.cat,cat:it.cat,qty:q,unit:(q?ex/q:ex),amt:ex});}
+      }
+    });
+    pdfRows.forEach(function(r){
       if(y>770){doc.addPage();y=60;}
-      y+=20;doc.setTextColor(20);
-      var q=parseFloat(it.qty)||0;var exLine=invEx(it);var unitEx=q?exLine/q:exLine;
-      doc.text(String(it.desc||it.cat).substring(0,52),cDesc,y);
-      doc.setTextColor(130);doc.setFontSize(8.5);
-      doc.text(it.cat+(invTaxable(it.cat)?'':'  (GST-free)'),cDesc,y+11);
+      y+=20;doc.setTextColor(20);doc.setFontSize(10.5);
+      doc.text(String(r.desc).substring(0,52),cDesc,y);
+      doc.setTextColor(130);doc.setFontSize(8.5);doc.text(r.cat,cDesc,y+11);
       doc.setFontSize(10.5);doc.setTextColor(20);
-      doc.text(String(q),cQty,y,{align:'right'});
-      doc.text(money(unitEx),cUnit,y,{align:'right'});
-      doc.text(money(exLine),cAmt,y,{align:'right'});
+      doc.text(String(r.qty),cQty,y,{align:'right'});
+      doc.text(money(r.unit),cUnit,y,{align:'right'});
+      doc.text(money(r.amt),cAmt,y,{align:'right'});
       y+=8;
     });
     y+=4;doc.setDrawColor(210);doc.line(L,y,R,y);
