@@ -518,8 +518,8 @@ fill="#6F4A36" stroke="none">
     else if(act==='green:sell'){openPage('green');greenSoon='Sell 販售';greenView='soon';renderGreen();}
     else if(act==='green:analyse'){openPage('green');loadSamples();}
     else if(act==='green:samplehist'){openPage('green');loadSamples('history');}
-    else if(act==='timesheet:week'){openTimesheet('This Week','Jun 30 – Jul 4',TIMESHEET_SAMPLE);}
-    else if(act==='timesheet:hist'){openTimesheet('History','',null);}
+    else if(act==='timesheet:week'){const w=TIMESHEET_WEEKS[0];openTimesheet('This Week',w?w.range:'',w?w.groups:[]);}
+    else if(act==='timesheet:hist'){document.getElementById('ts-title').textContent='History';document.getElementById('ts-week').textContent='';renderTimesheetWeeks(TIMESHEET_WEEKS.slice(1));openPage('timesheet');}
   }
   function openTimesheet(title,week,groups){
     document.getElementById('ts-title').textContent=title;
@@ -702,38 +702,28 @@ fill="#6F4A36" stroke="none">
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePage();closeFolder();}});
 
   /* placeholder roster — replace with live Supabase `shifts` data later */
-  const TIMESHEET_SAMPLE=[
-    {day:'Mon · Jun 30',rows:[
-      {nm:'Mei',role:'Barista · Open',tm:'07:00–15:00',hrs:'8h'},
-      {nm:'Daniel',role:'Roaster',tm:'09:00–17:00',hrs:'8h'},
-    ]},
-    {day:'Tue · Jul 1',rows:[
-      {nm:'Mei',role:'Barista',tm:'08:00–16:00',hrs:'8h'},
-      {nm:'Jun',role:'Counter',tm:'12:00–20:00',hrs:'8h'},
-    ]},
-    {day:'Wed · Jul 2',rows:[
-      {nm:'Daniel',role:'Roaster',tm:'09:00–17:00',hrs:'8h'},
-    ]},
-    {day:'Thu · Jul 3',rows:[
-      {nm:'Jun',role:'Barista · Open',tm:'07:00–15:00',hrs:'8h'},
-      {nm:'Mei',role:'Counter',tm:'13:00–21:00',hrs:'8h'},
-    ]},
-    {day:'Fri · Jul 4',rows:[
-      {nm:'Mei',role:'Barista',tm:'08:00–16:00',hrs:'8h'},
-      {nm:'Daniel',role:'Roaster · Close',tm:'13:00–21:00',hrs:'8h'},
-    ]},
+  const TIMESHEET_WEEKS=[
+    {weekStart:"2026-06-22",range:"Jun 22 – Jun 28",groups:[{"day": "Mon · Jun 22", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Tue · Jun 23", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Wed · Jun 24", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Thu · Jun 25", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Fri · Jun 26", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Sat · Jun 27", "rows": [{"nm": "Daniel", "tm": "06:00–15:00", "hrs": "9h"}, {"nm": "Samuel", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Yi", "tm": "08:15–16:15", "hrs": "8h"}]}, {"day": "Sun · Jun 28", "rows": [{"nm": "Daniel", "tm": "06:15–08:15", "hrs": "2h"}, {"nm": "Yi", "tm": "08:00–16:00", "hrs": "8h"}, {"nm": "Juwa", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Manami", "tm": "09:15–16:15", "hrs": "7h"}]}]},
+    {weekStart:"2026-06-15",range:"Jun 15 – Jun 21",groups:[{"day": "Mon · Jun 15", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Tue · Jun 16", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Wed · Jun 17", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Thu · Jun 18", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Fri · Jun 19", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Sat · Jun 20", "rows": [{"nm": "Daniel", "tm": "06:00–15:00", "hrs": "9h"}, {"nm": "Samuel", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Yi", "tm": "08:15–16:15", "hrs": "8h"}]}, {"day": "Sun · Jun 21", "rows": [{"nm": "Daniel", "tm": "06:15–08:15", "hrs": "2h"}, {"nm": "Yi", "tm": "08:00–16:00", "hrs": "8h"}, {"nm": "Juwa", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Manami", "tm": "09:15–16:15", "hrs": "7h"}]}]},
   ];
-
-  function renderTimesheet(groups){
-    const body=document.getElementById('timesheet-body');
-    if(!groups||!groups.length){body.innerHTML='<div class="sempty">No shifts scheduled yet</div>';return;}
-    body.innerHTML=groups.map(g=>{
-      const rows=g.rows.map(r=>`<div class="shift"><div class="who"><div class="nm">${esc(r.nm)}</div><div class="role">${esc(r.role)}</div></div><div class="rt"><div class="tm">${esc(r.tm)}</div><div class="hrs">${esc(r.hrs)}</div></div></div>`).join('');
+  function tsGroupsHTML(groups){
+    return (groups||[]).map(g=>{
+      const rows=g.rows.map(r=>`<div class="shift"><div class="who"><div class="nm">${esc(r.nm)}</div>${r.role?`<div class="role">${esc(r.role)}</div>`:''}</div><div class="rt"><div class="tm">${esc(r.tm)}</div>${r.hrs?`<div class="hrs">${esc(r.hrs)}</div>`:''}</div></div>`).join('');
       return `<div class="dayhd">${esc(g.day)}</div>${rows}`;
     }).join('');
   }
-  document.getElementById('ts-week').textContent='Jun 30 – Jul 4';
-  renderTimesheet(TIMESHEET_SAMPLE);
+  function renderTimesheet(groups){
+    const body=document.getElementById('timesheet-body');
+    if(!groups||!groups.length){body.innerHTML='<div class="sempty">No shifts scheduled yet</div>';return;}
+    body.innerHTML=tsGroupsHTML(groups);
+  }
+  function renderTimesheetWeeks(weeks){
+    const body=document.getElementById('timesheet-body');
+    if(!weeks||!weeks.length){body.innerHTML='<div class="sempty">尚無歷史紀錄</div>';return;}
+    body.innerHTML=weeks.map(w=>`<div class="gsec" style="padding:16px 18px 4px">${esc(w.range)}</div>${tsGroupsHTML(w.groups)}`).join('');
+  }
+  if(TIMESHEET_WEEKS[0]){document.getElementById('ts-week').textContent=TIMESHEET_WEEKS[0].range;renderTimesheet(TIMESHEET_WEEKS[0].groups);}
+
 
   function onOpen(id){
     if(DOCK_NODES[id]){dockTo([id]);return;}
