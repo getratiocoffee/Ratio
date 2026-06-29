@@ -615,6 +615,7 @@ fill="#6F4A36" stroke="none">
         if(lr){lp.style.width=Math.round(lr.width)+'px';lp.style.height=Math.round(lr.height)+'px';rp.style.width=Math.round(rr.width)+'px';rp.style.height=Math.round(rr.height)+'px';}
         sw.classList.add('back');sw.innerHTML=BACK_ICON;
         setContentTitle((root&&root.contentTitle)||DASHBOARD_TITLE);
+        if(dockStack[0]==='timesheet')tsFilter=null;
         renderModulePanel(dockStack[0]);
       }
       cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});
@@ -894,7 +895,7 @@ fill="#6F4A36" stroke="none">
     if(act){var b=document.querySelector('.dock-btn[data-act="'+act+'"]');if(b)b.classList.add('on');}
   }
   function openPage(id){const el=document.getElementById('screen-'+id);if(!el)return;alignScreenToBoard(el);el.classList.add('open');}
-  function closePage(){document.querySelectorAll('.screen.open').forEach(function(s){s.classList.remove('open');s.style.margin='';s.style.top='';s.style.left='';s.style.right='';s.style.bottom='';});setActiveDock(null);}
+  function closePage(){var hadOpen=!!document.querySelector('.screen.open');document.querySelectorAll('.screen.open').forEach(function(s){s.classList.remove('open');s.style.margin='';s.style.top='';s.style.left='';s.style.right='';s.style.bottom='';});setActiveDock(null);if(hadOpen&&dockStack[0]==='timesheet'){tsFilter=null;renderModulePanel('timesheet');}}
   window.addEventListener('resize',function(){document.querySelectorAll('.screen.open').forEach(function(el){alignScreenToBoard(el);});});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePage();closeFolder();}});
 
