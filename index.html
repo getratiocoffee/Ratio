@@ -289,7 +289,13 @@
   .smp-scores{background:var(--surface);border:1px solid var(--line);border-radius:15px;overflow:hidden}
   .smp-score{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;border-top:1px solid var(--line)}
   .smp-score:first-child{border-top:none}
-  .smp-sname{font-size:14px;color:var(--ink);font-weight:500}
+  .smp-sname{font-size:14px;color:var(--ink);font-weight:500;flex:1}
+  .smp-pick{flex:0 0 auto;width:22px;height:22px;border-radius:7px;border:1.7px solid #D6C8C1;background:transparent;cursor:pointer;padding:0;position:relative;transition:background .12s ease,border-color .12s ease}
+  .smp-pick.on{background:var(--accent);border-color:var(--accent)}
+  .smp-pick.on::after{content:"";position:absolute;left:6px;top:3px;width:6px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .smp-pick:active{transform:scale(.9)}
+  .smp-feats{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .feat-chip{font-size:11px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:8px;padding:2px 9px}
   .dots{display:flex;gap:9px;align-items:center}
   .dot{width:23px;height:23px;border-radius:50%;border:1.7px solid #D6C8C1;background:transparent;cursor:pointer;padding:0;transition:transform .12s ease,background .12s ease,border-color .12s ease}
   .dot.fill{background:var(--accent);border-color:var(--accent)}
@@ -2172,7 +2178,7 @@ fill="#6F4A36" stroke="none">
   function nextNo(date){return SAMPLES.filter(function(x){return x.cupping_date===date;}).length+1;}
   const SMP_FIELDS=[['fragrance','Fragrance / Aroma'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
   function todayStr(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
-  function blankSmp(){return {cupping_date:todayStr(),supplier:'',sample_id:'',process:'',fragrance:null,acidity:null,sweetness:null,body:null,aftertaste:null,comment:''};}
+  function blankSmp(){return {cupping_date:todayStr(),supplier:'',sample_id:'',process:'',fragrance:null,acidity:null,sweetness:null,body:null,aftertaste:null,features:[],comment:''};}
   function captureSmp(){
     var p=smpPages[smpIdx];if(!p)return;
     var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
@@ -2220,6 +2226,18 @@ fill="#6F4A36" stroke="none">
     for(var i=1;i<=5;i++){d+='<button class="dot'+(i<=v?' fill':'')+'" data-n="'+i+'" aria-label="'+i+'"></button>';}
     return '<div class="dots" data-name="'+name+'">'+d+'</div>';
   }
+  function scoreRow(p,f){
+    var picked=p.features&&p.features.indexOf(f[0])>-1;
+    return '<div class="smp-score"><button class="smp-pick'+(picked?' on':'')+'" data-pick="'+f[0]+'" aria-label="mark as characteristic"></button><span class="smp-sname">'+f[1]+'</span>'+dotRow(p,f[0])+'</div>';
+  }
+  function wirePicks(box,p){
+    box.querySelectorAll('.smp-pick').forEach(function(pk){pk.addEventListener('click',function(){
+      if(!p.features)p.features=[];
+      var k=pk.dataset.pick,i=p.features.indexOf(k);
+      if(i>-1)p.features.splice(i,1);else p.features.push(k);
+      pk.classList.toggle('on');
+    });});
+  }
   function renderSample(errMsg,okMsg){
     const box=document.getElementById('green-content');
     if(smpEdit){renderSampleEdit();return;}
@@ -2234,7 +2252,7 @@ fill="#6F4A36" stroke="none">
       +'<button class="smp-nav" id="smp-next" aria-label="Next">›</button>'
       +'<button class="smp-add" id="smp-add">+ Add</button></div>'
       +'<div class="smp-nohdr">No.'+no+'</div>';
-    var scores=SMP_FIELDS.map(function(f){return '<div class="smp-score"><span class="smp-sname">'+f[1]+'</span>'+dotRow(p,f[0])+'</div>';}).join('');
+    var scores=SMP_FIELDS.map(function(f){return scoreRow(p,f);}).join('');
     var form=''
       +'<div class="smp-sec"><div class="smp-sec-h">Sample details</div><div class="smp-fields">'
       +'<label class="smp-f"><span>Cupping date</span><input id="smp-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" /></label>'
@@ -2243,7 +2261,7 @@ fill="#6F4A36" stroke="none">
       +'<label class="smp-f"><span>Process</span><input id="smp-process" type="text" value="'+esc(p.process||'')+'" /></label>'
       +'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Cupping scores · 1–5</div><div class="smp-scores">'+scores+'</div></div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">Comment</div><textarea id="smp-comment" class="gta" rows="3">'+esc(p.comment||'')+'</textarea></div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Highlights · what makes it unique</div><textarea id="smp-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
       +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':(okMsg?' ok':''))+'" id="smp-msg">'+(errMsg?('Load failed: '+esc(errMsg)+' (run the samples table SQL in Supabase first)'):(okMsg?esc(okMsg):''))+'</div></div>'
       +'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn skip" id="smp-skip">Skip</button><button class="gbtn buy" id="smp-buy">Buy</button></div></div>';
     var today=todayStr();
@@ -2257,6 +2275,7 @@ fill="#6F4A36" stroke="none">
         var v=p[name]||0;dr.querySelectorAll('.dot').forEach(function(x){x.classList.toggle('fill',+x.dataset.n<=v);});
       });});
     });
+    wirePicks(box,p);
     document.getElementById('smp-prev').addEventListener('click',function(){captureSmp();smpIdx=(smpIdx-1+smpPages.length)%smpPages.length;renderSample();box.scrollTop=0;});
     document.getElementById('smp-next').addEventListener('click',function(){captureSmp();smpIdx=(smpIdx+1)%smpPages.length;renderSample();box.scrollTop=0;});
     document.getElementById('smp-add').addEventListener('click',function(){captureSmp();smpPages.push(blankSmp());smpIdx=smpPages.length-1;renderSample();box.scrollTop=0;});
@@ -2272,7 +2291,7 @@ fill="#6F4A36" stroke="none">
     document.getElementById('green-title').textContent=(smpEditObj.supplier||(smpEditObj.no!=null?'No.'+smpEditObj.no:'Sample'));
     document.getElementById('green-count').textContent=(smpEditObj.no!=null?'No.'+smpEditObj.no:'');
     var p=smpEditObj;
-    var scores=SMP_FIELDS.map(function(f){return '<div class="smp-score"><span class="smp-sname">'+f[1]+'</span>'+dotRow(p,f[0])+'</div>';}).join('');
+    var scores=SMP_FIELDS.map(function(f){return scoreRow(p,f);}).join('');
     var seg='<div class="re-seg"><button class="re-opt'+(p.decision==='buy'?' on':'')+'" data-s="buy">Buy</button><button class="re-opt'+(p.decision==='skip'?' on':'')+'" data-s="skip">Skip</button></div>';
     box.innerHTML=''
       +'<div class="smp-sec" style="margin-top:14px"><div class="smp-sec-h">Sample details</div><div class="smp-fields">'
@@ -2283,7 +2302,7 @@ fill="#6F4A36" stroke="none">
       +'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Cupping scores · 1–5</div><div class="smp-scores">'+scores+'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Decision</div>'+seg+'</div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">Comment</div><textarea id="se-comment" class="gta" rows="3">'+esc(p.comment||'')+'</textarea></div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Highlights · what makes it unique</div><textarea id="se-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
       +'<div class="smp-msg-wrap"><div class="gform-msg" id="se-msg"></div></div>'
       +'<div class="smp-sec"><div class="gform-actions"><button class="gbtn ghost" id="se-cancel">Back</button><button class="gbtn" id="se-save">Save changes</button></div>'
       +'<div class="gdel">'+(smpDelConfirm
@@ -2297,6 +2316,7 @@ fill="#6F4A36" stroke="none">
         var v=p[name]||0;dr.querySelectorAll('.dot').forEach(function(x){x.classList.toggle('fill',+x.dataset.n<=v);});
       });});
     });
+    wirePicks(box,p);
     box.querySelectorAll('.re-opt').forEach(function(o){o.addEventListener('click',function(){
       p.decision=o.dataset.s;box.querySelectorAll('.re-opt').forEach(function(x){x.classList.toggle('on',x.dataset.s===p.decision);});
     });});
@@ -2311,10 +2331,12 @@ fill="#6F4A36" stroke="none">
     const btn=document.getElementById('se-save');
     var p=smpEditObj;var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
     var upd={cupping_date:g('se-date')||todayStr(),supplier:g('se-supplier').trim()||null,sample_id:g('se-id').trim()||null,process:g('se-process').trim()||null,
-      fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,comment:g('se-comment').trim()||null,decision:p.decision||null};
+      fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:g('se-comment').trim()||null,decision:p.decision||null};
     if(!upd.supplier&&!upd.sample_id){msg.textContent='Enter at least Supplier or ID';msg.className='gform-msg err';return;}
     btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
-    const {error}=await sb.from('samples').update(upd).eq('id',smpEdit);
+    var ures=await sb.from('samples').update(upd).eq('id',smpEdit);
+    if(ures.error&&upd.features!==undefined){var u2=Object.assign({},upd);delete u2.features;ures=await sb.from('samples').update(u2).eq('id',smpEdit);}
+    var error=ures.error;
     btn.disabled=false;
     if(error){msg.textContent='Save failed: '+error.message;msg.className='gform-msg err';return;}
     var i=SAMPLES.findIndex(function(x){return String(x.id)===String(smpEdit);});
@@ -2334,9 +2356,12 @@ fill="#6F4A36" stroke="none">
     var sub=[s.sample_id?'ID '+esc(s.sample_id):'',s.process?esc(s.process):''].filter(Boolean).join(' · ');
     var dec=s.decision==='buy'?'<span class="smp-badge buy">Buy</span>':(s.decision==='skip'?'<span class="smp-badge skip">Skip</span>':'<span class="rd-meta">'+esc(fmtDate(s.cupping_date))+'</span>');
     var nm=(s.no!=null?'<span class="smp-no">No.'+s.no+'</span> ':'')+esc(s.supplier||s.sample_id||'Sample');
+    var FEAT={fragrance:'Fragrance',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
+    var feats=(s.features&&s.features.length)?('<div class="smp-feats">'+s.features.map(function(k){return '<span class="feat-chip">'+esc(FEAT[k]||k)+'</span>';}).join('')+'</div>'):'';
     return '<div class="smp-item" data-id="'+esc(s.id)+'"><div class="bean-top"><span class="bean-nm">'+nm+'</span>'+dec+'</div>'
       +'<div class="bean-sub">'+esc(fmtDate(s.cupping_date))+(sub?' · '+sub:'')+'</div>'
       +(chips?'<div class="smp-scoreline">'+chips+'</div>':'')
+      +feats
       +(s.comment?'<div class="smp-cmt">'+esc(s.comment)+'</div>':'')+'</div>';
   }
   async function saveSample(decision){
@@ -2344,10 +2369,11 @@ fill="#6F4A36" stroke="none">
     const msg=document.getElementById('smp-msg');
     const buy=document.getElementById('smp-buy'),skip=document.getElementById('smp-skip');
     var p=smpPages[smpIdx];
-    var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||null,sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,comment:(p.comment||'').trim()||null,decision:decision};
+    var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||null,sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:decision};
     if(!rec.supplier&&!rec.sample_id){msg.textContent='Enter at least Supplier or ID';msg.className='gform-msg err';return;}
     buy.disabled=true;skip.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
-    const ins=await sb.from('samples').insert(rec).select();
+    let ins=await sb.from('samples').insert(rec).select();
+    if(ins.error&&rec.features!==undefined){var r2=Object.assign({},rec);delete r2.features;ins=await sb.from('samples').insert(r2).select();}
     if(ins.error){buy.disabled=false;skip.disabled=false;msg.textContent='Save failed: '+ins.error.message;msg.className='gform-msg err';return;}
     if(ins.data&&ins.data[0])SAMPLES.unshift(ins.data[0]);
     smpPages.splice(smpIdx,1);
