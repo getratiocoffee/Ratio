@@ -21,9 +21,13 @@
   #who:empty{display:none}
   .clock{font-size:26px;font-weight:600;font-family:-apple-system,system-ui,sans-serif;color:var(--on-brand);letter-spacing:.5px}
   .feed{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
-  .ctitle{display:none;padding:13px 16px 10px;font-size:15px;font-weight:700;color:var(--ink);border-bottom:1px solid var(--line)}
-  .ctitle .ct-week{font-size:15px;font-weight:700;color:var(--ink)}
+  .ctitle{display:none;padding:11px 16px 10px;font-size:15px;font-weight:700;color:var(--ink);border-bottom:1px solid var(--line)}
+  .ctitle .ct-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .ctitle .ct-week{font-size:15px;font-weight:700;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ctitle .ct-sub{font-size:11px;font-weight:500;color:var(--muted);margin-top:2px}
+  .ct-hist{display:flex;align-items:center;gap:3px;flex:0 0 auto;border:none;background:var(--accent-tint,#F3DDE0);color:var(--accent-ink,#6E2F39);font-family:inherit;font-size:11.5px;font-weight:600;padding:6px 11px;border-radius:999px;cursor:pointer;white-space:nowrap}
+  .ct-hist:active{opacity:.75}
+  .ct-hist .ct-hist-arr{font-size:15px;line-height:1;margin-left:1px}
   .ctitle.show{display:block}
   .cpanel{display:none}
   .cpanel.show{display:block;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--bg)}
@@ -599,9 +603,9 @@ fill="#6F4A36" stroke="none">
       const cw=currentWeekStart();
       const w=thisWeekEntry();
       var ct=document.getElementById('ctitle');
-      ct.innerHTML='<div class="ct-week">本週 · '+esc(weekRangeOf(cw))+'</div>';
+      var histBtn='<button class="ct-hist" id="ts-hist-link"><span>歷史與付款 PDF</span><span class="ct-hist-arr">›</span></button>';
+      ct.innerHTML='<div class="ct-row"><div class="ct-week">本週 · '+esc(weekRangeOf(cw))+'</div>'+histBtn+'</div>';
       ct.classList.add('show');
-      var histBtn='<button class="ts-hist" id="ts-hist-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg><span>歷史與付款 PDF</span><span class="ts-hist-arr">›</span></button>';
       var html;
       if(w){
         var names=w.staff.map(function(s){return s.name;});
@@ -610,11 +614,11 @@ fill="#6F4A36" stroke="none">
           +names.map(function(n){return '<button class="tf-chip'+(tsFilter===n?' on':'')+'" data-n="'+esc(n)+'">'+esc(n)+'</button>';}).join('')+'</div>';
         var gs=filterGroups(w.groups,tsFilter);
         var body=gs.length?tsGroupsHTML(gs,cw,!!tsFilter):'<div class="sempty">'+esc(tsFilter||'')+' 本週沒有班</div>';
-        var editBtn='<div style="padding:8px 16px 2px"><button class="gbtn ghost" id="ts-editweek">編輯本週班表</button></div>';
-        html=chips+body+editBtn+histBtn;
+        var editBtn='<div style="padding:8px 16px 14px"><button class="gbtn ghost" id="ts-editweek">編輯本週班表</button></div>';
+        html=chips+body+editBtn;
       }else{
         html='<div class="sempty" style="padding:38px 24px 18px">本週還沒有班表<br>幫這週排班並上傳吧</div>'
-          +'<div style="padding:0 16px 8px"><button class="gbtn" id="ts-fillweek">排這週的班表</button></div>'+histBtn;
+          +'<div style="padding:0 16px 14px"><button class="gbtn" id="ts-fillweek">排這週的班表</button></div>';
       }
       showCPanel(html);
       var fw=document.getElementById('ts-fillweek');if(fw)fw.addEventListener('click',function(){openWeekPlan(cw,'本週');});
