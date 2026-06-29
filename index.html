@@ -107,6 +107,23 @@
   .cashrow .ch{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--muted);margin-top:1px}
   .cash-toggle{border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;font-family:inherit;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer;min-width:64px}
   .cash-toggle.on{background:#5E8C61;border-color:#5E8C61;color:#fff}
+  /* New: roster planner */
+  .plan-week{padding:14px 16px 6px}
+  .plan-week .gl{font-size:12px;color:var(--muted);padding-left:2px}
+  .plan-week input{width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 13px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit;margin-top:5px}
+  .plan-week input:focus{border-color:var(--accent)}
+  .plan-rng{font-size:13px;color:var(--accent);font-weight:600;margin-top:7px;padding-left:2px}
+  .plan-add{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:6px 16px 10px}
+  .plan-add .gsel,.plan-add input{width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 12px;font-size:14px;color:var(--ink);background:var(--surface);outline:none;font-family:inherit;-webkit-appearance:none;appearance:none}
+  .plan-add .gsel:focus,.plan-add input:focus{border-color:var(--accent)}
+  .plan-add .span2{grid-column:1 / -1}
+  .plan-add .pa-add{grid-column:1 / -1;border:none;border-radius:12px;background:var(--accent);color:#fff;font-weight:600;font-size:14px;padding:12px;cursor:pointer;font-family:inherit}
+  .plan-add .pa-add:active{opacity:.85}
+  .plan-msg{padding:0 18px;font-size:12px;color:var(--muted);min-height:14px}
+  .plan-msg.err{color:var(--accent)}
+  .ps-x{flex:0 0 auto;border:none;background:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px 10px;line-height:1}
+  .ps-x:active{color:var(--accent)}
+  .plan-note{font-size:11px;color:var(--muted);padding:2px 18px 0;line-height:1.5}
   .beans-search{padding:12px 16px 6px;position:sticky;top:0;background:var(--bg);z-index:2}
   .green-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px 16px 4px}
   .green-stat{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:11px 13px}
@@ -544,7 +561,7 @@ fill="#6F4A36" stroke="none">
   function renderModulePanel(rootKey){
     if(rootKey==='timesheet'){
       const w=TIMESHEET_WEEKS[0];
-      showCPanel(w?('<div class="gsec" style="padding:14px 18px 4px">本週 · '+esc(w.range)+'</div>'+tsGroupsHTML(w.groups)):'<div class="sempty">尚無班表</div>');
+      showCPanel(w?('<div class="gsec" style="padding:14px 18px 2px">本週 · '+esc(w.range)+'</div><div class="plan-note" style="padding-bottom:4px">時數已扣週一至週五 30 分鐘休息</div>'+tsGroupsHTML(w.groups)):'<div class="sempty">尚無班表</div>');
     }else{
       hideCPanel();
     }
@@ -559,7 +576,7 @@ fill="#6F4A36" stroke="none">
     else if(act==='green:sell'){openPage('green');greenSoon='Sell 販售';greenView='soon';renderGreen();}
     else if(act==='green:analyse'){openPage('green');loadSamples();}
     else if(act==='green:samplehist'){openPage('green');loadSamples('history');}
-    else if(act==='timesheet:new'){document.getElementById('ts-title').textContent='New';document.getElementById('ts-week').textContent='';document.getElementById('timesheet-body').innerHTML='<div class="sempty">新班表功能開發中<br>（之後接 Supabase 可在 App 內排班）</div>';openPage('timesheet');}
+    else if(act==='timesheet:new'){openNewPlan();}
     else if(act==='timesheet:hist'){document.getElementById('ts-title').textContent='History';document.getElementById('ts-week').textContent='';renderTimesheetWeeks(TIMESHEET_WEEKS.slice(1));openPage('timesheet');}
   }
 
@@ -737,8 +754,8 @@ fill="#6F4A36" stroke="none">
 
   /* placeholder roster — replace with live Supabase `shifts` data later */
   const TIMESHEET_WEEKS=[
-    {weekStart:"2026-06-22",range:"Jun 22 – Jun 28",staff:[{"name": "Daniel", "hrs": 28.0, "hl": "28h"}, {"name": "Joshua", "hrs": 18.0, "hl": "18h"}, {"name": "Juwa", "hrs": 8.0, "hl": "8h"}, {"name": "Manami", "hrs": 19.0, "hl": "19h"}, {"name": "Samuel", "hrs": 8.0, "hl": "8h"}, {"name": "Yi", "hrs": 41.5, "hl": "41.5h"}],cash:[],groups:[{"day": "Mon · Jun 22", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Tue · Jun 23", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Wed · Jun 24", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Thu · Jun 25", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Fri · Jun 26", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Sat · Jun 27", "rows": [{"nm": "Daniel", "tm": "06:00–15:00", "hrs": "9h"}, {"nm": "Samuel", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Yi", "tm": "08:15–16:15", "hrs": "8h"}]}, {"day": "Sun · Jun 28", "rows": [{"nm": "Daniel", "tm": "06:15–08:15", "hrs": "2h"}, {"nm": "Yi", "tm": "08:00–16:00", "hrs": "8h"}, {"nm": "Juwa", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Manami", "tm": "09:15–16:15", "hrs": "7h"}]}]},
-    {weekStart:"2026-06-15",range:"Jun 15 – Jun 21",staff:[{"name": "Daniel", "hrs": 28.0, "hl": "28h"}, {"name": "Joshua", "hrs": 18.0, "hl": "18h"}, {"name": "Juwa", "hrs": 8.0, "hl": "8h"}, {"name": "Manami", "hrs": 19.0, "hl": "19h"}, {"name": "Samuel", "hrs": 8.0, "hl": "8h"}, {"name": "Yi", "hrs": 41.5, "hl": "41.5h"}],cash:["Joshua", "Daniel"],groups:[{"day": "Mon · Jun 15", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Tue · Jun 16", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Wed · Jun 17", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Thu · Jun 18", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Fri · Jun 19", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8.5h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "6h"}]}, {"day": "Sat · Jun 20", "rows": [{"nm": "Daniel", "tm": "06:00–15:00", "hrs": "9h"}, {"nm": "Samuel", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Yi", "tm": "08:15–16:15", "hrs": "8h"}]}, {"day": "Sun · Jun 21", "rows": [{"nm": "Daniel", "tm": "06:15–08:15", "hrs": "2h"}, {"nm": "Yi", "tm": "08:00–16:00", "hrs": "8h"}, {"nm": "Juwa", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Manami", "tm": "09:15–16:15", "hrs": "7h"}]}]},
+    {weekStart:"2026-06-22",range:"Jun 22 – Jun 28",staff:[{"name": "Daniel", "hrs": 27.0, "hl": "27h"}, {"name": "Joshua", "hrs": 16.5, "hl": "16.5h"}, {"name": "Juwa", "hrs": 8.0, "hl": "8h"}, {"name": "Manami", "hrs": 18.0, "hl": "18h"}, {"name": "Samuel", "hrs": 8.0, "hl": "8h"}, {"name": "Yi", "hrs": 40.0, "hl": "40h"}],cash:[],groups:[{"day": "Mon · Jun 22", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Tue · Jun 23", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Wed · Jun 24", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Thu · Jun 25", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Fri · Jun 26", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Sat · Jun 27", "rows": [{"nm": "Daniel", "tm": "06:00–15:00", "hrs": "9h"}, {"nm": "Samuel", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Yi", "tm": "08:15–16:15", "hrs": "8h"}]}, {"day": "Sun · Jun 28", "rows": [{"nm": "Daniel", "tm": "06:15–08:15", "hrs": "2h"}, {"nm": "Yi", "tm": "08:00–16:00", "hrs": "8h"}, {"nm": "Juwa", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Manami", "tm": "09:15–16:15", "hrs": "7h"}]}]},
+    {weekStart:"2026-06-15",range:"Jun 15 – Jun 21",staff:[{"name": "Daniel", "hrs": 27.0, "hl": "27h"}, {"name": "Joshua", "hrs": 16.5, "hl": "16.5h"}, {"name": "Juwa", "hrs": 8.0, "hl": "8h"}, {"name": "Manami", "hrs": 18.0, "hl": "18h"}, {"name": "Samuel", "hrs": 8.0, "hl": "8h"}, {"name": "Yi", "hrs": 40.0, "hl": "40h"}],cash:["Joshua", "Daniel"],groups:[{"day": "Mon · Jun 15", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Tue · Jun 16", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Wed · Jun 17", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Thu · Jun 18", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Fri · Jun 19", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Sat · Jun 20", "rows": [{"nm": "Daniel", "tm": "06:00–15:00", "hrs": "9h"}, {"nm": "Samuel", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Yi", "tm": "08:15–16:15", "hrs": "8h"}]}, {"day": "Sun · Jun 21", "rows": [{"nm": "Daniel", "tm": "06:15–08:15", "hrs": "2h"}, {"nm": "Yi", "tm": "08:00–16:00", "hrs": "8h"}, {"nm": "Juwa", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Manami", "tm": "09:15–16:15", "hrs": "7h"}]}]},
   ];
   function tsGroupsHTML(groups){
     return (groups||[]).map(g=>{
@@ -818,6 +835,103 @@ fill="#6F4A36" stroke="none">
     y+=40;doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(150);
     doc.text('Generated '+new Date().toLocaleString()+' · Ratio',L,y);
     doc.save('Ratio_Payment_'+w.weekStart+'.pdf');
+  }
+
+  /* ---- New: roster planner ---- */
+  const STAFF_NAMES=['Yi','Manami','Joshua','Juwa','Daniel','Samuel','Nina','Lovey'];
+  const TS_ORDER=['mon','tue','wed','thu','fri','sat','sun'];
+  const TS_DAYLBL={mon:'Mon',tue:'Tue',wed:'Wed',thu:'Thu',fri:'Fri',sat:'Sat',sun:'Sun'};
+  const TS_MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function tsHM(s){var p=String(s).split(':');return (+p[0])*60+(+p[1]);}
+  function tsPaid(dayKey,start,end){
+    if(!start||!end)return 0;
+    var x=(tsHM(end)-tsHM(start))/60;if(x<0)x+=24;
+    if(['mon','tue','wed','thu','fri'].indexOf(dayKey)>-1)x-=0.5; // weekday 30min unpaid break
+    return x<0?0:x;
+  }
+  function tsHH(x){return (x===Math.round(x)?String(x):String(Math.round(x*10)/10))+'h';}
+  function isoDate(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+  function mondayOf(d){var wd=(d.getDay()+6)%7;var m=new Date(d);m.setDate(m.getDate()-wd);m.setHours(0,0,0,0);return m;}
+  function weekRangeOf(monIso){var a=new Date(monIso+'T00:00:00');var b=new Date(a);b.setDate(b.getDate()+6);return TS_MON[a.getMonth()]+' '+a.getDate()+' – '+TS_MON[b.getMonth()]+' '+b.getDate();}
+  function dayLabelOf(monIso,i){var a=new Date(monIso+'T00:00:00');a.setDate(a.getDate()+i);return TS_DAYLBL[TS_ORDER[i]]+' · '+TS_MON[a.getMonth()]+' '+a.getDate();}
+
+  let planWeek='', planShifts=[], planOpen={};
+  function planKey(ws){return 'ratio_plan_'+ws;}
+  function loadPlan(ws){try{var s=localStorage.getItem(planKey(ws));if(s)return JSON.parse(s);}catch(e){}return [];}
+  function savePlan(){try{localStorage.setItem(planKey(planWeek),JSON.stringify(planShifts));}catch(e){}}
+  function openNewPlan(){
+    var def;
+    if(TIMESHEET_WEEKS[0]){var d=new Date(TIMESHEET_WEEKS[0].weekStart+'T00:00:00');d.setDate(d.getDate()+7);def=isoDate(d);}
+    else def=isoDate(mondayOf(new Date()));
+    planWeek=def;planShifts=loadPlan(planWeek);planOpen={};
+    document.getElementById('ts-title').textContent='New';
+    document.getElementById('ts-week').textContent='';
+    renderNewPlan();openPage('timesheet');
+  }
+  function planStaffTotals(){
+    var t={};planShifts.forEach(function(s){var h=tsPaid(s.day,s.start,s.end);t[s.name]=(t[s.name]||0)+h;});
+    return Object.keys(t).sort().map(function(n){return {name:n,hrs:Math.round(t[n]*100)/100,hl:tsHH(Math.round(t[n]*10)/10)};});
+  }
+  function renderNewPlan(msg,err){
+    const body=document.getElementById('timesheet-body');
+    var staffOpts='<option value="">選擇員工</option>'+STAFF_NAMES.map(function(n){return '<option>'+esc(n)+'</option>';}).join('');
+    var dayOpts=TS_ORDER.map(function(dk){return '<option value="'+dk+'">'+TS_DAYLBL[dk]+'</option>';}).join('');
+    var head=''
+      +'<div class="plan-week"><label class="gl">週期（任選一天，會自動對齊該週週一）</label>'
+      +'<input id="pl-week" type="date" value="'+esc(planWeek)+'" />'
+      +'<div class="plan-rng">'+esc(weekRangeOf(planWeek))+'</div></div>'
+      +'<div class="plan-add">'
+      +'<select id="pa-staff" class="gsel span2">'+staffOpts+'</select>'
+      +'<select id="pa-day" class="gsel span2">'+dayOpts+'</select>'
+      +'<input id="pa-start" type="time" />'
+      +'<input id="pa-end" type="time" />'
+      +'<button class="pa-add" id="pa-add">加入班次</button></div>'
+      +'<div class="plan-msg'+(err?' err':'')+'" id="pl-msg">'+esc(msg||'')+'</div>'
+      +'<div class="plan-note">週一至週五每班自動扣 30 分鐘無薪休息；六、日不扣。草稿自動存在這台裝置。</div>';
+    var byDay={};planShifts.forEach(function(s,i){(byDay[s.day]=byDay[s.day]||[]).push(Object.assign({i:i},s));});
+    var list='';
+    var hasAny=TS_ORDER.some(function(dk){return byDay[dk];});
+    if(!hasAny){list='<div class="sempty">還沒有班次<br>用上面選好員工、日期、時間後加入</div>';}
+    else{
+      list=TS_ORDER.filter(function(dk){return byDay[dk];}).map(function(dk){
+        var arr=byDay[dk];var idx=TS_ORDER.indexOf(dk);var open=!!planOpen[dk];
+        var tot=arr.reduce(function(a,s){return a+tsPaid(s.day,s.start,s.end);},0);
+        var headBtn='<button class="rdate'+(open?' open':'')+'" data-d="'+dk+'">'
+          +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
+          +'<span class="rd-date">'+esc(dayLabelOf(planWeek,idx))+'</span>'
+          +'<span class="rd-meta">'+arr.length+' 班 · <b>'+tsHH(Math.round(tot*10)/10)+'</b></span></button>';
+        var bd=open?'<div class="rd-body">'+arr.map(function(s){
+          return '<div class="shift"><div class="who"><div class="nm">'+esc(s.name)+'</div></div>'
+            +'<div class="rt"><div class="tm">'+esc(s.start)+'–'+esc(s.end)+'</div><div class="hrs">'+tsHH(Math.round(tsPaid(s.day,s.start,s.end)*10)/10)+'</div></div>'
+            +'<button class="ps-x" data-i="'+s.i+'" aria-label="remove">✕</button></div>';
+        }).join('')+'</div>':'';
+        return '<div class="thw">'+headBtn+bd+'</div>';
+      }).join('');
+      var st=planStaffTotals();
+      list+='<div class="cash-sec"><div class="cash-sec-h">本週時數合計</div><div class="cash-list">'
+        +st.map(function(s){return '<div class="cashrow"><div class="cn">'+esc(s.name)+'</div><div class="ch" style="margin:0;font-size:13px;color:var(--ink)">'+esc(s.hl)+'</div></div>';}).join('')
+        +'</div></div>';
+    }
+    body.innerHTML=head+list;
+    var wk=document.getElementById('pl-week');
+    wk.addEventListener('change',function(){
+      var v=wk.value;if(!v)return;
+      planWeek=isoDate(mondayOf(new Date(v+'T00:00:00')));
+      planShifts=loadPlan(planWeek);planOpen={};renderNewPlan();body.scrollTop=0;
+    });
+    document.getElementById('pa-add').addEventListener('click',function(){
+      var nm=document.getElementById('pa-staff').value;
+      var dk=document.getElementById('pa-day').value;
+      var st=document.getElementById('pa-start').value;
+      var en=document.getElementById('pa-end').value;
+      if(!nm){renderNewPlan('請先選員工',true);return;}
+      if(!st||!en){renderNewPlan('請填開始與結束時間',true);return;}
+      planShifts.push({day:dk,name:nm,start:st,end:en});
+      planShifts.sort(function(a,b){return TS_ORDER.indexOf(a.day)-TS_ORDER.indexOf(b.day)|| tsHM(a.start)-tsHM(b.start);});
+      planOpen[dk]=true;savePlan();renderNewPlan(nm+' · '+TS_DAYLBL[dk]+' 已加入');body.scrollTop=body.scrollHeight;
+    });
+    body.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){var dk=el.dataset.d;planOpen[dk]=!planOpen[dk];renderNewPlan();});});
+    body.querySelectorAll('.ps-x').forEach(function(el){el.addEventListener('click',function(){planShifts.splice(+el.dataset.i,1);savePlan();renderNewPlan('已移除');});});
   }
 
 
