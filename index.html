@@ -904,7 +904,7 @@ fill="#6F4A36" stroke="none">
   /* date-aware split: a week is "this week" only while it contains today; once its Sunday passes it is History */
   function currentWeekStart(){return isoDate(mondayOf(new Date()));}
   function thisWeekEntry(){var cw=currentWeekStart();return TIMESHEET_WEEKS.find(function(w){return w.weekStart===cw;})||null;}
-  function historyWeeks(){var cw=currentWeekStart();return TIMESHEET_WEEKS.filter(function(w){return w.weekStart<cw;}).sort(function(a,b){return a.weekStart<b.weekStart?1:-1;});}
+  function historyWeeks(){var cw=currentWeekStart();return TIMESHEET_WEEKS.filter(function(w){return w.weekStart!==cw;});}
 
   let planWeek='', planLabel='', planShifts=[], planOpen={};
   function planKey(ws){return 'ratio_plan_'+ws;}
