@@ -1685,6 +1685,7 @@ fill="#6F4A36" stroke="none">
     if(id==='post'){openPost();return;}
     if(id==='file'){openFile();return;}
     if(id==='user'){openContacts();return;}
+    if(id==='green'){dockTo(['green']);openPage('green');loadBeans('countries');return;}
     if(DOCK_NODES[id]){dockTo([id]);return;}
     console.log('open:',id);/* TODO: route other modules */
   }
