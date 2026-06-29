@@ -2261,7 +2261,7 @@ fill="#6F4A36" stroke="none">
       +'<label class="smp-f"><span>Process</span><input id="smp-process" type="text" value="'+esc(p.process||'')+'" /></label>'
       +'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Cupping scores · 1–5</div><div class="smp-scores">'+scores+'</div></div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">Highlights · what makes it unique</div><textarea id="smp-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Comment · what makes it unique</div><textarea id="smp-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
       +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':(okMsg?' ok':''))+'" id="smp-msg">'+(errMsg?('Load failed: '+esc(errMsg)+' (run the samples table SQL in Supabase first)'):(okMsg?esc(okMsg):''))+'</div></div>'
       +'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn skip" id="smp-skip">Skip</button><button class="gbtn buy" id="smp-buy">Buy</button></div></div>';
     var today=todayStr();
@@ -2302,7 +2302,7 @@ fill="#6F4A36" stroke="none">
       +'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Cupping scores · 1–5</div><div class="smp-scores">'+scores+'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Decision</div>'+seg+'</div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">Highlights · what makes it unique</div><textarea id="se-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Comment · what makes it unique</div><textarea id="se-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
       +'<div class="smp-msg-wrap"><div class="gform-msg" id="se-msg"></div></div>'
       +'<div class="smp-sec"><div class="gform-actions"><button class="gbtn ghost" id="se-cancel">Back</button><button class="gbtn" id="se-save">Save changes</button></div>'
       +'<div class="gdel">'+(smpDelConfirm
