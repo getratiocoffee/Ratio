@@ -773,8 +773,8 @@ fill="#6F4A36" stroke="none">
 
   /* placeholder roster — replace with live Supabase `shifts` data later */
   const TIMESHEET_WEEKS=[
-    {weekStart:"2026-06-22",range:"Jun 22 – Jun 28",staff:[{"name": "Daniel", "hrs": 27.0, "hl": "27h"}, {"name": "Joshua", "hrs": 16.5, "hl": "16.5h"}, {"name": "Juwa", "hrs": 8.0, "hl": "8h"}, {"name": "Manami", "hrs": 18.0, "hl": "18h"}, {"name": "Samuel", "hrs": 8.0, "hl": "8h"}, {"name": "Yi", "hrs": 40.0, "hl": "40h"}],cash:[],groups:[{"day": "Mon · Jun 22", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Tue · Jun 23", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Wed · Jun 24", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Thu · Jun 25", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Fri · Jun 26", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Sat · Jun 27", "rows": [{"nm": "Daniel", "tm": "06:00–15:00", "hrs": "9h"}, {"nm": "Samuel", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Yi", "tm": "08:15–16:15", "hrs": "8h"}]}, {"day": "Sun · Jun 28", "rows": [{"nm": "Daniel", "tm": "06:15–08:15", "hrs": "2h"}, {"nm": "Yi", "tm": "08:00–16:00", "hrs": "8h"}, {"nm": "Juwa", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Manami", "tm": "09:15–16:15", "hrs": "7h"}]}]},
-    {weekStart:"2026-06-15",range:"Jun 15 – Jun 21",staff:[{"name": "Daniel", "hrs": 27.0, "hl": "27h"}, {"name": "Joshua", "hrs": 16.5, "hl": "16.5h"}, {"name": "Juwa", "hrs": 8.0, "hl": "8h"}, {"name": "Manami", "hrs": 18.0, "hl": "18h"}, {"name": "Samuel", "hrs": 8.0, "hl": "8h"}, {"name": "Yi", "hrs": 40.0, "hl": "40h"}],cash:["Joshua", "Daniel"],groups:[{"day": "Mon · Jun 15", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Tue · Jun 16", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Wed · Jun 17", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Thu · Jun 18", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Fri · Jun 19", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Sat · Jun 20", "rows": [{"nm": "Daniel", "tm": "06:00–15:00", "hrs": "9h"}, {"nm": "Samuel", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Yi", "tm": "08:15–16:15", "hrs": "8h"}]}, {"day": "Sun · Jun 21", "rows": [{"nm": "Daniel", "tm": "06:15–08:15", "hrs": "2h"}, {"nm": "Yi", "tm": "08:00–16:00", "hrs": "8h"}, {"nm": "Juwa", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Manami", "tm": "09:15–16:15", "hrs": "7h"}]}]},
+    {weekStart:"2026-06-22",range:"Jun 22 – Jun 28",staff:[{"name": "Daniel", "hrs": 27.0, "hl": "27h", "wd": 16.0, "sat": 9.0, "sun": 2.0}, {"name": "Joshua", "hrs": 16.5, "hl": "16.5h", "wd": 16.5, "sat": 0.0, "sun": 0.0}, {"name": "Juwa", "hrs": 8.0, "hl": "8h", "wd": 0.0, "sat": 0.0, "sun": 8.0}, {"name": "Manami", "hrs": 18.0, "hl": "18h", "wd": 11.0, "sat": 0.0, "sun": 7.0}, {"name": "Samuel", "hrs": 8.0, "hl": "8h", "wd": 0.0, "sat": 8.0, "sun": 0.0}, {"name": "Yi", "hrs": 40.0, "hl": "40h", "wd": 24.0, "sat": 8.0, "sun": 8.0}],cash:[],groups:[{"day": "Mon · Jun 22", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Tue · Jun 23", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Wed · Jun 24", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Thu · Jun 25", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Fri · Jun 26", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Sat · Jun 27", "rows": [{"nm": "Daniel", "tm": "06:00–15:00", "hrs": "9h"}, {"nm": "Samuel", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Yi", "tm": "08:15–16:15", "hrs": "8h"}]}, {"day": "Sun · Jun 28", "rows": [{"nm": "Daniel", "tm": "06:15–08:15", "hrs": "2h"}, {"nm": "Yi", "tm": "08:00–16:00", "hrs": "8h"}, {"nm": "Juwa", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Manami", "tm": "09:15–16:15", "hrs": "7h"}]}]},
+    {weekStart:"2026-06-15",range:"Jun 15 – Jun 21",staff:[{"name": "Daniel", "hrs": 27.0, "hl": "27h", "wd": 16.0, "sat": 9.0, "sun": 2.0}, {"name": "Joshua", "hrs": 16.5, "hl": "16.5h", "wd": 16.5, "sat": 0.0, "sun": 0.0}, {"name": "Juwa", "hrs": 8.0, "hl": "8h", "wd": 0.0, "sat": 0.0, "sun": 8.0}, {"name": "Manami", "hrs": 18.0, "hl": "18h", "wd": 11.0, "sat": 0.0, "sun": 7.0}, {"name": "Samuel", "hrs": 8.0, "hl": "8h", "wd": 0.0, "sat": 8.0, "sun": 0.0}, {"name": "Yi", "hrs": 40.0, "hl": "40h", "wd": 24.0, "sat": 8.0, "sun": 8.0}],cash:["Joshua", "Daniel"],groups:[{"day": "Mon · Jun 15", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Tue · Jun 16", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Wed · Jun 17", "rows": [{"nm": "Yi", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Thu · Jun 18", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Manami", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Fri · Jun 19", "rows": [{"nm": "Daniel", "tm": "05:45–14:15", "hrs": "8h"}, {"nm": "Joshua", "tm": "08:15–14:15", "hrs": "5.5h"}]}, {"day": "Sat · Jun 20", "rows": [{"nm": "Daniel", "tm": "06:00–15:00", "hrs": "9h"}, {"nm": "Samuel", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Yi", "tm": "08:15–16:15", "hrs": "8h"}]}, {"day": "Sun · Jun 21", "rows": [{"nm": "Daniel", "tm": "06:15–08:15", "hrs": "2h"}, {"nm": "Yi", "tm": "08:00–16:00", "hrs": "8h"}, {"nm": "Juwa", "tm": "08:15–16:15", "hrs": "8h"}, {"nm": "Manami", "tm": "09:15–16:15", "hrs": "7h"}]}]},
   ];
   function tsGroupsHTML(groups){
     return (groups||[]).map(g=>{
@@ -833,26 +833,32 @@ fill="#6F4A36" stroke="none">
     var cash=getCashSet(w);
     var doc=new JS({unit:'pt',format:'a4'});
     var L=48,y=64;
+    var cWd=210,cSat=280,cSun=345,cTot=410,cMet=478;
+    var hcol=function(x){x=Number(x)||0;return x>0?((Math.round(x*10)/10)+'h'):'–';};
     doc.setFont('helvetica','bold');doc.setFontSize(20);doc.text('Ratio — Payment',L,y);
     doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(120);
     y+=20;doc.text(w.range+'  (week of '+w.weekStart+')',L,y);
     doc.setTextColor(20);
-    y+=28;doc.setFont('helvetica','bold');doc.setFontSize(11);
-    doc.text('Staff',L,y);doc.text('Hours',L+300,y);doc.text('Method',L+390,y);
+    y+=28;doc.setFont('helvetica','bold');doc.setFontSize(10.5);
+    doc.text('Staff',L,y);doc.text('Weekday',cWd,y);doc.text('Sat',cSat,y);doc.text('Sun',cSun,y);doc.text('Total',cTot,y);doc.text('Method',cMet,y);
     doc.setDrawColor(210);y+=8;doc.line(L,y,547,y);
-    doc.setFont('helvetica','normal');doc.setFontSize(12);
-    var totH=0,cashCount=0;
+    doc.setFont('helvetica','normal');doc.setFontSize(11.5);
+    var tWd=0,tSat=0,tSun=0,totH=0,cashCount=0;
     w.staff.forEach(function(s){
-      y+=22;var isCash=cash.has(s.name);if(isCash)cashCount++;totH+=Number(s.hrs)||0;
+      y+=22;var isCash=cash.has(s.name);if(isCash)cashCount++;
+      tWd+=Number(s.wd)||0;tSat+=Number(s.sat)||0;tSun+=Number(s.sun)||0;totH+=Number(s.hrs)||0;
       doc.text(String(s.name),L,y);
-      doc.text(String(s.hl),L+300,y);
-      doc.text(isCash?'Cash':'Bank',L+390,y);
+      doc.text(hcol(s.wd),cWd,y);doc.text(hcol(s.sat),cSat,y);doc.text(hcol(s.sun),cSun,y);
+      doc.text(String(s.hl),cTot,y);
+      doc.text(isCash?'Cash':'Bank',cMet,y);
     });
     y+=10;doc.setDrawColor(210);doc.line(L,y,547,y);
     y+=22;doc.setFont('helvetica','bold');
-    doc.text('Total',L,y);doc.text((Math.round(totH*10)/10)+'h',L+300,y);doc.text(cashCount+' cash',L+390,y);
-    y+=40;doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(150);
-    doc.text('Generated '+new Date().toLocaleString()+' · Ratio',L,y);
+    doc.text('Total',L,y);doc.text(hcol(tWd),cWd,y);doc.text(hcol(tSat),cSat,y);doc.text(hcol(tSun),cSun,y);
+    doc.text((Math.round(totH*10)/10)+'h',cTot,y);doc.text(cashCount+' cash',cMet,y);
+    y+=30;doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(150);
+    doc.text('Weekday hours already exclude the Mon-Fri 30 min unpaid break.',L,y);
+    y+=14;doc.text('Generated '+new Date().toLocaleString()+' · Ratio',L,y);
     doc.save('Ratio_Payment_'+w.weekStart+'.pdf');
   }
 
@@ -900,7 +906,7 @@ fill="#6F4A36" stroke="none">
     var byDay={};planShifts.forEach(function(s,i){(byDay[s.day]=byDay[s.day]||[]).push(Object.assign({i:i},s));});
     var note='<div class="plan-note">每天已帶入預設班表（平日 05:45–14:15、六日 06:15–16:15），可逐人調整，時間以 15 分鐘為單位。週一至週五每班扣 30 分鐘無薪休息。草稿自動存在這台裝置。</div>';
     var days=TS_ORDER.map(function(dk){
-      var idx=TS_ORDER.indexOf(dk);var arr=byDay[dk]||[];var def=dayDefaults(dk);var open=!!planOpen[dk];
+      var idx=TS_ORDER.indexOf(dk);var arr=byDay[dk]||[];var def=dayDefaults(dk);var open=(planOpen[dk]!==undefined)?planOpen[dk]:(arr.length>0);
       var tot=arr.reduce(function(a,s){return a+tsPaid(s.day,s.start,s.end);},0);
       var meta=arr.length?(arr.length+' 班 · <b>'+tsHH(Math.round(tot*10)/10)+'</b>'):('標準 '+def.start+'–'+def.end);
       var head='<button class="rdate'+(open?' open':'')+'" data-d="'+dk+'">'
@@ -931,7 +937,10 @@ fill="#6F4A36" stroke="none">
         +'</div></div>';
     }
     body.innerHTML=note+days+totals;
-    body.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){var dk=el.dataset.d;planOpen[dk]=!planOpen[dk];renderWeekPlan();});});
+    body.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){
+      var dk=el.dataset.d;var has=planShifts.some(function(s){return s.day===dk;});
+      var cur=(planOpen[dk]!==undefined)?planOpen[dk]:has;planOpen[dk]=!cur;renderWeekPlan();
+    });});
     body.querySelectorAll('.ps-addsel').forEach(function(sel){sel.addEventListener('change',function(){
       var nm=sel.value;if(!nm)return;var dk=sel.dataset.d;var def=dayDefaults(dk);
       planShifts.push({day:dk,name:nm,start:def.start,end:def.end});
