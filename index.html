@@ -407,6 +407,7 @@
   .inv-trow .v{font-family:var(--font-mono)}
   .inv-trow.grand{font-weight:700;font-size:18px;border-top:1px solid var(--line);margin-top:6px;padding-top:10px}
   .inv-gen-wrap{position:sticky;bottom:0;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 14px);background:linear-gradient(to top,var(--bg) 72%,rgba(244,236,234,0))}
+  .ct-type{flex:0 0 auto;font-size:11px;font-weight:600;border-radius:8px;padding:3px 10px;white-space:nowrap;color:#fff}
   @media(min-width:520px){body{max-width:430px;left:50%;right:auto;transform:translateX(-50%);border-left:.5px solid var(--line);border-right:.5px solid var(--line)}}
   /* ---- login gate ---- */
   .auth{position:fixed;inset:0;z-index:50;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:28px}
@@ -514,6 +515,17 @@
     <div class="stitle" id="invoice-title">Invoice</div>
     <div class="sbody">
       <div id="invoice-content"></div>
+    </div>
+  </div>
+
+  <div class="screen" id="screen-contacts">
+    <header class="shead">
+      <span class="logo"><img src="logo.png" alt="Ratio" /></span>
+      <span class="hkey" id="contacts-key"></span>
+    </header>
+    <div class="stitle" id="contacts-title">Contacts</div>
+    <div class="sbody">
+      <div id="contacts-content"></div>
     </div>
   </div>
 
@@ -1538,8 +1550,90 @@ fill="#6F4A36" stroke="none">
 
   function onOpen(id){
     if(id==='news'){openInvoice();return;}
+    if(id==='user'){openContacts();return;}
     if(DOCK_NODES[id]){dockTo([id]);return;}
     console.log('open:',id);/* TODO: route other modules */
+  }
+
+  /* ============ Contacts (More → Account) ============ */
+  const CONTACT_TYPES=['Supplier','Customer','Roaster','Service'];
+  const CT_COLORS={Supplier:'#6E6256',Customer:'#B25E6A',Roaster:'#7E9B7A',Service:'#7C7BA0'};
+  let CONTACTS=[], contactType=null, contactEdit=null, contactObj=null, contactDelConfirm=false;
+  function openContacts(){closeFolder();openPage('contacts');loadContacts();}
+  function contactsBack(){if(contactEdit){contactEdit=null;contactObj=null;contactDelConfirm=false;renderContacts();}else{closePage();}}
+  async function loadContacts(){
+    var box=document.getElementById('contacts-content');
+    box.innerHTML='<div class="sempty">Loading…</div>';
+    var r=await sb.from('contacts').select('*').order('name');
+    if(r.error){box.innerHTML='<div class="sempty">Load failed: '+esc(r.error.message)+'<br>(create the contacts table in Supabase first)</div>';document.getElementById('contacts-key').textContent='';return;}
+    CONTACTS=r.data||[];contactEdit=null;contactObj=null;contactDelConfirm=false;renderContacts();
+  }
+  function renderContacts(){
+    if(contactEdit){renderContactEdit();return;}
+    var box=document.getElementById('contacts-content');
+    document.getElementById('contacts-title').textContent='Contacts';
+    document.getElementById('contacts-key').textContent=CONTACTS.length+' contacts';
+    var chips='<div class="ts-filter"><button class="tf-chip'+(!contactType?' on':'')+'" data-t="">All</button>'+CONTACT_TYPES.map(function(t){return '<button class="tf-chip'+(contactType===t?' on':'')+'" data-t="'+t+'">'+t+'</button>';}).join('')+'</div>';
+    var list=CONTACTS.filter(function(c){return !contactType||c.type===contactType;});
+    var body;
+    if(!list.length){body='<div class="sempty">'+(contactType?('No '+esc(contactType)+' contacts yet'):'No contacts yet')+'</div>';}
+    else{
+      body='<div class="gbeans">'+list.map(function(c){
+        var sub=[c.company,c.email,c.phone].filter(Boolean).map(esc).join(' · ');
+        return '<div class="gbean" data-id="'+esc(c.id)+'"><div class="gb-main"><div class="gb-name">'+esc(c.name||'—')+'</div>'+(sub?'<div class="gb-sub">'+sub+'</div>':'')+'</div><span class="ct-type" style="background:'+(CT_COLORS[c.type]||'#9A8B82')+'">'+esc(c.type||'—')+'</span></div>';
+      }).join('')+'</div>';
+    }
+    var addBtn='<div class="inv-gen-wrap"><button class="gbtn" id="ct-add">+ New contact</button></div>';
+    box.innerHTML=chips+body+addBtn;
+    box.querySelectorAll('.tf-chip').forEach(function(b){b.addEventListener('click',function(){contactType=b.dataset.t||null;renderContacts();});});
+    box.querySelectorAll('.gbean').forEach(function(el){el.addEventListener('click',function(){var c=CONTACTS.find(function(x){return String(x.id)===String(el.dataset.id);});if(c){contactEdit=c.id;contactObj=Object.assign({},c);contactDelConfirm=false;renderContacts();box.scrollTop=0;}});});
+    document.getElementById('ct-add').addEventListener('click',function(){contactEdit='new';contactObj={name:'',type:contactType||'Supplier',company:'',email:'',phone:'',notes:''};contactDelConfirm=false;renderContacts();box.scrollTop=0;});
+  }
+  function renderContactEdit(){
+    var box=document.getElementById('contacts-content');
+    var p=contactObj;var isNew=contactEdit==='new';
+    document.getElementById('contacts-title').textContent=isNew?'New contact':(p.name||'Contact');
+    document.getElementById('contacts-key').textContent=isNew?'':(p.type||'');
+    var typeOpts=CONTACT_TYPES.map(function(t){return '<option'+(t===p.type?' selected':'')+'>'+t+'</option>';}).join('');
+    box.innerHTML='<div class="gform" style="padding:16px 16px 0">'
+      +'<label class="gfield"><span class="gl">Type</span><select class="inv-sel" id="ct-type">'+typeOpts+'</select></label>'
+      +'<label class="gfield"><span class="gl">Name</span><input id="ct-name" type="text" value="'+esc(p.name||'')+'" placeholder="Contact name" /></label>'
+      +'<label class="gfield"><span class="gl">Company</span><input id="ct-company" type="text" value="'+esc(p.company||'')+'" /></label>'
+      +'<label class="gfield"><span class="gl">Email</span><input id="ct-email" type="email" value="'+esc(p.email||'')+'" /></label>'
+      +'<label class="gfield"><span class="gl">Phone</span><input id="ct-phone" type="tel" value="'+esc(p.phone||'')+'" /></label>'
+      +'<label class="gfield"><span class="gl">Notes</span><textarea id="ct-notes" class="gta" rows="2">'+esc(p.notes||'')+'</textarea></label>'
+      +'<div class="gform-msg" id="ct-msg"></div>'
+      +'<div class="gform-actions"><button class="gbtn ghost" id="ct-cancel">Cancel</button><button class="gbtn" id="ct-save">Save</button></div>'
+      +(isNew?'':'<div class="gdel">'+(contactDelConfirm?'<div class="gdel-msg">Delete "'+esc(p.name||'')+'"? This cannot be undone.</div><div class="gform-actions"><button class="gbtn ghost" id="ct-del-cancel">Cancel</button><button class="gbtn danger" id="ct-del-yes">Delete</button></div>':'<button class="gbtn dghost" id="ct-del">Delete this contact</button>')+'</div>')
+      +'</div>';
+    document.getElementById('ct-cancel').addEventListener('click',function(){contactsBack();box.scrollTop=0;});
+    document.getElementById('ct-save').addEventListener('click',saveContact);
+    var d=document.getElementById('ct-del');if(d)d.addEventListener('click',function(){contactDelConfirm=true;renderContactEdit();});
+    var dc=document.getElementById('ct-del-cancel');if(dc)dc.addEventListener('click',function(){contactDelConfirm=false;renderContactEdit();});
+    var dy=document.getElementById('ct-del-yes');if(dy)dy.addEventListener('click',deleteContact);
+  }
+  async function saveContact(){
+    var msg=document.getElementById('ct-msg');var btn=document.getElementById('ct-save');
+    var g=function(id){var e=document.getElementById(id);return e?e.value.trim():'';};
+    var rec={type:g('ct-type'),name:g('ct-name'),company:g('ct-company')||null,email:g('ct-email')||null,phone:g('ct-phone')||null,notes:g('ct-notes')||null};
+    if(!rec.name){msg.textContent='Name is required';msg.className='gform-msg err';return;}
+    btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
+    if(contactEdit==='new'){
+      var ins=await sb.from('contacts').insert(rec).select();
+      if(ins.error){btn.disabled=false;msg.textContent='Save failed: '+ins.error.message;msg.className='gform-msg err';return;}
+      if(ins.data&&ins.data[0])CONTACTS.push(ins.data[0]);
+    }else{
+      var up=await sb.from('contacts').update(rec).eq('id',contactEdit);
+      if(up.error){btn.disabled=false;msg.textContent='Save failed: '+up.error.message;msg.className='gform-msg err';return;}
+      var i=CONTACTS.findIndex(function(x){return String(x.id)===String(contactEdit);});if(i>-1)CONTACTS[i]=Object.assign({},CONTACTS[i],rec);
+    }
+    contactEdit=null;contactObj=null;contactDelConfirm=false;renderContacts();
+  }
+  async function deleteContact(){
+    var up=await sb.from('contacts').delete().eq('id',contactEdit);
+    if(up.error){var m=document.getElementById('ct-msg');if(m){m.textContent='Delete failed: '+up.error.message;m.className='gform-msg err';}contactDelConfirm=false;renderContactEdit();return;}
+    CONTACTS=CONTACTS.filter(function(x){return String(x.id)!==String(contactEdit);});
+    contactEdit=null;contactObj=null;contactDelConfirm=false;renderContacts();
   }
 
   /* ---- Green module: country → bean → detail drill-down ---- */
@@ -2052,7 +2146,7 @@ fill="#6F4A36" stroke="none">
     renderSample('','Saved ('+(decision==='buy'?'Buy':'Skip')+') — on to the next');
     document.getElementById('green-content').scrollTop=0;
   }
-  function swapSides(){const pg=document.querySelector('.screen.open');if(pg){if(pg.id==='screen-green'&&typeof greenBack==='function'){greenBack();return;}if(pg.id==='screen-beans'&&typeof beansBack==='function'){beansBack();return;}closePage();return;}if(dockStack.length){dockBack();return;}const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
+  function swapSides(){const pg=document.querySelector('.screen.open');if(pg){if(pg.id==='screen-green'&&typeof greenBack==='function'){greenBack();return;}if(pg.id==='screen-beans'&&typeof beansBack==='function'){beansBack();return;}if(pg.id==='screen-contacts'&&typeof contactsBack==='function'){contactsBack();return;}closePage();return;}if(dockStack.length){dockBack();return;}const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
   function openFolder(){document.getElementById('ov').classList.add('open');}
   function closeFolder(){document.getElementById('ov').classList.remove('open');}
 
