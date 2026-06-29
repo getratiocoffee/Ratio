@@ -724,6 +724,7 @@ fill="#6F4A36" stroke="none">
         sw.classList.remove('back');sw.innerHTML=I.swap;
         setContentTitle(DASHBOARD_TITLE);
         hideCPanel();
+        setFeedChannel('general');
       }else{
         const node=DOCK_NODES[dockStack[dockStack.length-1]];
         const root=DOCK_NODES[dockStack[0]];
@@ -805,6 +806,7 @@ fill="#6F4A36" stroke="none">
       if(hl)hl.addEventListener('click',function(){runModuleAction('timesheet:hist');});
     }else{
       hideCPanel();
+      setFeedChannel(FEED_CHANNELS[rootKey]||'general');
     }
   }
   setContentTitle(DASHBOARD_TITLE);
@@ -938,6 +940,17 @@ fill="#6F4A36" stroke="none">
 
   const feedEl=document.getElementById('feed');
   let rows=[];
+  /* each module can have its own message feed; dashboard uses 'general' */
+  const FEED_CHANNELS={beans:'beans'};
+  let feedChannel='general';
+  const chOf=r=>(r&&r.channel)?r.channel:'general';
+  function setFeedChannel(ch){
+    ch=ch||'general';
+    var inp=document.getElementById('composer-input');
+    if(inp)inp.placeholder=(ch==='beans')?'Write a Beans note…':'Write a message…';
+    if(feedChannel===ch){return;}
+    feedChannel=ch;loadMessages();
+  }
 
   /* flexible column lookup so the feed survives small schema differences */
   const pick=(r,keys,def)=>{for(const k of keys){if(r&&r[k]!=null)return r[k];}return def;};
@@ -985,8 +998,18 @@ fill="#6F4A36" stroke="none">
   renderFeed();
 
   async function loadMessages(){
-    const {data,error}=await sb.from('messages').select('*').order('created_at',{ascending:false});
-    if(error){console.error('[Ratio] load error:',error.message||error);return;}
+    var ch=feedChannel;
+    var q=sb.from('messages').select('*').order('created_at',{ascending:false});
+    q=(ch==='general')?q.or('channel.is.null,channel.eq.general'):q.eq('channel',ch);
+    const {data,error}=await q;
+    if(error){
+      /* channel column not added yet → general falls back to the whole feed */
+      if(ch==='general'){
+        const r2=await sb.from('messages').select('*').order('created_at',{ascending:false});
+        if(!r2.error){rows=r2.data||[];sortRows();renderFeed();return;}
+      }
+      console.error('[Ratio] load error:',error.message||error);rows=[];renderFeed();return;
+    }
     rows=data||[];sortRows();renderFeed();
   }
   loadMessages();
@@ -995,8 +1018,8 @@ fill="#6F4A36" stroke="none">
   sb.channel('messages-feed')
     .on('postgres_changes',{event:'*',schema:'public',table:'messages'},payload=>{
       const ev=payload.eventType, nu=payload.new, od=payload.old;
-      if(ev==='INSERT'){rows.push(nu);}
-      else if(ev==='UPDATE'){const i=rows.findIndex(r=>idOf(r)===idOf(nu));i>-1?rows[i]=nu:rows.push(nu);}
+      if(ev==='INSERT'){if(chOf(nu)!==feedChannel)return;rows.push(nu);}
+      else if(ev==='UPDATE'){if(chOf(nu)!==feedChannel)return;const i=rows.findIndex(r=>idOf(r)===idOf(nu));i>-1?rows[i]=nu:rows.push(nu);}
       else if(ev==='DELETE'){const did=idOf(od);rows=rows.filter(r=>idOf(r)!==did);}
       sortRows();renderFeed();
     })
@@ -1011,8 +1034,15 @@ fill="#6F4A36" stroke="none">
     const text=inp.value.trim();
     if(!text)return;
     inp.value='';
-    const {error}=await sb.from('messages').insert({title:text,unread:true});
-    if(error){console.error('[Ratio] send error:',error.message||error);inp.value=text;}
+    const {error}=await sb.from('messages').insert({title:text,unread:true,channel:feedChannel});
+    if(error){
+      /* channel column not added yet → general still posts the old way */
+      if(feedChannel==='general'){
+        const r2=await sb.from('messages').insert({title:text,unread:true});
+        if(!r2.error)return;
+      }
+      console.error('[Ratio] send error:',error.message||error);inp.value=text;
+    }
     /* the realtime subscription adds the new row to the feed automatically */
   }
   document.getElementById('composer-send').addEventListener('click',sendMessage);
