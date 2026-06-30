@@ -415,6 +415,16 @@
   .rtl-sold-cancel{background:transparent;color:var(--muted)}
   .rtl-sold-yes{background:var(--accent);color:#fff;border-color:var(--accent)}
   .rtl-sold-actions button:active{transform:scale(.98)}
+  .adm-list{display:flex;flex-direction:column;gap:10px;padding:0 16px 8px}
+  .adm-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .adm-name{font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--ink);line-height:1.2;word-break:break-word}
+  .adm-role{font-size:11px;font-weight:600;margin-top:2px}
+  .adm-role.staff{color:var(--accent)}
+  .adm-role.cust{color:var(--muted)}
+  .adm-toggle{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:2px;flex:0 0 auto}
+  .adm-seg{font-size:12px;font-weight:600;font-family:inherit;color:var(--muted);background:transparent;border:none;border-radius:8px;padding:7px 11px;cursor:pointer;line-height:1}
+  .adm-seg.on{background:var(--accent);color:#fff}
+  .adm-seg:active{transform:scale(.96)}
   .dots{display:flex;gap:9px;align-items:center}
   .dot{width:23px;height:23px;border-radius:50%;border:1.7px solid #D6C8C1;background:transparent;cursor:pointer;padding:0;transition:transform .12s ease,background .12s ease,border-color .12s ease}
   .dot.fill{background:var(--accent);border-color:var(--accent)}
@@ -745,6 +755,17 @@
     </div>
   </div>
 
+  <div class="screen" id="screen-admin">
+    <header class="shead">
+      <span class="logo"><img src="logo.png" alt="Ratio" /></span>
+      <span class="hkey" id="admin-count"></span>
+    </header>
+    <div class="stitle" id="admin-title">Admin</div>
+    <div class="sbody">
+      <div id="admin-content"></div>
+    </div>
+  </div>
+
   <div class="screen" id="screen-label">
     <header class="shead">
       <span class="logo"><img src="logo.png" alt="Ratio" /></span>
@@ -807,6 +828,7 @@
   const O='stroke="#6B5E50" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"';
   const s='stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"';
   const I={
+    admin:`<svg viewBox="0 0 48 48" fill="none" stroke="#49423A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="15" r="7"/><path d="M6 38c0-6.5 5.5-10.5 12-10.5 2.2 0 4.3.5 6 1.4"/><circle cx="34" cy="33" r="5.5"/><path d="M34 25.5v-2M34 42.5v-2M42.5 33h-2M27.5 33h-2M40 27l-1.4 1.4M29.4 37.6L28 39M40 39l-1.4-1.4M29.4 28.4L28 27"/></svg>`,
     label:`<svg viewBox="0 0 48 48" fill="none" stroke="#49423A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M25 8H10a2 2 0 0 0-2 2v15l16 16 17-17z"/><circle cx="16.5" cy="16.5" r="2.6" fill="#49423A" stroke="none"/></svg>`,
     timesheet:`<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14" fill="none" stroke="#49423A" stroke-width="3.2"/><path d="M24 15 V24 L30.5 28" fill="none" stroke="#49423A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     beans:`<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
@@ -854,7 +876,7 @@ fill="#6F4A36" stroke="none">
   };
   const shop=[['timesheet','Timesheet'],['beans','Beans'],['task','Task'],['recipe','Recipe']];
   const roastery=[['roast','Roast'],['green','Green'],['order','Order'],['fx','F(x)']];
-  const folder=[['label','Generate Label'],['menu','Generate Menu'],['news','Generate Invoice'],['post','Post'],['file','File'],['gift','Gifts'],['user','Account'],['cog','Settings'],['bag','Shop']];
+  const folder=[['label','Generate Label'],['menu','Generate Menu'],['news','Generate Invoice'],['post','Post'],['file','File'],['gift','Gifts'],['user','Account'],['admin','Admin'],['cog','Settings'],['bag','Shop']];
 
   function fill(side,arr){const el=document.querySelector(`.pill[data-side="${side}"]`);el.innerHTML='';
     arr.forEach(([ic,lb])=>{const d=document.createElement('div');d.className='item';d.dataset.id=ic;
@@ -2018,9 +2040,54 @@ fill="#6F4A36" stroke="none">
     if(id==='post'){openPost();return;}
     if(id==='file'){openFile();return;}
     if(id==='user'){openContacts();return;}
+    if(id==='admin'){openAdmin();return;}
     if(id==='green'){dockTo(['green']);openPage('green');loadBeans('countries');return;}
     if(DOCK_NODES[id]){dockTo([id]);return;}
     console.log('open:',id);/* TODO: route other modules */
+  }
+
+  /* ============ Admin · manage members (More -> Admin) ============ */
+  var MEMBERS=[];
+  function openAdmin(){closeFolder();openPage('admin');var box=document.getElementById('admin-content');if(box)box.innerHTML='<div class="sempty">Loading…</div>';loadMembers();}
+  async function loadMembers(){
+    var box=document.getElementById('admin-content');if(!box)return;
+    try{
+      var r=await sb.from('profiles').select('id,name,role').order('name');
+      if(r.error){box.innerHTML='<div class="sempty">Load failed: '+esc(r.error.message)+'</div>';return;}
+      MEMBERS=r.data||[];
+    }catch(e){box.innerHTML='<div class="sempty">Load failed</div>';return;}
+    renderAdmin();
+  }
+  function adminCard(m){
+    var isStaff=m.role==='staff';
+    var nm=esc(m.name||m.id||'—');
+    return '<div class="adm-card"><div class="adm-info"><div class="adm-name">'+nm+'</div>'
+      +'<div class="adm-role '+(isStaff?'staff':'cust')+'">'+(isStaff?'Staff':'Customer')+'</div></div>'
+      +'<div class="adm-toggle">'
+      +'<button class="adm-seg'+(!isStaff?' on':'')+'" data-id="'+esc(String(m.id))+'" data-role="customer">Customer</button>'
+      +'<button class="adm-seg'+(isStaff?' on':'')+'" data-id="'+esc(String(m.id))+'" data-role="staff">Staff</button>'
+      +'</div></div>';
+  }
+  function renderAdmin(){
+    var box=document.getElementById('admin-content');if(!box)return;
+    var cnt=document.getElementById('admin-count');
+    if(cnt)cnt.textContent=MEMBERS.length?(MEMBERS.length+(MEMBERS.length===1?' member':' members')):'';
+    if(!MEMBERS.length){box.innerHTML='<div class="sempty">No members yet</div>';return;}
+    var staff=MEMBERS.filter(function(m){return m.role==='staff';});
+    var cust=MEMBERS.filter(function(m){return m.role!=='staff';});
+    var html='<div class="gsec" style="padding:12px 18px 2px">Staff · '+staff.length+'</div><div class="adm-list">'+(staff.length?staff.map(adminCard).join(''):'<div class="sempty" style="padding:14px">None</div>')+'</div>';
+    html+='<div class="gsec" style="padding:12px 18px 2px">Customers · '+cust.length+'</div><div class="adm-list">'+(cust.length?cust.map(adminCard).join(''):'<div class="sempty" style="padding:14px">None</div>')+'</div>';
+    box.innerHTML=html;
+    box.querySelectorAll('.adm-seg').forEach(function(b){b.addEventListener('click',function(){setMemberRole(b.dataset.id,b.dataset.role);});});
+  }
+  async function setMemberRole(id,role){
+    var m=MEMBERS.find(function(x){return String(x.id)===String(id);});
+    if(!m||m.role===role)return;
+    var prev=m.role;m.role=role;renderAdmin();
+    try{
+      var r=await sb.from('profiles').update({role:role}).eq('id',id);
+      if(r.error){m.role=prev;renderAdmin();alert('Update failed: '+r.error.message);}
+    }catch(e){m.role=prev;renderAdmin();alert('Update failed');}
   }
 
   /* ============ Australia Post Send & Save QR (More -> Post) ============ */
