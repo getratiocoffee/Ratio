@@ -2437,9 +2437,9 @@ fill="#6F4A36" stroke="none">
   }
   function sampleCard(s){
     var chips=[['F/A',s.fragrance],['Acid',s.acidity],['Sweet',s.sweetness],['Body',s.body],['After',s.aftertaste]].filter(function(x){return x[1]!=null;}).map(function(x){return '<span class="sc-chip">'+x[0]+'<b>'+strLabel(x[1])+'</b></span>';}).join('');
-    var sub=[s.sample_id?'ID '+esc(s.sample_id):'',s.process?esc(s.process):''].filter(Boolean).join(' · ');
+    var sub=[s.supplier?'Supplier '+esc(s.supplier):'',s.process?esc(s.process):''].filter(Boolean).join(' · ');
     var dec=s.decision==='buy'?'<span class="smp-badge buy">Buy</span>':(s.decision==='maybe'?'<span class="smp-badge maybe">Maybe</span>':(s.decision==='skip'?'<span class="smp-badge skip">Skip</span>':'<span class="rd-meta">'+esc(fmtDate(s.cupping_date))+'</span>'));
-    var nm=(s.no!=null?'<span class="smp-no">No.'+s.no+'</span> ':'')+esc(s.supplier||s.sample_id||'Sample');
+    var nm=(s.no!=null?'<span class="smp-no">No.'+s.no+'</span> ':'')+esc(s.sample_id||s.supplier||'Sample');
     var FEAT={fragrance:'Fragrance',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
     var feats=(s.features&&s.features.length)?('<div class="smp-feats">'+s.features.map(function(k){return '<span class="feat-chip">'+esc(FEAT[k]||k)+'</span>';}).join('')+'</div>'):'';
     return '<div class="smp-item" data-id="'+esc(s.id)+'"><div class="bean-top"><span class="bean-nm">'+nm+'</span>'+dec+'</div>'
