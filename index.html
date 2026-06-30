@@ -195,6 +195,12 @@
   .lbl-tab{flex:1;padding:10px 8px;font-size:13px;font-weight:600;font-family:inherit;border-radius:11px;border:1.5px solid var(--line);background:var(--bg);color:var(--muted);cursor:pointer}
   .lbl-tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .lbl-tab.soon{opacity:.55;cursor:default}
+  .pend-seg{padding:12px 14px 0;margin-bottom:6px}
+  .blend-list{display:flex;flex-direction:column;padding:6px 16px 18px}
+  .blend-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 4px;border-bottom:1px solid var(--line)}
+  .blend-row:last-child{border-bottom:none}
+  .blend-name{font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--ink)}
+  .blend-row.off .blend-name{color:var(--muted)}
   .cm-wrap{padding:12px 12px 4px;height:100%;box-sizing:border-box}
   .cm-chart{position:relative;height:62vh;min-height:300px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface)}
   .cm-load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted)}
@@ -2527,16 +2533,47 @@ fill="#6F4A36" stroke="none">
     roastEdit=null;roastDelConfirm=false;
     renderRoasted();
   }
+  let pendTab='single';
+  var BLENDS=['Dark Knight','Dancer','Dreamer','Sugar Daddy','April Project','May Project','June Project'];
+  function blendKey(){return 'ratio_blend_'+currentWeekStart();}
+  function loadBlendWeek(){try{return JSON.parse(localStorage.getItem(blendKey())||'{}');}catch(e){return {};}}
+  function saveBlendWeek(m){try{localStorage.setItem(blendKey(),JSON.stringify(m));}catch(e){}}
+  function blendTabHTML(){
+    var m=loadBlendWeek();
+    var rows=BLENDS.map(function(name){
+      var on=!!m[name];
+      return '<div class="blend-row'+(on?'':' off')+'"><span class="blend-name">'+esc(name)+'</span>'
+        +'<button class="inv-toggle'+(on?' on':'')+'" data-blend="'+esc(name)+'" aria-label="offered this week"></button></div>';
+    }).join('');
+    return '<div class="gsec" style="padding:12px 18px 2px">配方 · 點開關手動設定本週是否提供</div><div class="blend-list">'+rows+'</div>';
+  }
   function renderRoasted(){
     const box=document.getElementById('beans-content');
     const title=document.getElementById('beans-title');
     if(roastEdit){renderRoastEdit();return;}
     if(title)title.textContent=roastedTitle;
+    var showTabs=(roastedTitle==='Pending');
+    var tabBar=showTabs?('<div class="lbl-seg pend-seg">'
+      +'<button class="lbl-tab'+(pendTab==='single'?' on':'')+'" data-pend="single">Single Origin</button>'
+      +'<button class="lbl-tab'+(pendTab==='blend'?' on':'')+'" data-pend="blend">Blend</button></div>'):'';
+    function bindPendTabs(){box.querySelectorAll('.pend-seg .lbl-tab').forEach(function(t){t.addEventListener('click',function(){var v=t.getAttribute('data-pend');if(v&&v!==pendTab){pendTab=v;renderRoasted();}});});}
+    if(showTabs&&pendTab==='blend'){
+      var bm=loadBlendWeek();
+      document.getElementById('beans-count').textContent=BLENDS.filter(function(n){return bm[n];}).length+' on';
+      box.innerHTML=tabBar+blendTabHTML();
+      bindPendTabs();
+      box.querySelectorAll('.inv-toggle[data-blend]').forEach(function(el){el.addEventListener('click',function(){
+        var name=el.dataset.blend;var m=loadBlendWeek();if(m[name])delete m[name];else m[name]=true;saveBlendWeek(m);
+        var on=!!m[name];el.classList.toggle('on',on);var row=el.closest('.blend-row');if(row)row.classList.toggle('off',!on);
+        document.getElementById('beans-count').textContent=BLENDS.filter(function(n){return m[n];}).length+' on';
+      });});
+      return;
+    }
     document.getElementById('beans-count').textContent=ROASTS.length+' roasts';
-    if(!ROASTS.length){box.innerHTML='<div class="sempty">No roasts yet<br>Log one in Roast</div>';return;}
+    if(!ROASTS.length){box.innerHTML=tabBar+'<div class="sempty">No roasts yet<br>Log one in Roast</div>';bindPendTabs();return;}
     var groups={}, order=[];
     ROASTS.forEach(function(r){var d=r.roast_date||'—';if(!groups[d]){groups[d]=[];order.push(d);}groups[d].push(r);});
-    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">Tap a date to expand · use Edit to change the roast</div>'+order.map(function(d){
+    box.innerHTML=tabBar+'<div class="gsec" style="padding:12px 18px 2px">Tap a date to expand · use Edit to change the roast</div>'+order.map(function(d){
       var items=groups[d];
       var pending=items.filter(function(r){return r.status!=='cupped';}).length;
       var open=!!roastedOpen[d];
@@ -2547,6 +2584,7 @@ fill="#6F4A36" stroke="none">
       var body=open?'<div class="rd-body">'+items.map(function(r){return roastCard(r,true);}).join('')+'</div>':'';
       return '<div class="rgroup">'+head+body+'</div>';
     }).join('');
+    bindPendTabs();
     box.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.d;roastedOpen[d]=!roastedOpen[d];renderRoasted();});});
     box.querySelectorAll('.bean-cta.edit').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();roastEdit=el.dataset.eid;roastDelConfirm=false;var r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});roastEditStatus=r?r.status:'pending_cupping';renderRoasted();document.getElementById('beans-content').scrollTop=0;});});
     box.querySelectorAll('.bean-cta[data-aid]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();openCupping(el.dataset.aid);});});
