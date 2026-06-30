@@ -1898,14 +1898,18 @@ fill="#6F4A36" stroke="none">
     return block;
   }
   var LBL_FORM=[
-    {k:'name',label:'Bean name',ph:'Dark Knight',orig:'DARK KNIGHT',pre:'',fit:1},
-    {k:'blend',label:'Blend / recipe',ph:'Espigao | Danche | El Indio',orig:'Espigao | Danche | El Indio',pre:'',fit:1},
-    {k:'comment',label:'Special comment',ph:'V3.0 Competition Blend',orig:'V3.0 Competition Blend',pre:'',fit:1},
-    {k:'flavour',label:'Flavour',ph:'Dried Fruit | Walnut | Chocolate',orig:'Dried Fruit | Walnut | Chocolate',pre:'',fit:1},
-    {k:'date',label:'Ready brew date',ph:'06 | 07',orig:'READY BREW DATE: 06 | 07',pre:'READY BREW DATE: ',fit:0},
-    {k:'net',label:'Net weight (g)',ph:'250',orig:'NET 250G',pre:'NET ',post:'G',fit:0}
+    {k:'name',label:'Bean name',ph:'Dark Knight'},
+    {k:'region1',label:'Region 1',ph:'Espigao'},
+    {k:'region2',label:'Region 2',ph:'Danche'},
+    {k:'region3',label:'Region 3',ph:'El Indio'},
+    {k:'comment',label:'Special comment',ph:'V3.0 Competition Blend'},
+    {k:'flavour1',label:'Flavour 1',ph:'Dried Fruit'},
+    {k:'flavour2',label:'Flavour 2',ph:'Walnut'},
+    {k:'flavour3',label:'Flavour 3',ph:'Chocolate'},
+    {k:'date',label:'Ready brew date',ph:'06 | 07'},
+    {k:'net',label:'Net weight (g)',ph:'250'}
   ];
-  var labelForm={name:'DARK KNIGHT',blend:'Espigao | Danche | El Indio',comment:'V3.0 Competition Blend',flavour:'Dried Fruit | Walnut | Chocolate',date:'06 | 07',net:'250'};
+  var labelForm={name:'',region1:'',region2:'',region3:'',comment:'',flavour1:'',flavour2:'',flavour3:'',date:'06 | 07',net:'250'};
   /* Single Origin: same .lbx template, but Blend/recipe line -> Process | Variety, Special comment line -> Altitude | Region */
   var SO_FORM=[
     {k:'name',label:'Bean name',ph:'Dark Knight'},
@@ -1913,13 +1917,16 @@ fill="#6F4A36" stroke="none">
     {k:'variety',label:'Variety',ph:'Geisha'},
     {k:'altitude',label:'Altitude',ph:'1800 masl'},
     {k:'region',label:'Region',ph:'Huila, Colombia'},
-    {k:'flavour',label:'Flavour',ph:'Dried Fruit | Walnut | Chocolate'},
+    {k:'flavour1',label:'Flavour 1',ph:'Dried Fruit'},
+    {k:'flavour2',label:'Flavour 2',ph:'Walnut'},
+    {k:'flavour3',label:'Flavour 3',ph:'Chocolate'},
     {k:'date',label:'Ready brew date',ph:'06 | 07'},
     {k:'net',label:'Net weight (g)',ph:'250'}
   ];
-  var soForm={name:'',process:'',variety:'',altitude:'',region:'',flavour:'',date:'06 | 07',net:'250'};
+  var soForm={name:'',process:'',variety:'',altitude:'',region:'',flavour1:'',flavour2:'',flavour3:'',date:'06 | 07',net:'250'};
   var labelMode='blend';
   function joinTwo(a,b){a=(a||'').trim();b=(b||'').trim();if(a&&b)return a+' | '+b;return a||b||'';}
+  function joinN(){var p=[];for(var i=0;i<arguments.length;i++){var v=(arguments[i]||'').trim();if(v)p.push(v);}return p.join(' | ');}
   /* compile the active mode into {value,orig,pre,post,fit} entries mapped to the template's 6 text positions */
   function compileLabelEntries(){
     if(labelMode==='single'){
@@ -1927,12 +1934,19 @@ fill="#6F4A36" stroke="none">
         {value:soForm.name,orig:'DARK KNIGHT',pre:'',post:'',fit:1},
         {value:joinTwo(soForm.process,soForm.variety),orig:'Espigao | Danche | El Indio',pre:'',post:'',fit:1},
         {value:joinTwo((soForm.altitude||'').trim()?soForm.altitude.trim()+' MASL':'',soForm.region),orig:'V3.0 Competition Blend',pre:'',post:'',fit:1},
-        {value:soForm.flavour,orig:'Dried Fruit | Walnut | Chocolate',pre:'',post:'',fit:1},
+        {value:joinN(soForm.flavour1,soForm.flavour2,soForm.flavour3),orig:'Dried Fruit | Walnut | Chocolate',pre:'',post:'',fit:1},
         {value:soForm.date,orig:'READY BREW DATE: 06 | 07',pre:'READY BREW DATE: ',post:'',fit:0},
         {value:soForm.net,orig:'NET 250G',pre:'NET ',post:'G',fit:0}
       ];
     }
-    return LBL_FORM.map(function(f){return {value:labelForm[f.k],orig:f.orig,pre:f.pre,post:f.post,fit:f.fit};});
+    return [
+      {value:labelForm.name,orig:'DARK KNIGHT',pre:'',post:'',fit:1},
+      {value:joinN(labelForm.region1,labelForm.region2,labelForm.region3),orig:'Espigao | Danche | El Indio',pre:'',post:'',fit:1},
+      {value:labelForm.comment,orig:'V3.0 Competition Blend',pre:'',post:'',fit:1},
+      {value:joinN(labelForm.flavour1,labelForm.flavour2,labelForm.flavour3),orig:'Dried Fruit | Walnut | Chocolate',pre:'',post:'',fit:1},
+      {value:labelForm.date,orig:'READY BREW DATE: 06 | 07',pre:'READY BREW DATE: ',post:'',fit:0},
+      {value:labelForm.net,orig:'NET 250G',pre:'NET ',post:'G',fit:0}
+    ];
   }
   function openLabel(){closeFolder();openPage('label');renderLabel();}
   function renderLabel(msg){
