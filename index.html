@@ -1997,8 +1997,17 @@ fill="#6F4A36" stroke="none">
     var rd=null;(ROASTS||[]).forEach(function(r){if(rd==null&&(r.bean_name||'')===(s.sample_id||''))rd=r.roast_date||null;});
     var dm=soReadyDM(rd||s.cupping_date||'');soForm.date_d=dm.d;soForm.date_m=dm.m;
     var g=loadGrams()[s.sample_id||''];soForm.net=g?String(g):'';
-    /* Retail Info has no process/variety/altitude/region -> leave blank for manual entry */
+    /* Retail Info has no origin details -> source process/variety/altitude/region
+       from the matching green bean (BEANS), else leave blank for manual entry */
     soForm.process='';soForm.variety='';soForm.altitude='';soForm.region='';
+    var nm=(s.sample_id||'').trim().toLowerCase();
+    var b=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===nm;})[0];
+    if(b){
+      soForm.process=b.process||'';
+      soForm.variety=b.variety||'';
+      soForm.altitude=(b.altitude!=null&&b.altitude!=='')?String(b.altitude):'';
+      soForm.region=[b.region,b.country].filter(Boolean).join(', ');
+    }
   }
   function labelBeanOptions(){
     var seen={},opts='';
