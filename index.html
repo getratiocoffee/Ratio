@@ -2148,18 +2148,15 @@ fill="#6F4A36" stroke="none">
     if(!r){roastEdit=null;renderRoasted();return;}
     if(title)title.textContent=r.bean_name||'Roast';
     document.getElementById('beans-count').textContent=r.country||'';
-    var seg='<div class="re-seg"><button class="re-opt'+(roastEditStatus!=='cupped'?' on':'')+'" data-s="pending_cupping">Pending</button><button class="re-opt'+(roastEditStatus==='cupped'?' on':'')+'" data-s="cupped">Cupped</button></div>';
     box.innerHTML='<div class="gdetail" style="padding-top:8px">'
       +'<div class="gform">'
       +'<label class="gfield"><span class="gl">Green used (kg) · changing it adjusts stock</span><input id="re-kg" type="text" inputmode="decimal" value="'+esc(r.green_kg!=null?gnum(r.green_kg):'')+'" /></label>'
       +'<label class="gfield"><span class="gl">Roast date</span><input id="re-date" type="date" value="'+esc(r.roast_date||'')+'" /></label>'
-      +(roastedTitle==='History'?'':'<div class="gfield"><span class="gl">Status</span>'+seg+'</div>')
       +'<div class="gform-msg" id="re-msg"></div>'
       +(roastDelConfirm
           ?'<div class="gdel"><div class="gdel-msg">Delete this roast?<br>Adds '+esc(gnum(r.green_kg))+' kg back to "'+esc(r.bean_name||'')+'" stock.</div><div class="gform-actions"><button class="gbtn ghost" id="re-del-cancel">Cancel</button><button class="gbtn danger" id="re-del-yes">Delete</button></div></div>'
           :'<div class="re-actrow"><button class="gbtn ico-ok" id="re-save" aria-label="Submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></button><button class="gbtn dghost ico" id="re-del" aria-label="Delete this roast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/></svg></button></div>')
       +'</div></div>';
-    box.querySelectorAll('.re-opt').forEach(function(el){el.addEventListener('click',function(){roastEditStatus=el.dataset.s;box.querySelectorAll('.re-opt').forEach(function(o){o.classList.toggle('on',o.dataset.s===roastEditStatus);});});});
     var rs=document.getElementById('re-save');if(rs)rs.addEventListener('click',saveRoastEdit);
     var rd=document.getElementById('re-del');if(rd)rd.addEventListener('click',function(){roastDelConfirm=true;renderRoastEdit();});
     var rdc=document.getElementById('re-del-cancel');if(rdc)rdc.addEventListener('click',function(){roastDelConfirm=false;renderRoastEdit();});
@@ -2186,11 +2183,11 @@ fill="#6F4A36" stroke="none">
     var oldKg=Number(r.green_kg)||0;
     var delta=newKg-oldKg; // extra amount → deduct from stock
     if(delta!==0)await adjustStock(r.bean_id, -delta);
-    var upd={green_kg:newKg,status:roastEditStatus};
+    var upd={green_kg:newKg};
     if(newDate)upd.roast_date=newDate;
     const {error}=await sb.from('roasts').update(upd).eq('id',r.id);
     if(error){btn.disabled=false;msg.textContent='Save failed: '+error.message;msg.className='gform-msg err';return;}
-    r.green_kg=newKg;r.status=roastEditStatus;if(newDate)r.roast_date=newDate;
+    r.green_kg=newKg;if(newDate)r.roast_date=newDate;
     roastEdit=null;roastDelConfirm=false;renderRoasted();
   }
   async function deleteRoast(){
