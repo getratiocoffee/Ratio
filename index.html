@@ -2424,14 +2424,25 @@ fill="#6F4A36" stroke="none">
     var p=smpPages[smpIdx];
     var msg=document.getElementById('smp-msg');
     var btn=document.getElementById('smp-submit');
-    var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||'Ratio Coffee',sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:null};
-    if(!rec.sample_id){if(msg){msg.textContent='Missing coffee name (ID)';msg.className='gform-msg err';}return;}
+    var rid=smpCuppingRoast;
+    var hasInfo=(p.fragrance!=null||p.acidity!=null||p.sweetness!=null||p.body!=null||p.aftertaste!=null)||((p.features||[]).length>0)||((p.comment||'').trim()!=='');
     if(btn)btn.disabled=true;if(msg){msg.textContent='Saving…';msg.className='gform-msg';}
+    if(!hasInfo){
+      if(rid){
+        var upp=await sb.from('roasts').update({status:'pending_cupping'}).eq('id',rid);
+        if(upp&&upp.error){if(btn)btn.disabled=false;if(msg){msg.textContent='Update failed: '+upp.error.message;msg.className='gform-msg err';}return;}
+        var lp=ROASTS.find(function(x){return String(x.id)===String(rid);});
+        if(lp)lp.status='pending_cupping';
+      }
+      smpCuppingRoast=null;smpPages=[blankSmp()];smpIdx=0;
+      roastedTitle='Pending';beansView='production';openPage('beans');renderRoasted();return;
+    }
+    var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||'Ratio Coffee',sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:null};
+    if(!rec.sample_id){if(btn)btn.disabled=false;if(msg){msg.textContent='Missing coffee name (ID)';msg.className='gform-msg err';}return;}
     let ins=await sb.from('samples').insert(rec).select();
     if(ins.error&&rec.features!==undefined){var r2=Object.assign({},rec);delete r2.features;ins=await sb.from('samples').insert(r2).select();}
     if(ins.error){if(btn)btn.disabled=false;if(msg){msg.textContent='Save failed: '+ins.error.message;msg.className='gform-msg err';}return;}
     if(ins.data&&ins.data[0])SAMPLES.unshift(ins.data[0]);
-    var rid=smpCuppingRoast;
     if(rid){
       var up=await sb.from('roasts').update({status:'cupped'}).eq('id',rid);
       if(up&&up.error){if(btn)btn.disabled=false;if(msg){msg.textContent='Saved sample, but status update failed: '+up.error.message;msg.className='gform-msg err';}return;}
