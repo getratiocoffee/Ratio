@@ -2151,13 +2151,12 @@ fill="#6F4A36" stroke="none">
       +'<label class="gfield"><span class="gl">Roast date</span><input id="re-date" type="date" value="'+esc(r.roast_date||'')+'" /></label>'
       +'<div class="gfield"><span class="gl">Status</span>'+seg+'</div>'
       +'<div class="gform-msg" id="re-msg"></div>'
-      +'<div class="gform-actions"><button class="gbtn ghost" id="re-cancel">Cancel</button><button class="gbtn" id="re-save">Save</button></div>'
+      +'<div class="gform-actions"><button class="gbtn" id="re-save">Submit</button></div>'
       +'<div class="gdel">'+(roastDelConfirm
           ?'<div class="gdel-msg">Delete this roast?<br>Adds '+esc(gnum(r.green_kg))+' kg back to "'+esc(r.bean_name||'')+'" stock.</div><div class="gform-actions"><button class="gbtn ghost" id="re-del-cancel">Cancel</button><button class="gbtn danger" id="re-del-yes">Delete</button></div>'
           :'<button class="gbtn dghost ico" id="re-del" aria-label="Delete this roast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/></svg></button>')
       +'</div></div></div>';
     box.querySelectorAll('.re-opt').forEach(function(el){el.addEventListener('click',function(){roastEditStatus=el.dataset.s;box.querySelectorAll('.re-opt').forEach(function(o){o.classList.toggle('on',o.dataset.s===roastEditStatus);});});});
-    document.getElementById('re-cancel').addEventListener('click',function(){roastEdit=null;roastDelConfirm=false;renderRoasted();});
     document.getElementById('re-save').addEventListener('click',saveRoastEdit);
     var rd=document.getElementById('re-del');if(rd)rd.addEventListener('click',function(){roastDelConfirm=true;renderRoastEdit();});
     var rdc=document.getElementById('re-del-cancel');if(rdc)rdc.addEventListener('click',function(){roastDelConfirm=false;renderRoastEdit();});
