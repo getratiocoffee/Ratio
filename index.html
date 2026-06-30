@@ -2056,9 +2056,8 @@ fill="#6F4A36" stroke="none">
       var xml=await zip.file('label.xml').async('string');
       compileLabelEntries().forEach(function(f){
         var v=(f.value||'').trim();
-        var newText;
-        if(v===''){newText=f.orig;}
-        else{newText=(f.pre||'')+v+(f.post&&!(new RegExp(f.post+'$','i').test(v))?f.post:'');}
+        var empty=(v==='');
+        var newText=empty?'':((f.pre||'')+v+(f.post&&!(new RegExp(f.post+'$','i').test(v))?f.post:''));
         var dataOld='<pt:data>'+xmlEsc(f.orig)+'</pt:data>';
         var idx=xml.indexOf(dataOld);if(idx<0)return;
         var bStart=xml.lastIndexOf('<text:text>',idx);var bEnd=xml.indexOf('</text:text>',idx)+12;
@@ -2067,7 +2066,7 @@ fill="#6F4A36" stroke="none">
           nb=nb.replace(/<pt:data>[\s\S]*?<\/pt:data>/,'<pt:data>'+xmlEsc(newText)+'</pt:data>')
                .replace(/(<text:stringItem charLen=")\d+(")/,'$1'+newText.length+'$2');
         }
-        if(f.fit){nb=lblFitBlock(nb,f.orig.length);}
+        if(f.fit&&!empty){nb=lblFitBlock(nb,f.orig.length);}
         if(nb!==block){xml=xml.slice(0,bStart)+nb+xml.slice(bEnd);}
       });
       var srcName=(labelMode==='single'?soForm.name:labelForm.name)||'label';
