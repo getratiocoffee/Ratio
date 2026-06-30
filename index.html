@@ -1185,8 +1185,8 @@ fill="#6F4A36" stroke="none">
     document.querySelectorAll('.dock-btn.on').forEach(function(b){b.classList.remove('on');});
     if(act){var b=document.querySelector('.dock-btn[data-act="'+act+'"]');if(b)b.classList.add('on');}
   }
-  function openPage(id){const el=document.getElementById('screen-'+id);if(!el)return;document.querySelectorAll('.screen.open').forEach(function(s){if(s!==el){s.classList.remove('open');s.style.margin='';s.style.top='';s.style.left='';s.style.right='';s.style.bottom='';}});alignScreenToBoard(el);el.classList.add('open');}
-  function closePage(){var hadOpen=!!document.querySelector('.screen.open');document.querySelectorAll('.screen.open').forEach(function(s){s.classList.remove('open');s.style.margin='';s.style.top='';s.style.left='';s.style.right='';s.style.bottom='';});setActiveDock(null);if(hadOpen&&dockStack[0]==='timesheet'){tsFilter=null;renderModulePanel('timesheet');}}
+  function openPage(id){const el=document.getElementById('screen-'+id);if(!el)return;document.querySelectorAll('.screen.open').forEach(function(s){if(s!==el){s.classList.remove('open');s.style.margin='';s.style.top='';s.style.left='';s.style.right='';s.style.bottom='';}});alignScreenToBoard(el);el.classList.add('open');var sw=document.getElementById('swap');if(sw){sw.classList.add('back');sw.innerHTML=BACK_ICON;}}
+  function closePage(){var hadOpen=!!document.querySelector('.screen.open');document.querySelectorAll('.screen.open').forEach(function(s){s.classList.remove('open');s.style.margin='';s.style.top='';s.style.left='';s.style.right='';s.style.bottom='';});setActiveDock(null);var sw=document.getElementById('swap');if(sw&&!dockStack.length){sw.classList.remove('back');sw.innerHTML=I.swap;}if(hadOpen&&dockStack[0]==='timesheet'){tsFilter=null;renderModulePanel('timesheet');}}
   window.addEventListener('resize',function(){document.querySelectorAll('.screen.open').forEach(function(el){alignScreenToBoard(el);});});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePage();closeFolder();}});
 
