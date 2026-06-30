@@ -2571,7 +2571,15 @@ fill="#6F4A36" stroke="none">
     SAMPLES=res.error?[]:(res.data||[]);
     smpEdit=null;smpEditObj=null;smpDelConfirm=false;
     smpCuppingRoast=r.id;
-    smpPages=[Object.assign(blankSmp(),{supplier:'Ratio Coffee',sample_id:r.bean_name||'',process:proc})];
+    var prev=SAMPLES.find(function(x){return x.supplier==='Ratio Coffee'&&String(x.sample_id||'')===String(r.bean_name||'');});
+    var page=Object.assign(blankSmp(),{supplier:'Ratio Coffee',sample_id:r.bean_name||'',process:proc});
+    if(prev){
+      page.fragrance=prev.fragrance;page.acidity=prev.acidity;page.sweetness=prev.sweetness;page.body=prev.body;page.aftertaste=prev.aftertaste;
+      page.features=(prev.features||[]).slice();
+      page.comment=prev.comment||'';
+      if(prev.process&&!page.process)page.process=prev.process;
+    }
+    smpPages=[page];
     smpIdx=0;greenView='sample';
     renderSample(res.error?res.error.message:'');
   }
