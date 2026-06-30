@@ -2063,6 +2063,33 @@ fill="#6F4A36" stroke="none">
     (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;seen[k]=true;opts+='<option value="'+esc(nm)+'"></option>';});
     return opts;
   }
+  function labelBlendOptions(){
+    var bset={};loadBlendDefs().forEach(function(b){var n=(b.name||'').trim().toLowerCase();if(n)bset[n]=true;});
+    var seen={},opts='';
+    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k]||!bset[k])return;seen[k]=true;opts+='<option value="'+esc(nm)+'"></option>';});
+    return opts;
+  }
+  function applyRetailToBlend(s){
+    if(!s)return;
+    /* Blend label pulls the same Retail Info as Single Origin: flavour, ready date, net.
+       Region 1/2/3 come from the blend recipe in F(x) -> Blending. */
+    labelForm.name=s.sample_id||labelForm.name;
+    var feats=(s.features||[]).filter(Boolean);
+    labelForm.flavour1=feats[0]||'';labelForm.flavour2=feats[1]||'';labelForm.flavour3=feats[2]||'';
+    var rd=null;(ROASTS||[]).forEach(function(r){if(rd==null&&(r.bean_name||'')===(s.sample_id||''))rd=r.roast_date||null;});
+    var dm=soReadyDM(rd||s.cupping_date||'');labelForm.date_d=dm.d;labelForm.date_m=dm.m;
+    var g=loadGrams()[s.sample_id||''];labelForm.net=g?String(g):'';
+    var def=blendDefByName(s.sample_id||'');
+    var parts=def?(def.parts||[]).filter(function(p){return (p.bean||'').trim();}):[];
+    labelForm.region1=parts[0]?parts[0].bean:'';
+    labelForm.region2=parts[1]?parts[1].bean:'';
+    labelForm.region3=parts[2]?parts[2].bean:'';
+    if(s.comment)labelForm.comment=s.comment;
+  }
+  function syncBlendInputs(){
+    LBL_FORM.forEach(function(f){var i=document.getElementById('lf-'+f.k);if(i)i.value=labelForm[f.k]||'';});
+    var im=document.getElementById('lf-date_m');if(im)im.value=labelForm.date_m||'';
+  }
   function syncSOInputs(){
     SO_FORM.forEach(function(f){var i=document.getElementById('lf-'+f.k);if(i)i.value=soForm[f.k]||'';});
     var im=document.getElementById('lf-date_m');if(im)im.value=soForm.date_m||'';
@@ -2079,26 +2106,26 @@ fill="#6F4A36" stroke="none">
           +'<input type="text" id="lf-date_m" value="'+esc(data.date_m||'')+'" placeholder="Month 07" style="flex:1;min-width:0" />'
           +'</div></div>';
       }
-      return '<label class="smp-f"><span>'+esc(f.label)+'</span><input type="text" id="lf-'+f.k+'"'+(labelMode==='single'&&f.k==='name'?' list="lbl-beans" autocomplete="off"':'')+' value="'+esc(data[f.k]||'')+'" placeholder="'+esc(f.ph)+'" /></label>';
+      return '<label class="smp-f"><span>'+esc(f.label)+'</span><input type="text" id="lf-'+f.k+'"'+(f.k==='name'?(' list="'+(labelMode==='single'?'lbl-beans':'lbl-blends')+'" autocomplete="off"'):'')+' value="'+esc(data[f.k]||'')+'" placeholder="'+esc(f.ph)+'" /></label>';
     }).join('');
     el.innerHTML='<div class="lbl-wrap">'
       +'<div class="lbl-seg"><button class="lbl-tab'+(labelMode==='blend'?' on':'')+'" data-mode="blend">Blend</button><button class="lbl-tab'+(labelMode==='single'?' on':'')+'" data-mode="single">Single Origin</button></div>'
       +'<div class="smp-sec-h" style="margin:2px 0 10px">Fill in &amp; generate</div>'
       +'<div class="smp-fields">'+rows+'</div>'
-      +(labelMode==='single'?'<datalist id="lbl-beans">'+labelBeanOptions()+'</datalist>':'')
+      +(labelMode==='single'?'<datalist id="lbl-beans">'+labelBeanOptions()+'</datalist>':'<datalist id="lbl-blends">'+labelBlendOptions()+'</datalist>')
       +'<div class="gform-msg'+(msg&&msg.err?' err':(msg&&msg.ok?' ok':''))+'" id="lbx-msg" style="margin-top:12px">'+(msg?esc(msg.text):'')+'</div>'
       +'<button class="gbtn" id="lbx-gen" style="margin-top:6px">Generate .lbx</button>'
       +'</div>';
     el.querySelectorAll('.lbl-tab').forEach(function(t){t.addEventListener('click',function(){var m=t.getAttribute('data-mode');if(m&&m!==labelMode){labelMode=m;renderLabel();}});});
     fields.forEach(function(f){var inp=document.getElementById('lf-'+f.k);if(inp)inp.addEventListener('input',function(){data[f.k]=inp.value;});});
-    if(labelMode==='single'){
-      var nameInp=document.getElementById('lf-name');
-      if(nameInp)nameInp.addEventListener('input',function(){
-        var v=(nameInp.value||'').trim().toLowerCase();
-        var s=(RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===v;})[0];
-        if(s){applyRetailToSO(s);syncSOInputs();}
-      });
-    }
+    var nameInp=document.getElementById('lf-name');
+    if(nameInp)nameInp.addEventListener('input',function(){
+      var v=(nameInp.value||'').trim().toLowerCase();
+      var s=(RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===v;})[0];
+      if(!s)return;
+      if(labelMode==='single'){applyRetailToSO(s);syncSOInputs();}
+      else{applyRetailToBlend(s);syncBlendInputs();}
+    });
     var g=document.getElementById('lbx-gen');if(g)g.addEventListener('click',generateLabelLbx);
   }
   function b64ToU8(b64){var bin=atob(b64),n=bin.length,a=new Uint8Array(n);for(var i=0;i<n;i++)a[i]=bin.charCodeAt(i);return a;}
