@@ -1906,10 +1906,11 @@ fill="#6F4A36" stroke="none">
     {k:'flavour1',label:'Flavour 1',ph:'Dried Fruit'},
     {k:'flavour2',label:'Flavour 2',ph:'Walnut'},
     {k:'flavour3',label:'Flavour 3',ph:'Chocolate'},
-    {k:'date',label:'Ready brew date',ph:'06 | 07'},
+    {k:'date_d',label:'Ready brew day',ph:'06'},
+    {k:'date_m',label:'Ready brew month',ph:'07'},
     {k:'net',label:'Net weight (g)',ph:'250'}
   ];
-  var labelForm={name:'',region1:'',region2:'',region3:'',comment:'',flavour1:'',flavour2:'',flavour3:'',date:'06 | 07',net:'250'};
+  var labelForm={name:'',region1:'',region2:'',region3:'',comment:'',flavour1:'',flavour2:'',flavour3:'',date_d:'',date_m:'',net:'250'};
   /* Single Origin: same .lbx template, but Blend/recipe line -> Process | Variety, Special comment line -> Altitude | Region */
   var SO_FORM=[
     {k:'name',label:'Bean name',ph:'Dark Knight'},
@@ -1920,10 +1921,11 @@ fill="#6F4A36" stroke="none">
     {k:'flavour1',label:'Flavour 1',ph:'Dried Fruit'},
     {k:'flavour2',label:'Flavour 2',ph:'Walnut'},
     {k:'flavour3',label:'Flavour 3',ph:'Chocolate'},
-    {k:'date',label:'Ready brew date',ph:'06 | 07'},
+    {k:'date_d',label:'Ready brew day',ph:'06'},
+    {k:'date_m',label:'Ready brew month',ph:'07'},
     {k:'net',label:'Net weight (g)',ph:'250'}
   ];
-  var soForm={name:'',process:'',variety:'',altitude:'',region:'',flavour1:'',flavour2:'',flavour3:'',date:'06 | 07',net:'250'};
+  var soForm={name:'',process:'',variety:'',altitude:'',region:'',flavour1:'',flavour2:'',flavour3:'',date_d:'',date_m:'',net:'250'};
   var labelMode='blend';
   function joinTwo(a,b){a=(a||'').trim();b=(b||'').trim();if(a&&b)return a+' | '+b;return a||b||'';}
   function joinN(){var p=[];for(var i=0;i<arguments.length;i++){var v=(arguments[i]||'').trim();if(v)p.push(v);}return p.join(' | ');}
@@ -1935,7 +1937,7 @@ fill="#6F4A36" stroke="none">
         {value:joinTwo(soForm.process,soForm.variety),orig:'Espigao | Danche | El Indio',pre:'',post:'',fit:1},
         {value:joinTwo((soForm.altitude||'').trim()?soForm.altitude.trim()+' MASL':'',soForm.region),orig:'V3.0 Competition Blend',pre:'',post:'',fit:1},
         {value:joinN(soForm.flavour1,soForm.flavour2,soForm.flavour3),orig:'Dried Fruit | Walnut | Chocolate',pre:'',post:'',fit:1},
-        {value:soForm.date,orig:'READY BREW DATE: 06 | 07',pre:'READY BREW DATE: ',post:'',fit:0},
+        {value:joinTwo(soForm.date_d,soForm.date_m),orig:'READY BREW DATE: 06 | 07',pre:'READY BREW DATE: ',post:'',fit:0},
         {value:soForm.net,orig:'NET 250G',pre:'NET ',post:'G',fit:0}
       ];
     }
@@ -1944,7 +1946,7 @@ fill="#6F4A36" stroke="none">
       {value:joinN(labelForm.region1,labelForm.region2,labelForm.region3),orig:'Espigao | Danche | El Indio',pre:'',post:'',fit:1},
       {value:labelForm.comment,orig:'V3.0 Competition Blend',pre:'',post:'',fit:1},
       {value:joinN(labelForm.flavour1,labelForm.flavour2,labelForm.flavour3),orig:'Dried Fruit | Walnut | Chocolate',pre:'',post:'',fit:1},
-      {value:labelForm.date,orig:'READY BREW DATE: 06 | 07',pre:'READY BREW DATE: ',post:'',fit:0},
+      {value:joinTwo(labelForm.date_d,labelForm.date_m),orig:'READY BREW DATE: 06 | 07',pre:'READY BREW DATE: ',post:'',fit:0},
       {value:labelForm.net,orig:'NET 250G',pre:'NET ',post:'G',fit:0}
     ];
   }
