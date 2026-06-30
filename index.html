@@ -257,6 +257,8 @@
   .gform-msg.ok{color:#5b7a57}
   .gbtn.danger{background:#C0392B;color:#fff}
   .gbtn.dghost{background:var(--surface);color:#C0392B;border:1px solid #E6BBB5}
+  .gbtn.dghost.ico{width:46px;height:42px;margin:0 auto;padding:0;display:flex;align-items:center;justify-content:center}
+  .gbtn.dghost.ico svg{width:18px;height:18px}
   .gdel{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
   .gdel-msg{font-size:13px;color:var(--ink);margin-bottom:11px;text-align:center;line-height:1.5}
   .re-seg{display:flex;gap:8px}
@@ -2152,7 +2154,7 @@ fill="#6F4A36" stroke="none">
       +'<div class="gform-actions"><button class="gbtn ghost" id="re-cancel">Cancel</button><button class="gbtn" id="re-save">Save</button></div>'
       +'<div class="gdel">'+(roastDelConfirm
           ?'<div class="gdel-msg">Delete this roast?<br>Adds '+esc(gnum(r.green_kg))+' kg back to "'+esc(r.bean_name||'')+'" stock.</div><div class="gform-actions"><button class="gbtn ghost" id="re-del-cancel">Cancel</button><button class="gbtn danger" id="re-del-yes">Delete</button></div>'
-          :'<button class="gbtn dghost" id="re-del">Delete this roast</button>')
+          :'<button class="gbtn dghost ico" id="re-del" aria-label="Delete this roast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/></svg></button>')
       +'</div></div></div>';
     box.querySelectorAll('.re-opt').forEach(function(el){el.addEventListener('click',function(){roastEditStatus=el.dataset.s;box.querySelectorAll('.re-opt').forEach(function(o){o.classList.toggle('on',o.dataset.s===roastEditStatus);});});});
     document.getElementById('re-cancel').addEventListener('click',function(){roastEdit=null;roastDelConfirm=false;renderRoasted();});
