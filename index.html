@@ -390,9 +390,12 @@
   .bean-cta.redo{background:var(--surface);color:var(--accent);border:1px solid var(--accent)}
   .bean-cta.redo:active{background:#F4E4E0}
   .bean-acts{display:flex;gap:8px;margin-top:11px}
-  .bean-acts .bean-cta{margin-top:0;flex:1}
+  .bean-acts .bean-cta{margin-top:0}
+  .bean-acts .bean-cta:not(.ico){flex:1}
   .bean-cta.edit{background:var(--surface);color:#6B5E50;border:1px solid var(--line)}
   .bean-cta.edit:active{background:#EDE3DF}
+  .bean-cta.ico{flex:0 0 auto;width:46px;padding:0;display:flex;align-items:center;justify-content:center}
+  .bean-cta.ico svg{width:18px;height:18px}
   .smp-cuphdr{padding:14px 4px 6px;font-size:15px;font-weight:600;color:var(--ink)}
   .composer button{flex:0 0 auto;width:36px;height:36px;border-radius:50%;border:none;background:var(--accent);color:#fff;display:grid;place-items:center;cursor:pointer;padding:0;transition:opacity .15s ease}
   .composer button:active{opacity:.7}
@@ -1990,8 +1993,8 @@ fill="#6F4A36" stroke="none">
     var badge=r.status==='cupped'?'<span class="rbadge done">Cupped</span>':'<span class="rbadge">Pending</span>';
     var redo=r.status==='cupped';
     var acts=tappable?('<div class="bean-acts">'
-      +'<button class="bean-cta edit" data-eid="'+esc(r.id)+'">Edit</button>'
       +'<button class="bean-cta'+(redo?' redo':'')+'" data-aid="'+esc(r.id)+'">'+(redo?'Re-analyse':'Start Analyse')+'</button>'
+      +'<button class="bean-cta edit ico" data-eid="'+esc(r.id)+'" aria-label="Edit roast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>'
       +'</div>'):'';
     return '<div class="bean" data-id="'+esc(r.id)+'"><div class="bean-top"><span class="bean-nm">'+esc(r.bean_name||'—')+'</span>'+badge+'</div>'
       +(r.country?'<div class="bean-sub">'+esc(r.country)+'</div>':'')
