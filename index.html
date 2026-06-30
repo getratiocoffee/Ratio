@@ -37,6 +37,9 @@
   .ct-hist{font-family:var(--font-ui)}
   .ct-hist:active{opacity:.75}
   .ct-hist .ct-hist-arr{font-size:15px;line-height:1;margin-left:1px}
+  .ctitle .ct-rt{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+  .ct-na{display:flex;align-items:center;flex:0 0 auto;border:1.5px solid var(--accent);background:var(--surface);color:var(--accent);font-family:var(--font-ui);font-size:11.5px;font-weight:700;padding:5px 13px;border-radius:999px;cursor:pointer;white-space:nowrap;letter-spacing:.02em}
+  .ct-na:active{background:var(--tint)}
   .ctitle.show{display:block}
   .plan-done{display:flex;flex-direction:column;align-items:center;text-align:center;padding:64px 28px 40px}
   .plan-done .pd-ic{width:64px;height:64px;border-radius:50%;background:var(--success-tint,#E2EADD);color:var(--success,#5E8C61);display:flex;align-items:center;justify-content:center;margin-bottom:18px}
@@ -864,7 +867,7 @@ fill="#6F4A36" stroke="none">
       const w=thisWeekEntry();
       var ct=document.getElementById('ctitle');
       var histBtn='<button class="ct-hist" id="ts-hist-link"><span>History</span><span class="ct-hist-arr">›</span></button>';
-      ct.innerHTML='<div class="ct-row"><div class="ct-week">This week · '+esc(weekRangeOf(cw))+'</div>'+histBtn+'</div>';
+      ct.innerHTML='<div class="ct-row"><div class="ct-week">This week · '+esc(weekRangeOf(cw))+'</div><div class="ct-rt"><button class="ct-na" id="ts-na-panel">N/A</button>'+histBtn+'</div></div>';
       ct.classList.add('show');
       var html;
       if(w){
@@ -886,6 +889,8 @@ fill="#6F4A36" stroke="none">
       document.querySelectorAll('#cpanel .tf-chip').forEach(function(c){c.addEventListener('click',function(){tsFilter=c.dataset.n||null;renderModulePanel('timesheet');});});
       var hl=document.getElementById('ts-hist-link');
       if(hl)hl.addEventListener('click',function(){runModuleAction('timesheet:hist');});
+      var np=document.getElementById('ts-na-panel');
+      if(np)np.addEventListener('click',function(){document.getElementById('ts-title').textContent='History';document.getElementById('ts-week').textContent='';var cu=window.CURRENT_USER;naDraft={name:(cu&&STAFF_NAMES.indexOf(cu)>-1?cu:null),start:'',end:''};renderNAForm();openPage('timesheet');});
     }else{
       hideCPanel();
       setFeedChannel(FEED_CHANNELS[rootKey]||'general');
