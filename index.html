@@ -406,6 +406,15 @@
   .rtl-str-row span{font-size:13.5px;color:var(--ink)}
   .rtl-str-row b{font-size:12.5px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:9px;padding:3px 12px}
   .rtl-cmt{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5;border-top:1px solid var(--line);padding-top:10px}
+  .rtl-sold-wrap{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  .rtl-sold{width:100%;font-size:13px;font-weight:600;font-family:inherit;color:var(--accent);background:transparent;border:1px solid var(--line);border-radius:11px;padding:10px;cursor:pointer;line-height:1}
+  .rtl-sold:active{transform:scale(.98)}
+  .rtl-sold-msg{font-size:13px;color:var(--ink);margin-bottom:9px;text-align:center}
+  .rtl-sold-actions{display:flex;gap:8px}
+  .rtl-sold-actions button{flex:1;font-size:13px;font-weight:600;font-family:inherit;border-radius:11px;padding:10px;cursor:pointer;line-height:1;border:1px solid var(--line)}
+  .rtl-sold-cancel{background:transparent;color:var(--muted)}
+  .rtl-sold-yes{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .rtl-sold-actions button:active{transform:scale(.98)}
   .dots{display:flex;gap:9px;align-items:center}
   .dot{width:23px;height:23px;border-radius:50%;border:1.7px solid #D6C8C1;background:transparent;cursor:pointer;padding:0;transition:transform .12s ease,background .12s ease,border-color .12s ease}
   .dot.fill{background:var(--accent);border-color:var(--accent)}
@@ -2969,25 +2978,44 @@ fill="#6F4A36" stroke="none">
     renderRoast();
   }
   let beansView='home';
+  var RTL_ROWS=[], RTL_RDBY={}, rtlSoldConfirm=null;
   async function renderBeansRetail(){
     beansView='retail';
     const box=document.getElementById('beans-content');
     const title=document.getElementById('beans-title');
     if(title)title.textContent='Retail Info';
-    document.getElementById('beans-count').textContent='';
-    box.innerHTML='<div class="sempty">Loading…</div>';
+    if(!RTL_ROWS.length){document.getElementById('beans-count').textContent='';box.innerHTML='<div class="sempty">Loading…</div>';}
     if(!ROASTS.length){try{await loadRoasts();}catch(e){}}
     var res=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false});
     if(res.error){box.innerHTML='<div class="sempty">Load failed: '+esc(res.error.message)+'</div>';return;}
     var rows=res.data||[];
     var seenR={},uniq=[];
     rows.forEach(function(s){var k=(s.sample_id||'').trim().toLowerCase();if(k){if(seenR[k])return;seenR[k]=true;}uniq.push(s);});
-    rows=uniq;
-    document.getElementById('beans-count').textContent=rows.length?(rows.length+(rows.length===1?' bean':' beans')):'';
+    RTL_ROWS=uniq;
+    RTL_RDBY={};ROASTS.forEach(function(r){var k=r.bean_name||'';if(k&&!(k in RTL_RDBY))RTL_RDBY[k]=r.roast_date||null;});
+    paintRetail();
+  }
+  function paintRetail(){
+    const box=document.getElementById('beans-content');if(!box)return;
+    const cnt=document.getElementById('beans-count');
+    var rows=RTL_ROWS;
+    if(cnt)cnt.textContent=rows.length?(rows.length+(rows.length===1?' bean':' beans')):'';
     if(!rows.length){box.innerHTML='<div class="sempty">No cupped beans yet<br>Cup a bean from Pending</div>';return;}
-    var rdBy={};ROASTS.forEach(function(r){var k=r.bean_name||'';if(k&&!(k in rdBy))rdBy[k]=r.roast_date||null;});
     var dotMap=loadDots();
-    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">On the shelf</div><div class="rtl-list">'+rows.map(function(s){return retailCard(s,rdBy[s.sample_id||''],dotMap[s.sample_id||'']||'');}).join('')+'</div>';
+    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">On the shelf</div><div class="rtl-list">'+rows.map(function(s){return retailCard(s,RTL_RDBY[s.sample_id||''],dotMap[s.sample_id||'']||'');}).join('')+'</div>';
+    box.querySelectorAll('.rtl-sold').forEach(function(b){b.addEventListener('click',function(){rtlSoldConfirm=b.dataset.key;paintRetail();});});
+    box.querySelectorAll('.rtl-sold-cancel').forEach(function(b){b.addEventListener('click',function(){rtlSoldConfirm=null;paintRetail();});});
+    box.querySelectorAll('.rtl-sold-yes').forEach(function(b){b.addEventListener('click',function(){retailSoldOut(b.dataset.id,b.dataset.sid);});});
+  }
+  async function retailSoldOut(id,sid){
+    try{
+      if(sid){await sb.from('samples').delete().eq('supplier','Ratio Coffee').eq('sample_id',sid);}
+      else if(id){await sb.from('samples').delete().eq('id',id);}
+    }catch(e){}
+    rtlSoldConfirm=null;
+    RTL_ROWS=RTL_ROWS.filter(function(s){return sid?(String(s.sample_id||'')!==String(sid)):(String(s.id||'')!==String(id));});
+    paintRetail();
+    renderBeansRetail();
   }
   var RTL_DOTCOL={y:'#E0B341',b:'#3D7DBF',d:'#22386B',r:'#C0392B'};
   var RTL_GRAMS=[100,150,200,250];
@@ -3025,6 +3053,13 @@ fill="#6F4A36" stroke="none">
       var bcmt=(blendDef.comment||'').trim();
       if(bcmt)blendCmtHtml='<div class="rtl-gram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'+esc(bcmt)+'</div>';
     }
+    var soldKey=String(s.id||s.sample_id||'');
+    var soldHtml;
+    if(rtlSoldConfirm&&String(rtlSoldConfirm)===soldKey){
+      soldHtml='<div class="rtl-sold-wrap"><div class="rtl-sold-msg">\u78ba\u5b9a\u522a\u9664\uff1f</div><div class="rtl-sold-actions"><button class="rtl-sold-cancel">\u53d6\u6d88</button><button class="rtl-sold-yes" data-id="'+esc(String(s.id||''))+'" data-sid="'+esc(String(s.sample_id||''))+'">\u78ba\u5b9a</button></div></div>';
+    }else{
+      soldHtml='<div class="rtl-sold-wrap"><button class="rtl-sold" data-key="'+esc(soldKey)+'">Sold Out</button></div>';
+    }
     return '<div class="rtl-card">'
       +dotHtml
       +'<div class="rtl-id">'+id+(blendDef?' <span class="rtl-blend-tag">Blend</span>':'')+'</div>'
@@ -3036,6 +3071,7 @@ fill="#6F4A36" stroke="none">
       +scHtml
       +'<div class="rtl-flav-h">Flavour</div>'+flav
       +cmt
+      +soldHtml
       +'</div>';
   }
   let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending';
