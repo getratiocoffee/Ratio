@@ -2194,6 +2194,7 @@ fill="#6F4A36" stroke="none">
     var p=smpPages[smpIdx];if(!p)return;
     var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
     p.cupping_date=g('smp-date')||todayStr();p.supplier=g('smp-supplier');p.sample_id=g('smp-id');p.process=g('smp-process');p.comment=g('smp-comment');
+    captureChars('smp',p);
   }
   async function loadSamples(view){
     const box=document.getElementById('green-content');
@@ -2238,16 +2239,19 @@ fill="#6F4A36" stroke="none">
     return '<div class="dots" data-name="'+name+'">'+d+'</div>';
   }
   function scoreRow(p,f){
-    var picked=p.features&&p.features.indexOf(f[0])>-1;
-    return '<div class="smp-score"><button class="smp-pick'+(picked?' on':'')+'" data-pick="'+f[0]+'" aria-label="mark as characteristic"></button><span class="smp-sname">'+f[1]+'</span>'+dotRow(p,f[0])+'</div>';
+    return '<div class="smp-score"><span class="smp-sname">'+f[1]+'</span>'+dotRow(p,f[0])+'</div>';
   }
-  function wirePicks(box,p){
-    box.querySelectorAll('.smp-pick').forEach(function(pk){pk.addEventListener('click',function(){
-      if(!p.features)p.features=[];
-      var k=pk.dataset.pick,i=p.features.indexOf(k);
-      if(i>-1)p.features.splice(i,1);else p.features.push(k);
-      pk.classList.toggle('on');
-    });});
+  function charFields(prefix,p){
+    var f=p.features||[];
+    var vals=[f[0]||'',f[1]||'',f[2]||''];
+    return '<div class="smp-fields">'
+      +vals.map(function(v,i){return '<label class="smp-f"><span>Flavour '+(i+1)+'</span><input id="'+prefix+'-char'+i+'" type="text" maxlength="22" value="'+esc(v)+'" placeholder="e.g. Blueberry" /></label>';}).join('')
+      +'</div>';
+  }
+  function captureChars(prefix,p){
+    var arr=[];
+    for(var i=0;i<3;i++){var e=document.getElementById(prefix+'-char'+i);if(e){var v=(e.value||'').trim();if(v)arr.push(v);}}
+    p.features=arr;
   }
   function renderSample(errMsg,okMsg){
     const box=document.getElementById('green-content');
@@ -2275,6 +2279,7 @@ fill="#6F4A36" stroke="none">
       +'<label class="smp-f"><span>Process</span><input id="smp-process" type="text" value="'+esc(p.process||'')+'" /></label>'
       +'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Cupping scores · 1–5</div><div class="smp-scores">'+scores+'</div></div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Flavour characters · up to 3</div>'+charFields('smp',p)+'</div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Comment · what makes it unique</div><textarea id="smp-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
       +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':(okMsg?' ok':''))+'" id="smp-msg">'+(errMsg?('Load failed: '+esc(errMsg)+' (run the samples table SQL in Supabase first)'):(okMsg?esc(okMsg):''))+'</div></div>'
       +(cupping?'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn buy" id="smp-submit">Submit</button></div></div>':'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn skip" id="smp-skip">Skip</button><button class="gbtn buy" id="smp-buy">Buy</button></div></div>');
@@ -2289,7 +2294,6 @@ fill="#6F4A36" stroke="none">
         var v=p[name]||0;dr.querySelectorAll('.dot').forEach(function(x){x.classList.toggle('fill',+x.dataset.n<=v);});
       });});
     });
-    wirePicks(box,p);
     var _prev=document.getElementById('smp-prev');if(_prev)_prev.addEventListener('click',function(){captureSmp();smpIdx=(smpIdx-1+smpPages.length)%smpPages.length;renderSample();box.scrollTop=0;});
     var _next=document.getElementById('smp-next');if(_next)_next.addEventListener('click',function(){captureSmp();smpIdx=(smpIdx+1)%smpPages.length;renderSample();box.scrollTop=0;});
     var _add=document.getElementById('smp-add');if(_add)_add.addEventListener('click',function(){captureSmp();smpPages.push(blankSmp());smpIdx=smpPages.length-1;renderSample();box.scrollTop=0;});
@@ -2316,6 +2320,7 @@ fill="#6F4A36" stroke="none">
       +'<label class="smp-f"><span>Process</span><input id="se-process" type="text" value="'+esc(p.process||'')+'" /></label>'
       +'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Cupping scores · 1–5</div><div class="smp-scores">'+scores+'</div></div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Flavour characters · up to 3</div>'+charFields('se',p)+'</div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Decision</div>'+seg+'</div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Comment · what makes it unique</div><textarea id="se-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
       +'<div class="smp-msg-wrap"><div class="gform-msg" id="se-msg"></div></div>'
@@ -2331,7 +2336,6 @@ fill="#6F4A36" stroke="none">
         var v=p[name]||0;dr.querySelectorAll('.dot').forEach(function(x){x.classList.toggle('fill',+x.dataset.n<=v);});
       });});
     });
-    wirePicks(box,p);
     box.querySelectorAll('.re-opt').forEach(function(o){o.addEventListener('click',function(){
       p.decision=o.dataset.s;box.querySelectorAll('.re-opt').forEach(function(x){x.classList.toggle('on',x.dataset.s===p.decision);});
     });});
@@ -2345,6 +2349,7 @@ fill="#6F4A36" stroke="none">
     const msg=document.getElementById('se-msg');
     const btn=document.getElementById('se-save');
     var p=smpEditObj;var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
+    captureChars('se',p);
     var upd={cupping_date:g('se-date')||todayStr(),supplier:g('se-supplier').trim()||null,sample_id:g('se-id').trim()||null,process:g('se-process').trim()||null,
       fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:g('se-comment').trim()||null,decision:p.decision||null};
     if(!upd.supplier&&!upd.sample_id){msg.textContent='Enter at least Supplier or ID';msg.className='gform-msg err';return;}
