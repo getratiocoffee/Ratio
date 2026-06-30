@@ -2253,7 +2253,7 @@ fill="#6F4A36" stroke="none">
   /* pull the same Retail Info a blend label uses */
   function menuInfoFor(name){
     name=String(name||'').trim();
-    if(!name)return {name:'',flavour:[],recipe:[],ready:'',net:'',comment:''};
+    if(!name)return {name:'',flavour:[],recipe:[],strength:[],ready:'',net:'',comment:''};
     var def=blendDefByName(name);
     var key=name.toLowerCase();
     var s=(RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===key;})[0]||null;
@@ -2272,7 +2272,12 @@ fill="#6F4A36" stroke="none">
     var ready=(dm.d&&dm.m)?(dm.d+'/'+dm.m):'';
     var g=loadGrams()[name];
     var cmt=(def&&(def.comment||'').trim())||(s&&s.comment)||'';
-    return {name:name, flavour:feats.slice(0,3), recipe:recipe, ready:ready, net:(g?String(g):''), comment:cmt};
+    var SMAP={fragrance:'Aroma',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
+    var strength=[['fragrance',s&&s.fragrance],['acidity',s&&s.acidity],['sweetness',s&&s.sweetness],['body',s&&s.body],['aftertaste',s&&s.aftertaste]]
+      .filter(function(x){return x[1]!=null;})
+      .map(function(x){return {label:SMAP[x[0]],val:strLabel(x[1])};})
+      .filter(function(o){return !!o.val;});
+    return {name:name, flavour:feats.slice(0,3), recipe:recipe, strength:strength, ready:ready, net:(g?String(g):''), comment:cmt};
   }
   function openMenu(){
     closeFolder();openPage('menu');
@@ -2372,6 +2377,16 @@ fill="#6F4A36" stroke="none">
       doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(INK[0],INK[1],INK[2]);
       var fl=doc.splitTextToSize(mnAsc(info.flavour.join('  ·  ')),pw);
       for(var a=0;a<Math.min(fl.length,3);a++){doc.text(fl[a],px,cy);cy+=13;}
+      cy+=6;
+    }
+    /* ---- cupping strength ---- */
+    if(info.strength&&info.strength.length){
+      doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+      doc.text('CUPPING STRENGTH',px,cy,{charSpace:1.1});cy+=11;
+      doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(INK[0],INK[1],INK[2]);
+      var st=info.strength.map(function(o){return o.label+' '+o.val;}).join('   ·   ');
+      var sl=doc.splitTextToSize(mnAsc(st),pw);
+      for(var q=0;q<Math.min(sl.length,3);q++){doc.text(sl[q],px,cy);cy+=11;}
       cy+=6;
     }
     /* ---- recipe: every component bean + its full info, spread to fill ---- */
