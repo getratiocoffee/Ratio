@@ -303,6 +303,16 @@
   .smp-pick:active{transform:scale(.9)}
   .smp-feats{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
   .feat-chip{font-size:11px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:8px;padding:2px 9px}
+  .rtl-list{display:flex;flex-direction:column;gap:12px;padding:0 16px 18px}
+  .rtl-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px}
+  .rtl-id{font-family:var(--font-display);font-size:20px;font-weight:600;color:var(--ink);line-height:1.2}
+  .rtl-date{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:12.5px;font-weight:600;color:var(--accent);margin-top:7px}
+  .rtl-date svg{width:14px;height:14px;flex:0 0 auto}
+  .rtl-flav-h{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin:14px 0 8px}
+  .rtl-flav{display:flex;flex-wrap:wrap;gap:7px}
+  .rtl-chip{font-size:13px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:10px;padding:5px 13px}
+  .rtl-noflav{font-size:12px;color:var(--muted)}
+  .rtl-cmt{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5;border-top:1px solid var(--line);padding-top:10px}
   .dots{display:flex;gap:9px;align-items:center}
   .dot{width:23px;height:23px;border-radius:50%;border:1.7px solid #D6C8C1;background:transparent;cursor:pointer;padding:0;transition:transform .12s ease,background .12s ease,border-color .12s ease}
   .dot.fill{background:var(--accent);border-color:var(--accent)}
@@ -2096,12 +2106,29 @@ fill="#6F4A36" stroke="none">
     if(title)title.textContent='Retail Shelf';
     document.getElementById('beans-count').textContent='';
     box.innerHTML='<div class="sempty">Loading…</div>';
+    if(!ROASTS.length){try{await loadRoasts();}catch(e){}}
     var res=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false});
     if(res.error){box.innerHTML='<div class="sempty">Load failed: '+esc(res.error.message)+'</div>';return;}
     var rows=res.data||[];
     document.getElementById('beans-count').textContent=rows.length?(rows.length+(rows.length===1?' bean':' beans')):'';
     if(!rows.length){box.innerHTML='<div class="sempty">No cupped beans yet<br>Cup a bean from Pending</div>';return;}
-    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">In-house cupping records</div><div class="smp-list" style="padding:0 16px 18px">'+rows.map(sampleCard).join('')+'</div>';
+    var rdBy={};ROASTS.forEach(function(r){var k=r.bean_name||'';if(k&&!(k in rdBy))rdBy[k]=r.roast_date||null;});
+    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">On the shelf</div><div class="rtl-list">'+rows.map(function(s){return retailCard(s,rdBy[s.sample_id||'']);}).join('')+'</div>';
+  }
+  function retailCard(s,roastDate){
+    var FEAT={fragrance:'Fragrance',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
+    var id=esc(s.sample_id||s.supplier||'—');
+    var rd=roastDate?fmtDate(roastDate):(s.cupping_date?fmtDate(s.cupping_date):'—');
+    var flav=(s.features&&s.features.length)
+      ?('<div class="rtl-flav">'+s.features.map(function(k){return '<span class="rtl-chip">'+esc(FEAT[k]||k)+'</span>';}).join('')+'</div>')
+      :'<div class="rtl-noflav">No flavour notes yet</div>';
+    var cmt=s.comment?'<div class="rtl-cmt">'+esc(s.comment)+'</div>':'';
+    return '<div class="rtl-card">'
+      +'<div class="rtl-id">'+id+'</div>'
+      +'<div class="rtl-date"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Roasted · '+esc(rd)+'</div>'
+      +'<div class="rtl-flav-h">Flavour</div>'+flav
+      +cmt
+      +'</div>';
   }
   let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending';
   function fmtDate(d){if(!d||d==='—')return 'No date';var p=String(d).split('-');return p.length===3?(p[0]+'/'+p[1]+'/'+p[2]):d;}
@@ -2429,10 +2456,15 @@ fill="#6F4A36" stroke="none">
     if(btn)btn.disabled=true;if(msg){msg.textContent='Saving…';msg.className='gform-msg';}
     if(!hasInfo){
       if(rid){
+        var lp=ROASTS.find(function(x){return String(x.id)===String(rid);});
+        var bn=lp?lp.bean_name:null;
         var upp=await sb.from('roasts').update({status:'pending_cupping'}).eq('id',rid);
         if(upp&&upp.error){if(btn)btn.disabled=false;if(msg){msg.textContent='Update failed: '+upp.error.message;msg.className='gform-msg err';}return;}
-        var lp=ROASTS.find(function(x){return String(x.id)===String(rid);});
         if(lp)lp.status='pending_cupping';
+        if(bn){
+          try{await sb.from('samples').delete().eq('supplier','Ratio Coffee').eq('sample_id',bn);}catch(e){}
+          SAMPLES=SAMPLES.filter(function(x){return !(x.supplier==='Ratio Coffee'&&x.sample_id===bn);});
+        }
       }
       smpCuppingRoast=null;smpPages=[blankSmp()];smpIdx=0;
       roastedTitle='Pending';beansView='production';openPage('beans');renderRoasted();return;
