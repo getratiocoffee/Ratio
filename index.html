@@ -2277,7 +2277,7 @@ fill="#6F4A36" stroke="none">
       .filter(function(x){return x[1]!=null;})
       .map(function(x){return {label:SMAP[x[0]],val:strLabel(x[1])};})
       .filter(function(o){return !!o.val;});
-    var dotKey='';try{dotKey=loadDots()[name]||'';}catch(e){}
+    var dotKey='';try{var dm=loadDots();if(dm[name])dotKey=dm[name];else{var lk=name.trim().toLowerCase();Object.keys(dm).forEach(function(k){if(!dotKey&&String(k).trim().toLowerCase()===lk)dotKey=dm[k];});}}catch(e){}
     var color=(dotKey&&RTL_DOTCOL[dotKey])||'';
     return {name:name, flavour:feats.slice(0,3), recipe:recipe, strength:strength, ready:ready, net:(g?String(g):''), comment:cmt, color:color};
   }
@@ -2409,7 +2409,7 @@ fill="#6F4A36" stroke="none">
     }
     /* ---- recipe: always shown; every line single-line, shrink to fit ---- */
     var by=y+h-13;
-    var footTop=by-(info.comment?12:1);
+    var footTop=by-(info.comment?26:15);
     if(info.recipe&&info.recipe.length){
       doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
       doc.text('RECIPE',px,cy,{charSpace:1.2});cy+=12;
