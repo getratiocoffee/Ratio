@@ -2220,7 +2220,7 @@ fill="#6F4A36" stroke="none">
       var pk=b.closest('.rtl-dotpick');if(pk)pk.classList.remove('open');
     });});
   }
-  var RTL_DOTCOL={y:'#E0B341',b:'#3D7DBF',r:'#C0392B'};
+  var RTL_DOTCOL={y:'#E0B341',b:'#3D7DBF',d:'#22386B',r:'#C0392B'};
   function loadDots(){try{return JSON.parse(localStorage.getItem('ratio_rtl_dot')||'{}');}catch(e){return {};}}
   function saveDots(m){try{localStorage.setItem('ratio_rtl_dot',JSON.stringify(m));}catch(e){}}
   function retailCard(s,roastDate,color){
@@ -2231,6 +2231,7 @@ fill="#6F4A36" stroke="none">
       +'<div class="rtl-dotpick" data-pick="'+esc(s.id)+'">'
       +'<button class="rdp" data-set="y" data-id="'+esc(s.id)+'" style="background:'+RTL_DOTCOL.y+'" aria-label="yellow"></button>'
       +'<button class="rdp" data-set="b" data-id="'+esc(s.id)+'" style="background:'+RTL_DOTCOL.b+'" aria-label="blue"></button>'
+      +'<button class="rdp" data-set="d" data-id="'+esc(s.id)+'" style="background:'+RTL_DOTCOL.d+'" aria-label="dark blue"></button>'
       +'<button class="rdp" data-set="r" data-id="'+esc(s.id)+'" style="background:'+RTL_DOTCOL.r+'" aria-label="red"></button>'
       +'<button class="rdp x" data-set="" data-id="'+esc(s.id)+'" aria-label="clear">\u00d7</button>'
       +'</div></div>';
