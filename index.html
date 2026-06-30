@@ -1867,13 +1867,23 @@ fill="#6F4A36" stroke="none">
   var labelZip=null,labelXml='',labelFields=[];
   function xmlEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   function labelRole(t){
-    if(t==='DARK KNIGHT')return {label:'Bean name',ord:1};
-    if(t==='Espigao | Danche | El Indio')return {label:'Blend / recipe',ord:2};
-    if(t==='V3.0 Competition Blend')return {label:'Special comment',ord:3};
-    if(t==='Dried Fruit | Walnut | Chocolate')return {label:'Flavour',ord:4};
+    if(t==='DARK KNIGHT')return {label:'Bean name',ord:1,fit:1};
+    if(t==='Espigao | Danche | El Indio')return {label:'Blend / recipe',ord:2,fit:1};
+    if(t==='V3.0 Competition Blend')return {label:'Special comment',ord:3,fit:1};
+    if(t==='Dried Fruit | Walnut | Chocolate')return {label:'Flavour',ord:4,fit:1};
     if(/^READY BREW DATE:/i.test(t))return {label:'Ready brew date',ord:5};
     if(/^NET\s/i.test(t))return {label:'Net (grams)',ord:6};
     return null;
+  }
+  var LBL_LEFTMM=17.0079; // 6mm in pt
+  function lblFitBlock(block){
+    block=block.replace(/<pt:objectStyle x="([\d.]+)pt" y="([\d.]+)pt" width="([\d.]+)pt" height="([\d.]+)pt"/,function(m,x,y,w,h){
+      var right=parseFloat(x)+parseFloat(w);var nx=LBL_LEFTMM;var nw=right-nx;if(nw<20)nw=parseFloat(w);
+      return '<pt:objectStyle x="'+nx.toFixed(1)+'pt" y="'+y+'pt" width="'+nw.toFixed(1)+'pt" height="'+h+'pt"';
+    });
+    block=block.replace(/control="AUTOLEN"/,'control="LONGTEXTFIXED"');
+    block=block.replace(/(<text:textControl[^>]*?shrink=")\w+(")/,'$1true$2');
+    return block;
   }
   var LBL_FIXED={'ratio.crowsnest':1,'coffeeratio.com.au':1,'more beans?':1};
   function openLabel(){closeFolder();labelZip=null;labelXml='';labelFields=[];openPage('label');renderLabel('');}
@@ -1895,7 +1905,7 @@ fill="#6F4A36" stroke="none">
           var t=dm[1].replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
           if(LBL_FIXED[t])return;
           var r=labelRole(t);
-          fields.push({block:b,orig:t,val:t,label:r?r.label:'',ord:r?r.ord:99});
+          fields.push({block:b,orig:t,val:t,label:r?r.label:'',ord:r?r.ord:99,fit:!!(r&&r.fit)});
         }
       });
       fields.sort(function(a,b){return a.ord-b.ord;});
@@ -1942,11 +1952,13 @@ fill="#6F4A36" stroke="none">
       var xml=labelXml,nm='label';
       labelFields.forEach(function(f){
         var nv=(f.val==null?'':f.val);
+        var nb=f.block;
         if(nv!==f.orig){
-          var nb=f.block.replace(/<pt:data>[\s\S]*?<\/pt:data>/,'<pt:data>'+xmlEsc(nv)+'</pt:data>')
-                        .replace(/(<text:stringItem charLen=")\d+(")/,'$1'+nv.length+'$2');
-          xml=xml.replace(f.block,nb);
+          nb=nb.replace(/<pt:data>[\s\S]*?<\/pt:data>/,'<pt:data>'+xmlEsc(nv)+'</pt:data>')
+               .replace(/(<text:stringItem charLen=")\d+(")/,'$1'+nv.length+'$2');
         }
+        if(f.fit){nb=lblFitBlock(nb);}
+        if(nb!==f.block){xml=xml.replace(f.block,nb);}
       });
       var first=labelFields.length?(labelFields[0].val||'label'):'label';
       nm=first.replace(/[^A-Za-z0-9 _\-]/g,'').trim().replace(/\s+/g,'_')||'label';
