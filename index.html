@@ -2683,6 +2683,19 @@ fill="#6F4A36" stroke="none">
   }
   function saveBlendDefs(a){try{localStorage.setItem('ratio_blends',JSON.stringify(a));}catch(e){}}
   function blendNames(){return loadBlendDefs().map(function(b){return (b.name||'').trim();}).filter(Boolean);}
+  function blendReady(def){
+    if(!def||!(def.name||'').trim())return false;
+    var parts=def.parts||[];var filled=0;
+    for(var i=0;i<parts.length;i++){
+      var hasBean=!!String(parts[i].bean||'').trim();
+      var hasPct=String(parts[i].pct||'').trim()!=='';
+      if(hasBean!==hasPct)return false; /* partial part = not filled */
+      if(hasBean)filled++;
+    }
+    if(!filled)return false;
+    return blendTotal(def)===100;
+  }
+  function readyBlendNames(){return loadBlendDefs().filter(blendReady).map(function(b){return (b.name||'').trim();});}
   function blendDefByName(name){var n=String(name||'').trim().toLowerCase();if(!n)return null;return loadBlendDefs().filter(function(b){return String(b.name||'').trim().toLowerCase()===n;})[0]||null;}
   var BLEND_SAMPLES=[];
   async function loadBlendSamples(){
@@ -2706,7 +2719,8 @@ fill="#6F4A36" stroke="none">
     if(showTabs&&pendTab==='blend'){
       document.getElementById('beans-count').textContent='';
       if(!blendSamplesLoaded){box.innerHTML=tabBar+'<div class="sempty">Loading…</div>';bindPendTabs();loadBlendSamples().then(function(){if(pendTab==='blend')renderRoasted();});return;}
-      var names=blendNames();
+      var names=readyBlendNames();
+      if(!names.length){box.innerHTML=tabBar+'<div class="sempty">No completed blends yet<br>Fill a recipe to 100% in F(x) \u2192 Blending</div>';bindPendTabs();return;}
       var bord=[],bseen={};
       ROASTS.forEach(function(r){var d=r.roast_date||'—';if(!bseen[d]){bseen[d]=true;bord.push(d);}});
       var bhead='<div class="gsec" style="padding:12px 18px 2px">Tap a date · pick the blend you made today → Analyse</div>';
