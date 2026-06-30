@@ -1961,7 +1961,7 @@ fill="#6F4A36" stroke="none">
       {value:labelForm.net,orig:'NET 250G',pre:'NET ',post:'G',fit:0}
     ];
   }
-  function openLabel(){closeFolder();openPage('label');renderLabel();ensureBeansForInvoice().then(function(){if(document.getElementById('label-content'))renderLabel();});}
+  function openLabel(){closeFolder();openPage('label');renderLabel();Promise.all([ensureBeansForInvoice(),ensureRetailForLabel()]).then(function(){if(document.getElementById('label-content'))renderLabel();});}
   function applyBeanToSO(b){
     if(!b)return;
     soForm.name=b.name||soForm.name;
@@ -1969,6 +1969,46 @@ fill="#6F4A36" stroke="none">
     soForm.variety=b.variety||'';
     soForm.altitude=(b.altitude!=null&&b.altitude!=='')?String(b.altitude):'';
     soForm.region=[b.region,b.country].filter(Boolean).join(', ');
+  }
+  var RETAIL_BEANS=[];
+  async function ensureRetailForLabel(){
+    if(RETAIL_BEANS&&RETAIL_BEANS.length)return;
+    try{
+      var res=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false});
+      var rows=res&&res.data?res.data:[];
+      var seen={},uniq=[];
+      rows.forEach(function(s){var k=(s.sample_id||'').trim().toLowerCase();if(!k)return;if(seen[k])return;seen[k]=true;uniq.push(s);});
+      RETAIL_BEANS=uniq;
+    }catch(e){}
+    if(!ROASTS||!ROASTS.length){try{await loadRoasts();}catch(e){}}
+  }
+  function soReadyDM(base){
+    if(!base)return {d:'',m:''};
+    var bd=new Date(base+'T00:00:00');bd.setDate(bd.getDate()+21);
+    return {d:('0'+bd.getDate()).slice(-2),m:('0'+(bd.getMonth()+1)).slice(-2)};
+  }
+  function applyRetailToSO(s){
+    if(!s)return;
+    soForm.name=s.sample_id||soForm.name;
+    soForm.process=s.process||'';
+    var feats=(s.features||[]).filter(Boolean);
+    soForm.flavour1=feats[0]||'';soForm.flavour2=feats[1]||'';soForm.flavour3=feats[2]||'';
+    var rd=null;(ROASTS||[]).forEach(function(r){if(rd==null&&(r.bean_name||'')===(s.sample_id||''))rd=r.roast_date||null;});
+    var dm=soReadyDM(rd||s.cupping_date||'');soForm.date_d=dm.d;soForm.date_m=dm.m;
+    var g=loadGrams()[s.sample_id||''];if(g)soForm.net=String(g);
+    var nm=(s.sample_id||'').trim().toLowerCase();
+    var b=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===nm;})[0];
+    if(b){soForm.variety=b.variety||'';soForm.altitude=(b.altitude!=null&&b.altitude!=='')?String(b.altitude):'';soForm.region=[b.region,b.country].filter(Boolean).join(', ');}
+  }
+  function labelBeanOptions(){
+    var seen={},opts='';
+    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;seen[k]=true;opts+='<option value="'+esc(nm)+'"></option>';});
+    (BEANS||[]).forEach(function(b){var nm=(b.name||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;seen[k]=true;opts+='<option value="'+esc(nm)+'"></option>';});
+    return opts;
+  }
+  function syncSOInputs(){
+    SO_FORM.forEach(function(f){var i=document.getElementById('lf-'+f.k);if(i)i.value=soForm[f.k]||'';});
+    var im=document.getElementById('lf-date_m');if(im)im.value=soForm.date_m||'';
   }
   function renderLabel(msg){
     var el=document.getElementById('label-content');if(!el)return;
@@ -1988,7 +2028,7 @@ fill="#6F4A36" stroke="none">
       +'<div class="lbl-seg"><button class="lbl-tab'+(labelMode==='blend'?' on':'')+'" data-mode="blend">Blend</button><button class="lbl-tab'+(labelMode==='single'?' on':'')+'" data-mode="single">Single Origin</button></div>'
       +'<div class="smp-sec-h" style="margin:2px 0 10px">Fill in &amp; generate</div>'
       +'<div class="smp-fields">'+rows+'</div>'
-      +(labelMode==='single'?'<datalist id="lbl-beans">'+(BEANS||[]).map(function(b){return '<option value="'+esc(b.name||'')+'"></option>';}).join('')+'</datalist>':'')
+      +(labelMode==='single'?'<datalist id="lbl-beans">'+labelBeanOptions()+'</datalist>':'')
       +'<div class="gform-msg'+(msg&&msg.err?' err':(msg&&msg.ok?' ok':''))+'" id="lbx-msg" style="margin-top:12px">'+(msg?esc(msg.text):'')+'</div>'
       +'<button class="gbtn" id="lbx-gen" style="margin-top:6px">Generate .lbx</button>'
       +'</div>';
@@ -1998,6 +2038,8 @@ fill="#6F4A36" stroke="none">
       var nameInp=document.getElementById('lf-name');
       if(nameInp)nameInp.addEventListener('input',function(){
         var v=(nameInp.value||'').trim().toLowerCase();
+        var s=(RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===v;})[0];
+        if(s){applyRetailToSO(s);syncSOInputs();return;}
         var b=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===v;})[0];
         if(b){applyBeanToSO(b);['process','variety','altitude','region'].forEach(function(k){var i=document.getElementById('lf-'+k);if(i)i.value=soForm[k]||'';});}
       });
