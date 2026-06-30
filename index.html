@@ -1932,7 +1932,7 @@ fill="#6F4A36" stroke="none">
       });
       var nm=(labelForm.name||'label').replace(/[^A-Za-z0-9 _\-]/g,'').trim().replace(/\s+/g,'_')||'label';
       zip.file('label.xml',xml);
-      var blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});
+      var blob=await zip.generateAsync({type:'blob',mimeType:'application/octet-stream',compression:'DEFLATE'});
       var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download=nm+'.lbx';document.body.appendChild(a);a.click();
       setTimeout(function(){URL.revokeObjectURL(url);a.remove();},1500);
       if(btn)btn.disabled=false;if(msg){msg.textContent='Done \u2014 '+nm+'.lbx downloaded';msg.className='gform-msg ok';}
