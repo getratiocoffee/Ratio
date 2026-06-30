@@ -360,9 +360,10 @@
   .rgch{font-size:12px;font-weight:600;font-family:inherit;color:#6B5E50;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:6px 9px;cursor:pointer;line-height:1}
   .rgch.on{background:var(--accent);color:#fff;border-color:var(--accent)}
   .rgch:active{transform:scale(.94)}
-  .rtl-dw{position:relative;flex:0 0 auto;margin-left:auto}
+  .rtl-dw{position:relative;flex:0 0 auto;margin-left:auto;width:46px;display:flex;justify-content:center}
   .rtl-dot.ro{cursor:default}
-  .rtl-gram{display:inline-flex;align-items:center;font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:8px;padding:3px 10px;margin-top:8px}
+  .rtl-gram{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:12.5px;font-weight:600;color:var(--accent);margin-top:5px}
+  .rtl-gram svg{width:14px;height:14px;flex:0 0 auto}
   .rdp.x{background:var(--bg);color:var(--muted);font-size:15px;line-height:1;border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
   .rtl-date{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:12.5px;font-weight:600;color:var(--accent);margin-top:7px}
   .rtl-ready{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:12.5px;font-weight:600;color:#5E8C61;margin-top:5px}
@@ -2440,7 +2441,7 @@ fill="#6F4A36" stroke="none">
     var dotCol=color&&RTL_DOTCOL[color];
     var dotHtml=dotCol?('<div class="rtl-dotwrap"><span class="rtl-dot ro on" style="background:'+dotCol+'" aria-label="status colour"></span></div>'):'';
     var gv=loadGrams()[s.sample_id||''];
-    var gramHtml=gv?('<div class="rtl-gram">Retail · '+gv+'g</div>'):'';
+    var gramHtml=gv?('<div class="rtl-gram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 6a3 3 0 0 0 6 0z"/><path d="M19 7l-3 6a3 3 0 0 0 6 0z"/><path d="M8 21h8"/></svg>Retail · '+gv+'g</div>'):'';
     var rd=roastDate?fmtDate(roastDate):(s.cupping_date?fmtDate(s.cupping_date):'—');
     var base=roastDate||s.cupping_date||'';
     var readyStr='';
