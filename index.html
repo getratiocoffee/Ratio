@@ -765,7 +765,7 @@ fill="#6F4A36" stroke="none">
            left:{label:'Next week',dateKey:'next',icon:'calendar',act:'timesheet:next'},
            right:{label:'Week after',dateKey:'after',icon:'calendar',act:'timesheet:after'}},
     beans:{contentTitle:'Retail Reminder',
-           left:{label:'Retail Shelf',zh:'',icon:'bag',act:'beans:retail'},
+           left:{label:'Retail Info',zh:'',icon:'bag',act:'beans:retail'},
            right:{label:'Pending',zh:'',icon:'factory',act:'beans:prod'}},
     roast:{contentTitle:'Roasting Reminder',
            left:{label:'Production',zh:'',icon:'factory',act:'roast:prod'},
@@ -890,7 +890,7 @@ fill="#6F4A36" stroke="none">
       var hl=document.getElementById('ts-hist-link');
       if(hl)hl.addEventListener('click',function(){runModuleAction('timesheet:hist');});
       var np=document.getElementById('ts-na-panel');
-      if(np)np.addEventListener('click',function(){document.getElementById('ts-title').textContent='History';document.getElementById('ts-week').textContent='';var cu=window.CURRENT_USER;naDraft={name:(cu&&STAFF_NAMES.indexOf(cu)>-1?cu:null),start:'',end:''};renderNAForm();openPage('timesheet');});
+      if(np)np.addEventListener('click',function(){var cu=window.CURRENT_USER;naDraft={name:(cu&&STAFF_NAMES.indexOf(cu)>-1?cu:null),start:'',end:''};renderNAForm();openPage('timesheet');});
     }else{
       hideCPanel();
       setFeedChannel(FEED_CHANNELS[rootKey]||'general');
@@ -1212,11 +1212,12 @@ fill="#6F4A36" stroke="none">
   function naRangeLabel(it){var a=fmtDate(it.start);if(!it.end||it.end===it.start)return a;return a+' – '+fmtDate(it.end);}
   function renderNAForm(msg){
     const body=document.getElementById('timesheet-body');
+    var tt=document.getElementById('ts-title');if(tt)tt.textContent='Unavailability';
+    var tw=document.getElementById('ts-week');if(tw)tw.textContent='';
     var list=loadNA().slice().sort(function(a,b){return a.start<b.start?1:(a.start>b.start?-1:0);});
     var chips=STAFF_NAMES.map(function(n){return '<button class="tf-chip'+(naDraft.name===n?' on':'')+'" data-na-n="'+esc(n)+'">'+esc(n)+'</button>';}).join('');
     var items=list.length?list.map(function(it){return '<div class="na-item"><div><div class="nai-nm">'+esc(it.name)+'</div><div class="nai-rg">'+esc(naRangeLabel(it))+'</div></div><button class="nai-del" data-na-del="'+esc(it.id)+'" aria-label="delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/></svg></button></div>';}).join(''):'<div class="na-empty">No requests yet</div>';
     body.innerHTML='<div class="na-wrap">'
-      +'<div class="na-h">Unavailability</div>'
       +'<div class="na-sub">Apply for time you can\u2019t work.</div>'
       +'<div class="na-sec-h">Staff</div><div class="na-chips">'+chips+'</div>'
       +'<div class="na-sec-h">Dates you can\u2019t work</div>'
@@ -2188,7 +2189,7 @@ fill="#6F4A36" stroke="none">
     beansView='retail';
     const box=document.getElementById('beans-content');
     const title=document.getElementById('beans-title');
-    if(title)title.textContent='Retail Shelf';
+    if(title)title.textContent='Retail Info';
     document.getElementById('beans-count').textContent='';
     box.innerHTML='<div class="sempty">Loading…</div>';
     if(!ROASTS.length){try{await loadRoasts();}catch(e){}}
