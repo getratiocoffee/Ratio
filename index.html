@@ -320,9 +320,15 @@
   .rtl-chip{font-size:13px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:10px;padding:5px 13px}
   .rtl-noflav{font-size:12px;color:var(--muted)}
   .rtl-sc-h{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin:14px 0 7px}
-  .rtl-sc{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;padding-bottom:2px}
-  .rtl-sc-chip{flex:0 0 auto;font-size:12px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:10px;padding:4px 11px;white-space:nowrap}
-  .rtl-sc-chip b{font-family:var(--font-mono);margin-left:3px}
+  .rtl-str{margin-top:14px;border-top:1px solid var(--line);padding-top:11px}
+  .rtl-str summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+  .rtl-str summary::-webkit-details-marker{display:none}
+  .rtl-chev{width:16px;height:16px;flex:0 0 auto;transition:transform .2s ease}
+  .rtl-str[open] .rtl-chev{transform:rotate(180deg)}
+  .rtl-str-list{margin-top:11px;display:flex;flex-direction:column;gap:8px}
+  .rtl-str-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .rtl-str-row span{font-size:13.5px;color:var(--ink)}
+  .rtl-str-row b{font-size:12.5px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:9px;padding:3px 12px}
   .rtl-cmt{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5;border-top:1px solid var(--line);padding-top:10px}
   .dots{display:flex;gap:9px;align-items:center}
   .dot{width:23px;height:23px;border-radius:50%;border:1.7px solid #D6C8C1;background:transparent;cursor:pointer;padding:0;transition:transform .12s ease,background .12s ease,border-color .12s ease}
@@ -2139,8 +2145,9 @@ fill="#6F4A36" stroke="none">
       ?('<div class="rtl-flav">'+s.features.map(function(k){return '<span class="rtl-chip">'+esc(FEAT[k]||k)+'</span>';}).join('')+'</div>')
       :'<div class="rtl-noflav">No flavour notes yet</div>';
     var cmt=s.comment?'<div class="rtl-cmt">'+esc(s.comment)+'</div>':'';
-    var sc=[['Frag',s.fragrance],['Acid',s.acidity],['Sweet',s.sweetness],['Body',s.body],['After',s.aftertaste]].filter(function(x){return x[1]!=null;});
-    var scHtml=sc.length?('<div class="rtl-sc-h">Cupping Strength</div><div class="rtl-sc">'+sc.map(function(x){return '<span class="rtl-sc-chip">'+x[0]+' <b>'+strLabel(x[1])+'</b></span>';}).join('')+'</div>'):'';
+    var SMAP={fragrance:'Fragrance / Aroma',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
+    var sc=[['fragrance',s.fragrance],['acidity',s.acidity],['sweetness',s.sweetness],['body',s.body],['aftertaste',s.aftertaste]].filter(function(x){return x[1]!=null;});
+    var scHtml=sc.length?('<details class="rtl-str"><summary><span>Cupping Strength</span><svg class="rtl-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary><div class="rtl-str-list">'+sc.map(function(x){return '<div class="rtl-str-row"><span>'+SMAP[x[0]]+'</span><b>'+strLabel(x[1])+'</b></div>';}).join('')+'</div></details>'):'';
     return '<div class="rtl-card">'
       +'<div class="rtl-id">'+id+'</div>'
       +'<div class="rtl-date"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Roasted · '+esc(rd)+'</div>'
