@@ -2253,7 +2253,7 @@ fill="#6F4A36" stroke="none">
   /* pull the same Retail Info a blend label uses */
   function menuInfoFor(name){
     name=String(name||'').trim();
-    if(!name)return {name:'',flavour:[],recipe:[],strength:[],ready:'',net:'',comment:''};
+    if(!name)return {name:'',flavour:[],recipe:[],strength:[],ready:'',net:'',comment:'',color:''};
     var def=blendDefByName(name);
     var key=name.toLowerCase();
     var s=(RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===key;})[0]||null;
@@ -2277,7 +2277,9 @@ fill="#6F4A36" stroke="none">
       .filter(function(x){return x[1]!=null;})
       .map(function(x){return {label:SMAP[x[0]],val:strLabel(x[1])};})
       .filter(function(o){return !!o.val;});
-    return {name:name, flavour:feats.slice(0,3), recipe:recipe, strength:strength, ready:ready, net:(g?String(g):''), comment:cmt};
+    var dotKey='';try{dotKey=loadDots()[name]||'';}catch(e){}
+    var color=(dotKey&&RTL_DOTCOL[dotKey])||'';
+    return {name:name, flavour:feats.slice(0,3), recipe:recipe, strength:strength, ready:ready, net:(g?String(g):''), comment:cmt, color:color};
   }
   function openMenu(){
     closeFolder();openPage('menu');
@@ -2354,77 +2356,93 @@ fill="#6F4A36" stroke="none">
     var cellY=[gTop, gTop, gTop+ch+rowGap, gTop+ch+rowGap];
     for(var i=0;i<4;i++){drawCell(doc,cellX[i],cellY[i],cw,ch,info4[i],INK,BROWN,BERRY,MUTE);}
   }
+  function mnHexRgb(hex){hex=String(hex||'').replace('#','');if(hex.length===3)hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];var n=parseInt(hex,16);if(isNaN(n))return null;return [(n>>16)&255,(n>>8)&255,n&255];}
   function drawCell(doc,x,y,w,h,info,INK,BROWN,BERRY,MUTE){
     /* card outline */
     doc.setDrawColor(225,217,212);doc.setLineWidth(0.8);
-    if(doc.roundedRect)doc.roundedRect(x,y,w,h,8,8,'S');else doc.rect(x,y,w,h,'S');
-    var px=x+13, pw=w-26, cy=y+24;
+    if(doc.roundedRect)doc.roundedRect(x,y,w,h,9,9,'S');else doc.rect(x,y,w,h,'S');
+    var px=x+15, pw=w-30;
     if(!info||!info.name){
       doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
       doc.text('— empty —',x+w/2,y+h/2,{align:'center'});
       return;
     }
-    /* ---- name (up to 2 lines) ---- */
-    doc.setFont('helvetica','bold');doc.setFontSize(14.5);doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);
-    var nm=doc.splitTextToSize(mnAsc(info.name),pw);
-    for(var n=0;n<Math.min(nm.length,2);n++){doc.text(nm[n],px,cy);cy+=16;}
-    cy-=2;
-    /* accent rule */
-    doc.setDrawColor(BERRY[0],BERRY[1],BERRY[2]);doc.setLineWidth(1.5);
-    doc.line(px,cy,px+28,cy);cy+=15;
+    /* ---- coloured banner header (name highlighted in its assigned colour) ---- */
+    var band=mnHexRgb(info.color)||BROWN;
+    var bandH=38;
+    doc.setFillColor(band[0],band[1],band[2]);
+    if(doc.roundedRect)doc.roundedRect(x,y,w,bandH,9,9,'F');else doc.rect(x,y,w,bandH,'F');
+    /* square off the bottom of the band so only the top corners stay rounded */
+    doc.rect(x,y+bandH-10,w,10,'F');
+    /* readable text colour on the band */
+    var lum=(0.299*band[0]+0.587*band[1]+0.114*band[2]);
+    var tc=lum>165?[40,34,32]:[255,255,255];
+    doc.setFont('helvetica','bold');doc.setTextColor(tc[0],tc[1],tc[2]);
+    var ns=18;doc.setFontSize(ns);
+    while(ns>11&&doc.getTextWidth(mnAsc(info.name))>pw){ns-=0.5;doc.setFontSize(ns);}
+    doc.text(mnAsc(info.name),px,y+bandH/2+ns*0.34,{maxWidth:pw});
+    var cy=y+bandH+21;
     /* ---- flavour notes ---- */
     if(info.flavour&&info.flavour.length){
-      doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.setFont('helvetica','normal');doc.setFontSize(10.5);doc.setTextColor(INK[0],INK[1],INK[2]);
       var fl=doc.splitTextToSize(mnAsc(info.flavour.join('  ·  ')),pw);
-      for(var a=0;a<Math.min(fl.length,3);a++){doc.text(fl[a],px,cy);cy+=13;}
-      cy+=6;
+      for(var a=0;a<Math.min(fl.length,2);a++){doc.text(fl[a],px,cy);cy+=14;}
+      cy+=8;
     }
-    /* ---- cupping strength ---- */
+    /* ---- cupping strength: one attribute per row ---- */
     if(info.strength&&info.strength.length){
       doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
-      doc.text('CUPPING STRENGTH',px,cy,{charSpace:1.1});cy+=11;
-      doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-      var st=info.strength.map(function(o){return o.label+' '+o.val;}).join('   ·   ');
-      var sl=doc.splitTextToSize(mnAsc(st),pw);
-      for(var q=0;q<Math.min(sl.length,3);q++){doc.text(sl[q],px,cy);cy+=11;}
-      cy+=6;
+      doc.text('CUPPING STRENGTH',px,cy,{charSpace:1.1});cy+=13;
+      info.strength.forEach(function(o){
+        doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(90,82,76);
+        doc.text(mnAsc(o.label),px,cy);
+        doc.setFont('helvetica','bold');doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);
+        doc.text(mnAsc(o.val),x+w-15,cy,{align:'right'});
+        cy+=12.5;
+      });
+      cy+=9;
     }
-    /* ---- recipe: every component bean + its full info, spread to fill ---- */
+    /* ---- recipe: full info when it fits, else bean + % ; spread to fill ---- */
+    var by=y+h-16;
+    var footTop=by-(info.comment?15:2);
     if(info.recipe&&info.recipe.length){
       doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
       doc.text('RECIPE',px,cy,{charSpace:1.2});cy+=13;
       var comps=info.recipe.map(function(c){
-        var bits=[c.country,c.region,c.process,c.variety,(c.altitude?c.altitude+'m':'')].filter(Boolean);
-        var sub=bits.length?doc.splitTextToSize(mnAsc(bits.join('  ·  ')),pw-2).slice(0,2):[];
-        return {c:c,sub:sub,need:11+sub.length*9.5};
+        var full=[c.country,c.region,c.process,c.variety,(c.altitude?c.altitude+'m':'')].filter(Boolean);
+        var conc=[c.country,c.region,c.process].filter(Boolean);
+        return {c:c,
+          full:full.length?doc.splitTextToSize(mnAsc(full.join('  ·  ')),pw-2).slice(0,2):[],
+          conc:conc.length?doc.splitTextToSize(mnAsc(conc.join('  ·  ')),pw-2).slice(0,1):[]};
       });
-      var limit=(info.comment?(y+h-36):(y+h-22));
-      var sumNeed=comps.reduce(function(a,o){return a+o.need;},0);
-      var slack=Math.max(0,(limit-cy)-sumNeed);
-      var gap=comps.length?Math.min(24,slack/comps.length):0;
+      var avail=footTop-cy;
+      var needFull=comps.reduce(function(s,o){return s+12+o.full.length*9;},0);
+      var needConc=comps.reduce(function(s,o){return s+12+o.conc.length*9;},0);
+      var needBare=comps.length*12;
+      var tier=(needFull<=avail)?'full':((needConc<=avail)?'conc':'bare');
+      var used=tier==='full'?needFull:(tier==='conc'?needConc:needBare);
+      var gap=comps.length?Math.max(0,Math.min(18,(avail-used)/comps.length)):0;
       comps.forEach(function(o){
         var c=o.c,pctTxt=c.pct?(c.pct+'%'):'';
-        doc.setFont('helvetica','bold');doc.setFontSize(9.5);
+        doc.setFont('helvetica','bold');doc.setFontSize(10);
         if(pctTxt){doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);doc.text(pctTxt,px,cy);}
         doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);
-        var nx=px+(pctTxt?30:0);
-        doc.text(doc.splitTextToSize(mnAsc(c.bean),pw-(nx-px))[0],nx,cy);cy+=11;
-        if(o.sub.length){doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
-          o.sub.forEach(function(l){doc.text(l,px,cy);cy+=9.5;});}
-        cy+=5+gap;
+        var nx=px+(pctTxt?32:0);
+        doc.text(doc.splitTextToSize(mnAsc(c.bean),pw-(nx-px))[0],nx,cy);cy+=12;
+        var sub=tier==='full'?o.full:(tier==='conc'?o.conc:[]);
+        if(sub.length){doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+          sub.forEach(function(l){doc.text(l,px,cy);cy+=9;});}
+        cy+=gap;
       });
     }
-    /* ---- comment / tagline (just above the footer row) ---- */
-    var by=y+h-14;
+    /* ---- special comment (above footer) ---- */
     if(info.comment){
-      doc.setFont('helvetica','italic');doc.setFontSize(8);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-      var cm=doc.splitTextToSize(mnAsc(info.comment),pw);
-      doc.text(cm[0],px,by-13);
+      doc.setFont('helvetica','italic');doc.setFontSize(8.5);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+      doc.text(doc.splitTextToSize(mnAsc(info.comment),pw)[0],px,by-13);
     }
-    /* ---- bottom row: ready + net ---- */
-    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
-    if(info.ready)doc.text('Ready '+mnAsc(info.ready),px,by);
-    if(info.net)doc.text(mnAsc(info.net)+'g',x+w-13,by,{align:'right'});
+    /* ---- net weight (no ready date) ---- */
+    if(info.net){doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+      doc.text(mnAsc(info.net)+'g net',x+w-15,by,{align:'right'});}
   }
   function blendBeanOptions(sel){
     var o='<option value="">— Single Origin —</option>';
