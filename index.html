@@ -184,6 +184,13 @@
   .na-item .nai-del{flex:0 0 auto;background:none;border:none;color:#C0392B;cursor:pointer;padding:6px;display:flex}
   .na-item .nai-del svg{width:17px;height:17px}
   .na-empty{font-size:12.5px;color:var(--muted);text-align:center;padding:14px}
+  .lbl-wrap{padding:14px 16px 28px}
+  .lbl-intro{padding:30px 20px}
+  .lbl-h{font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--ink);margin-bottom:8px}
+  .lbl-sub{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:22px}
+  .lbl-pick{display:inline-flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;font-size:14px;font-weight:600;padding:13px 20px;border-radius:13px;cursor:pointer}
+  .lbl-pick:active{opacity:.85}
+  .lbl-other{font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin:6px 0 2px;padding-top:11px;border-top:1px dashed var(--line)}
   .cm-wrap{padding:12px 12px 4px;height:100%;box-sizing:border-box}
   .cm-chart{position:relative;height:62vh;min-height:300px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface)}
   .cm-load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted)}
@@ -662,6 +669,17 @@
     </div>
   </div>
 
+  <div class="screen" id="screen-label">
+    <header class="shead">
+      <span class="logo"><img src="logo.png" alt="Ratio" /></span>
+      <span class="hkey" id="label-key"></span>
+    </header>
+    <div class="stitle" id="label-title">Label</div>
+    <div class="sbody">
+      <div id="label-content"></div>
+    </div>
+  </div>
+
   <div class="screen" id="screen-calc">
     <header class="shead">
       <span class="logo"><img src="logo.png" alt="Ratio" /></span>
@@ -686,10 +704,12 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
   const O='stroke="#6B5E50" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"';
   const s='stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"';
   const I={
+    label:`<svg viewBox="0 0 48 48" fill="none" stroke="#49423A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M25 8H10a2 2 0 0 0-2 2v15l16 16 17-17z"/><circle cx="16.5" cy="16.5" r="2.6" fill="#49423A" stroke="none"/></svg>`,
     timesheet:`<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14" fill="none" stroke="#49423A" stroke-width="3.2"/><path d="M24 15 V24 L30.5 28" fill="none" stroke="#49423A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     beans:`<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
  viewBox="0 0 715.000000 704.000000"
@@ -735,7 +755,7 @@ fill="#6F4A36" stroke="none">
   };
   const shop=[['timesheet','Timesheet'],['beans','Beans'],['task','Task'],['recipe','Recipe']];
   const roastery=[['roast','Roast'],['green','Green'],['order','Order'],['fx','F(x)']];
-  const folder=[['news','Generate Invoice'],['post','Post'],['file','File'],['gift','Gifts'],['user','Account'],['cog','Settings'],['bag','Shop']];
+  const folder=[['label','Label'],['news','Generate Invoice'],['post','Post'],['file','File'],['gift','Gifts'],['user','Account'],['cog','Settings'],['bag','Shop']];
 
   function fill(side,arr){const el=document.querySelector(`.pill[data-side="${side}"]`);el.innerHTML='';
     arr.forEach(([ic,lb])=>{const d=document.createElement('div');d.className='item';d.dataset.id=ic;
@@ -1812,6 +1832,7 @@ fill="#6F4A36" stroke="none">
 
 
   function onOpen(id){
+    if(id==='label'){openLabel();return;}
     if(id==='news'){openInvoice();return;}
     if(id==='post'){openPost();return;}
     if(id==='file'){openFile();return;}
@@ -1842,6 +1863,99 @@ fill="#6F4A36" stroke="none">
       var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download=filename||'';document.body.appendChild(a);a.click();
       setTimeout(function(){URL.revokeObjectURL(url);a.remove();},1500);
     }).catch(function(e){alert('Download failed: '+(e&&e.message||e));});
+  }
+  var labelZip=null,labelXml='',labelFields=[];
+  function xmlEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function labelRole(t){
+    if(t==='DARK KNIGHT')return {label:'Bean name',ord:1};
+    if(t==='Espigao | Danche | El Indio')return {label:'Blend / recipe',ord:2};
+    if(t==='V3.0 Competition Blend')return {label:'Special comment',ord:3};
+    if(t==='Dried Fruit | Walnut | Chocolate')return {label:'Flavour',ord:4};
+    if(/^READY BREW DATE:/i.test(t))return {label:'Ready brew date',ord:5};
+    if(/^NET\s/i.test(t))return {label:'Net (grams)',ord:6};
+    return null;
+  }
+  var LBL_FIXED={'ratio.crowsnest':1,'coffeeratio.com.au':1,'more beans?':1};
+  function openLabel(){closeFolder();labelZip=null;labelXml='';labelFields=[];openPage('label');renderLabel('');}
+  async function loadLabelTemplate(file){
+    var msg=document.getElementById('lbx-msg');
+    try{
+      if(!window.JSZip){if(msg){msg.textContent='Zip library still loading, try again';msg.className='gform-msg err';}return;}
+      var buf=await file.arrayBuffer();
+      var zip=await JSZip.loadAsync(buf);
+      var lx=zip.file('label.xml');
+      if(!lx){renderLabel('Not a valid .lbx (no label.xml)');return;}
+      var xml=await lx.async('string');
+      var blocks=xml.match(/<text:text>[\s\S]*?<\/text:text>/g)||[];
+      var fields=[];
+      blocks.forEach(function(b){
+        var cnt=(b.match(/charLen="/g)||[]).length;
+        var dm=b.match(/<pt:data>([\s\S]*?)<\/pt:data>/);
+        if(cnt===1&&dm){
+          var t=dm[1].replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+          if(LBL_FIXED[t])return;
+          var r=labelRole(t);
+          fields.push({block:b,orig:t,val:t,label:r?r.label:'',ord:r?r.ord:99});
+        }
+      });
+      fields.sort(function(a,b){return a.ord-b.ord;});
+      labelZip=zip;labelXml=xml;labelFields=fields;
+      renderLabel('');
+    }catch(e){renderLabel('Could not read file: '+(e&&e.message||e));}
+  }
+  function renderLabel(err){
+    var el=document.getElementById('label-content');if(!el)return;
+    if(!labelZip){
+      el.innerHTML='<div class="lbl-intro">'
+        +'<div class="lbl-h">Brother label (.lbx)</div>'
+        +'<div class="lbl-sub">Pick your label template, edit the text, and download a ready-to-print .lbx. Images and layout stay exactly as your template.</div>'
+        +'<label class="lbl-pick"><input type="file" id="lbx-file" accept=".lbx" hidden /><span>Choose template .lbx</span></label>'
+        +(err?'<div class="gform-msg err" style="margin-top:12px">'+esc(err)+'</div>':'')
+        +'</div>';
+      var fi=document.getElementById('lbx-file');
+      if(fi)fi.addEventListener('change',function(){if(fi.files&&fi.files[0])loadLabelTemplate(fi.files[0]);});
+      return;
+    }
+    var shownOther=false;
+    var rows=labelFields.map(function(f,i){
+      var head='';
+      if(f.ord===99&&!shownOther){shownOther=true;head='<div class="lbl-other">Other text</div>';}
+      var cap=f.label||(f.orig.length>30?f.orig.slice(0,30)+'…':f.orig);
+      return head+'<label class="smp-f"><span>'+esc(cap)+'</span><input type="text" id="lbf-'+i+'" value="'+esc(f.val)+'" /></label>';
+    }).join('');
+    el.innerHTML='<div class="lbl-wrap">'
+      +'<div class="smp-sec-h" style="margin:2px 0 10px">Edit label text</div>'
+      +'<div class="smp-fields">'+rows+'</div>'
+      +'<div class="gform-msg'+(err?' err':'')+'" id="lbx-msg" style="margin-top:12px">'+(err?esc(err):'')+'</div>'
+      +'<button class="gbtn" id="lbx-gen" style="margin-top:6px">Generate .lbx</button>'
+      +'<button class="gbtn ghost" id="lbx-reset" style="margin-top:9px">Choose a different template</button>'
+      +'</div>';
+    labelFields.forEach(function(f,i){var inp=document.getElementById('lbf-'+i);if(inp)inp.addEventListener('input',function(){f.val=inp.value;});});
+    var g=document.getElementById('lbx-gen');if(g)g.addEventListener('click',generateLabelLbx);
+    var rs=document.getElementById('lbx-reset');if(rs)rs.addEventListener('click',function(){labelZip=null;labelXml='';labelFields=[];renderLabel('');});
+  }
+  async function generateLabelLbx(){
+    var msg=document.getElementById('lbx-msg');var btn=document.getElementById('lbx-gen');
+    try{
+      if(!labelZip){renderLabel('No template loaded');return;}
+      if(btn)btn.disabled=true;if(msg){msg.textContent='Building .lbx…';msg.className='gform-msg';}
+      var xml=labelXml,nm='label';
+      labelFields.forEach(function(f){
+        var nv=(f.val==null?'':f.val);
+        if(nv!==f.orig){
+          var nb=f.block.replace(/<pt:data>[\s\S]*?<\/pt:data>/,'<pt:data>'+xmlEsc(nv)+'</pt:data>')
+                        .replace(/(<text:stringItem charLen=")\d+(")/,'$1'+nv.length+'$2');
+          xml=xml.replace(f.block,nb);
+        }
+      });
+      var first=labelFields.length?(labelFields[0].val||'label'):'label';
+      nm=first.replace(/[^A-Za-z0-9 _\-]/g,'').trim().replace(/\s+/g,'_')||'label';
+      labelZip.file('label.xml',xml);
+      var blob=await labelZip.generateAsync({type:'blob',compression:'DEFLATE'});
+      var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download=nm+'.lbx';document.body.appendChild(a);a.click();
+      setTimeout(function(){URL.revokeObjectURL(url);a.remove();},1500);
+      if(btn)btn.disabled=false;if(msg){msg.textContent='Done — '+nm+'.lbx downloaded';msg.className='gform-msg ok';}
+    }catch(e){if(btn)btn.disabled=false;if(msg){msg.textContent='Generate failed: '+(e&&e.message||e);msg.className='gform-msg err';}}
   }
   function openFile(){closeFolder();openPage('file');renderFile();}
   function renderFile(){
