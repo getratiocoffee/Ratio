@@ -566,6 +566,8 @@
   .bl-pct{display:flex;align-items:center;gap:4px;flex:0 0 auto}
   .bl-pctin{width:58px;font-family:var(--font-mono);font-size:14px;text-align:right;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 8px}
   .bl-pct span{font-size:13px;color:var(--muted)}
+  .bl-cmt{width:100%;font-family:inherit;font-size:13px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;margin-top:2px}
+  .bl-cmt:focus{outline:none;border-color:var(--accent)}
   .bl-tot{margin-top:4px;font-size:12px;color:var(--muted);text-align:right}
   .bl-tot b{font-family:var(--font-mono)}
   .bl-tot.ok{color:#5E8C61}
@@ -2084,7 +2086,8 @@ fill="#6F4A36" stroke="none">
     labelForm.region1=parts[0]?parts[0].bean:'';
     labelForm.region2=parts[1]?parts[1].bean:'';
     labelForm.region3=parts[2]?parts[2].bean:'';
-    if(s.comment)labelForm.comment=s.comment;
+    var bcmt=(def&&(def.comment||'').trim())||(s.comment||'');
+    if(bcmt)labelForm.comment=bcmt;
   }
   function syncBlendInputs(){
     LBL_FORM.forEach(function(f){var i=document.getElementById('lf-'+f.k);if(i)i.value=labelForm[f.k]||'';});
@@ -2243,6 +2246,7 @@ fill="#6F4A36" stroke="none">
         +'<div class="bl-head"><input class="bl-name" data-bi="'+bi+'" value="'+esc(bl.name||'')+'" placeholder="Blend name" />'
         +'<button class="bl-del" data-bi="'+bi+'" aria-label="delete blend">'+trash+'</button></div>'
         +rows
+        +'<input class="bl-cmt" data-bi="'+bi+'" value="'+esc(bl.comment||'')+'" placeholder="Special comment \u00b7 e.g. V3.0 Competition Blend" />'
         +'<div class="bl-tot '+totCls+'">Total <b>'+tot+'%</b>'+(tot===100?'':' \u00b7 should be 100%')+'</div>'
         +'</div>';
     }).join('');
@@ -2251,6 +2255,7 @@ fill="#6F4A36" stroke="none">
       +'<div class="bl-addwrap"><button class="gbtn ghost" id="bl-add">+ New blend</button></div>';
     el.querySelectorAll('.bl-name').forEach(function(inp){inp.addEventListener('input',function(){var d=loadBlendDefs();d[+inp.dataset.bi].name=inp.value;saveBlendDefs(d);});});
     el.querySelectorAll('.bl-bean').forEach(function(s){s.addEventListener('change',function(){var d=loadBlendDefs();d[+s.dataset.bi].parts[+s.dataset.pi].bean=s.value;saveBlendDefs(d);});});
+    el.querySelectorAll('.bl-cmt').forEach(function(inp){inp.addEventListener('input',function(){var d=loadBlendDefs();d[+inp.dataset.bi].comment=inp.value;saveBlendDefs(d);});});
     el.querySelectorAll('.bl-pctin').forEach(function(i){i.addEventListener('input',function(){var d=loadBlendDefs();d[+i.dataset.bi].parts[+i.dataset.pi].pct=i.value;saveBlendDefs(d);
       var card=i.closest('.bl-card'),t=card&&card.querySelector('.bl-tot');if(t){var tt=blendTotal(d[+i.dataset.bi]);t.className='bl-tot '+(tt===100?'ok':(tt>100?'over':''));t.innerHTML='Total <b>'+tt+'%</b>'+(tt===100?'':' \u00b7 should be 100%');}});});
     el.querySelectorAll('.bl-del').forEach(function(b){b.addEventListener('click',function(){var d=loadBlendDefs();d.splice(+b.dataset.bi,1);saveBlendDefs(d);renderBlending();});});
@@ -2632,11 +2637,14 @@ fill="#6F4A36" stroke="none">
     var scHtml=sc.length?('<details class="rtl-str"><summary><span>Cupping Strength</span><svg class="rtl-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary><div class="rtl-str-list">'+sc.map(function(x){return '<div class="rtl-str-row"><span>'+SMAP[x[0]]+'</span><b>'+strLabel(x[1])+'</b></div>';}).join('')+'</div></details>'):'';
     var blendDef=blendDefByName(s.sample_id||'');
     var recipeHtml='';
+    var blendCmtHtml='';
     if(blendDef){
       var parts=(blendDef.parts||[]).filter(function(p){return (p.bean||'').trim();});
       recipeHtml='<div class="rtl-flav-h">Recipe</div>'+(parts.length
         ?('<div class="rtl-recipe">'+parts.map(function(p){var pct=(p.pct===0||p.pct)?String(p.pct):'';return '<span class="rtl-rchip">'+esc(p.bean)+(pct!==''?' <b>'+esc(pct)+'%</b>':'')+'</span>';}).join('')+'</div>')
         :'<div class="rtl-noflav">No recipe set \u00b7 add it in F(x) \u2192 Blending</div>');
+      var bcmt=(blendDef.comment||'').trim();
+      if(bcmt)blendCmtHtml='<div class="rtl-gram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'+esc(bcmt)+'</div>';
     }
     return '<div class="rtl-card">'
       +dotHtml
@@ -2644,6 +2652,7 @@ fill="#6F4A36" stroke="none">
       +'<div class="rtl-date"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Roasted · '+esc(rd)+'</div>'
       +readyHtml
       +gramHtml
+      +blendCmtHtml
       +recipeHtml
       +scHtml
       +'<div class="rtl-flav-h">Flavour</div>'+flav
@@ -2667,7 +2676,7 @@ fill="#6F4A36" stroke="none">
   }
   let pendTab='single', blendOpen={}, blendCupping=null, blendSamplesLoaded=false;
   var BLEND_SEED=['Dark Knight','Dancer','Dreamer','Sugar Daddy','April Project','May Project','June Project'];
-  function blankBlend(name){return {name:name||'',parts:[{bean:'',pct:''},{bean:'',pct:''},{bean:'',pct:''}]};}
+  function blankBlend(name){return {name:name||'',parts:[{bean:'',pct:''},{bean:'',pct:''},{bean:'',pct:''}],comment:''};}
   function loadBlendDefs(){
     try{var a=JSON.parse(localStorage.getItem('ratio_blends')||'null');if(Array.isArray(a))return a;}catch(e){}
     var seed=BLEND_SEED.map(function(n){return blankBlend(n);});saveBlendDefs(seed);return seed;
