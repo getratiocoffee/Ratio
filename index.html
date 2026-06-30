@@ -199,6 +199,10 @@
   .blend-pick{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);cursor:pointer;font-family:inherit;text-align:left}
   .blend-pick .blend-name{font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--ink)}
   .blend-go{font-size:12px;font-weight:700;color:#fff;background:var(--accent);padding:7px 13px;border-radius:999px;white-space:nowrap;flex:0 0 auto}
+  .blend-rt{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+  .blend-go.redo{background:var(--tint);color:var(--accent)}
+  .blend-pick.done{background:var(--bg)}
+  .blend-pick.done .blend-name{color:var(--muted)}
   .blend-pick:active{background:var(--tint)}
   .cm-wrap{padding:12px 12px 4px;height:100%;box-sizing:border-box}
   .cm-chart{position:relative;height:62vh;min-height:300px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface)}
@@ -2529,11 +2533,20 @@ fill="#6F4A36" stroke="none">
     const {data,error}=await sb.from('roasts').select('*').order('roast_date',{ascending:false}).order('created_at',{ascending:false});
     if(error){box.innerHTML='<div class="sempty">Load failed: '+esc(error.message)+'</div>';return;}
     ROASTS=data||[];
-    roastEdit=null;roastDelConfirm=false;
+    roastEdit=null;roastDelConfirm=false;blendSamplesLoaded=false;
     renderRoasted();
   }
-  let pendTab='single', blendOpen={}, blendCupping=null;
+  let pendTab='single', blendOpen={}, blendCupping=null, blendSamplesLoaded=false;
   var BLENDS=['Dark Knight','Dancer','Dreamer','Sugar Daddy','April Project','May Project','June Project'];
+  var BLEND_SAMPLES=[];
+  async function loadBlendSamples(){
+    try{var res=await sb.from('samples').select('sample_id,cupping_date').eq('supplier','Ratio Coffee');BLEND_SAMPLES=res&&res.data?res.data:[];}catch(e){BLEND_SAMPLES=[];}
+    blendSamplesLoaded=true;
+  }
+  function blendCupped(name,date){
+    var n=String(name||''),d=String(date||'');
+    return (BLEND_SAMPLES||[]).some(function(s){return String(s.sample_id||'')===n&&String(s.cupping_date||'')===d;});
+  }
   function renderRoasted(){
     const box=document.getElementById('beans-content');
     const title=document.getElementById('beans-title');
@@ -2546,17 +2559,23 @@ fill="#6F4A36" stroke="none">
     function bindPendTabs(){box.querySelectorAll('.pend-seg .lbl-tab').forEach(function(t){t.addEventListener('click',function(){var v=t.getAttribute('data-pend');if(v&&v!==pendTab){pendTab=v;renderRoasted();}});});}
     if(showTabs&&pendTab==='blend'){
       document.getElementById('beans-count').textContent='';
+      if(!blendSamplesLoaded){box.innerHTML=tabBar+'<div class="sempty">Loading…</div>';bindPendTabs();loadBlendSamples().then(function(){if(pendTab==='blend')renderRoasted();});return;}
       var bord=[],bseen={};
       ROASTS.forEach(function(r){var d=r.roast_date||'—';if(!bseen[d]){bseen[d]=true;bord.push(d);}});
       var bhead='<div class="gsec" style="padding:12px 18px 2px">Tap a date · pick the blend you made today → Analyse</div>';
       var bbody=bord.length?bord.map(function(d){
         var open=!!blendOpen[d];
+        var cupN=BLENDS.filter(function(n){return blendCupped(n,d);}).length;
         var h='<button class="rdate'+(open?' open':'')+'" data-bd="'+esc(d)+'">'
           +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
           +'<span class="rd-date">'+esc(fmtDate(d))+'</span>'
-          +'<span class="rd-meta">'+BLENDS.length+' blends</span></button>';
+          +'<span class="rd-meta">'+BLENDS.length+' blends'+(cupN?' · <b>'+cupN+' Cupped</b>':'')+'</span></button>';
         var bd=open?('<div class="rd-body">'+BLENDS.map(function(name){
-          return '<button class="blend-pick" data-bn="'+esc(name)+'" data-bdate="'+esc(d)+'"><span class="blend-name">'+esc(name)+'</span><span class="blend-go">Start Analyse</span></button>';
+          var cupped=blendCupped(name,d);
+          return '<button class="blend-pick'+(cupped?' done':'')+'" data-bn="'+esc(name)+'" data-bdate="'+esc(d)+'">'
+            +'<span class="blend-name">'+esc(name)+'</span>'
+            +'<span class="blend-rt">'+(cupped?'<span class="rbadge done">Cupped</span><span class="blend-go redo">Re-analyse</span>':'<span class="blend-go">Start Analyse</span>')+'</span>'
+            +'</button>';
         }).join('')+'</div>'):'';
         return '<div class="rgroup">'+h+bd+'</div>';
       }).join(''):'<div class="sempty">No roast days yet<br>Log a roast first</div>';
@@ -2917,7 +2936,7 @@ fill="#6F4A36" stroke="none">
           SAMPLES=SAMPLES.filter(function(x){return !(x.supplier==='Ratio Coffee'&&x.sample_id===bn);});
         }
       }
-      smpCuppingRoast=null;blendCupping=null;smpPages=[blankSmp()];smpIdx=0;
+      smpCuppingRoast=null;blendCupping=null;blendSamplesLoaded=false;smpPages=[blankSmp()];smpIdx=0;
       roastedTitle='Pending';beansView='production';openPage('beans');renderRoasted();return;
     }
     var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||'Ratio Coffee',sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:null};
@@ -2932,7 +2951,7 @@ fill="#6F4A36" stroke="none">
       var lr=ROASTS.find(function(x){return String(x.id)===String(rid);});
       if(lr)lr.status='cupped';
     }
-    smpCuppingRoast=null;blendCupping=null;
+    smpCuppingRoast=null;blendCupping=null;blendSamplesLoaded=false;
     smpPages=[blankSmp()];smpIdx=0;
     roastedTitle='Pending';beansView='production';
     openPage('beans');
