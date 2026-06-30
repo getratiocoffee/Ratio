@@ -1216,7 +1216,6 @@ fill="#6F4A36" stroke="none">
     var chips=STAFF_NAMES.map(function(n){return '<button class="tf-chip'+(naDraft.name===n?' on':'')+'" data-na-n="'+esc(n)+'">'+esc(n)+'</button>';}).join('');
     var items=list.length?list.map(function(it){return '<div class="na-item"><div><div class="nai-nm">'+esc(it.name)+'</div><div class="nai-rg">'+esc(naRangeLabel(it))+'</div></div><button class="nai-del" data-na-del="'+esc(it.id)+'" aria-label="delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/></svg></button></div>';}).join(''):'<div class="na-empty">No requests yet</div>';
     body.innerHTML='<div class="na-wrap">'
-      +'<button class="na-back" id="na-back">‹ Back to history</button>'
       +'<div class="na-h">Unavailability</div>'
       +'<div class="na-sub">Apply for time you can\u2019t work.</div>'
       +'<div class="na-sec-h">Staff</div><div class="na-chips">'+chips+'</div>'
@@ -1232,7 +1231,6 @@ fill="#6F4A36" stroke="none">
     var s=document.getElementById('na-start'),e=document.getElementById('na-end');
     s.addEventListener('change',function(){naDraft.start=s.value;naDraft.end=s.value;if(e){e.value=s.value;e.min=s.value;}});
     e.addEventListener('change',function(){if(s.value&&e.value&&e.value<s.value){e.value=s.value;}naDraft.end=e.value;});
-    document.getElementById('na-back').addEventListener('click',function(){renderTimesheetWeeks(historyWeeks());});
     document.getElementById('na-submit').addEventListener('click',function(){
       naDraft.start=s.value;naDraft.end=e.value;
       if(!naDraft.name){renderNAForm({err:true,text:'Pick a staff member'});return;}
