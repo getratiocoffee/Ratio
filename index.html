@@ -389,6 +389,10 @@
   .bean-cta:active{opacity:.85}
   .bean-cta.redo{background:var(--surface);color:var(--accent);border:1px solid var(--accent)}
   .bean-cta.redo:active{background:#F4E4E0}
+  .bean-acts{display:flex;gap:8px;margin-top:11px}
+  .bean-acts .bean-cta{margin-top:0;flex:1}
+  .bean-cta.edit{background:var(--surface);color:#6B5E50;border:1px solid var(--line)}
+  .bean-cta.edit:active{background:#EDE3DF}
   .smp-cuphdr{padding:14px 4px 6px;font-size:15px;font-weight:600;color:var(--ink)}
   .composer button{flex:0 0 auto;width:36px;height:36px;border-radius:50%;border:none;background:var(--accent);color:#fff;display:grid;place-items:center;cursor:pointer;padding:0;transition:opacity .15s ease}
   .composer button:active{opacity:.7}
@@ -1984,10 +1988,14 @@ fill="#6F4A36" stroke="none">
   }
   function roastCard(r,tappable){
     var badge=r.status==='cupped'?'<span class="rbadge done">Cupped</span>':'<span class="rbadge">Pending</span>';
-    var cta=tappable?'<button class="bean-cta'+(r.status==='cupped'?' redo':'')+'" data-aid="'+esc(r.id)+'">'+(r.status==='cupped'?'Re-analyse':'Analyse')+'</button>':'';
-    return '<div class="bean'+(tappable?' rcard':'')+'" data-id="'+esc(r.id)+'"><div class="bean-top"><span class="bean-nm">'+esc(r.bean_name||'—')+'</span>'+badge+'</div>'
+    var redo=r.status==='cupped';
+    var acts=tappable?('<div class="bean-acts">'
+      +'<button class="bean-cta edit" data-eid="'+esc(r.id)+'">Edit</button>'
+      +'<button class="bean-cta'+(redo?' redo':'')+'" data-aid="'+esc(r.id)+'">'+(redo?'Re-analyse':'Start Analyse')+'</button>'
+      +'</div>'):'';
+    return '<div class="bean" data-id="'+esc(r.id)+'"><div class="bean-top"><span class="bean-nm">'+esc(r.bean_name||'—')+'</span>'+badge+'</div>'
       +(r.country?'<div class="bean-sub">'+esc(r.country)+'</div>':'')
-      +'<div class="bean-meta"><span><b>'+esc(gnum(r.green_kg))+'</b> kg green</span>'+(r.roast_time?'<span>'+esc(r.roast_time)+'</span>':'')+'</div>'+cta+'</div>';
+      +'<div class="bean-meta"><span><b>'+esc(gnum(r.green_kg))+'</b> kg green</span>'+(r.roast_time?'<span>'+esc(r.roast_time)+'</span>':'')+'</div>'+acts+'</div>';
   }
   let ROAST_CART=[], roastDate='', roastTime='', roastBanner='', roastBannerErr=false, roastAddOpen={};
   function renderRoast(){
@@ -2109,7 +2117,7 @@ fill="#6F4A36" stroke="none">
     if(!ROASTS.length){box.innerHTML='<div class="sempty">No roasts yet<br>Log one in Roast</div>';return;}
     var groups={}, order=[];
     ROASTS.forEach(function(r){var d=r.roast_date||'—';if(!groups[d]){groups[d]=[];order.push(d);}groups[d].push(r);});
-    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">Tap a date to expand; tap a record to edit</div>'+order.map(function(d){
+    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">Tap a date to expand · use Edit to change the roast</div>'+order.map(function(d){
       var items=groups[d];
       var pending=items.filter(function(r){return r.status!=='cupped';}).length;
       var open=!!roastedOpen[d];
@@ -2121,8 +2129,8 @@ fill="#6F4A36" stroke="none">
       return '<div class="rgroup">'+head+body+'</div>';
     }).join('');
     box.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.d;roastedOpen[d]=!roastedOpen[d];renderRoasted();});});
-    box.querySelectorAll('.rcard').forEach(function(el){el.addEventListener('click',function(){roastEdit=el.dataset.id;roastDelConfirm=false;var r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});roastEditStatus=r?r.status:'pending_cupping';renderRoasted();document.getElementById('beans-content').scrollTop=0;});});
-    box.querySelectorAll('.bean-cta').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();openCupping(el.dataset.aid);});});
+    box.querySelectorAll('.bean-cta.edit').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();roastEdit=el.dataset.eid;roastDelConfirm=false;var r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});roastEditStatus=r?r.status:'pending_cupping';renderRoasted();document.getElementById('beans-content').scrollTop=0;});});
+    box.querySelectorAll('.bean-cta[data-aid]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();openCupping(el.dataset.aid);});});
   }
   function renderRoastEdit(){
     const box=document.getElementById('beans-content');
