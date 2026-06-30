@@ -3056,9 +3056,9 @@ fill="#6F4A36" stroke="none">
     var soldKey=String(s.id||s.sample_id||'');
     var soldHtml;
     if(rtlSoldConfirm&&String(rtlSoldConfirm)===soldKey){
-      soldHtml='<div class="rtl-sold-wrap"><div class="rtl-sold-msg">\u78ba\u5b9a\u522a\u9664\uff1f</div><div class="rtl-sold-actions"><button class="rtl-sold-cancel">\u53d6\u6d88</button><button class="rtl-sold-yes" data-id="'+esc(String(s.id||''))+'" data-sid="'+esc(String(s.sample_id||''))+'">\u78ba\u5b9a</button></div></div>';
+      soldHtml='<div class="rtl-sold-wrap"><div class="rtl-sold-msg">Hide this bean from the shelf?</div><div class="rtl-sold-actions"><button class="rtl-sold-cancel">Cancel</button><button class="rtl-sold-yes" data-id="'+esc(String(s.id||''))+'" data-sid="'+esc(String(s.sample_id||''))+'">Hide</button></div></div>';
     }else{
-      soldHtml='<div class="rtl-sold-wrap"><button class="rtl-sold" data-key="'+esc(soldKey)+'">Sold Out</button></div>';
+      soldHtml='<div class="rtl-sold-wrap"><button class="rtl-sold" data-key="'+esc(soldKey)+'">Hide</button></div>';
     }
     return '<div class="rtl-card">'
       +dotHtml
