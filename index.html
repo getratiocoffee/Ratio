@@ -1068,6 +1068,81 @@ fill="#6F4A36" stroke="none">
   const SUPABASE_KEY='sb_publishable_vt7hUK07u-veHOb4mXGGhQ_wX06qDeQ';
   const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
+  /* ===== Supabase sync layer for the 5 local-only stores (additive · never throws) =====
+     localStorage stays the synchronous source of truth + offline fallback; Supabase is
+     layered on top as a cross-device mirror. Requires the `app_state` table (SQL supplied
+     separately). Before that table exists the pull errors quietly and the app stays 100%
+     local; after the SQL is run + a hard reload, sync turns on. Last-write-wins per key. */
+  const APP_STATE_KEYS={
+    'ratio_na':'na',
+    'ratio_menu_slots':'menu_slots',
+    'ratio_rtl_dot':'rtl_dot',
+    'ratio_rtl_g':'rtl_g',
+    'ratio_blends':'blends',
+    'ratio_inv_seq':'inv_seq'
+  };
+  let _appStateReady=false;          /* true once the boot pull succeeds (table exists) */
+  const _appStatePending={};         /* lsKeys that wanted to push before ready */
+  const _appStatePushTimers={};      /* debounce timers per remote key */
+  function appStatePush(lsKey){
+    if(!sb)return;
+    if(APP_STATE_KEYS[lsKey]===undefined)return;
+    if(!_appStateReady){_appStatePending[lsKey]=true;return;} /* silent local-only pre-SQL */
+    var remoteKey=APP_STATE_KEYS[lsKey];
+    clearTimeout(_appStatePushTimers[remoteKey]);
+    _appStatePushTimers[remoteKey]=setTimeout(function(){_appStatePushNow(lsKey);},500);
+  }
+  function _appStatePushNow(lsKey){
+    var remoteKey=APP_STATE_KEYS[lsKey];if(!remoteKey)return;
+    var raw;try{raw=localStorage.getItem(lsKey);}catch(e){return;}
+    var val;try{val=raw==null?null:JSON.parse(raw);}catch(e){val=raw;}
+    try{
+      sb.from('app_state').upsert({key:remoteKey,value:val,updated_at:new Date().toISOString()},{onConflict:'key'})
+        .then(function(r){if(r&&r.error)console.error('[Ratio] app_state push '+remoteKey+':',r.error.message||r.error);});
+    }catch(e){console.error('[Ratio] app_state push '+remoteKey,e);}
+  }
+  function _lsKeyFor(remoteKey){for(var k in APP_STATE_KEYS){if(APP_STATE_KEYS[k]===remoteKey)return k;}return null;}
+  function applyInvSeqToDayKeys(map){
+    if(!map||typeof map!=='object')return;
+    var merged={};try{merged=JSON.parse(localStorage.getItem('ratio_inv_seq')||'{}');}catch(e){merged={};}
+    Object.keys(map).forEach(function(d){
+      var remote=parseInt(map[d],10)||0;
+      var per=0;try{per=parseInt(localStorage.getItem('ratio_inv_seq_'+d),10)||0;}catch(e){}
+      var keep=Math.max(remote,parseInt(merged[d],10)||0,per); /* never let invoice numbers go backwards */
+      merged[d]=keep;try{localStorage.setItem('ratio_inv_seq_'+d,String(keep));}catch(e){}
+    });
+    try{localStorage.setItem('ratio_inv_seq',JSON.stringify(merged));}catch(e){}
+  }
+  function appStateApply(remoteKey,val){
+    var lsKey=_lsKeyFor(remoteKey);if(!lsKey)return;
+    if(lsKey==='ratio_inv_seq'){applyInvSeqToDayKeys(val);return;}
+    try{localStorage.setItem(lsKey,JSON.stringify(val));}catch(e){}
+    if(lsKey==='ratio_menu_slots'){try{MENU_SLOTS=loadMenuSlots();}catch(e){}}
+  }
+  function appStateRefreshOpenScreens(){
+    try{
+      var ae=document.activeElement;
+      if(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))return; /* don't yank focus mid-edit */
+      var open=document.querySelector('.screen.open');if(!open)return;
+      var id=open.id;
+      if(id==='screen-menu'){if(typeof renderMenu==='function')renderMenu();}
+      else if(id==='screen-blend'){if(typeof renderBlending==='function')renderBlending();}
+      else if(id==='screen-beans'){if(beansView==='retail'&&typeof renderBeansRetail==='function')renderBeansRetail();}
+      else if(id==='screen-timesheet'){var t=document.getElementById('ts-title');if(t&&t.textContent==='Unavailability'&&typeof renderNAForm==='function')renderNAForm();}
+    }catch(e){}
+  }
+  async function appStatePull(){
+    if(!sb)return;
+    try{
+      var r=await sb.from('app_state').select('key,value');
+      if(r&&r.error)return; /* table missing pre-SQL → stay silent local-only */
+      if(r&&r.data){r.data.forEach(function(row){if(row&&row.key)appStateApply(row.key,row.value);});}
+      _appStateReady=true;
+      Object.keys(_appStatePending).forEach(function(k){delete _appStatePending[k];appStatePush(k);});
+      appStateRefreshOpenScreens();
+    }catch(e){/* silent local-only */}
+  }
+
   /* ---- auth gate (email + password) ---- */
   (function(){
     const gate=document.getElementById('auth');
@@ -1313,14 +1388,8 @@ fill="#6F4A36" stroke="none">
     if(!name)return groups;
     return (groups||[]).map(function(g){return {day:g.day,dk:g.dk,rows:g.rows.filter(function(r){return r.nm===name;})};}).filter(function(g){return g.rows.length;});
   }
-  function renderTimesheet(groups){
-    const body=document.getElementById('timesheet-body');
-    if(!groups||!groups.length){body.innerHTML='<div class="sempty">No shifts scheduled yet</div>';return;}
-    body.innerHTML=tsGroupsHTML(groups);
-  }
   /* cash-payment selection per week (persisted on this device; seeded from backup) */
   let tsHistOpen={}, tsDelW=null;
-  function cashKey(ws){return 'ratio_cash_'+ws;}
   function getCashSet(w){
     var r=ROSTERS[w.weekStart];if(r&&r.cash)return new Set(r.cash);
     return new Set(w.cash||[]);
@@ -1330,7 +1399,7 @@ fill="#6F4A36" stroke="none">
   function naTopHdr(){return '<div class="ts-tophdr"><button class="na-pill" id="ts-na">N/A</button><span class="ts-tophint">Tap a date to expand · PDF / delete on the right</span></div>';}
   function wireNAPill(){var b=document.getElementById('ts-na');if(b)b.addEventListener('click',function(){var cu=window.CURRENT_USER;naDraft={name:(cu&&STAFF_NAMES.indexOf(cu)>-1?cu:null),start:'',end:''};renderNAForm();});}
   function loadNA(){try{return JSON.parse(localStorage.getItem('ratio_na')||'[]');}catch(e){return [];}}
-  function saveNA(l){try{localStorage.setItem('ratio_na',JSON.stringify(l));}catch(e){}}
+  function saveNA(l){try{localStorage.setItem('ratio_na',JSON.stringify(l));}catch(e){}appStatePush('ratio_na');}
   var naDraft={name:null,start:'',end:''};
   function naRangeLabel(it){var a=fmtDate(it.start);if(!it.end||it.end===it.start)return a;return a+' – '+fmtDate(it.end);}
   function renderNAForm(msg){
@@ -1592,7 +1661,11 @@ fill="#6F4A36" stroke="none">
   function invNextNo(dateStr){
     var d=(dateStr||todayStr()).replace(/-/g,'');var key='ratio_inv_seq_'+d;var n=1;
     try{n=(parseInt(localStorage.getItem(key),10)||0)+1;}catch(e){}
-    return {no:'INV-'+d+'-'+String(n).padStart(3,'0'),commit:function(){try{localStorage.setItem(key,String(n));}catch(e){}}};
+    return {no:'INV-'+d+'-'+String(n).padStart(3,'0'),commit:function(){
+      try{localStorage.setItem(key,String(n));}catch(e){}
+      try{var m=JSON.parse(localStorage.getItem('ratio_inv_seq')||'{}');if(!(parseInt(m[d],10)>=n))m[d]=n;localStorage.setItem('ratio_inv_seq',JSON.stringify(m));}catch(e){}
+      appStatePush('ratio_inv_seq');
+    }};
   }
   function generateInvoicePDF(){
     var JS=window.jspdf&&window.jspdf.jsPDF;
@@ -1742,17 +1815,22 @@ fill="#6F4A36" stroke="none">
       if(scr&&scr.classList.contains('open')&&t&&t.textContent==='History')renderTimesheetWeeks(historyWeeks());}catch(e){}
   }
   function submittedRoster(ws){var r=ROSTERS[ws];return (r&&!r.deleted&&r.shifts&&r.shifts.length)?r.shifts:null;}
-  function saveRoster(ws,shifts){var r=rosterRow(ws);r.shifts=shifts;saveRosterRow(ws);}
   function deletedSet(){var s=new Set();for(var k in ROSTERS){if(ROSTERS[k]&&ROSTERS[k].deleted)s.add(k);}return s;}
   function deleteWeek(ws){var r=rosterRow(ws);r.deleted=true;saveRosterRow(ws);}
   function submitRoster(ws,shifts){var r=rosterRow(ws);r.shifts=shifts;r.deleted=false;saveRosterRow(ws);}
   if(sb){
     loadRosters();
+    appStatePull();
     try{sb.channel('rosters-feed').on('postgres_changes',{event:'*',schema:'public',table:'rosters'},function(p){
       var r=p.new||p.old;if(!r||!r.week_start)return;
       if(p.eventType==='DELETE'){delete ROSTERS[r.week_start];}
       else{ROSTERS[r.week_start]={shifts:r.shifts||[],cash:r.cash||[],deleted:!!r.deleted};}
       refreshTimesheetIfOpen();
+    }).subscribe();}catch(e){}
+    try{sb.channel('app_state-feed').on('postgres_changes',{event:'*',schema:'public',table:'app_state'},function(p){
+      var row=p.new||p.old;if(!row||!row.key)return;
+      if(p.eventType==='DELETE')return;
+      appStateApply(row.key,row.value);appStateRefreshOpenScreens();
     }).subscribe();}catch(e){}
   }
   function staticWeek(ws){return TIMESHEET_WEEKS.find(function(w){return w.weekStart===ws;})||null;}
@@ -2254,7 +2332,7 @@ fill="#6F4A36" stroke="none">
     try{var a=JSON.parse(localStorage.getItem('ratio_menu_slots')||'null');if(Array.isArray(a)&&a.length===4)return a.slice(0,4);}catch(e){}
     return MENU_DEFAULT.slice();
   }
-  function saveMenuSlots(a){try{localStorage.setItem('ratio_menu_slots',JSON.stringify(a));}catch(e){}}
+  function saveMenuSlots(a){try{localStorage.setItem('ratio_menu_slots',JSON.stringify(a));}catch(e){}appStatePush('ratio_menu_slots');}
   var MENU_SLOTS=loadMenuSlots();
   /* pull the same Retail Info a blend label uses */
   function menuInfoFor(name){
@@ -2874,9 +2952,9 @@ fill="#6F4A36" stroke="none">
   var RTL_DOTCOL={y:'#E0B341',b:'#3D7DBF',d:'#22386B',r:'#C0392B'};
   var RTL_GRAMS=[100,150,200,250];
   function loadDots(){try{return JSON.parse(localStorage.getItem('ratio_rtl_dot')||'{}');}catch(e){return {};}}
-  function saveDots(m){try{localStorage.setItem('ratio_rtl_dot',JSON.stringify(m));}catch(e){}}
+  function saveDots(m){try{localStorage.setItem('ratio_rtl_dot',JSON.stringify(m));}catch(e){}appStatePush('ratio_rtl_dot');}
   function loadGrams(){try{return JSON.parse(localStorage.getItem('ratio_rtl_g')||'{}');}catch(e){return {};}}
-  function saveGrams(m){try{localStorage.setItem('ratio_rtl_g',JSON.stringify(m));}catch(e){}}
+  function saveGrams(m){try{localStorage.setItem('ratio_rtl_g',JSON.stringify(m));}catch(e){}appStatePush('ratio_rtl_g');}
   function retailCard(s,roastDate,color){
     var FEAT={fragrance:'Fragrance',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
     var id=esc(s.sample_id||s.supplier||'—');
@@ -2942,7 +3020,7 @@ fill="#6F4A36" stroke="none">
     try{var a=JSON.parse(localStorage.getItem('ratio_blends')||'null');if(Array.isArray(a))return a;}catch(e){}
     var seed=BLEND_SEED.map(function(n){return blankBlend(n);});saveBlendDefs(seed);return seed;
   }
-  function saveBlendDefs(a){try{localStorage.setItem('ratio_blends',JSON.stringify(a));}catch(e){}}
+  function saveBlendDefs(a){try{localStorage.setItem('ratio_blends',JSON.stringify(a));}catch(e){}appStatePush('ratio_blends');}
   function blendNames(){return loadBlendDefs().map(function(b){return (b.name||'').trim();}).filter(Boolean);}
   function blendReady(def){
     if(!def||!(def.name||'').trim())return false;
