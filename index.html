@@ -2357,6 +2357,13 @@ fill="#6F4A36" stroke="none">
     for(var i=0;i<4;i++){drawCell(doc,cellX[i],cellY[i],cw,ch,info4[i],INK,BROWN,BERRY,MUTE);}
   }
   function mnHexRgb(hex){hex=String(hex||'').replace('#','');if(hex.length===3)hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];var n=parseInt(hex,16);if(isNaN(n))return null;return [(n>>16)&255,(n>>8)&255,n&255];}
+  /* draw text on ONE line, shrinking the font until it fits maxW (no wrapping). Font family/style/colour must be set by caller. */
+  function mnFit(doc,text,x,yy,maxW,base,min,align){
+    text=mnAsc(text);var s=base;doc.setFontSize(s);
+    while(s>min&&doc.getTextWidth(text)>maxW){s-=0.5;doc.setFontSize(s);}
+    doc.text(text,x,yy,align?{align:align}:undefined);
+    return s;
+  }
   function drawCell(doc,x,y,w,h,info,INK,BROWN,BERRY,MUTE){
     /* card outline */
     doc.setDrawColor(225,217,212);doc.setLineWidth(0.8);
@@ -2381,64 +2388,52 @@ fill="#6F4A36" stroke="none">
     var ns=18;doc.setFontSize(ns);
     while(ns>11&&doc.getTextWidth(mnAsc(info.name))>pw){ns-=0.5;doc.setFontSize(ns);}
     doc.text(mnAsc(info.name),px,y+bandH/2+ns*0.34,{maxWidth:pw});
-    var cy=y+bandH+21;
-    /* ---- flavour notes ---- */
+    var cy=y+bandH+18;
+    /* ---- flavour notes (single line, shrink to fit) ---- */
     if(info.flavour&&info.flavour.length){
-      doc.setFont('helvetica','normal');doc.setFontSize(10.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-      var fl=doc.splitTextToSize(mnAsc(info.flavour.join('  ·  ')),pw);
-      for(var a=0;a<Math.min(fl.length,2);a++){doc.text(fl[a],px,cy);cy+=14;}
-      cy+=8;
+      doc.setFont('helvetica','normal');doc.setTextColor(INK[0],INK[1],INK[2]);
+      mnFit(doc,info.flavour.join('  ·  '),px,cy,pw,10.5,7);cy+=18;
     }
     /* ---- cupping strength: one attribute per row ---- */
     if(info.strength&&info.strength.length){
       doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
-      doc.text('CUPPING STRENGTH',px,cy,{charSpace:1.1});cy+=13;
+      doc.text('CUPPING STRENGTH',px,cy,{charSpace:1.1});cy+=12;
       info.strength.forEach(function(o){
-        doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(90,82,76);
-        doc.text(mnAsc(o.label),px,cy);
+        doc.setFont('helvetica','normal');doc.setTextColor(90,82,76);
+        mnFit(doc,o.label,px,cy,pw*0.6,9,6.5);
         doc.setFont('helvetica','bold');doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);
-        doc.text(mnAsc(o.val),x+w-15,cy,{align:'right'});
-        cy+=12.5;
+        mnFit(doc,o.val,x+w-15,cy,pw*0.45,9,6.5,'right');
+        cy+=11.5;
       });
-      cy+=9;
+      cy+=7;
     }
-    /* ---- recipe: full info when it fits, else bean + % ; spread to fill ---- */
-    var by=y+h-16;
-    var footTop=by-(info.comment?15:2);
+    /* ---- recipe: always shown; every line single-line, shrink to fit ---- */
+    var by=y+h-13;
+    var footTop=by-(info.comment?12:1);
     if(info.recipe&&info.recipe.length){
       doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
-      doc.text('RECIPE',px,cy,{charSpace:1.2});cy+=13;
+      doc.text('RECIPE',px,cy,{charSpace:1.2});cy+=12;
       var comps=info.recipe.map(function(c){
-        var full=[c.country,c.region,c.process,c.variety,(c.altitude?c.altitude+'m':'')].filter(Boolean);
-        var conc=[c.country,c.region,c.process].filter(Boolean);
-        return {c:c,
-          full:full.length?doc.splitTextToSize(mnAsc(full.join('  ·  ')),pw-2).slice(0,2):[],
-          conc:conc.length?doc.splitTextToSize(mnAsc(conc.join('  ·  ')),pw-2).slice(0,1):[]};
+        return {c:c,bits:[c.country,c.region,c.process,c.variety,(c.altitude?c.altitude+'m':'')].filter(Boolean)};
       });
+      var needed=comps.reduce(function(s,o){return s+11+(o.bits.length?10:0);},0);
       var avail=footTop-cy;
-      var needFull=comps.reduce(function(s,o){return s+12+o.full.length*9;},0);
-      var needConc=comps.reduce(function(s,o){return s+12+o.conc.length*9;},0);
-      var needBare=comps.length*12;
-      var tier=(needFull<=avail)?'full':((needConc<=avail)?'conc':'bare');
-      var used=tier==='full'?needFull:(tier==='conc'?needConc:needBare);
-      var gap=comps.length?Math.max(0,Math.min(18,(avail-used)/comps.length)):0;
+      var gap=comps.length?Math.max(2,Math.min(16,(avail-needed)/comps.length)):0;
       comps.forEach(function(o){
         var c=o.c,pctTxt=c.pct?(c.pct+'%'):'';
-        doc.setFont('helvetica','bold');doc.setFontSize(10);
-        if(pctTxt){doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);doc.text(pctTxt,px,cy);}
-        doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);
+        if(pctTxt){doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);doc.text(pctTxt,px,cy);}
         var nx=px+(pctTxt?32:0);
-        doc.text(doc.splitTextToSize(mnAsc(c.bean),pw-(nx-px))[0],nx,cy);cy+=12;
-        var sub=tier==='full'?o.full:(tier==='conc'?o.conc:[]);
-        if(sub.length){doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
-          sub.forEach(function(l){doc.text(l,px,cy);cy+=9;});}
+        doc.setFont('helvetica','bold');doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);
+        mnFit(doc,c.bean,nx,cy,pw-(nx-px),10,6.5);cy+=11;
+        if(o.bits.length){doc.setFont('helvetica','normal');doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+          mnFit(doc,o.bits.join('  ·  '),px,cy,pw,8,5.5);cy+=10;}
         cy+=gap;
       });
     }
-    /* ---- special comment (above footer) ---- */
+    /* ---- special comment (single line, above footer) ---- */
     if(info.comment){
-      doc.setFont('helvetica','italic');doc.setFontSize(8.5);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-      doc.text(doc.splitTextToSize(mnAsc(info.comment),pw)[0],px,by-13);
+      doc.setFont('helvetica','italic');doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+      mnFit(doc,info.comment,px,by-12,pw,8.5,6);
     }
     /* ---- net weight (no ready date) ---- */
     if(info.net){doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
