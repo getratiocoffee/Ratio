@@ -2795,6 +2795,7 @@ fill="#6F4A36" stroke="none">
       else{rec[f]=v===''?null:v;}
     });
     if(!rec.name){msg.textContent='Name cannot be empty';msg.className='gform-msg err';return;}
+    rec.id='bean_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
     btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
     const {data,error}=await sb.from('beans').insert(rec).select();
     btn.disabled=false;
