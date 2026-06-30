@@ -1956,6 +1956,13 @@ fill="#6F4A36" stroke="none">
     var fields=labelMode==='single'?SO_FORM:LBL_FORM;
     var data=labelMode==='single'?soForm:labelForm;
     var rows=fields.map(function(f){
+      if(f.k==='date_m')return '';
+      if(f.k==='date_d'){
+        return '<div class="smp-f"><span>Ready brew date</span><div class="smp-f2">'
+          +'<input type="text" id="lf-date_d" value="'+esc(data.date_d||'')+'" placeholder="Day 06" style="flex:1;min-width:0" />'
+          +'<input type="text" id="lf-date_m" value="'+esc(data.date_m||'')+'" placeholder="Month 07" style="flex:1;min-width:0" />'
+          +'</div></div>';
+      }
       return '<label class="smp-f"><span>'+esc(f.label)+'</span><input type="text" id="lf-'+f.k+'" value="'+esc(data[f.k]||'')+'" placeholder="'+esc(f.ph)+'" /></label>';
     }).join('');
     el.innerHTML='<div class="lbl-wrap">'
