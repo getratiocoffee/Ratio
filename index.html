@@ -1989,21 +1989,20 @@ fill="#6F4A36" stroke="none">
   }
   function applyRetailToSO(s){
     if(!s)return;
+    /* Single Origin auto-fill = only what Retail Info actually shows:
+       bean name, Ready Brew date, retail net weight, flavour notes. */
     soForm.name=s.sample_id||soForm.name;
-    soForm.process=s.process||'';
     var feats=(s.features||[]).filter(Boolean);
     soForm.flavour1=feats[0]||'';soForm.flavour2=feats[1]||'';soForm.flavour3=feats[2]||'';
     var rd=null;(ROASTS||[]).forEach(function(r){if(rd==null&&(r.bean_name||'')===(s.sample_id||''))rd=r.roast_date||null;});
     var dm=soReadyDM(rd||s.cupping_date||'');soForm.date_d=dm.d;soForm.date_m=dm.m;
     var g=loadGrams()[s.sample_id||''];soForm.net=g?String(g):'';
-    var nm=(s.sample_id||'').trim().toLowerCase();
-    var b=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===nm;})[0];
-    if(b){soForm.variety=b.variety||'';soForm.altitude=(b.altitude!=null&&b.altitude!=='')?String(b.altitude):'';soForm.region=[b.region,b.country].filter(Boolean).join(', ');}
+    /* Retail Info has no process/variety/altitude/region -> leave blank for manual entry */
+    soForm.process='';soForm.variety='';soForm.altitude='';soForm.region='';
   }
   function labelBeanOptions(){
     var seen={},opts='';
     (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;seen[k]=true;opts+='<option value="'+esc(nm)+'"></option>';});
-    (BEANS||[]).forEach(function(b){var nm=(b.name||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;seen[k]=true;opts+='<option value="'+esc(nm)+'"></option>';});
     return opts;
   }
   function syncSOInputs(){
@@ -2039,9 +2038,7 @@ fill="#6F4A36" stroke="none">
       if(nameInp)nameInp.addEventListener('input',function(){
         var v=(nameInp.value||'').trim().toLowerCase();
         var s=(RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===v;})[0];
-        if(s){applyRetailToSO(s);syncSOInputs();return;}
-        var b=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===v;})[0];
-        if(b){applyBeanToSO(b);['process','variety','altitude','region'].forEach(function(k){var i=document.getElementById('lf-'+k);if(i)i.value=soForm[k]||'';});}
+        if(s){applyRetailToSO(s);syncSOInputs();}
       });
     }
     var g=document.getElementById('lbx-gen');if(g)g.addEventListener('click',generateLabelLbx);
