@@ -1951,7 +1951,15 @@ fill="#6F4A36" stroke="none">
       {value:labelForm.net,orig:'NET 250G',pre:'NET ',post:'G',fit:0}
     ];
   }
-  function openLabel(){closeFolder();openPage('label');renderLabel();}
+  function openLabel(){closeFolder();openPage('label');renderLabel();ensureBeansForInvoice().then(function(){if(document.getElementById('label-content'))renderLabel();});}
+  function applyBeanToSO(b){
+    if(!b)return;
+    soForm.name=b.name||soForm.name;
+    soForm.process=b.process||'';
+    soForm.variety=b.variety||'';
+    soForm.altitude=(b.altitude!=null&&b.altitude!=='')?String(b.altitude):'';
+    soForm.region=[b.region,b.country].filter(Boolean).join(', ');
+  }
   function renderLabel(msg){
     var el=document.getElementById('label-content');if(!el)return;
     var fields=labelMode==='single'?SO_FORM:LBL_FORM;
@@ -1964,17 +1972,26 @@ fill="#6F4A36" stroke="none">
           +'<input type="text" id="lf-date_m" value="'+esc(data.date_m||'')+'" placeholder="Month 07" style="flex:1;min-width:0" />'
           +'</div></div>';
       }
-      return '<label class="smp-f"><span>'+esc(f.label)+'</span><input type="text" id="lf-'+f.k+'" value="'+esc(data[f.k]||'')+'" placeholder="'+esc(f.ph)+'" /></label>';
+      return '<label class="smp-f"><span>'+esc(f.label)+'</span><input type="text" id="lf-'+f.k+'"'+(labelMode==='single'&&f.k==='name'?' list="lbl-beans" autocomplete="off"':'')+' value="'+esc(data[f.k]||'')+'" placeholder="'+esc(f.ph)+'" /></label>';
     }).join('');
     el.innerHTML='<div class="lbl-wrap">'
       +'<div class="lbl-seg"><button class="lbl-tab'+(labelMode==='blend'?' on':'')+'" data-mode="blend">Blend</button><button class="lbl-tab'+(labelMode==='single'?' on':'')+'" data-mode="single">Single Origin</button></div>'
       +'<div class="smp-sec-h" style="margin:2px 0 10px">Fill in &amp; generate</div>'
       +'<div class="smp-fields">'+rows+'</div>'
+      +(labelMode==='single'?'<datalist id="lbl-beans">'+(BEANS||[]).map(function(b){return '<option value="'+esc(b.name||'')+'"></option>';}).join('')+'</datalist>':'')
       +'<div class="gform-msg'+(msg&&msg.err?' err':(msg&&msg.ok?' ok':''))+'" id="lbx-msg" style="margin-top:12px">'+(msg?esc(msg.text):'')+'</div>'
       +'<button class="gbtn" id="lbx-gen" style="margin-top:6px">Generate .lbx</button>'
       +'</div>';
     el.querySelectorAll('.lbl-tab').forEach(function(t){t.addEventListener('click',function(){var m=t.getAttribute('data-mode');if(m&&m!==labelMode){labelMode=m;renderLabel();}});});
     fields.forEach(function(f){var inp=document.getElementById('lf-'+f.k);if(inp)inp.addEventListener('input',function(){data[f.k]=inp.value;});});
+    if(labelMode==='single'){
+      var nameInp=document.getElementById('lf-name');
+      if(nameInp)nameInp.addEventListener('input',function(){
+        var v=(nameInp.value||'').trim().toLowerCase();
+        var b=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===v;})[0];
+        if(b){applyBeanToSO(b);['process','variety','altitude','region'].forEach(function(k){var i=document.getElementById('lf-'+k);if(i)i.value=soForm[k]||'';});}
+      });
+    }
     var g=document.getElementById('lbx-gen');if(g)g.addEventListener('click',generateLabelLbx);
   }
   function b64ToU8(b64){var bin=atob(b64),n=bin.length,a=new Uint8Array(n);for(var i=0;i<n;i++)a[i]=bin.charCodeAt(i);return a;}
