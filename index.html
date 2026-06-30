@@ -196,11 +196,10 @@
   .lbl-tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .lbl-tab.soon{opacity:.55;cursor:default}
   .pend-seg{padding:12px 14px 0;margin-bottom:6px}
-  .blend-list{display:flex;flex-direction:column;padding:6px 16px 18px}
-  .blend-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 4px;border-bottom:1px solid var(--line)}
-  .blend-row:last-child{border-bottom:none}
-  .blend-name{font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--ink)}
-  .blend-row.off .blend-name{color:var(--muted)}
+  .blend-pick{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);cursor:pointer;font-family:inherit;text-align:left}
+  .blend-pick .blend-name{font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--ink)}
+  .blend-go{font-size:12px;font-weight:700;color:#fff;background:var(--accent);padding:7px 13px;border-radius:999px;white-space:nowrap;flex:0 0 auto}
+  .blend-pick:active{background:var(--tint)}
   .cm-wrap{padding:12px 12px 4px;height:100%;box-sizing:border-box}
   .cm-chart{position:relative;height:62vh;min-height:300px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface)}
   .cm-load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted)}
@@ -2247,7 +2246,7 @@ fill="#6F4A36" stroke="none">
     if(greenView==='detail'){greenView='beans';greenBeanId=null;greenEdit=false;greenDelConfirm=false;renderGreen();}
     else if(greenView==='beans'){greenView='countries';greenCountry=null;renderGreen();}
     else if(greenView==='roast'){closePage();}
-    else if(greenView==='sample'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderSample();}else if(smpCuppingRoast){smpCuppingRoast=null;smpPages=[blankSmp()];smpIdx=0;roastedTitle='Pending';beansView='production';openPage('beans');renderRoasted();}else{closePage();}}
+    else if(greenView==='sample'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderSample();}else if(smpCuppingRoast||blendCupping){smpCuppingRoast=null;blendCupping=null;smpPages=[blankSmp()];smpIdx=0;roastedTitle='Pending';beansView='production';openPage('beans');renderRoasted();}else{closePage();}}
     else if(greenView==='history'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderHistory();}else{closePage();}}
     else if(greenView==='countries'||greenView==='soon'){closePage();}
     else{closePage();}
@@ -2533,20 +2532,8 @@ fill="#6F4A36" stroke="none">
     roastEdit=null;roastDelConfirm=false;
     renderRoasted();
   }
-  let pendTab='single';
+  let pendTab='single', blendOpen={}, blendCupping=null;
   var BLENDS=['Dark Knight','Dancer','Dreamer','Sugar Daddy','April Project','May Project','June Project'];
-  function blendKey(){return 'ratio_blend_'+currentWeekStart();}
-  function loadBlendWeek(){try{return JSON.parse(localStorage.getItem(blendKey())||'{}');}catch(e){return {};}}
-  function saveBlendWeek(m){try{localStorage.setItem(blendKey(),JSON.stringify(m));}catch(e){}}
-  function blendTabHTML(){
-    var m=loadBlendWeek();
-    var rows=BLENDS.map(function(name){
-      var on=!!m[name];
-      return '<div class="blend-row'+(on?'':' off')+'"><span class="blend-name">'+esc(name)+'</span>'
-        +'<button class="inv-toggle'+(on?' on':'')+'" data-blend="'+esc(name)+'" aria-label="offered this week"></button></div>';
-    }).join('');
-    return '<div class="gsec" style="padding:12px 18px 2px">配方 · 點開關手動設定本週是否提供</div><div class="blend-list">'+rows+'</div>';
-  }
   function renderRoasted(){
     const box=document.getElementById('beans-content');
     const title=document.getElementById('beans-title');
@@ -2558,15 +2545,25 @@ fill="#6F4A36" stroke="none">
       +'<button class="lbl-tab'+(pendTab==='blend'?' on':'')+'" data-pend="blend">Blend</button></div>'):'';
     function bindPendTabs(){box.querySelectorAll('.pend-seg .lbl-tab').forEach(function(t){t.addEventListener('click',function(){var v=t.getAttribute('data-pend');if(v&&v!==pendTab){pendTab=v;renderRoasted();}});});}
     if(showTabs&&pendTab==='blend'){
-      var bm=loadBlendWeek();
-      document.getElementById('beans-count').textContent=BLENDS.filter(function(n){return bm[n];}).length+' on';
-      box.innerHTML=tabBar+blendTabHTML();
+      document.getElementById('beans-count').textContent='';
+      var bord=[],bseen={};
+      ROASTS.forEach(function(r){var d=r.roast_date||'—';if(!bseen[d]){bseen[d]=true;bord.push(d);}});
+      var bhead='<div class="gsec" style="padding:12px 18px 2px">Tap a date · pick the blend you made today → Analyse</div>';
+      var bbody=bord.length?bord.map(function(d){
+        var open=!!blendOpen[d];
+        var h='<button class="rdate'+(open?' open':'')+'" data-bd="'+esc(d)+'">'
+          +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
+          +'<span class="rd-date">'+esc(fmtDate(d))+'</span>'
+          +'<span class="rd-meta">'+BLENDS.length+' blends</span></button>';
+        var bd=open?('<div class="rd-body">'+BLENDS.map(function(name){
+          return '<button class="blend-pick" data-bn="'+esc(name)+'" data-bdate="'+esc(d)+'"><span class="blend-name">'+esc(name)+'</span><span class="blend-go">Start Analyse</span></button>';
+        }).join('')+'</div>'):'';
+        return '<div class="rgroup">'+h+bd+'</div>';
+      }).join(''):'<div class="sempty">No roast days yet<br>Log a roast first</div>';
+      box.innerHTML=tabBar+bhead+bbody;
       bindPendTabs();
-      box.querySelectorAll('.inv-toggle[data-blend]').forEach(function(el){el.addEventListener('click',function(){
-        var name=el.dataset.blend;var m=loadBlendWeek();if(m[name])delete m[name];else m[name]=true;saveBlendWeek(m);
-        var on=!!m[name];el.classList.toggle('on',on);var row=el.closest('.blend-row');if(row)row.classList.toggle('off',!on);
-        document.getElementById('beans-count').textContent=BLENDS.filter(function(n){return m[n];}).length+' on';
-      });});
+      box.querySelectorAll('.rdate[data-bd]').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.bd;blendOpen[d]=!blendOpen[d];renderRoasted();});});
+      box.querySelectorAll('.blend-pick').forEach(function(el){el.addEventListener('click',function(){openBlendCupping(el.dataset.bn,el.dataset.bdate);});});
       return;
     }
     document.getElementById('beans-count').textContent=ROASTS.length+' roasts';
@@ -2731,7 +2728,7 @@ fill="#6F4A36" stroke="none">
     if(!smpPages.length)smpPages=[blankSmp()];
     if(smpIdx<0)smpIdx=0;if(smpIdx>=smpPages.length)smpIdx=smpPages.length-1;
     var p=smpPages[smpIdx];
-    var cupping=!!smpCuppingRoast;
+    var cupping=!!smpCuppingRoast||!!blendCupping;
     var no=nextNo(p.cupping_date||todayStr());
     var nav=cupping
       ?'<div class="smp-cuphdr">Cupping · <b>'+esc(p.sample_id||'')+'</b></div>'
@@ -2855,6 +2852,24 @@ fill="#6F4A36" stroke="none">
       +feats
       +(s.comment?'<div class="smp-cmt">'+esc(s.comment)+'</div>':'')+'</div>';
   }
+  async function openBlendCupping(name,date){
+    openPage('green');
+    document.getElementById('green-title').textContent='Analyse';
+    document.getElementById('green-count').textContent='';
+    document.getElementById('green-content').innerHTML='<div class="sempty">Loading…</div>';
+    var res=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('no',{ascending:false}).order('created_at',{ascending:false});
+    SAMPLES=res.error?[]:(res.data||[]);
+    smpEdit=null;smpEditObj=null;smpDelConfirm=false;
+    smpCuppingRoast=null;blendCupping={name:name,date:date};
+    var prev=SAMPLES.find(function(x){return x.supplier==='Ratio Coffee'&&String(x.sample_id||'')===String(name||'');});
+    var page=Object.assign(blankSmp(),{supplier:'Ratio Coffee',sample_id:name||'',cupping_date:date||todayStr()});
+    if(prev){
+      page.fragrance=prev.fragrance;page.acidity=prev.acidity;page.sweetness=prev.sweetness;page.body=prev.body;page.aftertaste=prev.aftertaste;
+      page.features=(prev.features||[]).slice();page.comment=prev.comment||'';if(prev.process)page.process=prev.process;
+    }
+    smpPages=[page];smpIdx=0;greenView='sample';
+    renderSample(res.error?res.error.message:'');
+  }
   async function openCupping(roastId){
     var r=ROASTS.find(function(x){return String(x.id)===String(roastId);});
     if(!r)return;
@@ -2902,7 +2917,7 @@ fill="#6F4A36" stroke="none">
           SAMPLES=SAMPLES.filter(function(x){return !(x.supplier==='Ratio Coffee'&&x.sample_id===bn);});
         }
       }
-      smpCuppingRoast=null;smpPages=[blankSmp()];smpIdx=0;
+      smpCuppingRoast=null;blendCupping=null;smpPages=[blankSmp()];smpIdx=0;
       roastedTitle='Pending';beansView='production';openPage('beans');renderRoasted();return;
     }
     var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||'Ratio Coffee',sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:null};
@@ -2917,7 +2932,7 @@ fill="#6F4A36" stroke="none">
       var lr=ROASTS.find(function(x){return String(x.id)===String(rid);});
       if(lr)lr.status='cupped';
     }
-    smpCuppingRoast=null;
+    smpCuppingRoast=null;blendCupping=null;
     smpPages=[blankSmp()];smpIdx=0;
     roastedTitle='Pending';beansView='production';
     openPage('beans');
