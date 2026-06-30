@@ -2952,6 +2952,14 @@ fill="#6F4A36" stroke="none">
     var n=String(name||''),d=String(date||'');
     return (BLEND_SAMPLES||[]).some(function(s){return String(s.sample_id||'')===n&&String(s.cupping_date||'')===d;});
   }
+  var RT_SAVE_FOOT='<div class="bl-addwrap" style="padding-top:8px"><button class="gbtn" id="rt-save">Save</button><div class="bl-saved" id="rt-saved">\u2713 Saved</div></div>';
+  function wireRtSave(){
+    var b=document.getElementById('rt-save');if(!b)return;
+    b.addEventListener('click',function(){
+      try{saveDots(loadDots());saveGrams(loadGrams());}catch(e){}
+      var s=document.getElementById('rt-saved');if(s){s.classList.add('show');clearTimeout(window._rtSaveT);window._rtSaveT=setTimeout(function(){s.classList.remove('show');},1800);}
+    });
+  }
   function renderRoasted(){
     const box=document.getElementById('beans-content');
     const title=document.getElementById('beans-title');
@@ -2993,11 +3001,12 @@ fill="#6F4A36" stroke="none">
         }).join('')+'</div>'):'';
         return '<div class="rgroup">'+h+bd+'</div>';
       }).join(''):'<div class="sempty">No roast days yet<br>Log a roast first</div>';
-      box.innerHTML=tabBar+bhead+bbody;
+      box.innerHTML=tabBar+bhead+bbody+RT_SAVE_FOOT;
       bindPendTabs();
       box.querySelectorAll('.rdate[data-bd]').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.bd;blendOpen[d]=!blendOpen[d];renderRoasted();});});
       box.querySelectorAll('.blend-act').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();openBlendCupping(el.dataset.bn,el.dataset.bdate);});});
       bindRetailControls(box);
+      wireRtSave();
       return;
     }
     document.getElementById('beans-count').textContent=ROASTS.length+' roasts';
@@ -3014,12 +3023,13 @@ fill="#6F4A36" stroke="none">
         +'<span class="rd-meta">'+items.length+' roasts'+(pending?' · <b>'+pending+' Pending</b>':'')+'</span></button>';
       var body=open?'<div class="rd-body">'+items.map(function(r){return roastCard(r,true);}).join('')+'</div>':'';
       return '<div class="rgroup">'+head+body+'</div>';
-    }).join('');
+    }).join('')+RT_SAVE_FOOT;
     bindPendTabs();
     box.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.d;roastedOpen[d]=!roastedOpen[d];renderRoasted();});});
     box.querySelectorAll('.bean-cta.edit').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();roastEdit=el.dataset.eid;roastDelConfirm=false;var r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});roastEditStatus=r?r.status:'pending_cupping';renderRoasted();document.getElementById('beans-content').scrollTop=0;});});
     box.querySelectorAll('.bean-cta[data-aid]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();openCupping(el.dataset.aid);});});
     bindRetailControls(box);
+    wireRtSave();
   }
   function renderRoastEdit(){
     const box=document.getElementById('beans-content');
