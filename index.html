@@ -1926,7 +1926,7 @@ fill="#6F4A36" stroke="none">
       return [
         {value:soForm.name,orig:'DARK KNIGHT',pre:'',post:'',fit:1},
         {value:joinTwo(soForm.process,soForm.variety),orig:'Espigao | Danche | El Indio',pre:'',post:'',fit:1},
-        {value:joinTwo(soForm.altitude,soForm.region),orig:'V3.0 Competition Blend',pre:'',post:'',fit:1},
+        {value:joinTwo((soForm.altitude||'').trim()?soForm.altitude.trim()+' MASL':'',soForm.region),orig:'V3.0 Competition Blend',pre:'',post:'',fit:1},
         {value:soForm.flavour,orig:'Dried Fruit | Walnut | Chocolate',pre:'',post:'',fit:1},
         {value:soForm.date,orig:'READY BREW DATE: 06 | 07',pre:'READY BREW DATE: ',post:'',fit:0},
         {value:soForm.net,orig:'NET 250G',pre:'NET ',post:'G',fit:0}
