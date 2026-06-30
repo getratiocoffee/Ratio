@@ -1025,7 +1025,7 @@ fill="#6F4A36" stroke="none">
   let tsFilter=null;
   function renderModulePanel(rootKey){
     var deep=dockStack[dockStack.length-1];
-    if(deep==='green.trade'){renderCMarket();return;}
+    if(deep==='green.trade'){if(typeof closePage==='function')closePage();renderCMarket();return;}
     if(rootKey==='timesheet'){
       const cw=currentWeekStart();
       const w=thisWeekEntry();
