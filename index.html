@@ -263,6 +263,7 @@
   .re-actrow .gbtn{margin:0}
   .gbtn.ico-ok{width:46px;height:42px;padding:0;display:flex;align-items:center;justify-content:center}
   .gbtn.ico-ok svg{width:20px;height:20px}
+  .re-soon{border:1.5px dashed #CBBEB7;border-radius:14px;background:var(--bg);color:var(--muted);font-size:13px;font-weight:600;text-align:center;padding:16px 12px;margin:4px 0 2px}
   .gdel{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
   .gdel-msg{font-size:13px;color:var(--ink);margin-bottom:11px;text-align:center;line-height:1.5}
   .re-seg{display:flex;gap:8px}
@@ -2152,6 +2153,7 @@ fill="#6F4A36" stroke="none">
       +'<div class="gform">'
       +'<label class="gfield"><span class="gl">Green used (kg) · changing it adjusts stock</span><input id="re-kg" type="text" inputmode="decimal" value="'+esc(r.green_kg!=null?gnum(r.green_kg):'')+'" /></label>'
       +'<label class="gfield"><span class="gl">Roast date</span><input id="re-date" type="date" value="'+esc(r.roast_date||'')+'" /></label>'
+      +'<div class="re-soon">Detailed roast info coming soon</div>'
       +'<div class="gform-msg" id="re-msg"></div>'
       +(roastDelConfirm
           ?'<div class="gdel"><div class="gdel-msg">Delete this roast?<br>Adds '+esc(gnum(r.green_kg))+' kg back to "'+esc(r.bean_name||'')+'" stock.</div><div class="gform-actions"><button class="gbtn ghost" id="re-del-cancel">Cancel</button><button class="gbtn danger" id="re-del-yes">Delete</button></div></div>'
