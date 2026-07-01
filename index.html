@@ -728,6 +728,10 @@
   .bl-tot b{font-family:var(--font-mono)}
   .bl-tot.ok{color:#5E8C61}
   .bl-tot.over{color:var(--accent)}
+  .bl-foot{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:6px}
+  .bl-foot .bl-tot{margin-top:0}
+  .bl-cost{font-size:12px;color:var(--muted)}
+  .bl-cost b{font-family:var(--font-mono);color:var(--ink)}
   .bl-addwrap{padding:10px 16px calc(env(safe-area-inset-bottom,0px) + 18px)}
   .bl-addwrap .gbtn{width:100%}
   .bl-addwrap .gbtn.ghost{margin-bottom:10px}
@@ -3432,6 +3436,19 @@ fill="#6F4A36" stroke="none">
     return o;
   }
   function blendTotal(bl){return bl.parts.reduce(function(s,p){var v=parseFloat(p.pct);return s+(isNaN(v)?0:v);},0);}
+  function blendCostPerKg(bl){
+    var parts=(bl&&bl.parts)||[],sum=0,any=false;
+    parts.forEach(function(p){
+      var nm=(p.bean||'').trim();if(!nm)return;
+      var pct=parseFloat(p.pct);if(isNaN(pct))return;
+      var b=(BEANS||[]).find(function(x){return (x.name||'').trim()===nm;});
+      if(!b||b.cost_per_kg==null||b.cost_per_kg==='')return;
+      var c=parseFloat(b.cost_per_kg);if(isNaN(c))return;
+      sum+=c*(pct/100);any=true;
+    });
+    return any?sum:null;
+  }
+  function blendCostHTML(bl){var ck=blendCostPerKg(bl);return 'Cost/KG '+(ck==null?'<b>&mdash;</b>':'<b>$'+ck.toFixed(2)+'</b>');}
   function openBlending(){
     closeFolder();openPage('blend');
     document.getElementById('blend-content').innerHTML='<div class="sempty">Loading\u2026</div>';
@@ -3454,7 +3471,7 @@ fill="#6F4A36" stroke="none">
         +'<button class="bl-del" data-bi="'+bi+'" aria-label="delete blend">'+trash+'</button></div>'
         +rows
         +'<input class="bl-cmt" data-bi="'+bi+'" value="'+esc(bl.comment||'')+'" placeholder="Special comment \u00b7 e.g. V3.0 Competition Blend" />'
-        +'<div class="bl-tot '+totCls+'">Total <b>'+tot+'%</b>'+(tot===100?'':' \u00b7 should be 100%')+'</div>'
+        +'<div class="bl-foot"><div class="bl-cost">'+blendCostHTML(bl)+'</div><div class="bl-tot '+totCls+'">Total <b>'+tot+'%</b>'+(tot===100?'':' \u00b7 should be 100%')+'</div></div>'
         +'</div>';
     }).join('');
     el.innerHTML='<div class="gsec" style="padding:14px 18px 2px">Blends \u00b7 pick 3 single origins &amp; set %</div>'
@@ -3463,10 +3480,11 @@ fill="#6F4A36" stroke="none">
       +'<button class="gbtn" id="bl-save">Save recipe</button>'
       +'<div class="bl-saved" id="bl-saved">\u2713 Saved</div></div>';
     el.querySelectorAll('.bl-name').forEach(function(inp){inp.addEventListener('input',function(){var d=loadBlendDefs();d[+inp.dataset.bi].name=inp.value;saveBlendDefs(d);});});
-    el.querySelectorAll('.bl-bean').forEach(function(s){s.addEventListener('change',function(){var d=loadBlendDefs();d[+s.dataset.bi].parts[+s.dataset.pi].bean=s.value;saveBlendDefs(d);});});
+    el.querySelectorAll('.bl-bean').forEach(function(s){s.addEventListener('change',function(){var d=loadBlendDefs();d[+s.dataset.bi].parts[+s.dataset.pi].bean=s.value;saveBlendDefs(d);var card=s.closest('.bl-card'),ce=card&&card.querySelector('.bl-cost');if(ce)ce.innerHTML=blendCostHTML(d[+s.dataset.bi]);});});
     el.querySelectorAll('.bl-cmt').forEach(function(inp){inp.addEventListener('input',function(){var d=loadBlendDefs();d[+inp.dataset.bi].comment=inp.value;saveBlendDefs(d);});});
     el.querySelectorAll('.bl-pctin').forEach(function(i){i.addEventListener('input',function(){var d=loadBlendDefs();d[+i.dataset.bi].parts[+i.dataset.pi].pct=i.value;saveBlendDefs(d);
-      var card=i.closest('.bl-card'),t=card&&card.querySelector('.bl-tot');if(t){var tt=blendTotal(d[+i.dataset.bi]);t.className='bl-tot '+(tt===100?'ok':(tt>100?'over':''));t.innerHTML='Total <b>'+tt+'%</b>'+(tt===100?'':' \u00b7 should be 100%');}});});
+      var card=i.closest('.bl-card'),t=card&&card.querySelector('.bl-tot');if(t){var tt=blendTotal(d[+i.dataset.bi]);t.className='bl-tot '+(tt===100?'ok':(tt>100?'over':''));t.innerHTML='Total <b>'+tt+'%</b>'+(tt===100?'':' \u00b7 should be 100%');}
+      var ce=card&&card.querySelector('.bl-cost');if(ce)ce.innerHTML=blendCostHTML(d[+i.dataset.bi]);});});
     el.querySelectorAll('.bl-del').forEach(function(b){b.addEventListener('click',function(){var d=loadBlendDefs();d.splice(+b.dataset.bi,1);saveBlendDefs(d);renderBlending();});});
     var add=document.getElementById('bl-add');if(add)add.addEventListener('click',function(){var d=loadBlendDefs();d.push(blankBlend(''));saveBlendDefs(d);renderBlending();el.scrollTop=el.scrollHeight;});
     var save=document.getElementById('bl-save');if(save)save.addEventListener('click',function(){
