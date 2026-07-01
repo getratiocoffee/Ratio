@@ -218,6 +218,8 @@
   .blend-pick.done.np:active{background:var(--bg)}
   .bp-l{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
   .bp-sub{font-size:12px;color:var(--muted)}
+  .bl-cuplist{display:flex;flex-direction:column;gap:8px;padding:0 14px 6px}
+  .bl-cupn{display:inline-block;margin-left:6px;font-size:10px;font-weight:700;color:var(--accent);background:var(--tint);border-radius:999px;padding:1px 7px;letter-spacing:.04em;vertical-align:middle}
   .blend-edit{flex:0 0 auto;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:#6B5E50;cursor:pointer;padding:0}
   .blend-edit svg{width:17px;height:17px}
   .blend-edit:active{background:#EDE3DF}
@@ -4310,6 +4312,7 @@ fill="#6F4A36" stroke="none">
     return blendTotal(def)===100;
   }
   function readyBlendNames(){return loadBlendDefs().filter(blendReady).map(function(b){return (b.name||'').trim();});}
+  function readyBlendDefs(){return loadBlendDefs().filter(blendReady);}
   function blendDefByName(name){var n=String(name||'').trim().toLowerCase();if(!n)return null;return loadBlendDefs().filter(function(b){return String(b.name||'').trim().toLowerCase()===n;})[0]||null;}
   function groupedRoastListHTML(arr){
     var groups={},order=[];
@@ -4382,6 +4385,28 @@ fill="#6F4A36" stroke="none">
     roastedOpen[date]=true;dateKind[date]=kind;
     renderRoasted();
   }
+  function pendingBlendSectionHTML(){
+    var defs=[];try{defs=readyBlendDefs();}catch(e){}
+    var head='<div class="gsec" style="padding:12px 18px 4px">Blends \u00b7 ready to cup<span class="bl-cupn">100%</span></div>';
+    if(!defs.length){
+      return head+'<div class="sempty sm" style="margin:0 14px 8px">No 100% blends yet \u00b7 finish a recipe in F(x) \u2192 Blending</div>';
+    }
+    var cards=defs.map(function(bl){
+      var nm=(bl.name||'').trim();
+      var recipe=(bl.parts||[]).filter(function(p){return String(p.bean||'').trim();})
+        .map(function(p){return esc(p.bean.trim())+' '+esc(String(p.pct))+'%';}).join(' \u00b7 ');
+      return '<div class="blend-pick np">'
+        +'<div class="bp-l"><span class="blend-name">'+esc(nm||'\u2014')+'</span>'+(recipe?'<span class="bp-sub">'+recipe+'</span>':'')+'</div>'
+        +'<span class="blend-rt"><button class="blend-go bl-cupgo" data-bname="'+esc(nm)+'">Start Analyse</button></span>'
+        +'</div>';
+    }).join('');
+    return head+'<div class="bl-cuplist">'+cards+'</div>';
+  }
+  function wirePendingBlend(box){
+    box.querySelectorAll('.bl-cupgo[data-bname]').forEach(function(el){
+      el.addEventListener('click',function(e){e.stopPropagation();openBlendCupping(el.dataset.bname);});
+    });
+  }
   function renderRoasted(){
     const box=document.getElementById('beans-content');
     const title=document.getElementById('beans-title');
@@ -4399,10 +4424,11 @@ fill="#6F4A36" stroke="none">
       return;
     }
     var acBar='<div class="ac-bar"><button class="ac-open-btn" id="ac-open">+ Add Coffee</button></div>';
+    var blSec=pendingBlendSectionHTML();
     var order=[],seen={};
     ROASTS.forEach(function(r){var d=r.roast_date||'\u2014';if(!seen[d]){seen[d]=true;order.push(d);}});
     document.getElementById('beans-count').textContent=ROASTS.length+' roasts';
-    if(!order.length){box.innerHTML=acBar+'<div class="sempty">No roasts yet<br>Log one in Roast, or use + Add Coffee</div>';wireAcOpen();return;}
+    if(!order.length){box.innerHTML=acBar+blSec+'<div class="sempty">No roasts yet<br>Log one in Roast, or use + Add Coffee</div>';wireAcOpen();wirePendingBlend(box);return;}
     var body=order.map(function(d){
       var open=!!roastedOpen[d];
       var kind=(dateKind[d]==='blend')?'blend':'single';
@@ -4440,8 +4466,9 @@ fill="#6F4A36" stroke="none">
       }
       return '<div class="rgroup">'+head+inner+'</div>';
     }).join('');
-    box.innerHTML=acBar+body;
+    box.innerHTML=acBar+blSec+body;
     wireAcOpen();
+    wirePendingBlend(box);
     box.querySelectorAll('.rdate[data-d]').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.d;roastedOpen[d]=!roastedOpen[d];renderRoasted();});});
     box.querySelectorAll('.date-seg .lbl-tab[data-dd]').forEach(function(t){t.addEventListener('click',function(e){e.stopPropagation();var d=t.getAttribute('data-dd'),k=t.getAttribute('data-dk');if((dateKind[d]||'single')!==k){dateKind[d]=k;renderRoasted();}});});
     box.querySelectorAll('.cup-toggle[data-ck]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();var k=el.dataset.ck;cuppedOpen[k]=!cuppedOpen[k];renderRoasted();});});
@@ -4732,6 +4759,28 @@ fill="#6F4A36" stroke="none">
       page.features=(prev.features||[]).slice();
       page.comment=prev.comment||'';
       if(prev.process&&!page.process)page.process=prev.process;
+    }
+    smpPages=[page];
+    smpIdx=0;greenView='sample';
+    renderSample(res.error?res.error.message:'');
+  }
+  async function openBlendCupping(name){
+    name=String(name||'').trim();if(!name)return;
+    openPage('green');
+    document.getElementById('green-title').textContent='Analyse';
+    document.getElementById('green-count').textContent='';
+    document.getElementById('green-content').innerHTML='<div class="sempty">Loading\u2026</div>';
+    var res=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('no',{ascending:false}).order('created_at',{ascending:false});
+    SAMPLES=res.error?[]:(res.data||[]);
+    smpEdit=null;smpEditObj=null;smpDelConfirm=false;
+    smpCuppingRoast=null;blendCupping={name:name};
+    var prev=SAMPLES.find(function(x){return x.supplier==='Ratio Coffee'&&String(x.sample_id||'')===name;});
+    var page=Object.assign(blankSmp(),{supplier:'Ratio Coffee',sample_id:name,process:''});
+    if(prev){
+      page.fragrance=prev.fragrance;page.acidity=prev.acidity;page.sweetness=prev.sweetness;page.body=prev.body;page.aftertaste=prev.aftertaste;
+      page.features=(prev.features||[]).slice();
+      page.comment=prev.comment||'';
+      if(prev.process)page.process=prev.process;
     }
     smpPages=[page];
     smpIdx=0;greenView='sample';
