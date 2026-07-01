@@ -476,6 +476,7 @@
   .sc-chip{font-size:11px;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:2px 8px}
   .sc-chip b{color:var(--ink);margin-left:4px;font-family:var(--font-mono)}
   .smp-cmt{font-size:13px;color:var(--ink);margin-top:8px;line-height:1.5}
+  .smp-by{font-size:11px;color:var(--muted);margin-top:6px;font-weight:500}
   .smp-badge{font-size:11px;font-weight:600;border-radius:8px;padding:3px 11px;color:#fff}
   .smp-badge.buy{background:#5E8C61}
   .smp-badge.maybe{background:#C9A24B}
@@ -3654,7 +3655,7 @@ fill="#6F4A36" stroke="none">
       +'<div class="bean-sub">'+esc(fmtDate(s.cupping_date))+(sub?' · '+sub:'')+'</div>'
       +(chips?'<div class="smp-scoreline">'+chips+'</div>':'')
       +feats
-      +(s.comment?'<div class="smp-cmt">'+esc(s.comment)+'</div>':'')+'</div>';
+      +(s.comment?'<div class="smp-cmt">'+esc(s.comment)+'</div>':'')+(s.cupper?'<div class="smp-by">Analysed by '+esc(s.cupper)+'</div>':'')+'</div>';
   }
   async function openBlendCupping(name,date){
     openPage('green');
@@ -3724,10 +3725,11 @@ fill="#6F4A36" stroke="none">
       smpCuppingRoast=null;blendCupping=null;blendSamplesLoaded=false;smpPages=[blankSmp()];smpIdx=0;
       roastedTitle='Pending';beansView='production';openPage('beans');renderRoasted();return;
     }
-    var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||'Ratio Coffee',sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:null};
+    var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||'Ratio Coffee',sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:null,cupper:(window.CURRENT_USER||null)};
     if(!rec.sample_id){if(btn)btn.disabled=false;if(msg){msg.textContent='Missing coffee name (ID)';msg.className='gform-msg err';}return;}
     let ins=await sb.from('samples').insert(rec).select();
     if(ins.error&&rec.features!==undefined){var r2=Object.assign({},rec);delete r2.features;ins=await sb.from('samples').insert(r2).select();}
+    if(ins.error&&rec.cupper!==undefined){var r3=Object.assign({},rec);delete r3.cupper;delete r3.features;ins=await sb.from('samples').insert(r3).select();}
     if(ins.error){if(btn)btn.disabled=false;if(msg){msg.textContent='Save failed: '+ins.error.message;msg.className='gform-msg err';}return;}
     if(ins.data&&ins.data[0])SAMPLES.unshift(ins.data[0]);
     if(rid){
@@ -3747,11 +3749,12 @@ fill="#6F4A36" stroke="none">
     const msg=document.getElementById('smp-msg');
     const buy=document.getElementById('smp-buy'),skip=document.getElementById('smp-skip'),maybe=document.getElementById('smp-maybe');
     var p=smpPages[smpIdx];
-    var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||null,sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:decision};
+    var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||null,sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:decision,cupper:(window.CURRENT_USER||null)};
     if(!rec.supplier&&!rec.sample_id){msg.textContent='Enter at least Supplier or ID';msg.className='gform-msg err';return;}
     buy.disabled=true;skip.disabled=true;if(maybe)maybe.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
     let ins=await sb.from('samples').insert(rec).select();
     if(ins.error&&rec.features!==undefined){var r2=Object.assign({},rec);delete r2.features;ins=await sb.from('samples').insert(r2).select();}
+    if(ins.error&&rec.cupper!==undefined){var r3=Object.assign({},rec);delete r3.cupper;delete r3.features;ins=await sb.from('samples').insert(r3).select();}
     if(ins.error){buy.disabled=false;skip.disabled=false;if(maybe)maybe.disabled=false;msg.textContent='Save failed: '+ins.error.message;msg.className='gform-msg err';return;}
     if(ins.data&&ins.data[0])SAMPLES.unshift(ins.data[0]);
     smpPages.splice(smpIdx,1);
