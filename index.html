@@ -721,6 +721,14 @@
   .tk-price em{font-style:normal;font-weight:700}
   .tk-price.hot em{color:#D6006C}
   .tk-price.cold em{color:#2A8FD8}
+  .di-prow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .di-prow:last-child{border-bottom:none}
+  .di-plab{font-size:13px;color:var(--ink);font-weight:500}
+  .di-plab small{color:var(--muted);font-weight:400;margin-left:5px}
+  .di-pwrap{display:flex;align-items:center;gap:4px;color:var(--muted);font-size:13px;white-space:nowrap}
+  .di-pin{width:64px;font-family:inherit;font-size:13px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-align:right}
+  .di-pin.wide{width:96px}
+  .di-pin:focus{outline:none;border-color:var(--accent)}
   .sp-dotb{margin-left:auto;width:14px;height:14px;border-radius:50%;display:inline-block;border:1px solid rgba(50,43,42,.12)}
   .mn-prev{margin-top:11px;padding-top:11px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
   .mn-pv-row{display:flex;gap:10px;font-size:12px;line-height:1.45}
@@ -1288,6 +1296,7 @@ fill="#6F4A36" stroke="none">
     'ratio_special_slots':'special_slots',
     'ratio_special_prices':'special_prices',
     'ratio_takeaway':'takeaway',
+    'ratio_dinein':'dinein',
     'ratio_rtl_dot':'rtl_dot',
     'ratio_rtl_g':'rtl_g',
     'ratio_rtl_sold':'rtl_sold',
@@ -1334,6 +1343,7 @@ fill="#6F4A36" stroke="none">
     if(lsKey==='ratio_special_slots'){try{SPECIAL_SLOTS=loadSpecialSlots();}catch(e){}}
     if(lsKey==='ratio_special_prices'){try{SPECIAL_PRICES=loadSpecialPrices();}catch(e){}}
     if(lsKey==='ratio_takeaway'){try{TAKEAWAY=loadTakeaway();}catch(e){}}
+    if(lsKey==='ratio_dinein'){try{DINEIN=loadDinein();}catch(e){}}
   }
   function appStateRefreshOpenScreens(){
     try{
@@ -2779,6 +2789,7 @@ fill="#6F4A36" stroke="none">
   function renderMenuView(){
     if(menuView==='blend')renderMenu();
     else if(menuView==='takeaway')renderTakeaway();
+    else if(menuView==='dinein')renderDinein();
     else if(menuView==='special')renderSpecial();
     else renderMenuHub();
   }
@@ -2791,12 +2802,14 @@ fill="#6F4A36" stroke="none">
     c.innerHTML='<div class="mn-hub">'
       +'<button class="mn-hubbtn" data-menu="blend"><span class="mn-hubt">Blend Menu</span><span class="mn-hubs">4-blend A4 menu · two-up cut sheet</span></button>'
       +'<button class="mn-hubbtn" data-menu="takeaway"><span class="mn-hubt">Take Away Menu</span><span class="mn-hubs">Blend + Pour Over cup menu (A4 two-up)</span></button>'
+      +'<button class="mn-hubbtn" data-menu="dinein"><span class="mn-hubt">A5 · Dine In</span><span class="mn-hubs">Full editable dine-in menu · blends + prices + pour over (A4 two-up)</span></button>'
       +'<button class="mn-hubbtn" data-menu="special"><span class="mn-hubt">Special Menu</span><span class="mn-hubs">Left column · single-origin beans (A4 two-up)</span></button>'
       +'</div>';
     c.querySelectorAll('.mn-hubbtn').forEach(function(b){b.addEventListener('click',function(){
       var k=b.dataset.menu;
       if(k==='blend'){openBlendMenu();}
       else if(k==='takeaway'){openTakeawayMenu();}
+      else if(k==='dinein'){openDineinMenu();}
       else if(k==='special'){openSpecialMenu();}
     });});
   }
@@ -3319,6 +3332,255 @@ fill="#6F4A36" stroke="none">
       mnFit(doc,it.flavour,x,y+40,w,10,8);}
   }
   function mnAsc(t){return String(t==null?'':t).replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...');}
+
+  /* ============ A5 Dine In Menu (More -> Generate Menu -> A5 · Dine In) ============
+     Same A5 two-up layout as Take Away, but EVERYTHING is editable:
+     - 2 espresso blends (name / subtitle / flavour notes) with blend auto-fill
+     - drink price list (espresso, small, large, fresh batch, on ice, cold batch)
+     - surcharges (alt milk/extra shot, decaf) + Dirty Ratio price
+     - 4 pour-over beans with hot / cold prices
+     Stored device-local in ratio_dinein (mirrored to app_state).                     */
+  var DINEIN_DEFAULT={
+    blends:[
+      {bl:'',name:'DARK KNIGHT 3', sub:'complex flavour', notes:'Plum, Walnut, Dark Choc'},
+      {bl:'',name:'DANCER',        sub:'smooth flavour',  notes:'Floral, Red Apple, Toffee'}
+    ],
+    prices:{espresso:'5',small:'5',large:'6',fresh:'6',ice:'7',cold:'7',dirty:'9',altmilk:'50 cents',decaf:'1 dollar'},
+    pours:[
+      {bean:'',name:'Danche vol.2',     origin:'Ethiopia, Anaerobic Washed',  flavour:'Peach, Grapes, Bergamont',       hot:'10', cold:'11'},
+      {bean:'',name:'Alo Bona Village', origin:'Ethiopia, Classic Natural',   flavour:'Floral, Mango, Berry',           hot:'10', cold:'11'},
+      {bean:'',name:'El Vergel',        origin:'Colombia, Washed',            flavour:'Floral, Melon, Honey',           hot:'10', cold:'11'},
+      {bean:'',name:'Alo Village',      origin:'Ethiopia, Cold Fermentation', flavour:'Winy, Grape Candy, Dried Fruit', hot:'15', cold:'16'}
+    ]
+  };
+  function diClone(o){return JSON.parse(JSON.stringify(o));}
+  function loadDinein(){
+    try{var a=JSON.parse(localStorage.getItem('ratio_dinein')||'null');
+      if(a&&a.blends&&a.prices&&a.pours){
+        var d=diClone(DINEIN_DEFAULT);
+        for(var i=0;i<2;i++){for(var k in d.blends[i]){if(a.blends[i]&&a.blends[i][k]!=null)d.blends[i][k]=a.blends[i][k];}}
+        for(var pk in d.prices){if(a.prices[pk]!=null)d.prices[pk]=a.prices[pk];}
+        for(var j=0;j<4;j++){for(var kk in d.pours[j]){if(a.pours[j]&&a.pours[j][kk]!=null)d.pours[j][kk]=a.pours[j][kk];}}
+        return d;
+      }}catch(e){}
+    return diClone(DINEIN_DEFAULT);
+  }
+  function saveDinein(a){try{localStorage.setItem('ratio_dinein',JSON.stringify(a));}catch(e){}appStatePush('ratio_dinein');}
+  var DINEIN=loadDinein();
+  /* blend picker -> pull flavour notes from blend definition + retail features */
+  function dineinBlendAutofill(name){
+    var info=menuInfoFor(name);
+    return {name:String(name||'').trim(), notes:(info.flavour||[]).slice(0,3).join(', ')};
+  }
+  function openDineinMenu(){
+    menuView='dinein';
+    var c=document.getElementById('menu-content');
+    if(c)c.innerHTML='<div class="sempty">Loading beans\u2026</div>';
+    Promise.all([ensureBeansForInvoice(),ensureRetailForLabel()]).then(function(){renderDinein();}).catch(function(){renderDinein();});
+  }
+  function renderDinein(){
+    var c=document.getElementById('menu-content');if(!c)return;
+    var pourOpts=takeawayOptionList();
+    var blOpts=[];try{blOpts=blendNames();}catch(e){}
+    function optlist(opts,cur,ph){
+      return '<option value="">'+esc(ph)+'</option>'
+        +opts.map(function(n){return '<option value="'+esc(n)+'"'+(n===cur?' selected':'')+'>'+esc(n)+'</option>';}).join('');
+    }
+    /* ----- blend cards ----- */
+    function blendCard(i){
+      var v=DINEIN.blends[i]||{bl:'',name:'',sub:'',notes:''};
+      return '<div class="sp-card" data-sec="blend" data-i="'+i+'">'
+        +'<div class="sp-cardhd"><span class="sp-badge">BLEND '+(i+1)+'</span><span class="sp-cardsub">Espresso</span></div>'
+        +'<label class="sp-field"><span class="sp-flab">Auto-fill from blend</span>'
+          +'<select class="di-blsel tk-ti" data-i="'+i+'">'+optlist(blOpts,v.bl,'\u2014 pick a blend to auto-fill \u2014')+'</select></label>'
+        +'<label class="sp-field"><span class="sp-flab">Name</span>'
+          +'<input type="text" class="tk-ti di-bf" data-i="'+i+'" data-k="name" value="'+esc(v.name)+'" placeholder="e.g. Dark Knight"></label>'
+        +'<label class="sp-field"><span class="sp-flab">Subtitle</span>'
+          +'<input type="text" class="tk-ti di-bf" data-i="'+i+'" data-k="sub" value="'+esc(v.sub)+'" placeholder="e.g. complex flavour"></label>'
+        +'<label class="sp-field"><span class="sp-flab">Flavour notes</span>'
+          +'<input type="text" class="tk-ti di-bf" data-i="'+i+'" data-k="notes" value="'+esc(v.notes)+'" placeholder="e.g. Plum, Walnut, Dark Choc"></label>'
+        +'</div>';
+    }
+    /* ----- price card ----- */
+    function pnum(k){return '<div class="di-pwrap">$<input type="text" inputmode="decimal" class="di-pin di-price" data-k="'+k+'" value="'+esc(DINEIN.prices[k]||'')+'" placeholder="0"></div>';}
+    function ptext(k){return '<input type="text" class="di-pin wide di-price" data-k="'+k+'" value="'+esc(DINEIN.prices[k]||'')+'" placeholder="\u2014">';}
+    function prow(lab,size,ctrl){return '<div class="di-prow"><span class="di-plab">'+lab+(size?' <small>| '+size+'</small>':'')+'</span>'+ctrl+'</div>';}
+    var priceCard='<div class="sp-card">'
+      +'<div class="sp-cardhd"><span class="sp-badge">PRICES</span><span class="sp-cardsub">Drinks</span></div>'
+      +prow('Espresso','',pnum('espresso'))
+      +prow('Small','6oz',pnum('small'))
+      +prow('Large','10 oz',pnum('large'))
+      +prow('Fresh Batch','10oz',pnum('fresh'))
+      +prow('On Ice','10oz',pnum('ice'))
+      +prow('Cold Batch','10oz',pnum('cold'))
+      +prow('Dirty Ratio','',pnum('dirty'))
+      +prow('Alt milk / extra shot','',ptext('altmilk'))
+      +prow('Decaf','',ptext('decaf'))
+      +'</div>';
+    /* ----- pour over cards ----- */
+    var pos=['Top left','Top right','Bottom left','Bottom right'];
+    function pourCard(i){
+      var v=DINEIN.pours[i]||{bean:'',name:'',origin:'',flavour:'',hot:'',cold:''};
+      return '<div class="sp-card" data-sec="pour" data-i="'+i+'">'
+        +'<div class="sp-cardhd"><span class="sp-badge">'+esc(pos[i].toUpperCase())+'</span><span class="sp-cardsub">Pour Over</span></div>'
+        +'<label class="sp-field"><span class="sp-flab">Auto-fill from bean</span>'
+          +'<select class="di-psel tk-ti" data-i="'+i+'">'+optlist(pourOpts,v.bean,'\u2014 pick a bean to auto-fill \u2014')+'</select></label>'
+        +'<label class="sp-field"><span class="sp-flab">Name</span>'
+          +'<input type="text" class="tk-ti di-pf" data-i="'+i+'" data-k="name" value="'+esc(v.name)+'" placeholder="e.g. Danche vol.2"></label>'
+        +'<label class="sp-field"><span class="sp-flab">Origin / Process</span>'
+          +'<input type="text" class="tk-ti di-pf" data-i="'+i+'" data-k="origin" value="'+esc(v.origin)+'" placeholder="e.g. Ethiopia, Anaerobic Washed"></label>'
+        +'<label class="sp-field"><span class="sp-flab">Flavour</span>'
+          +'<input type="text" class="tk-ti di-pf" data-i="'+i+'" data-k="flavour" value="'+esc(v.flavour)+'" placeholder="e.g. Peach, Grapes, Bergamont"></label>'
+        +'<div class="sp-hc">'
+          +'<span class="sp-price tk-price hot"><em>Hot</em> $<input type="text" inputmode="decimal" class="sp-pi di-pp" data-k="hot" data-i="'+i+'" value="'+esc(v.hot)+'" placeholder="0"></span>'
+          +'<span class="sp-price tk-price cold"><em>Cold</em> $<input type="text" inputmode="decimal" class="sp-pi di-pp" data-k="cold" data-i="'+i+'" value="'+esc(v.cold)+'" placeholder="0"></span>'
+        +'</div></div>';
+    }
+    c.innerHTML='<div class="mn-wrap">'
+      +'<p class="gsec" style="padding-left:0">Blend Selection \u00b7 two espresso blends</p>'
+      +blendCard(0)+blendCard(1)
+      +'<p class="gsec" style="padding-left:0">Drink Prices</p>'
+      +priceCard
+      +'<p class="gsec" style="padding-left:0">Pour Over Selection \u00b7 4 cups, hot / cold price each</p>'
+      +pourCard(0)+pourCard(1)+pourCard(2)+pourCard(3)
+      +'<p class="mn-note">Everything above is editable and saved on this device. The PDF prints two identical A5 dine-in menus on one A4 sheet with a centre cut line.</p>'
+      +'<button class="gbtn" id="di-gen">Generate Menu PDF</button>'
+      +'</div>';
+    /* ----- bindings ----- */
+    c.querySelectorAll('.di-blsel').forEach(function(sel){sel.addEventListener('change',function(){
+      var i=+sel.dataset.i;DINEIN.blends[i].bl=sel.value;
+      if(sel.value){var a=dineinBlendAutofill(sel.value);DINEIN.blends[i].name=a.name;if(a.notes)DINEIN.blends[i].notes=a.notes;}
+      saveDinein(DINEIN);renderDinein();
+    });});
+    c.querySelectorAll('.di-bf').forEach(function(inp){inp.addEventListener('input',function(){
+      var i=+inp.dataset.i;DINEIN.blends[i][inp.dataset.k]=inp.value;saveDinein(DINEIN);
+    });});
+    c.querySelectorAll('.di-price').forEach(function(inp){inp.addEventListener('input',function(){
+      DINEIN.prices[inp.dataset.k]=inp.value;saveDinein(DINEIN);
+    });});
+    c.querySelectorAll('.di-psel').forEach(function(sel){sel.addEventListener('change',function(){
+      var i=+sel.dataset.i;var nm=sel.value;DINEIN.pours[i].bean=nm;
+      if(nm){var a=takeawayAutofill(nm);DINEIN.pours[i].name=a.name;if(a.origin)DINEIN.pours[i].origin=a.origin;if(a.flavour)DINEIN.pours[i].flavour=a.flavour;}
+      saveDinein(DINEIN);renderDinein();
+    });});
+    c.querySelectorAll('.di-pf,.di-pp').forEach(function(inp){inp.addEventListener('input',function(){
+      var i=+inp.dataset.i;DINEIN.pours[i][inp.dataset.k]=inp.value;saveDinein(DINEIN);
+    });});
+    var gen=document.getElementById('di-gen');
+    if(gen)gen.addEventListener('click',function(){generateDineinPDF();});
+  }
+  function generateDineinPDF(){
+    var JS=window.jspdf&&window.jspdf.jsPDF;
+    if(!JS){alert('PDF tool still loading, please try again');return;}
+    var cfg=diClone(DINEIN);
+    var img=new Image();
+    img.onload=function(){buildDineinPDF(cfg,img);};
+    img.onerror=function(){buildDineinPDF(cfg,null);};
+    img.src='logo.png';
+  }
+  function buildDineinPDF(cfg,logo){
+    var JS=window.jspdf.jsPDF;
+    var doc=new JS({orientation:'landscape',unit:'pt',format:'a4'});
+    var W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
+    drawDineInMenu(doc,0,W/2,H,cfg,logo);
+    drawDineInMenu(doc,W/2,W/2,H,cfg,logo);
+    doc.setDrawColor(150);doc.setLineWidth(0.7);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([4,4],0);
+    doc.line(W/2,18,W/2,H-18);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    doc.save('Ratio_DineIn_Menu.pdf');
+  }
+  function drawDineInMenu(doc,ox,w,h,cfg,logo){
+    var INK=[50,43,42], SUB=[120,110,102], MUTE=[150,140,132], LINE=[224,217,212];
+    var HOT=[214,0,108], COLD=[42,143,216];
+    var padX=24, x0=ox+padX, xEnd=ox+w-padX, innerW=w-padX*2;
+    var P=cfg.prices||{};
+    function pv(k,dflt){var s=String(P[k]==null?'':P[k]).trim();return s||dflt||'';}
+
+    /* ---------- header ---------- */
+    var hy=42;
+    if(logo){try{doc.addImage(logo,'PNG',x0,hy-26,26,26);}catch(e){}}
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+    doc.text('Ratio',x0+32,hy-13);doc.text('Coffee',x0+32,hy-4);
+    doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Blend Selection',x0+76,hy-6);
+    doc.setDrawColor(INK[0],INK[1],INK[2]);doc.setLineWidth(1);
+    doc.line(x0+76,hy+3,xEnd,hy+3);
+
+    /* ---------- two blends ---------- */
+    var by=hy+36, colCx=[x0+innerW*0.27, x0+innerW*0.74];
+    (cfg.blends||[]).slice(0,2).forEach(function(bl,ci){
+      var cx=colCx[ci];
+      doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(mnAsc(bl.name||'').toUpperCase(),cx,by,{align:'center'});
+      if(bl.sub){doc.setFont('helvetica','italic');doc.setFontSize(8);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+        doc.text(mnAsc(bl.sub),cx,by+12,{align:'center'});}
+      if(bl.notes){doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(INK[0],INK[1],INK[2]);
+        doc.text(mnAsc(bl.notes),cx,by+25,{align:'center'});}
+    });
+    var midX=x0+innerW*0.5;
+    doc.setDrawColor(MUTE[0],MUTE[1],MUTE[2]);doc.setLineWidth(1);
+    doc.line(midX+7,by-11,midX-7,by+27);
+
+    /* ---------- espresso price list ---------- */
+    var py=by+52, rowH=23;
+    var rows=[
+      {main:'Espresso',    size:'',      price:pv('espresso')},
+      {main:'Small',       size:'6oz',   price:pv('small')},
+      {main:'Large',       size:'10 oz', price:pv('large')},
+      {main:'Fresh Batch', size:'10oz',  price:pv('fresh')},
+      {main:'On Ice',      size:'10oz',  price:pv('ice')},
+      {main:'Cold Batch',  size:'10oz',  price:pv('cold'), note:'(Barista choice of the day)'}
+    ];
+    rows.forEach(function(r){
+      doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(r.main,x0,py);
+      var mw=doc.getTextWidth(r.main);
+      if(r.size){doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+        doc.text('  |  '+r.size,x0+mw+3,py);}
+      doc.setFont('helvetica','normal');doc.setFontSize(12);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(r.price,xEnd,py,{align:'right'});
+      if(r.note){doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+        doc.text(r.note,x0,py+11);py+=11;}
+      py+=rowH;
+    });
+    py+=2;
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+    doc.text('alternative milk, extra shot',x0,py);doc.text(pv('altmilk','50 cents'),xEnd,py,{align:'right'});py+=11;
+    doc.text('decaf',x0,py);doc.text(pv('decaf','1 dollar'),xEnd,py,{align:'right'});
+
+    /* ---------- Dirty Ratio dashed box ---------- */
+    var dy=py+16, dh=26;
+    doc.setDrawColor(150,140,132);doc.setLineWidth(0.8);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([3,3],0);
+    if(doc.roundedRect)doc.roundedRect(x0,dy,innerW,dh,13,13,'S');else doc.rect(x0,dy,innerW,dh,'S');
+    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Dirty Ratio',x0+14,dy+dh/2+4);
+    doc.text(pv('dirty'),xEnd-14,dy+dh/2+4,{align:'right'});
+
+    /* ---------- Pour Over Selection ---------- */
+    var poHeadY=dy+dh+34, cx=ox+w/2;
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Pour Over Selection',cx,poHeadY,{align:'center'});
+    var thw=doc.getTextWidth('Pour Over Selection');
+    doc.setDrawColor(INK[0],INK[1],INK[2]);doc.setLineWidth(0.8);
+    doc.line(cx-thw/2-8,poHeadY+6,cx+thw/2+8,poHeadY+6);
+
+    /* 2x2 grid */
+    var gTop=poHeadY+22, gBot=h-24, colGap=18, rowGap=16;
+    var cw=(innerW-colGap)/2, ch=(gBot-gTop-rowGap)/2;
+    var cellX=[x0, x0+cw+colGap, x0, x0+cw+colGap];
+    var cellY=[gTop, gTop, gTop+ch+rowGap, gTop+ch+rowGap];
+    doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.setLineWidth(0.8);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([2,3],0);
+    doc.line(x0+cw+colGap/2,gTop,x0+cw+colGap/2,gBot);
+    doc.line(x0,gTop+ch+rowGap/2,x0+innerW,gTop+ch+rowGap/2);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    var pours=cfg.pours||[];
+    for(var i=0;i<4;i++){drawPourCell(doc,cellX[i],cellY[i],cw,pours[i]||{},INK,SUB,HOT,COLD);}
+  }
+
   function buildMenuPDF(info4,logo){
     var JS=window.jspdf.jsPDF;
     var doc=new JS({orientation:'landscape',unit:'pt',format:'a4'});
