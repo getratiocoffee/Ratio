@@ -4495,14 +4495,8 @@ fill="#6F4A36" stroke="none">
         function buildRoastList(arr,ckey,emptyMsg){
           var pend=arr.filter(function(r){return r.status!=='cupped';});
           var cup=arr.filter(function(r){return r.status==='cupped';});
-          var out=pend.map(function(r){return roastCard(r,true);}).join('');
-          if(cup.length){
-            var co=!!cuppedOpen[ckey];
-            out+='<button class="cup-toggle'+(co?' open':'')+'" data-ck="'+esc(ckey)+'">'
-              +'<span class="cup-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
-              +'<span class="cup-lbl">Cupped</span><span class="cup-n">'+cup.length+'</span></button>';
-            if(co)out+='<div class="cup-body">'+cup.map(function(r){return roastCard(r,true);}).join('')+'</div>';
-          }
+          var out=pend.map(function(r){return roastCard(r,true);}).join('')
+            +cup.map(function(r){return roastCard(r,true);}).join('');
           return out||('<div class="sempty sm">'+emptyMsg+'</div>');
         }
         if(kind!=='blend'){
