@@ -2909,7 +2909,7 @@ fill="#6F4A36" stroke="none">
       box.innerHTML='<div class="sempty">"'+esc(greenSoon)+'" — coming later</div>';
     }
     else if(greenView==='countries'){
-      title.textContent='Buy';
+      title.textContent=(dockStack[dockStack.length-1]==='green.trade')?'Buy':'Green';
       count.textContent=BEANS.length+' beans';
       const t=totals(BEANS);
       const origins=new Set(BEANS.map(b=>b.country).filter(Boolean)).size;
