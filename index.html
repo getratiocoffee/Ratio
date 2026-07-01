@@ -525,6 +525,12 @@
   .rd-meta{font-size:12px;color:var(--muted)}
   .rd-meta b{color:var(--accent)}
   .rd-body{padding:10px 14px 12px;display:flex;flex-direction:column;gap:10px;background:#FAF2EF}
+  .cup-toggle{width:100%;display:flex;align-items:center;gap:8px;background:transparent;border:none;border-top:1px solid var(--line);padding:12px 4px 2px;cursor:pointer;font-family:var(--font-ui);color:var(--muted);font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+  .cup-toggle .cup-chev{display:flex;transition:transform .2s ease}
+  .cup-toggle .cup-chev svg{width:14px;height:14px}
+  .cup-toggle.open .cup-chev{transform:rotate(90deg)}
+  .cup-toggle .cup-n{margin-left:auto;font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent);background:var(--tint);border-radius:999px;padding:2px 9px;text-transform:none;letter-spacing:0}
+  .cup-body{display:flex;flex-direction:column;gap:10px}
   .rd-body .bean{margin:0}
   /* roasting cart UI */
   .ro-banner{margin:12px 16px 0;font-size:13px;font-weight:500;color:#5b7a57}
@@ -3426,7 +3432,7 @@ fill="#6F4A36" stroke="none">
       +soldHtml
       +'</div>';
   }
-  let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending', addCoffeeOpen=false, acDraft={beanId:'',name:'',date:'',kind:'single'}, dateKind={};
+  let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending', addCoffeeOpen=false, acDraft={beanId:'',name:'',date:'',kind:'single'}, dateKind={}, cuppedOpen={};
   function fmtDate(d){if(!d||d==='—')return 'No date';var p=String(d).split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0].slice(-2)):d;}
   function beansBack(){
     if(roastEdit){roastEdit=null;roastDelConfirm=false;renderRoasted();return;}
@@ -3588,12 +3594,23 @@ fill="#6F4A36" stroke="none">
           +'<button class="lbl-tab'+(kind!=='blend'?' on':'')+'" data-dk="single" data-dd="'+esc(d)+'">Single Origin</button>'
           +'<button class="lbl-tab'+(kind==='blend'?' on':'')+'" data-dk="blend" data-dd="'+esc(d)+'">Blend</button></div>';
         var list='';
+        function buildRoastList(arr,ckey,emptyMsg){
+          var pend=arr.filter(function(r){return r.status!=='cupped';});
+          var cup=arr.filter(function(r){return r.status==='cupped';});
+          var out=pend.map(function(r){return roastCard(r,true);}).join('');
+          if(cup.length){
+            var co=!!cuppedOpen[ckey];
+            out+='<button class="cup-toggle'+(co?' open':'')+'" data-ck="'+esc(ckey)+'">'
+              +'<span class="cup-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
+              +'<span class="cup-lbl">Cupped</span><span class="cup-n">'+cup.length+'</span></button>';
+            if(co)out+='<div class="cup-body">'+cup.map(function(r){return roastCard(r,true);}).join('')+'</div>';
+          }
+          return out||('<div class="sempty sm">'+emptyMsg+'</div>');
+        }
         if(kind!=='blend'){
-          var si=dayRoasts.filter(function(r){return r.kind!=='blend';});
-          list=si.length?si.map(function(r){return roastCard(r,true);}).join(''):'<div class="sempty sm">No single-origin roasts this day</div>';
+          list=buildRoastList(dayRoasts.filter(function(r){return r.kind!=='blend';}),d+':single','No single-origin roasts this day');
         }else{
-          var addedCards=dayRoasts.filter(function(r){return r.kind==='blend';}).map(function(r){return roastCard(r,true);}).join('');
-          list=addedCards||'<div class="sempty sm">No blends yet<br>Use + Add Coffee to add one</div>';
+          list=buildRoastList(dayRoasts.filter(function(r){return r.kind==='blend';}),d+':blend','No blends yet<br>Use + Add Coffee to add one');
         }
         inner='<div class="rd-body">'+seg+list+'</div>';
       }
@@ -3603,6 +3620,7 @@ fill="#6F4A36" stroke="none">
     wireAcOpen();
     box.querySelectorAll('.rdate[data-d]').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.d;roastedOpen[d]=!roastedOpen[d];renderRoasted();});});
     box.querySelectorAll('.date-seg .lbl-tab[data-dd]').forEach(function(t){t.addEventListener('click',function(e){e.stopPropagation();var d=t.getAttribute('data-dd'),k=t.getAttribute('data-dk');if((dateKind[d]||'single')!==k){dateKind[d]=k;renderRoasted();}});});
+    box.querySelectorAll('.cup-toggle[data-ck]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();var k=el.dataset.ck;cuppedOpen[k]=!cuppedOpen[k];renderRoasted();});});
     box.querySelectorAll('.blend-edit[data-eid]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();roastEdit=el.dataset.eid;roastDelConfirm=false;var r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});roastEditStatus=r?r.status:'pending_cupping';renderRoasted();document.getElementById('beans-content').scrollTop=0;});});
     box.querySelectorAll('.blend-go[data-aid]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();openCupping(el.dataset.aid);});});
     bindRetailControls(box);
