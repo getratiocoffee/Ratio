@@ -2987,7 +2987,7 @@ fill="#6F4A36" stroke="none">
         doc.setTextColor(SUB[0],SUB[1],SUB[2]);
         mnFit(doc,rr[1],lx+lw,cy,lw-58,8.5,7,'right');cy+=12;
       });
-      cy+=6;
+      cy+=15;
     }
     if(bean.strength&&bean.strength.length){
       lab('CUPPING');
@@ -3018,7 +3018,7 @@ fill="#6F4A36" stroke="none">
     function rule(){doc.setDrawColor(240,233,228);doc.setLineWidth(0.8);doc.line(rx0,ry,rEnd,ry);}
     var PSZ=18;   /* one price size for every drink */
     /* Special of the Week — plain heading, no highlight, top aligned to the banner bottom */
-    doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(band[0],band[1],band[2]);
+    doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(INK[0],INK[1],INK[2]);
     doc.text('Special of the Week',rx0,ry);ry+=28;
     /* Drink 1 · 1+1 Combo (red) */
     doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(RED[0],RED[1],RED[2]);
