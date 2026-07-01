@@ -317,6 +317,10 @@
   /* edit button + form */
   .gbtn{display:block;width:100%;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;background:var(--accent);color:#fff;transition:opacity .15s ease}
   .savegate{display:none!important}
+  .ac-bar{padding:10px 16px 2px}
+  .acf-body{padding:0 16px 4px}
+  .acf-body select{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid var(--line);border-radius:11px;background:var(--bg);font-family:inherit;font-size:14px;color:var(--ink);-webkit-appearance:none;appearance:none}
+  .ac-kindseg{margin:6px 0 2px}
   .gbtn:active{opacity:.8}
   .gbtn[disabled]{opacity:.5}
   .gbtn.ghost{background:var(--surface);color:var(--accent);border:1px solid var(--line);margin-bottom:12px}
@@ -3271,7 +3275,7 @@ fill="#6F4A36" stroke="none">
       +soldHtml
       +'</div>';
   }
-  let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending';
+  let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending', addCoffeeOpen=false, acDraft={beanId:'',name:'',date:'',kind:'single'};
   function fmtDate(d){if(!d||d==='—')return 'No date';var p=String(d).split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0].slice(-2)):d;}
   function beansBack(){
     if(roastEdit){roastEdit=null;roastDelConfirm=false;renderRoasted();return;}
@@ -3326,6 +3330,69 @@ fill="#6F4A36" stroke="none">
       var s=document.getElementById('rt-saved');if(s){s.classList.add('show');clearTimeout(window._rtSaveT);window._rtSaveT=setTimeout(function(){s.classList.remove('show');},1800);}
     });
   }
+  function groupedRoastListHTML(arr){
+    var groups={},order=[];
+    arr.forEach(function(r){var d=r.roast_date||'—';if(!groups[d]){groups[d]=[];order.push(d);}groups[d].push(r);});
+    return order.map(function(d){
+      var items=groups[d];
+      var pending=items.filter(function(r){return r.status!=='cupped';}).length;
+      var open=!!roastedOpen[d];
+      var head='<button class="rdate'+(open?' open':'')+'" data-d="'+esc(d)+'">'
+        +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
+        +'<span class="rd-date">'+esc(fmtDate(d))+'</span>'
+        +'<span class="rd-meta">'+items.length+' roasts'+(pending?' · <b>'+pending+' Pending</b>':'')+'</span></button>';
+      var body=open?'<div class="rd-body">'+items.map(function(r){return roastCard(r,true);}).join('')+'</div>':'';
+      return '<div class="rgroup">'+head+body+'</div>';
+    }).join('');
+  }
+  function wireRoastList(box){
+    box.querySelectorAll('.rdate[data-d]').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.d;roastedOpen[d]=!roastedOpen[d];renderRoasted();});});
+    box.querySelectorAll('.blend-edit[data-eid]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();roastEdit=el.dataset.eid;roastDelConfirm=false;var r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});roastEditStatus=r?r.status:'pending_cupping';renderRoasted();document.getElementById('beans-content').scrollTop=0;});});
+    box.querySelectorAll('.blend-go[data-aid]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();openCupping(el.dataset.aid);});});
+  }
+  function acFormHTML(){
+    var opts='<option value="">— External / type name below —</option>'+(BEANS||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'');}).map(function(b){return '<option value="'+esc(b.id)+'" data-nm="'+esc(b.name||'')+'"'+(String(acDraft.beanId)===String(b.id)?' selected':'')+'>'+esc(b.name||'(no name)')+(b.country?' · '+esc(b.country):'')+'</option>';}).join('');
+    return '<div class="ac-form">'
+      +'<div class="gsec" style="padding:12px 18px 2px">Add coffee · not deducted from stock</div>'
+      +'<div class="acf-body">'
+      +'<label class="gfield"><span class="gl">From stock (optional)</span><select id="ac-bean">'+opts+'</select></label>'
+      +'<label class="gfield"><span class="gl">Coffee name</span><input id="ac-name" type="text" value="'+esc(acDraft.name||'')+'" placeholder="e.g. Ethiopia Guji" /></label>'
+      +'<label class="gfield"><span class="gl">Roast date</span><input id="ac-date" type="date" value="'+esc(acDraft.date||todayStr())+'" /></label>'
+      +'<span class="gl" style="display:block;margin-top:2px">Type</span>'
+      +'<div class="lbl-seg ac-kindseg">'
+      +'<button class="lbl-tab'+(acDraft.kind!=='blend'?' on':'')+'" data-ackind="single">Single Origin</button>'
+      +'<button class="lbl-tab'+(acDraft.kind==='blend'?' on':'')+'" data-ackind="blend">Blend</button></div>'
+      +'<div class="gform-msg" id="ac-msg"></div>'
+      +'<div class="gform-actions"><button class="gbtn ghost" id="ac-cancel">Cancel</button><button class="gbtn" id="ac-add">Add</button></div>'
+      +'</div></div>';
+  }
+  function bindAcForm(box){
+    var sel=box.querySelector('#ac-bean'), nm=box.querySelector('#ac-name');
+    if(sel)sel.addEventListener('change',function(){var o=sel.options[sel.selectedIndex];acDraft.beanId=sel.value;if(sel.value&&nm){nm.value=o.getAttribute('data-nm')||'';acDraft.name=nm.value;}});
+    if(nm)nm.addEventListener('input',function(){acDraft.name=nm.value;});
+    var dt=box.querySelector('#ac-date');if(dt)dt.addEventListener('change',function(){acDraft.date=dt.value;});
+    box.querySelectorAll('.ac-kindseg .lbl-tab').forEach(function(t){t.addEventListener('click',function(){acDraft.kind=t.getAttribute('data-ackind');box.querySelectorAll('.ac-kindseg .lbl-tab').forEach(function(x){x.classList.toggle('on',x.getAttribute('data-ackind')===acDraft.kind);});});});
+    var cn=box.querySelector('#ac-cancel');if(cn)cn.addEventListener('click',function(){addCoffeeOpen=false;renderRoasted();});
+    var ad=box.querySelector('#ac-add');if(ad)ad.addEventListener('click',addCoffeeSubmit);
+  }
+  async function addCoffeeSubmit(){
+    var nm=document.getElementById('ac-name'), dt=document.getElementById('ac-date'), sel=document.getElementById('ac-bean'), msg=document.getElementById('ac-msg'), btn=document.getElementById('ac-add');
+    var name=(nm?nm.value:'').trim();
+    var date=(dt&&dt.value)?dt.value:todayStr();
+    var beanId=sel?sel.value:'';
+    var kind=(acDraft.kind==='blend')?'blend':'single';
+    if(!name){if(msg){msg.textContent='Enter a coffee name';msg.className='gform-msg err';}return;}
+    var bean=BEANS.find(function(b){return String(b.id)===String(beanId);});
+    var rec={bean_id:beanId||null,bean_name:name,country:(bean?bean.country:null),green_kg:null,status:'pending_cupping',roast_date:date,kind:kind};
+    if(btn)btn.disabled=true;if(msg){msg.textContent='Adding…';msg.className='gform-msg';}
+    var ins=await sb.from('roasts').insert(rec).select();
+    if(ins.error&&rec.kind!==undefined){var r2=Object.assign({},rec);delete r2.kind;ins=await sb.from('roasts').insert(r2).select();}
+    if(ins.error){if(btn)btn.disabled=false;if(msg){msg.textContent='Failed: '+ins.error.message;msg.className='gform-msg err';}return;}
+    if(ins.data&&ins.data[0])ROASTS.unshift(ins.data[0]);
+    addCoffeeOpen=false;
+    pendTab=(kind==='blend')?'blend':'single';
+    renderRoasted();
+  }
   function renderRoasted(){
     const box=document.getElementById('beans-content');
     const title=document.getElementById('beans-title');
@@ -3335,12 +3402,17 @@ fill="#6F4A36" stroke="none">
     var tabBar=showTabs?('<div class="lbl-seg pend-seg">'
       +'<button class="lbl-tab'+(pendTab==='single'?' on':'')+'" data-pend="single">Single Origin</button>'
       +'<button class="lbl-tab'+(pendTab==='blend'?' on':'')+'" data-pend="blend">Blend</button></div>'):'';
-    function bindPendTabs(){box.querySelectorAll('.pend-seg .lbl-tab').forEach(function(t){t.addEventListener('click',function(){var v=t.getAttribute('data-pend');if(v&&v!==pendTab){pendTab=v;renderRoasted();}});});}
+    function bindPendTabs(){box.querySelectorAll('.pend-seg .lbl-tab').forEach(function(t){t.addEventListener('click',function(){var v=t.getAttribute('data-pend');if(v&&v!==pendTab){pendTab=v;renderRoasted();}});});var ao=box.querySelector('#ac-open');if(ao)ao.addEventListener('click',function(){addCoffeeOpen=true;acDraft={beanId:'',name:'',date:todayStr(),kind:(pendTab==='blend'?'blend':'single')};renderRoasted();});}
+    if(showTabs&&addCoffeeOpen){box.innerHTML=tabBar+acFormHTML();bindPendTabs();bindAcForm(box);return;}
+    if(showTabs){tabBar=tabBar+'<div class="ac-bar"><button class="gbtn ghost" id="ac-open">+ Add Coffee</button></div>';}
     if(showTabs&&pendTab==='blend'){
       document.getElementById('beans-count').textContent='';
       if(!blendSamplesLoaded){box.innerHTML=tabBar+'<div class="sempty">Loading…</div>';bindPendTabs();loadBlendSamples().then(function(){if(pendTab==='blend')renderRoasted();});return;}
       var names=readyBlendNames();
-      if(!names.length){box.innerHTML=tabBar+'<div class="sempty">No completed blends yet<br>Fill a recipe to 100% in F(x) \u2192 Blending</div>';bindPendTabs();return;}
+      var blendRoasts=ROASTS.filter(function(r){return r.kind==='blend';});
+      if(!names.length&&!blendRoasts.length){box.innerHTML=tabBar+'<div class="sempty">No blends yet<br>Fill a recipe to 100% in F(x) \u2192 Blending, or use + Add Coffee</div>';bindPendTabs();return;}
+      var recipeBody='';
+      if(names.length){
       var bord=[],bseen={};
       ROASTS.forEach(function(r){var d=r.roast_date||'—';if(!bseen[d]){bseen[d]=true;bord.push(d);}});
       var bhead='<div class="gsec" style="padding:12px 18px 2px">Tap a date · pick the blend you made today → Analyse</div>';
@@ -3367,33 +3439,24 @@ fill="#6F4A36" stroke="none">
         }).join('')+'</div>'):'';
         return '<div class="rgroup">'+h+bd+'</div>';
       }).join(''):'<div class="sempty">No roast days yet<br>Log a roast first</div>';
-      box.innerHTML=tabBar+bhead+bbody+RT_SAVE_FOOT;
+      recipeBody=bhead+bbody;
+      }
+      var addedBody=blendRoasts.length?('<div class="gsec" style="padding:14px 18px 2px">Added blends · Analyse</div>'+groupedRoastListHTML(blendRoasts)):'';
+      box.innerHTML=tabBar+recipeBody+addedBody+RT_SAVE_FOOT;
       bindPendTabs();
       box.querySelectorAll('.rdate[data-bd]').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.bd;blendOpen[d]=!blendOpen[d];renderRoasted();});});
       box.querySelectorAll('.blend-act').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();openBlendCupping(el.dataset.bn,el.dataset.bdate);});});
+      wireRoastList(box);
       bindRetailControls(box);
       wireRtSave();
       return;
     }
-    document.getElementById('beans-count').textContent=ROASTS.length+' roasts';
-    if(!ROASTS.length){box.innerHTML=tabBar+'<div class="sempty">No roasts yet<br>Log one in Roast</div>';bindPendTabs();return;}
-    var groups={}, order=[];
-    ROASTS.forEach(function(r){var d=r.roast_date||'—';if(!groups[d]){groups[d]=[];order.push(d);}groups[d].push(r);});
-    box.innerHTML=tabBar+'<div class="gsec" style="padding:12px 18px 2px">Tap a date to expand · use Edit to change the roast</div>'+order.map(function(d){
-      var items=groups[d];
-      var pending=items.filter(function(r){return r.status!=='cupped';}).length;
-      var open=!!roastedOpen[d];
-      var head='<button class="rdate'+(open?' open':'')+'" data-d="'+esc(d)+'">'
-        +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
-        +'<span class="rd-date">'+esc(fmtDate(d))+'</span>'
-        +'<span class="rd-meta">'+items.length+' roasts'+(pending?' · <b>'+pending+' Pending</b>':'')+'</span></button>';
-      var body=open?'<div class="rd-body">'+items.map(function(r){return roastCard(r,true);}).join('')+'</div>':'';
-      return '<div class="rgroup">'+head+body+'</div>';
-    }).join('')+RT_SAVE_FOOT;
+    var singleRoasts=ROASTS.filter(function(r){return r.kind!=='blend';});
+    document.getElementById('beans-count').textContent=singleRoasts.length+' roasts';
+    if(!singleRoasts.length){box.innerHTML=tabBar+'<div class="sempty">No roasts yet<br>Log one in Roast, or use + Add Coffee</div>';bindPendTabs();return;}
+    box.innerHTML=tabBar+'<div class="gsec" style="padding:12px 18px 2px">Tap a date to expand · use Edit to change the roast</div>'+groupedRoastListHTML(singleRoasts)+RT_SAVE_FOOT;
     bindPendTabs();
-    box.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.d;roastedOpen[d]=!roastedOpen[d];renderRoasted();});});
-    box.querySelectorAll('.blend-edit[data-eid]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();roastEdit=el.dataset.eid;roastDelConfirm=false;var r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});roastEditStatus=r?r.status:'pending_cupping';renderRoasted();document.getElementById('beans-content').scrollTop=0;});});
-    box.querySelectorAll('.blend-go[data-aid]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();openCupping(el.dataset.aid);});});
+    wireRoastList(box);
     bindRetailControls(box);
     wireRtSave();
   }
@@ -3439,7 +3502,7 @@ fill="#6F4A36" stroke="none">
     btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
     var oldKg=Number(r.green_kg)||0;
     var delta=newKg-oldKg; // extra amount → deduct from stock
-    if(delta!==0)await adjustStock(r.bean_id, -delta);
+    if(delta!==0 && r.kind!=='single' && r.kind!=='blend' && r.green_kg!=null)await adjustStock(r.bean_id, -delta);
     var upd={green_kg:newKg};
     if(newDate)upd.roast_date=newDate;
     const {error}=await sb.from('roasts').update(upd).eq('id',r.id);
@@ -3450,7 +3513,7 @@ fill="#6F4A36" stroke="none">
   async function deleteRoast(){
     const r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});
     if(!r)return;
-    await adjustStock(r.bean_id, Number(r.green_kg)||0); // add back to stock
+    if(r.kind!=='single'&&r.kind!=='blend'&&r.green_kg!=null)await adjustStock(r.bean_id, Number(r.green_kg)||0); // add back to stock (skip added coffees)
     const {error}=await sb.from('roasts').delete().eq('id',r.id);
     if(error){var m=document.getElementById('re-msg');if(m){m.textContent='Delete failed: '+error.message;m.className='gform-msg err';}roastDelConfirm=false;renderRoastEdit();return;}
     ROASTS=ROASTS.filter(function(x){return String(x.id)!==String(r.id);});
