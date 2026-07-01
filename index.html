@@ -2940,15 +2940,13 @@ fill="#6F4A36" stroke="none">
     doc.save('Ratio_Special_Menu.pdf');
   }
   function drawSpecialMenu(doc,ox,w,h,rows,logo){
-    var padX=22,padTop=20,padBot=22,gap=16,headH=0;
+    var padX=22,padTop=22,padBot=22,gap=16;
     var x0=ox+padX, innerW=w-padX*2;
-    if(logo){var ls=26;try{doc.addImage(logo,'PNG',ox+w/2-ls/2,padTop,ls,ls);}catch(e){}headH=ls+12;}
-    var top=padTop+headH;
-    var bandH=(h-top-padBot-gap)/2;
-    drawSpecialBand(doc,x0,top,innerW,bandH,rows[0]);
-    drawSpecialBand(doc,x0,top+bandH+gap,innerW,bandH,rows[1]);
+    var bandH=(h-padTop-padBot-gap)/2;
+    drawSpecialBand(doc,x0,padTop,innerW,bandH,rows[0],logo);
+    drawSpecialBand(doc,x0,padTop+bandH+gap,innerW,bandH,rows[1],logo);
   }
-  function drawSpecialBand(doc,x,y,w,h,row){
+  function drawSpecialBand(doc,x,y,w,h,row,logo){
     var INK=[50,43,42],BROWN=[73,66,58],BERRY=[178,94,106],LABEL=[169,158,150],LINE=[237,230,225],SUB=[92,83,76],RED=[192,57,43],BLUE=[42,101,158];
     row=row||{};var bean=row.bean||{},off=row.offer||{};
     /* card outline */
@@ -2959,6 +2957,8 @@ fill="#6F4A36" stroke="none">
       doc.text('\u2014 empty \u2014',x+w/2,y+h/2,{align:'center'});
       return;
     }
+    /* logo · top-right corner inside the card */
+    if(logo){var ls=24;try{doc.addImage(logo,'PNG',x+w-ls-12,y+9,ls,ls);}catch(e){}}
     var leftW=Math.min(232,w*0.56);
     var band=mnHexRgb(bean.color)||BROWN;
     /* ---- TAB header (top-left, rounded top corners only) ---- */
