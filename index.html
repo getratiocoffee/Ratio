@@ -2870,7 +2870,7 @@ fill="#6F4A36" stroke="none">
       return '<div class="mn-slot"><span class="mn-pos">'+pos[i]+'</span>'
         +'<div class="sp-offer" data-row="'+row+'">'
           +'<div class="sp-otitle">Special of the Week</div>'
-          +'<div class="sp-row"><span class="sp-lab">Espresso 1+1 combo <em>(black &amp; white)</em></span>'
+          +'<div class="sp-row"><span class="sp-lab">1+1 Combo <em>(Espresso base · black &amp; white)</em></span>'
             +'<span class="sp-price">$<input type="text" inputmode="decimal" class="sp-pi" data-k="combo" value="'+esc(p.combo||'')+'" placeholder="0"></span></div>'
           +'<div class="sp-row sp-rowh"><span class="sp-lab">Filter Pour Over</span></div>'
           +'<div class="sp-sub">'
@@ -2932,7 +2932,7 @@ fill="#6F4A36" stroke="none">
     drawSpecialBand(doc,x0,padTop+bandH+gap,innerW,bandH,rows[1]);
   }
   function drawSpecialBand(doc,x,y,w,h,row){
-    var INK=[50,43,42],BROWN=[73,66,58],BERRY=[178,94,106],LABEL=[169,158,150],LINE=[237,230,225],SUB=[92,83,76];
+    var INK=[50,43,42],BROWN=[73,66,58],BERRY=[178,94,106],LABEL=[169,158,150],LINE=[237,230,225],SUB=[92,83,76],RED=[192,57,43],BLUE=[42,101,158];
     row=row||{};var bean=row.bean||{},off=row.offer||{};
     /* card outline */
     doc.setDrawColor(225,217,212);doc.setLineWidth(0.8);
@@ -2957,15 +2957,16 @@ fill="#6F4A36" stroke="none">
     doc.text(nm,x+14,y+tabH/2+ns*0.34);
     /* column divider (continues down from the tab edge) */
     doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.setLineWidth(0.8);
-    doc.line(x+leftW,y+tabH+4,x+leftW,y+h-14);
+    doc.line(x+leftW,y+tabH,x+leftW,y+h-14);
 
     /* ================= LEFT · full bean info ================= */
     var lx=x+15,lw=leftW-30,cy=y+tabH+22;
     function lab(t){doc.setFont('helvetica','bold');doc.setFontSize(6.6);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.text(t,lx,cy,{charSpace:1.1});cy+=13;}
     if(bean.flavour&&bean.flavour.length){
       lab('FLAVOUR');
-      doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(INK[0],INK[1],INK[2]);
-      mnFit(doc,bean.flavour.join('  \u00b7  '),lx,cy,lw,11,8);cy+=18;
+      doc.setFont('helvetica','bold');doc.setFontSize(13.5);doc.setTextColor(INK[0],INK[1],INK[2]);
+      var fl=doc.splitTextToSize(mnAsc(bean.flavour.join('  \u00b7  ')),lw);if(fl.length>2)fl=fl.slice(0,2);
+      fl.forEach(function(ln){doc.text(ln,lx,cy);cy+=16;});cy+=6;
     }
     var o=bean.origin||{},orows=[];
     if(o.process)orows.push(['Process',o.process]);
@@ -2984,10 +2985,13 @@ fill="#6F4A36" stroke="none">
     }
     if(bean.strength&&bean.strength.length){
       lab('CUPPING');
-      doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-      var cup=bean.strength.map(function(s){return s.label+' '+s.val;}).join('  \u00b7  ');
-      var lines=doc.splitTextToSize(mnAsc(cup),lw);if(lines.length>2)lines=lines.slice(0,2);
-      lines.forEach(function(ln){doc.text(ln,lx,cy);cy+=12;});
+      bean.strength.forEach(function(s){
+        doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);
+        doc.text(mnAsc(s.label),lx,cy);
+        doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+        doc.text(mnAsc(s.val),lx+lw,cy,{align:'right'});
+        cy+=12.5;
+      });
     }
     var by=y+h-14;
     doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);
@@ -2995,30 +2999,32 @@ fill="#6F4A36" stroke="none">
     if(bean.net)doc.text(mnAsc(bean.net)+' g NET',x+leftW-15,by,{align:'right'});
 
     /* ================= RIGHT · weekly offer ================= */
-    var rx0=x+leftW+16,rEnd=x+w-15,rw=rEnd-rx0,ry=y+tabH+22;
+    var rx0=x+leftW+16,rEnd=x+w-15,rw=rEnd-rx0,ry=y+tabH+12;
     function money(v){v=String(v==null?'':v).trim().replace(/^\$+/,'');return '$'+(v||'\u2014');}
     var PSZ=18;   /* one price size for every offer */
-    /* Special of the Week — plain heading, no highlight, in the bean's colour */
+    /* Special of the Week — plain heading, no highlight, top aligned to the banner bottom */
     doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(band[0],band[1],band[2]);
-    doc.text('Special of the Week',rx0,ry);ry+=27;
-    /* Espresso 1+1 Combo — prominent label + price */
+    doc.text('Special of the Week',rx0,ry);ry+=30;
+    /* 1+1 Combo — prominent label + price */
     doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-    mnFit(doc,'Espresso 1+1 Combo',rx0,ry,rw-52,12.5,9);
+    mnFit(doc,'1+1 Combo',rx0,ry,rw-52,12.5,9);
     doc.setFont('helvetica','bold');doc.setFontSize(PSZ);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
     doc.text(money(off.combo),rEnd,ry+2,{align:'right'});ry+=14;
     doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(155,143,134);
-    doc.text('(black and white)',rx0,ry);ry+=20;
-    doc.setDrawColor(240,233,228);doc.setLineWidth(0.8);doc.line(rx0,ry,rEnd,ry);ry+=22;
+    doc.text('Espresso base (black and white)',rx0,ry);ry+=22;
+    doc.setDrawColor(240,233,228);doc.setLineWidth(0.8);doc.line(rx0,ry,rEnd,ry);ry+=24;
     /* Filter Pour Over — prominent label */
     doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-    doc.text('Filter Pour Over',rx0,ry);ry+=23;
-    doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+    doc.text('Filter Pour Over',rx0,ry);ry+=25;
+    /* Hot = red */
+    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(RED[0],RED[1],RED[2]);
     doc.text('Hot',rx0,ry);
-    doc.setFont('helvetica','bold');doc.setFontSize(PSZ);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-    doc.text(money(off.hot),rEnd,ry+1,{align:'right'});ry+=23;
-    doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+    doc.setFontSize(PSZ);
+    doc.text(money(off.hot),rEnd,ry+1,{align:'right'});ry+=25;
+    /* Cold = blue */
+    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(BLUE[0],BLUE[1],BLUE[2]);
     doc.text('Cold',rx0,ry);
-    doc.setFont('helvetica','bold');doc.setFontSize(PSZ);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+    doc.setFontSize(PSZ);
     doc.text(money(off.cold),rEnd,ry+1,{align:'right'});
   }
   function mnAsc(t){return String(t==null?'':t).replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...');}
