@@ -2831,8 +2831,8 @@ fill="#6F4A36" stroke="none">
   /* right-column offer prices, one set per row (0 = top, 1 = bottom) */
   function loadSpecialPrices(){
     try{var a=JSON.parse(localStorage.getItem('ratio_special_prices')||'null');
-      if(Array.isArray(a)&&a.length===2)return a.map(function(o){o=o||{};return {combo:o.combo||'',hot:o.hot||'',cold:o.cold||''};});}catch(e){}
-    return [{combo:'',hot:'',cold:''},{combo:'',hot:'',cold:''}];
+      if(Array.isArray(a)&&a.length===2)return a.map(function(o){o=o||{};return {combo:o.combo||'',hot:o.hot||'',cold:o.cold||'',dirty:o.dirty||''};});}catch(e){}
+    return [{combo:'',hot:'',cold:'',dirty:''},{combo:'',hot:'',cold:'',dirty:''}];
   }
   function saveSpecialPrices(a){try{localStorage.setItem('ratio_special_prices',JSON.stringify(a));}catch(e){}appStatePush('ratio_special_prices');}
   var SPECIAL_PRICES=loadSpecialPrices();
@@ -2866,7 +2866,7 @@ fill="#6F4A36" stroke="none">
     }
     /* right cell = fixed "Special of the Week" offer with editable prices; row 0=top, 1=bottom */
     function offer(i){
-      var row=(i===1)?0:1;var p=SPECIAL_PRICES[row]||{combo:'',hot:'',cold:''};
+      var row=(i===1)?0:1;var p=SPECIAL_PRICES[row]||{combo:'',hot:'',cold:'',dirty:''};
       return '<div class="mn-slot"><span class="mn-pos">'+pos[i]+'</span>'
         +'<div class="sp-offer" data-row="'+row+'">'
           +'<div class="sp-otitle">Special of the Week</div>'
@@ -2877,6 +2877,8 @@ fill="#6F4A36" stroke="none">
             +'<span class="sp-price"><em>Hot</em> $<input type="text" inputmode="decimal" class="sp-pi" data-k="hot" value="'+esc(p.hot||'')+'" placeholder="0"></span>'
             +'<span class="sp-price"><em>Cold</em> $<input type="text" inputmode="decimal" class="sp-pi" data-k="cold" value="'+esc(p.cold||'')+'" placeholder="0"></span>'
           +'</div>'
+          +'<div class="sp-row sp-rowh"><span class="sp-lab">Dirty</span>'
+            +'<span class="sp-price">$<input type="text" inputmode="decimal" class="sp-pi" data-k="dirty" value="'+esc(p.dirty||'')+'" placeholder="0"></span></div>'
         +'</div></div>';
     }
     var empty=!opts.length;
@@ -2894,7 +2896,7 @@ fill="#6F4A36" stroke="none">
       var row=+box.dataset.row;
       box.querySelectorAll('.sp-pi').forEach(function(inp){
         inp.addEventListener('input',function(){
-          if(!SPECIAL_PRICES[row])SPECIAL_PRICES[row]={combo:'',hot:'',cold:''};
+          if(!SPECIAL_PRICES[row])SPECIAL_PRICES[row]={combo:'',hot:'',cold:'',dirty:''};
           SPECIAL_PRICES[row][inp.dataset.k]=inp.value;
           saveSpecialPrices(SPECIAL_PRICES);
         });
@@ -2907,8 +2909,8 @@ fill="#6F4A36" stroke="none">
     var JS=window.jspdf&&window.jspdf.jsPDF;
     if(!JS){alert('PDF tool still loading, please try again');return;}
     var rows=[
-      {bean:menuInfoFor(SPECIAL_SLOTS[0]),offer:SPECIAL_PRICES[0]||{combo:'',hot:'',cold:''}},
-      {bean:menuInfoFor(SPECIAL_SLOTS[2]),offer:SPECIAL_PRICES[1]||{combo:'',hot:'',cold:''}}
+      {bean:menuInfoFor(SPECIAL_SLOTS[0]),offer:SPECIAL_PRICES[0]||{combo:'',hot:'',cold:'',dirty:''}},
+      {bean:menuInfoFor(SPECIAL_SLOTS[2]),offer:SPECIAL_PRICES[1]||{combo:'',hot:'',cold:'',dirty:''}}
     ];
     buildSpecialPDF(rows);
   }
@@ -2990,7 +2992,7 @@ fill="#6F4A36" stroke="none">
     /* FLAVOUR — anchored at the bottom, made prominent */
     if(bean.flavour&&bean.flavour.length){
       doc.setFontSize(15.5);
-      var fl=doc.splitTextToSize(mnAsc(bean.flavour.join('  \u00b7  ')),lw);if(fl.length>2)fl=fl.slice(0,2);
+      var fl=doc.splitTextToSize(mnAsc(bean.flavour.join('  \u00b7  ')),lw);if(fl.length>3)fl=fl.slice(0,3);
       var flH=18,lastY=y+h-18,firstY=lastY-(fl.length-1)*flH,labY=firstY-16;
       doc.setFont('helvetica','bold');doc.setFontSize(6.6);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);
       doc.text('FLAVOUR',lx,labY,{charSpace:1.1});
@@ -3004,28 +3006,33 @@ fill="#6F4A36" stroke="none">
     var PSZ=18;   /* one price size for every offer */
     /* Special of the Week — plain heading, no highlight, top aligned to the banner bottom */
     doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(band[0],band[1],band[2]);
-    doc.text('Special of the Week',rx0,ry);ry+=38;
+    doc.text('Special of the Week',rx0,ry);ry+=34;
     /* 1+1 Combo — prominent label + price */
     doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
     mnFit(doc,'1+1 Combo',rx0,ry,rw-52,12.5,9);
     doc.setFont('helvetica','bold');doc.setFontSize(PSZ);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
     doc.text(money(off.combo),rEnd,ry+2,{align:'right'});ry+=15;
     doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(155,143,134);
-    doc.text('Espresso base (black and white)',rx0,ry);ry+=38;
-    doc.setDrawColor(240,233,228);doc.setLineWidth(0.8);doc.line(rx0,ry,rEnd,ry);ry+=38;
+    doc.text('Espresso base (black and white)',rx0,ry);ry+=30;
+    doc.setDrawColor(240,233,228);doc.setLineWidth(0.8);doc.line(rx0,ry,rEnd,ry);ry+=28;
     /* Filter Pour Over — prominent label */
     doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-    doc.text('Filter Pour Over',rx0,ry);ry+=32;
+    doc.text('Filter Pour Over',rx0,ry);ry+=27;
     /* Hot = red */
     doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(RED[0],RED[1],RED[2]);
     doc.text('Hot',rx0,ry);
     doc.setFontSize(PSZ);
-    doc.text(money(off.hot),rEnd,ry+1,{align:'right'});ry+=32;
+    doc.text(money(off.hot),rEnd,ry+1,{align:'right'});ry+=27;
     /* Cold = blue */
     doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(BLUE[0],BLUE[1],BLUE[2]);
     doc.text('Cold',rx0,ry);
     doc.setFontSize(PSZ);
-    doc.text(money(off.cold),rEnd,ry+1,{align:'right'});
+    doc.text(money(off.cold),rEnd,ry+1,{align:'right'});ry+=27;
+    /* Dirty = brown */
+    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);
+    doc.text('Dirty',rx0,ry);
+    doc.setFontSize(PSZ);
+    doc.text(money(off.dirty),rEnd,ry+1,{align:'right'});
   }
   function mnAsc(t){return String(t==null?'':t).replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...');}
   function buildMenuPDF(info4,logo){
