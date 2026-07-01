@@ -2885,6 +2885,7 @@ fill="#6F4A36" stroke="none">
           +'<select class="mn-sel" data-i="'+sloti+'">'+optsHtml(cur)+'</select></label>'
         +'<div class="sp-drinks">'
           +'<div class="sp-drink"><div class="sp-dinfo"><span class="sp-dname">1+1 Combo</span><span class="sp-dsub">Espresso base \u00b7 black &amp; white</span></div><span class="sp-price">'+priceInp(row,'combo')+'</span></div>'
+          +'<div class="sp-drink"><div class="sp-dinfo"><span class="sp-dname">Dirty</span></div><span class="sp-price">'+priceInp(row,'dirty')+'</span></div>'
           +'<div class="sp-drink sp-drink-col"><div class="sp-dinfo"><span class="sp-dname">Filter Pour Over</span></div>'
             +'<div class="sp-hc"><span class="sp-price sp-hot"><em>Hot</em> '+priceInp(row,'hot')+'</span><span class="sp-price sp-cold"><em>Cold</em> '+priceInp(row,'cold')+'</span></div></div>'
         +'</div></div>';
@@ -2982,7 +2983,7 @@ fill="#6F4A36" stroke="none">
         doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);
         doc.text(rr[0],lx,cy);
         doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-        mnFit(doc,rr[1],lx+50,cy,lw-50,9.5,7);cy+=12.5;
+        mnFit(doc,rr[1],lx+lw,cy,lw-50,9.5,7,'right');cy+=12.5;
       });
       cy+=6;
     }
@@ -3014,22 +3015,28 @@ fill="#6F4A36" stroke="none">
     var PSZ=18;   /* one price size for every drink */
     /* Special of the Week — plain heading, no highlight, top aligned to the banner bottom */
     doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(band[0],band[1],band[2]);
-    doc.text('Special of the Week',rx0,ry);ry+=36;
+    doc.text('Special of the Week',rx0,ry);ry+=28;
     /* Drink 1 · 1+1 Combo (berry) */
     doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
     mnFit(doc,'1+1 Combo',rx0,ry,rw-52,12.5,9);
     doc.setFont('helvetica','bold');doc.setFontSize(PSZ);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-    doc.text(money(off.combo),rEnd,ry+2,{align:'right'});ry+=15;
+    doc.text(money(off.combo),rEnd,ry+2,{align:'right'});ry+=14;
     doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(155,143,134);
-    doc.text('Espresso base (black and white)',rx0,ry);ry+=40;
-    rule();ry+=40;
-    /* Drink 2 · Filter Pour Over (Hot red / Cold blue) */
+    doc.text('Espresso base (black and white)',rx0,ry);ry+=24;
+    rule();ry+=22;
+    /* Drink 2 · Dirty (brown) */
+    doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);
+    doc.text('Dirty',rx0,ry);
+    doc.setFontSize(PSZ);
+    doc.text(money(off.dirty),rEnd,ry+2,{align:'right'});ry+=26;
+    rule();ry+=22;
+    /* Drink 3 · Filter Pour Over (Hot red / Cold blue) */
     doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-    doc.text('Filter Pour Over',rx0,ry);ry+=34;
+    doc.text('Filter Pour Over',rx0,ry);ry+=24;
     doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(RED[0],RED[1],RED[2]);
     doc.text('Hot',rx0,ry);
     doc.setFontSize(PSZ);
-    doc.text(money(off.hot),rEnd,ry+1,{align:'right'});ry+=34;
+    doc.text(money(off.hot),rEnd,ry+1,{align:'right'});ry+=24;
     doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(BLUE[0],BLUE[1],BLUE[2]);
     doc.text('Cold',rx0,ry);
     doc.setFontSize(PSZ);
