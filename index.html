@@ -397,8 +397,9 @@
   .smp-feats{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
   .feat-chip{font-size:11px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:8px;padding:2px 9px}
   .rtl-list{display:flex;flex-direction:column;gap:12px;padding:0 16px 18px}
-  .rtl-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;position:relative}
-  .rtl-id{font-family:var(--font-display);font-size:20px;font-weight:600;color:var(--ink);line-height:1.25;padding-right:32px;margin-bottom:2px}
+  .rtl-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;position:relative;overflow:hidden}
+  .rtl-id{font-family:var(--font-display);font-size:20px;font-weight:600;color:var(--on-brand);background:var(--brand);line-height:1.25;margin:-18px -18px 4px;padding:14px 44px 14px 18px;border-radius:16px 16px 0 0}
+  .rtl-card .rtl-dot.on{box-shadow:0 0 0 2px rgba(244,236,234,.85)}
   .rtl-dotwrap{position:absolute;top:15px;right:15px}
   .rtl-dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);background:transparent;cursor:pointer;padding:0;display:block}
   .rtl-dot.on{border-color:transparent}
@@ -418,20 +419,20 @@
   .rtl-gram svg{width:14px;height:14px;flex:0 0 auto}
   .rdp.x{background:var(--bg);color:var(--muted);font-size:15px;line-height:1;border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
   .rtl-date{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:12.5px;font-weight:600;color:var(--muted);margin-top:8px}
-  .rtl-ready{display:flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--success-ink);background:var(--success-tint);border-radius:11px;padding:8px 12px;margin-top:10px}
+  .rtl-ready{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:12.5px;font-weight:600;color:var(--accent);margin-top:8px}
   .rtl-ready svg{width:14px;height:14px;flex:0 0 auto}
   .rtl-date svg{width:14px;height:14px;flex:0 0 auto}
   .rtl-flav-h{font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin:16px 0 9px}
   .rtl-flav{display:flex;flex-wrap:wrap;gap:7px}
   .rtl-chip{font-size:13.5px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:10px;padding:6px 14px}
   .rtl-noflav{font-size:12px;color:var(--muted)}
-  .rtl-recipe{display:flex;flex-wrap:wrap;gap:7px}
+  .rtl-recipe{display:flex;flex-direction:column;align-items:flex-start;gap:7px}
   .rtl-rchip{font-size:13.5px;font-weight:600;color:var(--brand);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:6px 14px}
   .rtl-rchip b{font-family:var(--font-mono);font-weight:700;color:var(--accent)}
   .rtl-blend-tag{font-size:10px;font-weight:700;color:#fff;background:var(--accent);border-radius:7px;padding:2px 7px;vertical-align:middle;letter-spacing:.04em;text-transform:uppercase}
   .rtl-sc-h{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin:14px 0 7px}
   .rtl-str{margin-top:14px;border-top:1px solid var(--line);padding-top:11px}
-  .rtl-str summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+  .rtl-str summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:flex-start;gap:7px;font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
   .rtl-str summary::-webkit-details-marker{display:none}
   .rtl-chev{width:16px;height:16px;flex:0 0 auto;transition:transform .2s ease}
   .rtl-str[open] .rtl-chev{transform:rotate(180deg)}
@@ -3390,7 +3391,7 @@ fill="#6F4A36" stroke="none">
     var cmt=s.comment?'<div class="rtl-cmt">'+esc(s.comment)+'</div>':'';
     var SMAP={fragrance:'Fragrance / Aroma',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
     var sc=[['fragrance',s.fragrance],['acidity',s.acidity],['sweetness',s.sweetness],['body',s.body],['aftertaste',s.aftertaste]].filter(function(x){return x[1]!=null;});
-    var scHtml=sc.length?('<details class="rtl-str"><summary><span>Cupping Strength</span><svg class="rtl-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary><div class="rtl-str-list">'+sc.map(function(x){return '<div class="rtl-str-row"><span>'+SMAP[x[0]]+'</span><b>'+strLabel(x[1])+'</b></div>';}).join('')+'</div></details>'):'';
+    var scHtml=sc.length?('<details class="rtl-str"><summary><svg class="rtl-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg><span>More detail</span></summary><div class="rtl-str-list">'+sc.map(function(x){return '<div class="rtl-str-row"><span>'+SMAP[x[0]]+'</span><b>'+strLabel(x[1])+'</b></div>';}).join('')+'</div></details>'):'';
     var blendDef=blendDefByName(s.sample_id||'');
     var recipeHtml='';
     var blendCmtHtml='';
