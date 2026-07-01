@@ -2466,122 +2466,91 @@ fill="#6F4A36" stroke="none">
 <html lang="en"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ratio — Coffee Market</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f5f5f5;color:#1a1a1a;min-height:100vh;padding:16px}
-  .app{max-width:560px;margin:0 auto}
-  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
-  .brand h1{font-size:20px;font-weight:700}
-  .brand p{font-size:12px;color:#888;margin-top:2px}
-  .asof{font-size:11px;color:#aaa;text-align:right;line-height:1.45}
-  .section{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:16px;margin-bottom:12px}
-  .section-title{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px}
-  .price-row{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
-  .price-big{font-size:34px;font-weight:700;letter-spacing:-.01em}
-  .price-unit{font-size:13px;color:#888}
-  .badge{display:inline-flex;align-items:center;gap:4px;font-size:13px;padding:3px 10px;border-radius:99px;font-weight:600}
-  .badge-up{background:#e6f4ea;color:#2e7d32}
-  .badge-down{background:#fdecea;color:#c62828}
-  .spark{width:100%;height:46px;margin:10px 0 6px;display:block}
-  .stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:4px}
-  .stat{background:#fafafa;border-radius:9px;padding:10px 12px}
-  .stat-l{font-size:11px;color:#888;margin-bottom:3px}
-  .stat-v{font-size:15px;font-weight:600}
-  .up{color:#2e7d32}.down{color:#c62828}
-  .ctrl-row{display:flex;align-items:center;gap:10px;margin-bottom:11px}
-  .ctrl-row:last-child{margin-bottom:0}
-  .ctrl-label{font-size:13px;color:#555;width:130px;flex-shrink:0}
-  .ctrl-input{flex:1;font-size:15px;padding:7px 10px;border:1px solid #ddd;border-radius:8px;width:100%;min-width:0}
-  .ctrl-suffix{font-size:12px;color:#888;width:50px;flex-shrink:0}
+  :root{--bg:#F4ECEA;--surface:#FCF6F4;--ink:#322B2A;--muted:#8C8079;--accent:#B25E6A;--accent-ink:#6E2F39;--tint:#F3DDE0;--line:rgba(50,43,42,0.10);--brand:#49423A;--font-ui:'Inter',-apple-system,"Segoe UI",system-ui,sans-serif;--font-display:'Fraunces',Georgia,serif;--font-mono:'Space Mono',ui-monospace,Menlo,monospace}
+  body{font-family:var(--font-ui);background:var(--bg);color:var(--ink);padding:14px 16px 24px;-webkit-font-smoothing:antialiased}
+  .intro{font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.55}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:15px 16px;margin-bottom:12px}
+  .card-h{font-family:var(--font-display);font-size:15px;font-weight:600;color:var(--ink);margin:0 0 13px}
+  .row{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+  .row:last-child{margin-bottom:0}
+  .row .lab{font-size:13px;color:var(--muted);width:120px;flex-shrink:0}
+  .row input{flex:1;min-width:0;width:100%;font-family:var(--font-mono);font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:9px 12px;outline:none;-moz-appearance:textfield}
+  .row input:focus{border-color:var(--accent)}
+  .row .suf{font-size:12px;color:var(--muted);width:46px;flex-shrink:0}
   .fxwrap{flex:1;display:flex;gap:6px;min-width:0}
-  .fxlive{font-size:12px;font-weight:600;padding:0 11px;border-radius:8px;border:1px solid #ddd;background:#f5f5f5;color:#555;cursor:pointer;white-space:nowrap}
-  .fxlive:active{background:#e5e5e5}
-  .result-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .result-card{background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:14px 16px}
-  .result-card.highlight{border-color:#1a1a1a}
-  .result-label{font-size:11px;color:#888;margin-bottom:6px}
-  .result-val{font-size:24px;font-weight:700}
-  .result-sub{font-size:11px;color:#888;margin-top:4px}
-  .hint{font-size:11px;color:#aaa;line-height:1.5;margin-top:10px}
+  .fxbtn{font-family:var(--font-ui);font-size:12px;font-weight:600;padding:0 13px;border-radius:11px;border:1px solid var(--line);background:var(--tint);color:var(--accent-ink);cursor:pointer;white-space:nowrap}
+  .fxbtn:active{opacity:.8}
+  .fxinfo{font-size:12px;color:var(--muted);margin:-3px 0 11px 130px}
+  .hint{font-size:11px;color:var(--muted);line-height:1.55;margin-top:12px}
+  .total{background:var(--tint);border-radius:16px;padding:16px;margin-bottom:12px}
+  .total .lab{font-size:12px;color:var(--accent-ink);opacity:.9;margin-bottom:5px}
+  .total .val{font-family:var(--font-mono);font-size:30px;font-weight:700;color:var(--accent-ink);line-height:1.05}
+  .total .sub{font-size:12px;color:var(--accent-ink);opacity:.85;margin-top:6px}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:11px 13px}
+  .stat .lab{font-size:11px;color:var(--muted);margin-bottom:3px}
+  .stat .val{font-family:var(--font-mono);font-size:18px;font-weight:600;color:var(--ink);line-height:1.1}
+  .foot{text-align:center;font-size:11px;color:var(--muted);opacity:.75;margin-top:16px}
 </style></head>
 <body>
-<div class="app">
-  <div class="header">
-    <div class="brand"><h1>Coffee Market</h1><p>Landed cost · AUD per kg</p></div>
-    <div class="asof">Read live C from<br>the Trade chart</div>
+  <p class="intro">Read the live Coffee C price from the Trade chart, then enter it below to price an estate lot in AUD.</p>
+
+  <div class="card">
+    <p class="card-h">Estate purchase</p>
+    <div class="row"><span class="lab">Coffee C</span><input type="number" id="m-c" value="298.8" step="0.01"><span class="suf">¢/lb</span></div>
+    <div class="row"><span class="lab">Differential</span><input type="number" id="m-diff" value="60" step="1"><span class="suf">¢/lb</span></div>
+    <div class="row"><span class="lab">AUD / USD</span><span class="fxwrap"><input type="number" id="m-fx" value="0.6894" step="0.0001"><button class="fxbtn" id="m-fxlive">live</button></span><span class="suf"></span></div>
+    <div class="fxinfo" id="m-fxinfo">AUD/USD <span id="m-fxinfo-rate">0.6894</span> · <span id="m-fxinfo-time">tap live</span></div>
+    <div class="row"><span class="lab">Lot size</span><input type="number" id="m-qty" value="35" step="1"><span class="suf">kg</span></div>
+    <div class="row"><span class="lab">Freight + import</span><input type="number" id="m-freight" value="0" step="0.10"><span class="suf">A$/kg</span></div>
+    <p class="hint">FOB = C + differential. For a fixed-price lot, enter the FOB as C and set differential to 0. Freight + import is your per-kg estimate (shipping, biosecurity); excludes GST. 1 lb = 0.4536 kg.</p>
   </div>
 
-  <div class="section">
-    <p class="section-title">Landed cost calculator</p>
-    <div class="ctrl-row">
-      <span class="ctrl-label">Coffee C</span>
-      <input class="ctrl-input" type="number" id="m-c" value="289.32" step="0.01">
-      <span class="ctrl-suffix">¢/lb</span>
-    </div>
-    <div class="ctrl-row">
-      <span class="ctrl-label">Differential</span>
-      <input class="ctrl-input" type="number" id="m-diff" value="60" step="1">
-      <span class="ctrl-suffix">¢/lb</span>
-    </div>
-    <div class="ctrl-row">
-      <span class="ctrl-label">AUD / USD</span>
-      <span class="fxwrap"><input class="ctrl-input" type="number" id="m-fx" value="0.6894" step="0.0001"><button class="fxlive" id="m-fxlive">live</button></span>
-      <span class="ctrl-suffix"></span>
-    </div>
-    <div id="m-fxinfo" style="font-size:12px;color:#888;margin:-4px 0 11px 140px">AUD/USD <span id="m-fxinfo-rate">0.6894</span> · <span id="m-fxinfo-time">tap live to refresh</span></div>
-    <div class="ctrl-row">
-      <span class="ctrl-label">Freight + import</span>
-      <input class="ctrl-input" type="number" id="m-freight" value="0" step="0.10">
-      <span class="ctrl-suffix">A$/kg</span>
-    </div>
-    <p class="hint">FOB = C + differential. For fixed-price lots, enter the FOB as C and set differential to 0. Landed adds your freight / biosecurity estimate per kg; it excludes GST unless folded in. 1 lb = 0.4536 kg.</p>
+  <div class="total">
+    <p class="lab">Total landed cost</p>
+    <p class="val" id="m-total">—</p>
+    <p class="sub" id="m-total-sub">—</p>
   </div>
 
-  <div class="result-grid">
-    <div class="result-card highlight">
-      <p class="result-label">FOB · AUD/kg</p>
-      <p class="result-val" id="m-fob-aud">—</p>
-      <p class="result-sub" id="m-fob-usd">—</p>
-    </div>
-    <div class="result-card">
-      <p class="result-label">Landed est.</p>
-      <p class="result-val" id="m-landed">—</p>
-      <p class="result-sub">FOB + freight</p>
-    </div>
+  <div class="pair">
+    <div class="stat"><div class="lab">Landed / kg</div><div class="val" id="m-landed-kg">—</div></div>
+    <div class="stat"><div class="lab">FOB / kg</div><div class="val" id="m-fob-kg">—</div></div>
   </div>
 
-  <p style="text-align:center;font-size:11px;color:#bbb;margin-top:18px">Indicative only · prices move intraday · Ratio Coffee Pty Ltd</p>
-</div>
+  <p class="foot">Indicative only · prices move intraday · Ratio Coffee</p>
 <script>
 var LB=0.45359237;
 function mnum(id){var v=parseFloat(document.getElementById(id).value);return isNaN(v)?0:v;}
+function fmt(n){return n.toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function mcalc(){
-  var fobC=mnum('m-c')+mnum('m-diff');
-  var fobUsdLb=fobC/100;
+  var fobCents=mnum('m-c')+mnum('m-diff');
+  var fobUsdLb=fobCents/100;
   var fx=mnum('m-fx')||0.0001;
-  var fobUsdKg=fobUsdLb/LB;
-  var fobAud=fobUsdKg/fx;
-  var landed=fobAud+mnum('m-freight');
-  document.getElementById('m-fob-usd').textContent='$'+fobUsdLb.toFixed(2)+'/lb · $'+fobUsdKg.toFixed(2)+'/kg';
-  document.getElementById('m-fob-aud').textContent='A$'+fobAud.toFixed(2);
-  document.getElementById('m-landed').textContent='A$'+landed.toFixed(2);
+  var fobAudKg=(fobUsdLb/LB)/fx;
+  var freightKg=mnum('m-freight');
+  var landedKg=fobAudKg+freightKg;
+  var qty=mnum('m-qty');
+  var totalLanded=landedKg*qty;
+  document.getElementById('m-fob-kg').textContent='A$'+fobAudKg.toFixed(2);
+  document.getElementById('m-landed-kg').textContent='A$'+landedKg.toFixed(2);
+  document.getElementById('m-total').textContent='A$'+fmt(totalLanded);
+  document.getElementById('m-total-sub').textContent=qty.toFixed(0)+' kg \u00d7 A$'+landedKg.toFixed(2)+'/kg';
 }
-['m-c','m-diff','m-fx','m-freight'].forEach(function(id){document.getElementById(id).addEventListener('input',mcalc);});
+['m-c','m-diff','m-fx','m-qty','m-freight'].forEach(function(id){document.getElementById(id).addEventListener('input',mcalc);});
 var fxBtn=document.getElementById('m-fxlive');
-function fxStamp(){var d=new Date();var hh=('0'+d.getHours()).slice(-2);var mm=('0'+d.getMinutes()).slice(-2);return hh+':'+mm;}
+function fxStamp(){var d=new Date();return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}
 function refreshFx(){
-  if(fxBtn)fxBtn.textContent='…';
+  if(fxBtn)fxBtn.textContent='\u2026';
   return fetch('https://open.er-api.com/v6/latest/AUD').then(function(r){return r.json();}).then(function(d){
     var u=d&&d.rates&&d.rates.USD;
-    if(u){
-      var v=(Math.round(u*10000)/10000).toFixed(4);
-      document.getElementById('m-fx').value=v;
-      document.getElementById('m-fxinfo-rate').textContent=v;
-      document.getElementById('m-fxinfo-time').textContent='updated '+fxStamp();
-      mcalc();
-      if(fxBtn)fxBtn.textContent='live ✓';
-    }else{if(fxBtn)fxBtn.textContent='n/a';document.getElementById('m-fxinfo-time').textContent='rate unavailable';}
-  }).catch(function(){if(fxBtn)fxBtn.textContent='offline';document.getElementById('m-fxinfo-time').textContent='offline · manual rate';});
+    if(u){var v=(Math.round(u*10000)/10000).toFixed(4);document.getElementById('m-fx').value=v;document.getElementById('m-fxinfo-rate').textContent=v;document.getElementById('m-fxinfo-time').textContent='updated '+fxStamp();mcalc();if(fxBtn)fxBtn.textContent='live \u2713';}
+    else{if(fxBtn)fxBtn.textContent='n/a';document.getElementById('m-fxinfo-time').textContent='unavailable';}
+  }).catch(function(){if(fxBtn)fxBtn.textContent='offline';document.getElementById('m-fxinfo-time').textContent='offline \u00b7 manual';});
 }
 if(fxBtn){fxBtn.addEventListener('click',refreshFx);}
 mcalc();
