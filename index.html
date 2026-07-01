@@ -3351,17 +3351,25 @@ fill="#6F4A36" stroke="none">
     box.querySelectorAll('.blend-go[data-aid]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();openCupping(el.dataset.aid);});});
   }
   function acFormHTML(){
-    var opts='<option value="">— External / type name below —</option>'+(BEANS||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'');}).map(function(b){return '<option value="'+esc(b.id)+'" data-nm="'+esc(b.name||'')+'"'+(String(acDraft.beanId)===String(b.id)?' selected':'')+'>'+esc(b.name||'(no name)')+(b.country?' · '+esc(b.country):'')+'</option>';}).join('');
+    var isBlend=(acDraft.kind==='blend');
+    var opts='<option value="">— External / type name below —</option>';
+    if(isBlend){
+      var bn=[];try{bn=readyBlendNames();}catch(e){}
+      opts+=bn.map(function(n){return '<option value="'+esc(n)+'" data-nm="'+esc(n)+'"'+(String(acDraft.beanId)===String(n)?' selected':'')+'>'+esc(n)+'</option>';}).join('');
+    }else{
+      opts+=(BEANS||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'');}).map(function(b){return '<option value="'+esc(b.id)+'" data-nm="'+esc(b.name||'')+'"'+(String(acDraft.beanId)===String(b.id)?' selected':'')+'>'+esc(b.name||'(no name)')+(b.country?' · '+esc(b.country):'')+'</option>';}).join('');
+    }
+    var pickLab=isBlend?'From blends · 100% recipes (optional)':'From green stock (optional)';
     return '<div class="ac-form">'
       +'<div class="gsec" style="padding:12px 18px 2px">Add coffee · not deducted from stock</div>'
       +'<div class="acf-body">'
-      +'<label class="gfield"><span class="gl">From stock (optional)</span><select id="ac-bean">'+opts+'</select></label>'
-      +'<label class="gfield"><span class="gl">Coffee name</span><input id="ac-name" type="text" value="'+esc(acDraft.name||'')+'" placeholder="e.g. Ethiopia Guji" /></label>'
-      +'<label class="gfield"><span class="gl">Roast date</span><input id="ac-date" type="date" value="'+esc(acDraft.date||todayStr())+'" /></label>'
-      +'<span class="gl" style="display:block;margin-top:2px">Type</span>'
+      +'<span class="gl" style="display:block">Type</span>'
       +'<div class="lbl-seg ac-kindseg">'
-      +'<button class="lbl-tab'+(acDraft.kind!=='blend'?' on':'')+'" data-ackind="single">Single Origin</button>'
-      +'<button class="lbl-tab'+(acDraft.kind==='blend'?' on':'')+'" data-ackind="blend">Blend</button></div>'
+      +'<button class="lbl-tab'+(isBlend?'':' on')+'" data-ackind="single">Single Origin</button>'
+      +'<button class="lbl-tab'+(isBlend?' on':'')+'" data-ackind="blend">Blend</button></div>'
+      +'<label class="gfield"><span class="gl">'+pickLab+'</span><select id="ac-bean">'+opts+'</select></label>'
+      +'<label class="gfield"><span class="gl">Coffee name</span><input id="ac-name" type="text" value="'+esc(acDraft.name||'')+'" placeholder="'+(isBlend?'e.g. House Blend':'e.g. Ethiopia Guji')+'" /></label>'
+      +'<label class="gfield"><span class="gl">Roast date</span><input id="ac-date" type="date" value="'+esc(acDraft.date||todayStr())+'" /></label>'
       +'<div class="gform-msg" id="ac-msg"></div>'
       +'<div class="gform-actions"><button class="gbtn ghost" id="ac-cancel">Cancel</button><button class="gbtn" id="ac-add">Add</button></div>'
       +'</div></div>';
@@ -3371,7 +3379,7 @@ fill="#6F4A36" stroke="none">
     if(sel)sel.addEventListener('change',function(){var o=sel.options[sel.selectedIndex];acDraft.beanId=sel.value;if(sel.value&&nm){nm.value=o.getAttribute('data-nm')||'';acDraft.name=nm.value;}});
     if(nm)nm.addEventListener('input',function(){acDraft.name=nm.value;});
     var dt=box.querySelector('#ac-date');if(dt)dt.addEventListener('change',function(){acDraft.date=dt.value;});
-    box.querySelectorAll('.ac-kindseg .lbl-tab').forEach(function(t){t.addEventListener('click',function(){acDraft.kind=t.getAttribute('data-ackind');box.querySelectorAll('.ac-kindseg .lbl-tab').forEach(function(x){x.classList.toggle('on',x.getAttribute('data-ackind')===acDraft.kind);});});});
+    box.querySelectorAll('.ac-kindseg .lbl-tab').forEach(function(t){t.addEventListener('click',function(){var k=t.getAttribute('data-ackind');if(k===acDraft.kind)return;var nmEl=box.querySelector('#ac-name'),dtEl=box.querySelector('#ac-date');if(nmEl)acDraft.name=nmEl.value;if(dtEl)acDraft.date=dtEl.value;acDraft.kind=k;acDraft.beanId='';renderRoasted();});});
     var cn=box.querySelector('#ac-cancel');if(cn)cn.addEventListener('click',function(){addCoffeeOpen=false;renderRoasted();});
     var ad=box.querySelector('#ac-add');if(ad)ad.addEventListener('click',addCoffeeSubmit);
   }
@@ -3383,7 +3391,7 @@ fill="#6F4A36" stroke="none">
     var kind=(acDraft.kind==='blend')?'blend':'single';
     if(!name){if(msg){msg.textContent='Enter a coffee name';msg.className='gform-msg err';}return;}
     var bean=BEANS.find(function(b){return String(b.id)===String(beanId);});
-    var rec={bean_id:beanId||null,bean_name:name,country:(bean?bean.country:null),green_kg:null,status:'pending_cupping',roast_date:date,kind:kind};
+    var rec={bean_id:(bean?beanId:null),bean_name:name,country:(bean?bean.country:null),green_kg:null,status:'pending_cupping',roast_date:date,kind:kind};
     if(btn)btn.disabled=true;if(msg){msg.textContent='Adding…';msg.className='gform-msg';}
     var ins=await sb.from('roasts').insert(rec).select();
     if(ins.error&&rec.kind!==undefined){var r2=Object.assign({},rec);delete r2.kind;ins=await sb.from('roasts').insert(r2).select();}
