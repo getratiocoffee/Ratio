@@ -3410,7 +3410,7 @@ fill="#6F4A36" stroke="none">
     var tabBar=showTabs?('<div class="lbl-seg pend-seg">'
       +'<button class="lbl-tab'+(pendTab==='single'?' on':'')+'" data-pend="single">Single Origin</button>'
       +'<button class="lbl-tab'+(pendTab==='blend'?' on':'')+'" data-pend="blend">Blend</button></div>'):'';
-    function bindPendTabs(){box.querySelectorAll('.pend-seg .lbl-tab').forEach(function(t){t.addEventListener('click',function(){var v=t.getAttribute('data-pend');if(v&&v!==pendTab){pendTab=v;renderRoasted();}});});var ao=box.querySelector('#ac-open');if(ao)ao.addEventListener('click',function(){addCoffeeOpen=true;acDraft={beanId:'',name:'',date:todayStr(),kind:(pendTab==='blend'?'blend':'single')};renderRoasted();});}
+    function bindPendTabs(){box.querySelectorAll('.pend-seg .lbl-tab').forEach(function(t){t.addEventListener('click',function(){var v=t.getAttribute('data-pend');if(v&&v!==pendTab){pendTab=v;renderRoasted();}});});var ao=box.querySelector('#ac-open');if(ao)ao.addEventListener('click',async function(){acDraft={beanId:'',name:'',date:todayStr(),kind:(pendTab==='blend'?'blend':'single')};if((!BEANS||!BEANS.length)&&typeof loadBeans==='function'){try{await loadBeans();}catch(e){}}addCoffeeOpen=true;renderRoasted();});}
     if(showTabs&&addCoffeeOpen){box.innerHTML=tabBar+acFormHTML();bindPendTabs();bindAcForm(box);return;}
     if(showTabs){tabBar=tabBar+'<div class="ac-bar"><button class="gbtn ghost" id="ac-open">+ Add Coffee</button></div>';}
     if(showTabs&&pendTab==='blend'){
