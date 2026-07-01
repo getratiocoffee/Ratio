@@ -1086,7 +1086,7 @@ fill="#6F4A36" stroke="none">
   /* ---- C Market chart (Coffee C futures), shown under Green → Trade ---- */
   const CM_SYMBOL='CAPITALCOM:COFFEE';   /* Coffee CFD, tracks the ICE "C" market, free real-time on TV widgets. Alt: PEPPERSTONE:COFFEE */
   function renderCMarket(){
-    var ct=document.getElementById('ctitle');if(ct){ct.textContent='Coffee C Market';ct.classList.add('show');}
+    var ct=document.getElementById('ctitle');if(ct){ct.textContent='Trade';ct.classList.add('show');}
     showCPanel('<div class="cm-wrap"><div class="cm-chart" id="cm-chart"><div class="cm-load">Loading Coffee C Market…</div><div class="tradingview-widget-container" style="height:100%;width:100%"><div class="tradingview-widget-container__widget" style="height:100%;width:100%"></div></div></div>'+cmCalcHTML()+'</div>');
     var host=document.querySelector('#cm-chart .tradingview-widget-container');
     if(!host)return;
