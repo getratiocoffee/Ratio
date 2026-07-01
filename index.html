@@ -502,7 +502,7 @@
   .dot.fill{background:var(--accent);border-color:var(--accent)}
   .dot:active{transform:scale(.85)}
   .smp-msg-wrap{padding:0 18px}
-  .smp-decide-wrap{position:sticky;bottom:0;padding:10px 16px 14px;background:linear-gradient(to top,var(--bg) 72%,rgba(244,236,234,0))}
+  .smp-decide-wrap{padding:4px 16px 16px}
   .smp-decide{display:flex;gap:11px}
   .smp-decide .gbtn{padding:15px;font-size:15px;border-radius:14px}
   .gbtn.buy{background:#5E8C61;color:#fff}
@@ -1060,6 +1060,7 @@ fill="#6F4A36" stroke="none">
                     right:{label:'History',zh:'',icon:'history',act:'green:samplehist'}},
     /* not built yet — tapping shows the reminder title + a "Coming soon" placeholder dock */
     task:{soon:true,contentTitle:'Task Reminder'},
+    recipe:{soon:true,contentTitle:'Recipe Reminder'},
     order:{soon:true,contentTitle:'Order Reminder'},
     fx:{contentTitle:'F(x)',
         left:{label:'Blending',zh:'',icon:'blend',act:'fx:blend'},
@@ -1405,6 +1406,15 @@ fill="#6F4A36" stroke="none">
         const id = it.dataset.id;
         const show = (dock==='ALL') || (Array.isArray(dock) && dock.indexOf(id)>=0);
         it.style.display = show ? '' : 'none';
+      });
+      // Hide a whole cluster (its label + pill) when the role leaves it empty,
+      // so we don't show a bare "Roastery" label above an empty pill.
+      // visibility (not display) keeps the dock's centred geometry intact.
+      document.querySelectorAll('.cluster').forEach(cl=>{
+        const items = cl.querySelectorAll('.pill .item[data-id]');
+        if(!items.length) return;
+        const anyVisible = Array.from(items).some(it=>it.style.display!=='none');
+        cl.style.visibility = anyVisible ? '' : 'hidden';
       });
     }
 
