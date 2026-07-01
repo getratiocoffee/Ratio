@@ -2959,15 +2959,9 @@ fill="#6F4A36" stroke="none">
     doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.setLineWidth(0.8);
     doc.line(x+leftW,y+tabH,x+leftW,y+h-14);
 
-    /* ================= LEFT · full bean info ================= */
+    /* ================= LEFT · bean info ================= */
     var lx=x+15,lw=leftW-30,cy=y+tabH+22;
     function lab(t){doc.setFont('helvetica','bold');doc.setFontSize(6.6);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.text(t,lx,cy,{charSpace:1.1});cy+=13;}
-    if(bean.flavour&&bean.flavour.length){
-      lab('FLAVOUR');
-      doc.setFont('helvetica','bold');doc.setFontSize(13.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-      var fl=doc.splitTextToSize(mnAsc(bean.flavour.join('  \u00b7  ')),lw);if(fl.length>2)fl=fl.slice(0,2);
-      fl.forEach(function(ln){doc.text(ln,lx,cy);cy+=16;});cy+=6;
-    }
     var o=bean.origin||{},orows=[];
     if(o.process)orows.push(['Process',o.process]);
     if(o.variety)orows.push(['Variety',o.variety]);
@@ -2993,34 +2987,40 @@ fill="#6F4A36" stroke="none">
         cy+=12.5;
       });
     }
-    var by=y+h-14;
-    doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);
-    if(bean.ready)doc.text('READY '+mnAsc(bean.ready),lx,by);
-    if(bean.net)doc.text(mnAsc(bean.net)+' g NET',x+leftW-15,by,{align:'right'});
+    /* FLAVOUR — anchored at the bottom, made prominent */
+    if(bean.flavour&&bean.flavour.length){
+      doc.setFontSize(15.5);
+      var fl=doc.splitTextToSize(mnAsc(bean.flavour.join('  \u00b7  ')),lw);if(fl.length>2)fl=fl.slice(0,2);
+      var flH=18,lastY=y+h-18,firstY=lastY-(fl.length-1)*flH,labY=firstY-16;
+      doc.setFont('helvetica','bold');doc.setFontSize(6.6);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);
+      doc.text('FLAVOUR',lx,labY,{charSpace:1.1});
+      doc.setFont('helvetica','bold');doc.setFontSize(15.5);doc.setTextColor(INK[0],INK[1],INK[2]);
+      fl.forEach(function(ln,i){doc.text(ln,lx,firstY+i*flH);});
+    }
 
     /* ================= RIGHT · weekly offer ================= */
-    var rx0=x+leftW+16,rEnd=x+w-15,rw=rEnd-rx0,ry=y+tabH+12;
+    var rx0=x+leftW+16,rEnd=x+w-15,rw=rEnd-rx0,ry=y+tabH+16;
     function money(v){v=String(v==null?'':v).trim().replace(/^\$+/,'');return '$'+(v||'\u2014');}
     var PSZ=18;   /* one price size for every offer */
     /* Special of the Week — plain heading, no highlight, top aligned to the banner bottom */
     doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(band[0],band[1],band[2]);
-    doc.text('Special of the Week',rx0,ry);ry+=30;
+    doc.text('Special of the Week',rx0,ry);ry+=38;
     /* 1+1 Combo — prominent label + price */
     doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
     mnFit(doc,'1+1 Combo',rx0,ry,rw-52,12.5,9);
     doc.setFont('helvetica','bold');doc.setFontSize(PSZ);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-    doc.text(money(off.combo),rEnd,ry+2,{align:'right'});ry+=14;
+    doc.text(money(off.combo),rEnd,ry+2,{align:'right'});ry+=15;
     doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(155,143,134);
-    doc.text('Espresso base (black and white)',rx0,ry);ry+=22;
-    doc.setDrawColor(240,233,228);doc.setLineWidth(0.8);doc.line(rx0,ry,rEnd,ry);ry+=24;
+    doc.text('Espresso base (black and white)',rx0,ry);ry+=38;
+    doc.setDrawColor(240,233,228);doc.setLineWidth(0.8);doc.line(rx0,ry,rEnd,ry);ry+=38;
     /* Filter Pour Over — prominent label */
     doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-    doc.text('Filter Pour Over',rx0,ry);ry+=25;
+    doc.text('Filter Pour Over',rx0,ry);ry+=32;
     /* Hot = red */
     doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(RED[0],RED[1],RED[2]);
     doc.text('Hot',rx0,ry);
     doc.setFontSize(PSZ);
-    doc.text(money(off.hot),rEnd,ry+1,{align:'right'});ry+=25;
+    doc.text(money(off.hot),rEnd,ry+1,{align:'right'});ry+=32;
     /* Cold = blue */
     doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(BLUE[0],BLUE[1],BLUE[2]);
     doc.text('Cold',rx0,ry);
