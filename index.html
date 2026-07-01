@@ -4447,8 +4447,15 @@ fill="#6F4A36" stroke="none">
     }
     var pend=defs.filter(function(b){return !cupped[(b.name||'').trim().toLowerCase()];});
     var done=defs.filter(function(b){return cupped[(b.name||'').trim().toLowerCase()];});
-    var cards=pend.concat(done).map(card).join('');
-    return head+'<div class="bl-cuplist">'+cards+'</div>';
+    var inner=pend.map(card).join('');
+    if(done.length){
+      var bo=!!cuppedOpen['blend'];
+      inner+='<button class="cup-toggle'+(bo?' open':'')+'" data-ck="blend">'
+        +'<span class="cup-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
+        +'<span class="cup-lbl">Cupped</span><span class="cup-n">'+done.length+'</span></button>';
+      if(bo)inner+='<div class="cup-body">'+done.map(card).join('')+'</div>';
+    }
+    return head+'<div class="bl-cuplist">'+inner+'</div>';
   }
   function wirePendingBlend(box){
     box.querySelectorAll('.bl-cupgo[data-bname]').forEach(function(el){
