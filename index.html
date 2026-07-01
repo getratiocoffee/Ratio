@@ -396,10 +396,9 @@
   .smp-pick:active{transform:scale(.9)}
   .smp-feats{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
   .feat-chip{font-size:11px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:8px;padding:2px 9px}
-  .rtl-list{display:flex;flex-direction:column;gap:12px;padding:0 16px 18px}
+  .rtl-list{display:flex;flex-direction:column;gap:12px;padding:14px 16px 18px}
   .rtl-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;position:relative;overflow:hidden}
-  .rtl-id{font-family:var(--font-display);font-size:20px;font-weight:600;color:var(--on-brand);background:var(--brand);line-height:1.25;margin:-18px -18px 4px;padding:14px 44px 14px 18px;border-radius:16px 16px 0 0}
-  .rtl-card .rtl-dot.on{box-shadow:0 0 0 2px rgba(244,236,234,.85)}
+  .rtl-id{font-family:var(--font-display);font-size:20px;font-weight:600;color:var(--accent-ink);background:var(--tint);line-height:1.25;margin:-18px -18px 4px;padding:14px 44px 14px 18px;border-radius:16px 16px 0 0}
   .rtl-dotwrap{position:absolute;top:15px;right:15px}
   .rtl-dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);background:transparent;cursor:pointer;padding:0;display:block}
   .rtl-dot.on{border-color:transparent}
@@ -3327,7 +3326,7 @@ fill="#6F4A36" stroke="none">
     if(cnt)cnt.textContent=rows.length?(rows.length+(rows.length===1?' bean':' beans')):'';
     if(!rows.length){box.innerHTML='<div class="sempty">No cupped beans yet<br>Cup a bean from Pending</div>';return;}
     var dotMap=loadDots();
-    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">On the shelf</div><div class="rtl-list">'+rows.map(function(s){return retailCard(s,RTL_RDBY[s.sample_id||''],dotMap[s.sample_id||'']||'');}).join('')+'</div>';
+    box.innerHTML='<div class="rtl-list">'+rows.map(function(s){return retailCard(s,RTL_RDBY[s.sample_id||''],dotMap[s.sample_id||'']||'');}).join('')+'</div>';
     box.querySelectorAll('.rtl-stk').forEach(function(el){
       var sx=null,handled=false;
       function setState(out){
@@ -3420,8 +3419,8 @@ fill="#6F4A36" stroke="none">
       +gramHtml
       +blendCmtHtml
       +recipeHtml
-      +scHtml
       +'<div class="rtl-flav-h">Flavour</div>'+flav
+      +scHtml
       +cmt
       +soldHtml
       +'</div>';
