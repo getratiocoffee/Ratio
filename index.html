@@ -2727,7 +2727,15 @@ fill="#6F4A36" stroke="none">
       .filter(function(o){return !!o.val;});
     var dotKey='';try{var dm=loadDots();if(dm[name])dotKey=dm[name];else{var lk=name.trim().toLowerCase();Object.keys(dm).forEach(function(k){if(!dotKey&&String(k).trim().toLowerCase()===lk)dotKey=dm[k];});}}catch(e){}
     var color=(dotKey&&RTL_DOTCOL[dotKey])||'';
-    return {name:name, flavour:feats.slice(0,3), recipe:recipe, strength:strength, ready:ready, net:(g?String(g):''), comment:cmt, color:color};
+    var selfB=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===key;})[0]||null;
+    var origin={process:'',variety:'',altitude:'',region:''};
+    if(selfB){
+      origin.process=selfB.process||'';
+      origin.variety=selfB.variety||'';
+      origin.altitude=(selfB.altitude!=null&&selfB.altitude!=='')?String(selfB.altitude):'';
+      origin.region=[selfB.region,selfB.country].filter(Boolean).join(', ');
+    }
+    return {name:name, flavour:feats.slice(0,3), recipe:recipe, strength:strength, ready:ready, net:(g?String(g):''), comment:cmt, color:color, origin:origin};
   }
   var menuView='hub';
   function openMenu(){
@@ -2895,18 +2903,123 @@ fill="#6F4A36" stroke="none">
     var gen=document.getElementById('sp-gen');
     if(gen)gen.addEventListener('click',function(){generateSpecialPDF();});
   }
-  function specialOfferInfo(row,leftInfo){
-    var p=SPECIAL_PRICES[row]||{combo:'',hot:'',cold:''};
-    return {special:true,color:(leftInfo&&leftInfo.color)||'',combo:p.combo||'',hot:p.hot||'',cold:p.cold||''};
-  }
   function generateSpecialPDF(){
     var JS=window.jspdf&&window.jspdf.jsPDF;
     if(!JS){alert('PDF tool still loading, please try again');return;}
-    var tl=menuInfoFor(SPECIAL_SLOTS[0]);
-    var bl=menuInfoFor(SPECIAL_SLOTS[2]);
-    /* left column beans, right column weekly-offer cards (colour matched to their bean) */
-    var info4=[tl,specialOfferInfo(0,tl),bl,specialOfferInfo(1,bl)];
-    buildMenuPDF(info4,null);
+    var rows=[
+      {bean:menuInfoFor(SPECIAL_SLOTS[0]),offer:SPECIAL_PRICES[0]||{combo:'',hot:'',cold:''}},
+      {bean:menuInfoFor(SPECIAL_SLOTS[2]),offer:SPECIAL_PRICES[1]||{combo:'',hot:'',cold:''}}
+    ];
+    buildSpecialPDF(rows);
+  }
+  function buildSpecialPDF(rows){
+    var JS=window.jspdf.jsPDF;
+    var doc=new JS({orientation:'landscape',unit:'pt',format:'a4'});
+    var W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
+    drawSpecialMenu(doc,0,W/2,H,rows);
+    drawSpecialMenu(doc,W/2,W/2,H,rows);
+    doc.setDrawColor(150);doc.setLineWidth(0.7);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([4,4],0);
+    doc.line(W/2,18,W/2,H-18);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    doc.save('Ratio_Special_Menu.pdf');
+  }
+  function drawSpecialMenu(doc,ox,w,h,rows){
+    var padX=22,padTop=22,padBot=22,gap=16;
+    var x0=ox+padX, innerW=w-padX*2;
+    var bandH=(h-padTop-padBot-gap)/2;
+    drawSpecialBand(doc,x0,padTop,innerW,bandH,rows[0]);
+    drawSpecialBand(doc,x0,padTop+bandH+gap,innerW,bandH,rows[1]);
+  }
+  function drawSpecialBand(doc,x,y,w,h,row){
+    var INK=[50,43,42],BROWN=[73,66,58],BERRY=[178,94,106],LABEL=[169,158,150],LINE=[237,230,225],SUB=[92,83,76];
+    row=row||{};var bean=row.bean||{},off=row.offer||{};
+    /* card outline */
+    doc.setDrawColor(225,217,212);doc.setLineWidth(0.8);
+    if(doc.roundedRect)doc.roundedRect(x,y,w,h,10,10,'S');else doc.rect(x,y,w,h,'S');
+    if(!bean.name){
+      doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(160,150,142);
+      doc.text('\u2014 empty \u2014',x+w/2,y+h/2,{align:'center'});
+      return;
+    }
+    var leftW=Math.min(232,w*0.56);
+    var band=mnHexRgb(bean.color)||BROWN;
+    /* ---- TAB header (top-left, rounded top corners only) ---- */
+    var tabH=34,r=10;
+    doc.setFillColor(band[0],band[1],band[2]);
+    if(doc.roundedRect)doc.roundedRect(x,y,leftW,tabH,r,r,'F');else doc.rect(x,y,leftW,tabH,'F');
+    doc.rect(x,y+tabH-r,leftW,r,'F');           /* square off the tab's bottom */
+    var lum=(0.299*band[0]+0.587*band[1]+0.114*band[2]);
+    var tc=lum>165?[40,34,32]:[255,255,255];
+    doc.setFont('helvetica','bold');doc.setTextColor(tc[0],tc[1],tc[2]);
+    var nm=mnAsc(String(bean.name||'').toUpperCase()),ns=15;doc.setFontSize(ns);
+    while(ns>9&&doc.getTextWidth(nm)>leftW-24){ns-=0.5;doc.setFontSize(ns);}
+    doc.text(nm,x+14,y+tabH/2+ns*0.34);
+    /* column divider (continues down from the tab edge) */
+    doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.setLineWidth(0.8);
+    doc.line(x+leftW,y+tabH+4,x+leftW,y+h-14);
+
+    /* ================= LEFT · full bean info ================= */
+    var lx=x+15,lw=leftW-30,cy=y+tabH+22;
+    function lab(t){doc.setFont('helvetica','bold');doc.setFontSize(6.6);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.text(t,lx,cy,{charSpace:1.1});cy+=13;}
+    if(bean.flavour&&bean.flavour.length){
+      lab('FLAVOUR');
+      doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(INK[0],INK[1],INK[2]);
+      mnFit(doc,bean.flavour.join('  \u00b7  '),lx,cy,lw,11,8);cy+=18;
+    }
+    var o=bean.origin||{},orows=[];
+    if(o.process)orows.push(['Process',o.process]);
+    if(o.variety)orows.push(['Variety',o.variety]);
+    if(o.altitude)orows.push(['Altitude',o.altitude+' MASL']);
+    if(o.region)orows.push(['Region',o.region]);
+    if(orows.length){
+      lab('ORIGIN');
+      orows.forEach(function(rr){
+        doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);
+        doc.text(rr[0],lx,cy);
+        doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+        mnFit(doc,rr[1],lx+50,cy,lw-50,9.5,7);cy+=12.5;
+      });
+      cy+=6;
+    }
+    if(bean.strength&&bean.strength.length){
+      lab('CUPPING');
+      doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+      var cup=bean.strength.map(function(s){return s.label+' '+s.val;}).join('  \u00b7  ');
+      var lines=doc.splitTextToSize(mnAsc(cup),lw);if(lines.length>2)lines=lines.slice(0,2);
+      lines.forEach(function(ln){doc.text(ln,lx,cy);cy+=12;});
+    }
+    var by=y+h-14;
+    doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);
+    if(bean.ready)doc.text('READY '+mnAsc(bean.ready),lx,by);
+    if(bean.net)doc.text(mnAsc(bean.net)+' g NET',x+leftW-15,by,{align:'right'});
+
+    /* ================= RIGHT · weekly offer ================= */
+    var rx0=x+leftW+16,rEnd=x+w-15,rw=rEnd-rx0,ry=y+tabH+22;
+    function money(v){v=String(v==null?'':v).trim().replace(/^\$+/,'');return '$'+(v||'\u2014');}
+    var PSZ=18;   /* one price size for every offer */
+    /* Special of the Week — plain heading, no highlight, in the bean's colour */
+    doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(band[0],band[1],band[2]);
+    doc.text('Special of the Week',rx0,ry);ry+=27;
+    /* Espresso 1+1 Combo — prominent label + price */
+    doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
+    mnFit(doc,'Espresso 1+1 Combo',rx0,ry,rw-52,12.5,9);
+    doc.setFont('helvetica','bold');doc.setFontSize(PSZ);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+    doc.text(money(off.combo),rEnd,ry+2,{align:'right'});ry+=14;
+    doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(155,143,134);
+    doc.text('(black and white)',rx0,ry);ry+=20;
+    doc.setDrawColor(240,233,228);doc.setLineWidth(0.8);doc.line(rx0,ry,rEnd,ry);ry+=22;
+    /* Filter Pour Over — prominent label */
+    doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Filter Pour Over',rx0,ry);ry+=23;
+    doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+    doc.text('Hot',rx0,ry);
+    doc.setFont('helvetica','bold');doc.setFontSize(PSZ);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+    doc.text(money(off.hot),rEnd,ry+1,{align:'right'});ry+=23;
+    doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+    doc.text('Cold',rx0,ry);
+    doc.setFont('helvetica','bold');doc.setFontSize(PSZ);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+    doc.text(money(off.cold),rEnd,ry+1,{align:'right'});
   }
   function mnAsc(t){return String(t==null?'':t).replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...');}
   function buildMenuPDF(info4,logo){
@@ -2943,50 +3056,7 @@ fill="#6F4A36" stroke="none">
     doc.text(text,x,yy,align?{align:align}:undefined);
     return s;
   }
-  function drawOfferCell(doc,x,y,w,h,info,INK,BROWN,BERRY,MUTE){
-    /* card outline */
-    doc.setDrawColor(225,217,212);doc.setLineWidth(0.8);
-    if(doc.roundedRect)doc.roundedRect(x,y,w,h,9,9,'S');else doc.rect(x,y,w,h,'S');
-    var px=x+15, pw=w-30, rx=x+w-15;
-    /* ---- coloured banner (matches its paired bean) ---- */
-    var band=mnHexRgb(info.color)||BROWN;
-    var bandH=38;
-    doc.setFillColor(band[0],band[1],band[2]);
-    if(doc.roundedRect)doc.roundedRect(x,y,w,bandH,9,9,'F');else doc.rect(x,y,w,bandH,'F');
-    doc.rect(x,y+bandH-10,w,10,'F');
-    var lum=(0.299*band[0]+0.587*band[1]+0.114*band[2]);
-    var tc=lum>165?[40,34,32]:[255,255,255];
-    doc.setFont('helvetica','bold');doc.setTextColor(tc[0],tc[1],tc[2]);
-    var ns=18;doc.setFontSize(ns);
-    while(ns>11&&doc.getTextWidth('Special of the Week')>pw){ns-=0.5;doc.setFontSize(ns);}
-    doc.text('Special of the Week',px,y+bandH/2+ns*0.34,{maxWidth:pw});
-    function money(v){v=String(v==null?'':v).trim();v=v.replace(/^\$+/,'');return '$'+(v||'\u2014');}
-    var cy=y+bandH+26;
-    /* ===== Espresso 1+1 combo ===== */
-    doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
-    doc.text('ESPRESSO 1+1 COMBO',px,cy,{charSpace:1.1});cy+=15;
-    doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(152,142,132);
-    doc.text('(black and white)',px,cy);
-    doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-    doc.text(money(info.combo),rx,cy+1,{align:'right'});
-    cy+=34;
-    /* ===== Filter pour over ===== */
-    doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
-    doc.text('FILTER POUR OVER',px,cy,{charSpace:1.1});cy+=17;
-    /* Hot */
-    doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(INK[0],INK[1],INK[2]);
-    doc.text('Hot',px,cy);
-    doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-    doc.text(money(info.hot),rx,cy,{align:'right'});
-    cy+=21;
-    /* Cold */
-    doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(INK[0],INK[1],INK[2]);
-    doc.text('Cold',px,cy);
-    doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-    doc.text(money(info.cold),rx,cy,{align:'right'});
-  }
   function drawCell(doc,x,y,w,h,info,INK,BROWN,BERRY,MUTE){
-    if(info&&info.special){drawOfferCell(doc,x,y,w,h,info,INK,BROWN,BERRY,MUTE);return;}
     /* card outline */
     doc.setDrawColor(225,217,212);doc.setLineWidth(0.8);
     if(doc.roundedRect)doc.roundedRect(x,y,w,h,9,9,'S');else doc.rect(x,y,w,h,'S');
