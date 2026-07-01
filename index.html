@@ -459,6 +459,13 @@
   .adm-seg{font-size:12px;font-weight:600;font-family:inherit;color:var(--muted);background:transparent;border:none;border-radius:8px;padding:7px 11px;cursor:pointer;line-height:1}
   .adm-seg.on{background:var(--accent);color:#fff}
   .adm-seg:active{transform:scale(.96)}
+  /* five-role admin card */
+  .adm-card2{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 14px;display:flex;flex-direction:column;gap:10px}
+  .adm-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .adm-role.cur{color:var(--accent);flex:0 0 auto}
+  .adm-toggle.wrap{display:flex;flex-wrap:wrap;gap:6px;background:transparent;border:none;padding:0}
+  .adm-toggle.wrap .adm-seg{border:1px solid var(--line);border-radius:10px;padding:8px 11px;background:var(--bg)}
+  .adm-toggle.wrap .adm-seg.on{background:var(--accent);color:#fff;border-color:var(--accent)}
   .lbl-namewrap{position:relative;display:flex;align-items:stretch;gap:6px}
   .lbl-namewrap input{flex:1;min-width:0}
   .lbl-namebtn{flex:0 0 auto;width:42px;display:flex;align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--line);border-radius:11px;cursor:pointer;color:var(--accent)}
@@ -2204,25 +2211,26 @@ fill="#6F4A36" stroke="none">
     }catch(e){box.innerHTML='<div class="sempty">Load failed</div>';return;}
     renderAdmin();
   }
+  /* 五個角色（代號 → 顯示名）。改這裡就能改 Admin 頁的選項。 */
+  var ADMIN_ROLES=[['director','董事'],['roaster','烘豆師'],['retail','零售經理'],['staff','員工'],['customer','客戶']];
+  function roleLabel(r){var f=ADMIN_ROLES.find(function(x){return x[0]===r;});return f?f[1]:'客戶';}
   function adminCard(m){
-    var isStaff=m.role==='staff';
     var nm=esc(m.name||m.id||'—');
-    return '<div class="adm-card"><div class="adm-info"><div class="adm-name">'+nm+'</div>'
-      +'<div class="adm-role '+(isStaff?'staff':'cust')+'">'+(isStaff?'Staff':'Customer')+'</div></div>'
-      +'<div class="adm-toggle">'
-      +'<button class="adm-seg'+(!isStaff?' on':'')+'" data-id="'+esc(String(m.id))+'" data-role="customer">Customer</button>'
-      +'<button class="adm-seg'+(isStaff?' on':'')+'" data-id="'+esc(String(m.id))+'" data-role="staff">Staff</button>'
-      +'</div></div>';
+    var cur=m.role||'customer';
+    var segs=ADMIN_ROLES.map(function(r){
+      return '<button class="adm-seg'+(cur===r[0]?' on':'')+'" data-id="'+esc(String(m.id))+'" data-role="'+r[0]+'">'+r[1]+'</button>';
+    }).join('');
+    return '<div class="adm-card2"><div class="adm-head"><div class="adm-name">'+nm+'</div>'
+      +'<div class="adm-role cur">'+roleLabel(cur)+'</div></div>'
+      +'<div class="adm-toggle wrap">'+segs+'</div></div>';
   }
   function renderAdmin(){
     var box=document.getElementById('admin-content');if(!box)return;
     var cnt=document.getElementById('admin-count');
     if(cnt)cnt.textContent=MEMBERS.length?(MEMBERS.length+(MEMBERS.length===1?' member':' members')):'';
     if(!MEMBERS.length){box.innerHTML='<div class="sempty">No members yet</div>';return;}
-    var staff=MEMBERS.filter(function(m){return m.role==='staff';});
-    var cust=MEMBERS.filter(function(m){return m.role!=='staff';});
-    var html='<div class="gsec" style="padding:12px 18px 2px">Staff · '+staff.length+'</div><div class="adm-list">'+(staff.length?staff.map(adminCard).join(''):'<div class="sempty" style="padding:14px">None</div>')+'</div>';
-    html+='<div class="gsec" style="padding:12px 18px 2px">Customers · '+cust.length+'</div><div class="adm-list">'+(cust.length?cust.map(adminCard).join(''):'<div class="sempty" style="padding:14px">None</div>')+'</div>';
+    var html='<div class="gsec" style="padding:12px 18px 2px">Members · '+MEMBERS.length+'</div>'
+      +'<div class="adm-list">'+MEMBERS.map(adminCard).join('')+'</div>';
     box.innerHTML=html;
     box.querySelectorAll('.adm-seg').forEach(function(b){b.addEventListener('click',function(){setMemberRole(b.dataset.id,b.dataset.role);});});
   }
