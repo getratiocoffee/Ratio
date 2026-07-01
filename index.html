@@ -2957,9 +2957,9 @@ fill="#6F4A36" stroke="none">
       doc.text('\u2014 empty \u2014',x+w/2,y+h/2,{align:'center'});
       return;
     }
-    /* logo · top-right corner inside the card */
-    if(logo){var ls=24;try{doc.addImage(logo,'PNG',x+w-ls-12,y+9,ls,ls);}catch(e){}}
     var leftW=Math.min(232,w*0.56);
+    /* logo · centered above the right (offer) column */
+    if(logo){var ls=24;var lcx=x+leftW+(w-leftW)/2;try{doc.addImage(logo,'PNG',lcx-ls/2,y+8,ls,ls);}catch(e){}}
     var band=mnHexRgb(bean.color)||BROWN;
     /* ---- TAB header (top-left, rounded top corners only) ---- */
     var tabH=34,r=10;
