@@ -702,6 +702,7 @@
   .sp-cardhd{display:flex;align-items:center;gap:9px;margin-bottom:12px}
   .sp-badge{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.08em;font-weight:600;color:#fff;background:var(--accent);padding:3px 10px;border-radius:999px}
   .sp-cardsub{font-family:'Fraunces',serif;font-style:italic;font-size:14px;color:var(--muted)}
+  .sp-spname{font-family:'Fraunces',serif;font-weight:600;font-size:16px;color:var(--ink)}
   .sp-field{display:flex;flex-direction:column;gap:5px;margin-bottom:6px}
   .sp-flab{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.02em}
   .sp-drinks{display:flex;flex-direction:column}
@@ -2897,14 +2898,15 @@ fill="#6F4A36" stroke="none">
   }
   function saveSpecialSlots(a){try{localStorage.setItem('ratio_special_slots',JSON.stringify(a));}catch(e){}appStatePush('ratio_special_slots');}
   var SPECIAL_SLOTS=loadSpecialSlots();
-  /* right-column offer prices, one set per row (0 = top, 1 = bottom) */
+  /* offer prices keyed by bean name: { name: {combo,hot,cold,dirty} } */
   function loadSpecialPrices(){
-    try{var a=JSON.parse(localStorage.getItem('ratio_special_prices')||'null');
-      if(Array.isArray(a)&&a.length===2)return a.map(function(o){o=o||{};return {combo:o.combo||'',hot:o.hot||'',cold:o.cold||'',dirty:o.dirty||''};});}catch(e){}
-    return [{combo:'',hot:'',cold:'',dirty:''},{combo:'',hot:'',cold:'',dirty:''}];
+    try{var o=JSON.parse(localStorage.getItem('ratio_special_prices')||'null');
+      if(o&&typeof o==='object'&&!Array.isArray(o))return o;}catch(e){}
+    return {};
   }
-  function saveSpecialPrices(a){try{localStorage.setItem('ratio_special_prices',JSON.stringify(a));}catch(e){}appStatePush('ratio_special_prices');}
+  function saveSpecialPrices(o){try{localStorage.setItem('ratio_special_prices',JSON.stringify(o));}catch(e){}appStatePush('ratio_special_prices');}
   var SPECIAL_PRICES=loadSpecialPrices();
+  function specialPriceFor(name){var o=SPECIAL_PRICES[name];return {combo:(o&&o.combo)||'',hot:(o&&o.hot)||'',cold:(o&&o.cold)||'',dirty:(o&&o.dirty)||''};}
   function openSpecialMenu(){
     menuView='special';
     var c=document.getElementById('menu-content');
@@ -2913,53 +2915,42 @@ fill="#6F4A36" stroke="none">
       if(!ROASTS||!ROASTS.length){try{return loadRoasts();}catch(e){}}
     }).then(function(){renderSpecial();}).catch(function(){renderSpecial();});
   }
-  /* single-origin retail beans = Retail Info names that are NOT blend names */
-  function specialOptionList(){
+  /* every single-origin retail bean (Retail Info names that are NOT blend names) */
+  function specialBeanList(){
+    var blend={};try{blendNames().forEach(function(n){blend[String(n).trim().toLowerCase()]=true;});}catch(e){}
     var seen={},out=[];
-    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;seen[k]=true;out.push(nm);});
-    /* keep any current slot value selectable even if it drops off the list */
-    [SPECIAL_SLOTS[0],SPECIAL_SLOTS[2]].forEach(function(n){var k=String(n||'').trim();if(k&&!seen[k.toLowerCase()]){seen[k.toLowerCase()]=true;out.push(k);}});
+    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k]||blend[k])return;seen[k]=true;out.push(nm);});
     return out;
   }
   function renderSpecial(){
     var c=document.getElementById('menu-content');if(!c)return;
-    var opts=specialOptionList();
-    function optsHtml(cur){
-      return '<option value=""'+(cur?'':' selected')+'>\u2014 none \u2014</option>'
-        +opts.map(function(n){return '<option value="'+esc(n)+'"'+(n===cur?' selected':'')+'>'+esc(n)+'</option>';}).join('');
-    }
-    function priceInp(row,k){return '$<input type="text" inputmode="decimal" class="sp-pi" data-k="'+k+'" value="'+esc((SPECIAL_PRICES[row]||{})[k]||'')+'" placeholder="0">';}
-    function card(sloti,row,label){
-      var cur=SPECIAL_SLOTS[sloti]||'';
-      return '<div class="sp-card" data-row="'+row+'">'
-        +'<div class="sp-cardhd"><span class="sp-badge">'+label+'</span><span class="sp-cardsub">Special of the Week</span></div>'
-        +'<label class="sp-field"><span class="sp-flab">Retail Info bean</span>'
-          +'<select class="mn-sel" data-i="'+sloti+'">'+optsHtml(cur)+'</select></label>'
+    var beans=specialBeanList();
+    function priceInp(name,k){return '$<input type="text" inputmode="decimal" class="sp-pi" data-nm="'+esc(name)+'" data-k="'+k+'" value="'+esc(specialPriceFor(name)[k]||'')+'" placeholder="0">';}
+    function card(name){
+      var info=menuInfoFor(name);
+      var fl=(info.flavour&&info.flavour.length)?esc(info.flavour.join(' \u00b7 ')):'Special of the Week';
+      return '<div class="sp-card">'
+        +'<div class="sp-cardhd"><span class="sp-spname">'+esc(name)+'</span><span class="sp-cardsub">'+fl+'</span></div>'
         +'<div class="sp-drinks">'
-          +'<div class="sp-drink"><div class="sp-dinfo"><span class="sp-dname sp-cred">1+1 Combo</span><span class="sp-dsub">Espresso base \u00b7 black &amp; white</span></div><span class="sp-price">'+priceInp(row,'combo')+'</span></div>'
-          +'<div class="sp-drink"><div class="sp-dinfo"><span class="sp-dname sp-cblue">Dirty</span></div><span class="sp-price">'+priceInp(row,'dirty')+'</span></div>'
+          +'<div class="sp-drink"><div class="sp-dinfo"><span class="sp-dname sp-cred">1+1 Combo</span><span class="sp-dsub">Espresso base \u00b7 black &amp; white</span></div><span class="sp-price">'+priceInp(name,'combo')+'</span></div>'
+          +'<div class="sp-drink"><div class="sp-dinfo"><span class="sp-dname sp-cblue">Dirty</span></div><span class="sp-price">'+priceInp(name,'dirty')+'</span></div>'
           +'<div class="sp-drink sp-drink-col"><div class="sp-dinfo"><span class="sp-dname">Filter Pour Over</span></div>'
-            +'<div class="sp-hc"><span class="sp-price sp-hot"><em>Hot</em> '+priceInp(row,'hot')+'</span><span class="sp-price sp-cold"><em>Cold</em> '+priceInp(row,'cold')+'</span></div></div>'
+            +'<div class="sp-hc"><span class="sp-price sp-hot"><em>Hot</em> '+priceInp(name,'hot')+'</span><span class="sp-price sp-cold"><em>Cold</em> '+priceInp(name,'cold')+'</span></div></div>'
         +'</div></div>';
     }
-    var empty=!opts.length;
+    var empty=!beans.length;
     c.innerHTML='<div class="mn-wrap">'
-      +'<p class="gsec" style="padding-left:0">Weekly special \u00b7 pair a bean with its drink prices</p>'
-      +(empty?'<div class="sempty" style="padding:24px 8px">No beans in Retail Info yet</div>':(card(0,0,'TOP')+card(2,1,'BOTTOM')))
-      +'<p class="mn-note">Each card prints as one row on the menu \u2014 the bean details on the left, these three drinks on the right. Two identical copies print on A4 with a centre cut line.</p>'
+      +'<p class="gsec" style="padding-left:0">All single-origin beans \u00b7 auto from Retail Info \u00b7 set drink prices</p>'
+      +(empty?'<div class="sempty" style="padding:24px 8px">No single-origin beans in Retail Info yet</div>':beans.map(card).join(''))
+      +'<p class="mn-note">Every single-origin bean in Retail Info prints as one row \u2014 bean details on the left, drink prices on the right. 2 beans per A4 sheet (two identical copies, centre cut line); extra sheets are added automatically.</p>'
       +'<button class="gbtn" id="sp-gen"'+(empty?' disabled':'')+'>Generate Menu PDF</button>'
       +'</div>';
-    c.querySelectorAll('.mn-sel').forEach(function(s){s.addEventListener('change',function(){
-      SPECIAL_SLOTS[+s.dataset.i]=s.value;saveSpecialSlots(SPECIAL_SLOTS);
-    });});
-    c.querySelectorAll('.sp-card').forEach(function(box){
-      var row=+box.dataset.row;
-      box.querySelectorAll('.sp-pi').forEach(function(inp){
-        inp.addEventListener('input',function(){
-          if(!SPECIAL_PRICES[row])SPECIAL_PRICES[row]={combo:'',hot:'',cold:'',dirty:''};
-          SPECIAL_PRICES[row][inp.dataset.k]=inp.value;
-          saveSpecialPrices(SPECIAL_PRICES);
-        });
+    c.querySelectorAll('.sp-pi').forEach(function(inp){
+      inp.addEventListener('input',function(){
+        var nm=inp.dataset.nm;
+        if(!SPECIAL_PRICES[nm])SPECIAL_PRICES[nm]={combo:'',hot:'',cold:'',dirty:''};
+        SPECIAL_PRICES[nm][inp.dataset.k]=inp.value;
+        saveSpecialPrices(SPECIAL_PRICES);
       });
     });
     var gen=document.getElementById('sp-gen');
@@ -2968,10 +2959,9 @@ fill="#6F4A36" stroke="none">
   function generateSpecialPDF(){
     var JS=window.jspdf&&window.jspdf.jsPDF;
     if(!JS){alert('PDF tool still loading, please try again');return;}
-    var rows=[
-      {bean:menuInfoFor(SPECIAL_SLOTS[0]),offer:SPECIAL_PRICES[0]||{combo:'',hot:'',cold:'',dirty:''}},
-      {bean:menuInfoFor(SPECIAL_SLOTS[2]),offer:SPECIAL_PRICES[1]||{combo:'',hot:'',cold:'',dirty:''}}
-    ];
+    var beans=specialBeanList();
+    if(!beans.length){alert('No single-origin beans in Retail Info');return;}
+    var rows=beans.map(function(nm){return {bean:menuInfoFor(nm),offer:specialPriceFor(nm)};});
     var img=new Image();
     img.onload=function(){buildSpecialPDF(rows,img);};
     img.onerror=function(){buildSpecialPDF(rows,null);};
@@ -2981,12 +2971,17 @@ fill="#6F4A36" stroke="none">
     var JS=window.jspdf.jsPDF;
     var doc=new JS({orientation:'landscape',unit:'pt',format:'a4'});
     var W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
-    drawSpecialMenu(doc,0,W/2,H,rows,logo);
-    drawSpecialMenu(doc,W/2,W/2,H,rows,logo);
-    doc.setDrawColor(150);doc.setLineWidth(0.7);
-    if(doc.setLineDashPattern)doc.setLineDashPattern([4,4],0);
-    doc.line(W/2,18,W/2,H-18);
-    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    var pages=Math.max(1,Math.ceil(rows.length/2));
+    for(var pi=0;pi<pages;pi++){
+      if(pi>0)doc.addPage();
+      var pr=[rows[pi*2]||null, rows[pi*2+1]||null];
+      drawSpecialMenu(doc,0,W/2,H,pr,logo);
+      drawSpecialMenu(doc,W/2,W/2,H,pr,logo);
+      doc.setDrawColor(150);doc.setLineWidth(0.7);
+      if(doc.setLineDashPattern)doc.setLineDashPattern([4,4],0);
+      doc.line(W/2,18,W/2,H-18);
+      if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    }
     doc.save('Ratio_Special_Menu.pdf');
   }
   function drawSpecialMenu(doc,ox,w,h,rows,logo){
