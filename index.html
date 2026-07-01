@@ -2906,16 +2906,19 @@ fill="#6F4A36" stroke="none">
       if(!ROASTS||!ROASTS.length){try{return loadRoasts();}catch(e){}}
     }).then(function(){renderSpecial();}).catch(function(){renderSpecial();});
   }
-  /* every single-origin retail bean (Retail Info names that are NOT blend names) */
-  function specialBeanList(){
+  /* retail beans of one kind: mode 'blend' = names that ARE blends, else single-origin */
+  var specialMode='single';
+  function specialBeanList(mode){
+    var wantBlend=(mode==='blend');
     var blend={};try{blendNames().forEach(function(n){blend[String(n).trim().toLowerCase()]=true;});}catch(e){}
     var seen={},out=[];
-    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k]||blend[k])return;seen[k]=true;out.push(nm);});
+    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;if(wantBlend!==!!blend[k])return;seen[k]=true;out.push(nm);});
     return out;
   }
   function renderSpecial(){
     var c=document.getElementById('menu-content');if(!c)return;
-    var beans=specialBeanList();
+    var beans=specialBeanList(specialMode);
+    var isBlend=(specialMode==='blend');
     function priceInp(name,k){return '$<input type="text" inputmode="decimal" class="sp-pi" data-nm="'+esc(name)+'" data-k="'+k+'" value="'+esc(specialPriceFor(name)[k]||'')+'" placeholder="0">';}
     function card(name){
       var info=menuInfoFor(name);
@@ -2930,12 +2933,20 @@ fill="#6F4A36" stroke="none">
         +'</div></div>';
     }
     var empty=!beans.length;
+    var seg='<div class="lbl-seg sp-modeseg" style="margin-bottom:14px">'
+      +'<button class="lbl-tab'+(isBlend?'':' on')+'" data-spmode="single">Single Origin</button>'
+      +'<button class="lbl-tab'+(isBlend?' on':'')+'" data-spmode="blend">Blend</button></div>';
+    var emptyMsg=isBlend?'No blends in Retail Info yet':'No single-origin beans in Retail Info yet';
     c.innerHTML='<div class="mn-wrap">'
-      +'<p class="gsec" style="padding-left:0">All beans from Retail Info \u00b7 set drink prices</p>'
-      +(empty?'<div class="sempty" style="padding:24px 8px">No beans in Retail Info yet</div>':beans.map(card).join(''))
-      +'<p class="mn-note">Every bean in Retail Info prints as one row \u2014 details on the left, drink prices on the right. 2 beans per A4 sheet (two identical copies, centre cut line); extra sheets are added automatically.</p>'
+      +'<p class="gsec" style="padding-left:0">'+(isBlend?'All blends':'All single-origin beans')+' from Retail Info \u00b7 set drink prices</p>'
+      +seg
+      +(empty?'<div class="sempty" style="padding:24px 8px">'+emptyMsg+'</div>':beans.map(card).join(''))
+      +'<p class="mn-note">Every '+(isBlend?'blend':'single-origin bean')+' in Retail Info prints as one row \u2014 details on the left, drink prices on the right. 2 per A4 sheet (two identical copies, centre cut line); extra sheets are added automatically.</p>'
       +'<button class="gbtn" id="sp-gen"'+(empty?' disabled':'')+'>Generate Menu PDF</button>'
       +'</div>';
+    c.querySelectorAll('.sp-modeseg .lbl-tab[data-spmode]').forEach(function(t){t.addEventListener('click',function(){
+      var m=t.getAttribute('data-spmode');if(m===specialMode)return;specialMode=m;renderSpecial();
+    });});
     c.querySelectorAll('.sp-pi').forEach(function(inp){
       inp.addEventListener('input',function(){
         var nm=inp.dataset.nm;
@@ -2950,8 +2961,8 @@ fill="#6F4A36" stroke="none">
   function generateSpecialPDF(){
     var JS=window.jspdf&&window.jspdf.jsPDF;
     if(!JS){alert('PDF tool still loading, please try again');return;}
-    var beans=specialBeanList();
-    if(!beans.length){alert('No beans in Retail Info');return;}
+    var beans=specialBeanList(specialMode);
+    if(!beans.length){alert('No '+(specialMode==='blend'?'blends':'single-origin beans')+' in Retail Info');return;}
     var rows=beans.map(function(nm){return {bean:menuInfoFor(nm),offer:specialPriceFor(nm)};});
     var img=new Image();
     img.onload=function(){buildSpecialPDF(rows,img);};
