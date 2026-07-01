@@ -3397,7 +3397,7 @@ fill="#6F4A36" stroke="none">
     if(blendDef){
       var parts=(blendDef.parts||[]).filter(function(p){return (p.bean||'').trim();});
       recipeHtml='<div class="rtl-flav-h">Recipe</div>'+(parts.length
-        ?('<div class="rtl-recipe">'+parts.map(function(p){var pct=(p.pct===0||p.pct)?String(p.pct):'';return '<span class="rtl-rchip">'+esc(p.bean)+(pct!==''?' <b>'+esc(pct)+'%</b>':'')+'</span>';}).join('')+'</div>')
+        ?('<div class="rtl-recipe">'+parts.map(function(p){var pct=(p.pct===0||p.pct)?String(p.pct):'';return '<span class="rtl-rchip">'+(pct!==''?'<b>'+esc(pct)+'%</b> ':'')+esc(p.bean)+'</span>';}).join('')+'</div>')
         :'<div class="rtl-noflav">No recipe set \u00b7 add it in F(x) \u2192 Blending</div>');
       var bcmt=(blendDef.comment||'').trim();
       if(bcmt)blendCmtHtml='<div class="rtl-gram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'+esc(bcmt)+'</div>';
