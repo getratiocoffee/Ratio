@@ -316,6 +316,7 @@
   .grow .gv.mono{font-family:var(--font-mono)}
   /* edit button + form */
   .gbtn{display:block;width:100%;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;background:var(--accent);color:#fff;transition:opacity .15s ease}
+  .savegate{display:none!important}
   .gbtn:active{opacity:.8}
   .gbtn[disabled]{opacity:.5}
   .gbtn.ghost{background:var(--surface);color:var(--accent);border:1px solid var(--line);margin-bottom:12px}
@@ -1469,6 +1470,16 @@ fill="#6F4A36" stroke="none">
   function closePage(){var hadOpen=!!document.querySelector('.screen.open');document.querySelectorAll('.screen.open').forEach(function(s){s.classList.remove('open');s.style.margin='';s.style.top='';s.style.left='';s.style.right='';s.style.bottom='';});setActiveDock(null);var sw=document.getElementById('swap');if(sw&&!dockStack.length){sw.classList.remove('back');sw.innerHTML=I.swap;}if(hadOpen&&dockStack[0]==='timesheet'){tsFilter=null;renderModulePanel('timesheet');}}
   window.addEventListener('resize',function(){document.querySelectorAll('.screen.open').forEach(function(el){alignScreenToBoard(el);});});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePage();closeFolder();}});
+  /* hide-until-dirty: save buttons carry .savegate (display:none); reveal when a field in the same screen changes */
+  function revealSaveGate(e){
+    var t=e.target;
+    if(!t||!t.matches||!t.matches('input,select,textarea'))return;
+    var scope=t.closest('.screen')||t.closest('#cpanel');
+    if(!scope)return;
+    scope.querySelectorAll('.savegate').forEach(function(b){b.classList.remove('savegate');});
+  }
+  document.addEventListener('input',revealSaveGate,true);
+  document.addEventListener('change',revealSaveGate,true);
 
   /* placeholder roster — replace with live Supabase `shifts` data later */
   const TIMESHEET_WEEKS=[
@@ -2836,7 +2847,7 @@ fill="#6F4A36" stroke="none">
       +'<label class="gfield"><span class="gl">Phone</span><input id="ct-phone" type="tel" value="'+esc(p.phone||'')+'" /></label>'
       +'<label class="gfield"><span class="gl">Notes</span><textarea id="ct-notes" class="gta" rows="2">'+esc(p.notes||'')+'</textarea></label>'
       +'<div class="gform-msg" id="ct-msg"></div>'
-      +'<div class="gform-actions"><button class="gbtn ghost" id="ct-cancel">Cancel</button><button class="gbtn" id="ct-save">Save</button></div>'
+      +'<div class="gform-actions"><button class="gbtn ghost" id="ct-cancel">Cancel</button><button class="gbtn savegate" id="ct-save">Save</button></div>'
       +(isNew?'':'<div class="gdel">'+(contactDelConfirm?'<div class="gdel-msg">Delete "'+esc(p.name||'')+'"? This cannot be undone.</div><div class="gform-actions"><button class="gbtn ghost" id="ct-del-cancel">Cancel</button><button class="gbtn danger" id="ct-del-yes">Delete</button></div>':'<button class="gbtn dghost" id="ct-del">Delete this contact</button>')+'</div>')
       +'</div>';
     document.getElementById('ct-cancel').addEventListener('click',function(){contactsBack();box.scrollTop=0;});
@@ -2950,7 +2961,7 @@ fill="#6F4A36" stroke="none">
           return '<label class="gfield"><span class="gl">'+f[1]+'</span><input data-f="'+f[0]+'" type="text"'+im+' value="'+esc(v)+'" /></label>';
         }).join('')
         +'<div class="gform-msg" id="green-msg"></div>'
-        +'<div class="gform-actions"><button class="gbtn ghost" id="green-cancel">Cancel</button><button class="gbtn" id="green-save">Save</button></div>'
+        +'<div class="gform-actions"><button class="gbtn ghost" id="green-cancel">Cancel</button><button class="gbtn savegate" id="green-save">Save</button></div>'
         +'<div class="gdel">'+(greenDelConfirm
             ?'<div class="gdel-msg">Delete "'+esc(b.name)+'"? This cannot be undone.</div><div class="gform-actions"><button class="gbtn ghost" id="gdel-cancel">Cancel</button><button class="gbtn danger" id="gdel-yes">Delete</button></div>'
             :'<button class="gbtn dghost" id="gdel">Delete this bean</button>')
@@ -2972,7 +2983,7 @@ fill="#6F4A36" stroke="none">
         return '<label class="gfield"><span class="gl">'+f[1]+'</span><input data-f="'+f[0]+'" type="text"'+im+' value="'+esc(v)+'" /></label>';
       }).join('')
       +'<div class="gform-msg" id="green-msg"></div>'
-      +'<div class="gform-actions"><button class="gbtn ghost" id="green-cancel">Cancel</button><button class="gbtn" id="green-save">Save</button></div>'
+      +'<div class="gform-actions"><button class="gbtn ghost" id="green-cancel">Cancel</button><button class="gbtn savegate" id="green-save">Save</button></div>'
       +'</div>';
       box.innerHTML='<div class="gdetail" style="padding-top:8px">'+form+'</div>';
       document.getElementById('green-cancel').addEventListener('click',function(){greenView=greenAddCountry?'beans':'countries';if(greenAddCountry)greenCountry=greenAddCountry;greenAddCountry=null;renderGreen();box.scrollTop=0;});
@@ -3400,7 +3411,7 @@ fill="#6F4A36" stroke="none">
       +'<div class="gform-msg" id="re-msg"></div>'
       +(roastDelConfirm
           ?'<div class="gdel"><div class="gdel-msg">Delete this roast?<br>Adds '+esc(gnum(r.green_kg))+' kg back to "'+esc(r.bean_name||'')+'" stock.</div><div class="gform-actions"><button class="gbtn ghost" id="re-del-cancel">Cancel</button><button class="gbtn danger" id="re-del-yes">Delete</button></div></div>'
-          :'<div class="re-actrow"><button class="gbtn ico-ok" id="re-save" aria-label="Submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></button><button class="gbtn dghost ico" id="re-del" aria-label="Delete this roast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/></svg></button></div>')
+          :'<div class="re-actrow"><button class="gbtn ico-ok savegate" id="re-save" aria-label="Submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></button><button class="gbtn dghost ico" id="re-del" aria-label="Delete this roast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/></svg></button></div>')
       +'</div></div>';
     var rs=document.getElementById('re-save');if(rs)rs.addEventListener('click',saveRoastEdit);
     var rd=document.getElementById('re-del');if(rd)rd.addEventListener('click',function(){roastDelConfirm=true;renderRoastEdit();});
@@ -3585,7 +3596,7 @@ fill="#6F4A36" stroke="none">
       +'<div class="smp-sec"><div class="smp-sec-h">Purchase decision</div>'+seg+'</div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Comment · what makes it unique</div><textarea id="se-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
       +'<div class="smp-msg-wrap"><div class="gform-msg" id="se-msg"></div></div>'
-      +'<div class="smp-sec"><div class="gform-actions"><button class="gbtn ghost" id="se-cancel">Back</button><button class="gbtn" id="se-save">Save changes</button></div>'
+      +'<div class="smp-sec"><div class="gform-actions"><button class="gbtn ghost" id="se-cancel">Back</button><button class="gbtn savegate" id="se-save">Save changes</button></div>'
       +'<div class="gdel">'+(smpDelConfirm
           ?'<div class="gdel-msg">Delete this sample? This cannot be undone.</div><div class="gform-actions"><button class="gbtn ghost" id="se-del-cancel">Cancel</button><button class="gbtn danger" id="se-del-yes">Delete</button></div>'
           :'<button class="gbtn dghost" id="se-del">Delete this sample</button>')
