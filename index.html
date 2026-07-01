@@ -680,6 +680,17 @@
   .mn-hubt{font-size:16px;font-weight:600;color:var(--ink)}
   .mn-hubs{font-size:12px;color:var(--muted)}
   .mn-blank{width:100%;font-size:13px;color:var(--muted);background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:9px 10px;text-align:center}
+  .sp-offer{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 11px;display:flex;flex-direction:column;gap:7px}
+  .sp-otitle{font-family:'Fraunces',serif;font-size:14px;font-weight:600;color:var(--ink)}
+  .sp-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .sp-row.sp-rowh{margin-top:1px}
+  .sp-lab{font-size:12px;color:var(--ink);line-height:1.3}
+  .sp-lab em{font-style:normal;color:var(--muted);font-size:11px}
+  .sp-sub{display:flex;gap:14px;flex-wrap:wrap}
+  .sp-price{display:inline-flex;align-items:center;gap:3px;font-size:12px;color:var(--muted);white-space:nowrap}
+  .sp-price em{font-style:normal;color:var(--ink);font-weight:500;margin-right:1px}
+  .sp-pi{width:46px;font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 6px;text-align:right}
+  .sp-pi:focus{outline:none;border-color:var(--accent)}
   .bl-cmt{width:100%;font-family:inherit;font-size:13px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;margin-top:2px}
   .bl-cmt:focus{outline:none;border-color:var(--accent)}
   .bl-tot{margin-top:4px;font-size:12px;color:var(--muted);text-align:right}
@@ -1237,6 +1248,7 @@ fill="#6F4A36" stroke="none">
     'ratio_na':'na',
     'ratio_menu_slots':'menu_slots',
     'ratio_special_slots':'special_slots',
+    'ratio_special_prices':'special_prices',
     'ratio_rtl_dot':'rtl_dot',
     'ratio_rtl_g':'rtl_g',
     'ratio_rtl_sold':'rtl_sold',
@@ -1281,6 +1293,7 @@ fill="#6F4A36" stroke="none">
     try{localStorage.setItem(lsKey,JSON.stringify(val));}catch(e){}
     if(lsKey==='ratio_menu_slots'){try{MENU_SLOTS=loadMenuSlots();}catch(e){}}
     if(lsKey==='ratio_special_slots'){try{SPECIAL_SLOTS=loadSpecialSlots();}catch(e){}}
+    if(lsKey==='ratio_special_prices'){try{SPECIAL_PRICES=loadSpecialPrices();}catch(e){}}
   }
   function appStateRefreshOpenScreens(){
     try{
@@ -2807,6 +2820,14 @@ fill="#6F4A36" stroke="none">
   }
   function saveSpecialSlots(a){try{localStorage.setItem('ratio_special_slots',JSON.stringify(a));}catch(e){}appStatePush('ratio_special_slots');}
   var SPECIAL_SLOTS=loadSpecialSlots();
+  /* right-column offer prices, one set per row (0 = top, 1 = bottom) */
+  function loadSpecialPrices(){
+    try{var a=JSON.parse(localStorage.getItem('ratio_special_prices')||'null');
+      if(Array.isArray(a)&&a.length===2)return a.map(function(o){o=o||{};return {combo:o.combo||'',hot:o.hot||'',cold:o.cold||''};});}catch(e){}
+    return [{combo:'',hot:'',cold:''},{combo:'',hot:'',cold:''}];
+  }
+  function saveSpecialPrices(a){try{localStorage.setItem('ratio_special_prices',JSON.stringify(a));}catch(e){}appStatePush('ratio_special_prices');}
+  var SPECIAL_PRICES=loadSpecialPrices();
   function openSpecialMenu(){
     menuView='special';
     var c=document.getElementById('menu-content');
@@ -2835,29 +2856,56 @@ fill="#6F4A36" stroke="none">
       return '<label class="mn-slot"><span class="mn-pos">'+pos[i]+'</span>'
         +'<select class="mn-sel" data-i="'+i+'">'+o+'</select></label>';
     }
-    function blank(i){
-      return '<label class="mn-slot"><span class="mn-pos">'+pos[i]+'</span>'
-        +'<div class="mn-blank">— blank —</div></label>';
+    /* right cell = fixed "Special of the Week" offer with editable prices; row 0=top, 1=bottom */
+    function offer(i){
+      var row=(i===1)?0:1;var p=SPECIAL_PRICES[row]||{combo:'',hot:'',cold:''};
+      return '<div class="mn-slot"><span class="mn-pos">'+pos[i]+'</span>'
+        +'<div class="sp-offer" data-row="'+row+'">'
+          +'<div class="sp-otitle">Special of the Week</div>'
+          +'<div class="sp-row"><span class="sp-lab">Espresso 1+1 combo <em>(black &amp; white)</em></span>'
+            +'<span class="sp-price">$<input type="text" inputmode="decimal" class="sp-pi" data-k="combo" value="'+esc(p.combo||'')+'" placeholder="0"></span></div>'
+          +'<div class="sp-row sp-rowh"><span class="sp-lab">Filter Pour Over</span></div>'
+          +'<div class="sp-sub">'
+            +'<span class="sp-price"><em>Hot</em> $<input type="text" inputmode="decimal" class="sp-pi" data-k="hot" value="'+esc(p.hot||'')+'" placeholder="0"></span>'
+            +'<span class="sp-price"><em>Cold</em> $<input type="text" inputmode="decimal" class="sp-pi" data-k="cold" value="'+esc(p.cold||'')+'" placeholder="0"></span>'
+          +'</div>'
+        +'</div></div>';
     }
     var empty=!opts.length;
     c.innerHTML='<div class="mn-wrap">'
-      +'<p class="gsec" style="padding-left:0">Left column · pick a single-origin bean</p>'
-      +'<div class="mn-grid">'+sel(0)+blank(1)+sel(2)+blank(3)+'</div>'
+      +'<p class="gsec" style="padding-left:0">Left · single-origin bean · Right · weekly offer + prices</p>'
+      +'<div class="mn-grid">'+sel(0)+offer(1)+sel(2)+offer(3)+'</div>'
       +(empty?'<div class="sempty" style="padding:24px 8px">No single-origin beans in Retail Info yet</div>':'')
-      +'<p class="mn-note">The left column offers every Retail Info bean that isn\'t a blend; the right column stays blank for now. Info (flavour notes, ready-brew date, net weight) is pulled live from Retail Info. The PDF prints two identical copies on A4 with a centre cut line.</p>'
+      +'<p class="mn-note">Left column lists every Retail Info bean that isn\'t a blend (flavour, ready-brew date, net weight pulled live). Right column prints the weekly offer with the prices you enter — top-right pairs with the top-left bean, bottom-right with the bottom-left. Two identical copies print on A4 with a centre cut line.</p>'
       +'<button class="gbtn" id="sp-gen"'+(empty?' disabled':'')+'>Generate Menu PDF</button>'
       +'</div>';
     c.querySelectorAll('.mn-sel').forEach(function(s){s.addEventListener('change',function(){
       SPECIAL_SLOTS[+s.dataset.i]=s.value;saveSpecialSlots(SPECIAL_SLOTS);
     });});
+    c.querySelectorAll('.sp-offer').forEach(function(box){
+      var row=+box.dataset.row;
+      box.querySelectorAll('.sp-pi').forEach(function(inp){
+        inp.addEventListener('input',function(){
+          if(!SPECIAL_PRICES[row])SPECIAL_PRICES[row]={combo:'',hot:'',cold:''};
+          SPECIAL_PRICES[row][inp.dataset.k]=inp.value;
+          saveSpecialPrices(SPECIAL_PRICES);
+        });
+      });
+    });
     var gen=document.getElementById('sp-gen');
     if(gen)gen.addEventListener('click',function(){generateSpecialPDF();});
+  }
+  function specialOfferInfo(row,leftInfo){
+    var p=SPECIAL_PRICES[row]||{combo:'',hot:'',cold:''};
+    return {special:true,color:(leftInfo&&leftInfo.color)||'',combo:p.combo||'',hot:p.hot||'',cold:p.cold||''};
   }
   function generateSpecialPDF(){
     var JS=window.jspdf&&window.jspdf.jsPDF;
     if(!JS){alert('PDF tool still loading, please try again');return;}
-    /* right column forced blank */
-    var info4=[menuInfoFor(SPECIAL_SLOTS[0]),menuInfoFor(''),menuInfoFor(SPECIAL_SLOTS[2]),menuInfoFor('')];
+    var tl=menuInfoFor(SPECIAL_SLOTS[0]);
+    var bl=menuInfoFor(SPECIAL_SLOTS[2]);
+    /* left column beans, right column weekly-offer cards (colour matched to their bean) */
+    var info4=[tl,specialOfferInfo(0,tl),bl,specialOfferInfo(1,bl)];
     buildMenuPDF(info4,null);
   }
   function mnAsc(t){return String(t==null?'':t).replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...');}
@@ -2895,7 +2943,50 @@ fill="#6F4A36" stroke="none">
     doc.text(text,x,yy,align?{align:align}:undefined);
     return s;
   }
+  function drawOfferCell(doc,x,y,w,h,info,INK,BROWN,BERRY,MUTE){
+    /* card outline */
+    doc.setDrawColor(225,217,212);doc.setLineWidth(0.8);
+    if(doc.roundedRect)doc.roundedRect(x,y,w,h,9,9,'S');else doc.rect(x,y,w,h,'S');
+    var px=x+15, pw=w-30, rx=x+w-15;
+    /* ---- coloured banner (matches its paired bean) ---- */
+    var band=mnHexRgb(info.color)||BROWN;
+    var bandH=38;
+    doc.setFillColor(band[0],band[1],band[2]);
+    if(doc.roundedRect)doc.roundedRect(x,y,w,bandH,9,9,'F');else doc.rect(x,y,w,bandH,'F');
+    doc.rect(x,y+bandH-10,w,10,'F');
+    var lum=(0.299*band[0]+0.587*band[1]+0.114*band[2]);
+    var tc=lum>165?[40,34,32]:[255,255,255];
+    doc.setFont('helvetica','bold');doc.setTextColor(tc[0],tc[1],tc[2]);
+    var ns=18;doc.setFontSize(ns);
+    while(ns>11&&doc.getTextWidth('Special of the Week')>pw){ns-=0.5;doc.setFontSize(ns);}
+    doc.text('Special of the Week',px,y+bandH/2+ns*0.34,{maxWidth:pw});
+    function money(v){v=String(v==null?'':v).trim();v=v.replace(/^\$+/,'');return '$'+(v||'\u2014');}
+    var cy=y+bandH+26;
+    /* ===== Espresso 1+1 combo ===== */
+    doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+    doc.text('ESPRESSO 1+1 COMBO',px,cy,{charSpace:1.1});cy+=15;
+    doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(152,142,132);
+    doc.text('(black and white)',px,cy);
+    doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+    doc.text(money(info.combo),rx,cy+1,{align:'right'});
+    cy+=34;
+    /* ===== Filter pour over ===== */
+    doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+    doc.text('FILTER POUR OVER',px,cy,{charSpace:1.1});cy+=17;
+    /* Hot */
+    doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Hot',px,cy);
+    doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+    doc.text(money(info.hot),rx,cy,{align:'right'});
+    cy+=21;
+    /* Cold */
+    doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Cold',px,cy);
+    doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+    doc.text(money(info.cold),rx,cy,{align:'right'});
+  }
   function drawCell(doc,x,y,w,h,info,INK,BROWN,BERRY,MUTE){
+    if(info&&info.special){drawOfferCell(doc,x,y,w,h,info,INK,BROWN,BERRY,MUTE);return;}
     /* card outline */
     doc.setDrawColor(225,217,212);doc.setLineWidth(0.8);
     if(doc.roundedRect)doc.roundedRect(x,y,w,h,9,9,'S');else doc.rect(x,y,w,h,'S');
