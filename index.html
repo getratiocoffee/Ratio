@@ -28,6 +28,11 @@
   #who{font-size:11px;color:var(--on-brand);opacity:.7;font-weight:500}
   #who:empty{display:none}
   .clock{font-size:26px;font-weight:700;font-family:var(--font-mono);color:var(--on-brand);letter-spacing:0}
+  .hend{display:flex;align-items:center;gap:12px}
+  .logout-door{-webkit-appearance:none;appearance:none;background:transparent;border:none;margin:0;padding:7px;cursor:pointer;color:var(--on-brand);display:flex;align-items:center;justify-content:center;border-radius:10px;line-height:0;opacity:.85;transition:opacity .15s ease,background .15s ease}
+  .logout-door:hover,.logout-door:active{opacity:1;background:rgba(244,236,234,.14)}
+  .logout-door svg{width:23px;height:23px;display:block}
+  .bhead .logout-door svg path,.bhead .logout-door svg polyline,.bhead .logout-door svg line{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .feed{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .ctitle{display:none;padding:11px 16px 10px;font-size:15px;font-weight:700;color:var(--ink);border-bottom:1px solid var(--line);font-family:var(--font-display)}
   .ctitle .ct-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -781,7 +786,7 @@
   </div>
 
   <div class="board">
-    <header class="bhead"><span class="logo"><img src="logo.png" alt="Ratio" /></span><div class="hright"><span id="who"></span><div class="clock" id="clock">9:41</div></div></header>
+    <header class="bhead"><span class="logo"><img src="logo.png" alt="Ratio" /></span><div class="hend"><div class="hright"><span id="who"></span><div class="clock" id="clock">9:41</div></div><button id="signout" class="logout-door" type="button" aria-label="Logout" title="Logout"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button></div></header>
     <div class="ctitle" id="ctitle"></div>
     <div class="feed" id="feed"></div>
     <div class="cpanel" id="cpanel"></div>
