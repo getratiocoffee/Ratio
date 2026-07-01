@@ -709,6 +709,13 @@
   .sp-hc .sp-price{flex:1;justify-content:space-between;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:6px 9px}
   .sp-hot em{color:#C0392B;font-style:normal;font-weight:700}
   .sp-cold em{color:#2A659E;font-style:normal;font-weight:700}
+  .tk-ti{width:100%;font-family:inherit;font-size:13px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+  .tk-ti:focus{outline:none;border-color:var(--accent)}
+  .tk-row2{display:flex;gap:8px}
+  .tk-row2 .sp-field{flex:1;min-width:0}
+  .tk-price em{font-style:normal;font-weight:700}
+  .tk-price.hot em{color:#D6006C}
+  .tk-price.cold em{color:#2A8FD8}
   .bl-cmt{width:100%;font-family:inherit;font-size:13px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;margin-top:2px}
   .bl-cmt:focus{outline:none;border-color:var(--accent)}
   .bl-tot{margin-top:4px;font-size:12px;color:var(--muted);text-align:right}
@@ -1267,6 +1274,7 @@ fill="#6F4A36" stroke="none">
     'ratio_menu_slots':'menu_slots',
     'ratio_special_slots':'special_slots',
     'ratio_special_prices':'special_prices',
+    'ratio_takeaway':'takeaway',
     'ratio_rtl_dot':'rtl_dot',
     'ratio_rtl_g':'rtl_g',
     'ratio_rtl_sold':'rtl_sold',
@@ -1312,6 +1320,7 @@ fill="#6F4A36" stroke="none">
     if(lsKey==='ratio_menu_slots'){try{MENU_SLOTS=loadMenuSlots();}catch(e){}}
     if(lsKey==='ratio_special_slots'){try{SPECIAL_SLOTS=loadSpecialSlots();}catch(e){}}
     if(lsKey==='ratio_special_prices'){try{SPECIAL_PRICES=loadSpecialPrices();}catch(e){}}
+    if(lsKey==='ratio_takeaway'){try{TAKEAWAY=loadTakeaway();}catch(e){}}
   }
   function appStateRefreshOpenScreens(){
     try{
@@ -2762,7 +2771,7 @@ fill="#6F4A36" stroke="none">
   }
   function renderMenuView(){
     if(menuView==='blend')renderMenu();
-    else if(menuView==='takeaway')renderMenuSoon('Take Away Menu');
+    else if(menuView==='takeaway')renderTakeaway();
     else if(menuView==='special')renderSpecial();
     else renderMenuHub();
   }
@@ -2774,13 +2783,13 @@ fill="#6F4A36" stroke="none">
     var c=document.getElementById('menu-content');if(!c)return;
     c.innerHTML='<div class="mn-hub">'
       +'<button class="mn-hubbtn" data-menu="blend"><span class="mn-hubt">Blend Menu</span><span class="mn-hubs">4-blend A4 menu · two-up cut sheet</span></button>'
-      +'<button class="mn-hubbtn" data-menu="takeaway"><span class="mn-hubt">Take Away Menu</span><span class="mn-hubs">Coming soon</span></button>'
+      +'<button class="mn-hubbtn" data-menu="takeaway"><span class="mn-hubt">Take Away Menu</span><span class="mn-hubs">Blend + Pour Over cup menu (A4 two-up)</span></button>'
       +'<button class="mn-hubbtn" data-menu="special"><span class="mn-hubt">Special Menu</span><span class="mn-hubs">Left column · single-origin beans (A4 two-up)</span></button>'
       +'</div>';
     c.querySelectorAll('.mn-hubbtn').forEach(function(b){b.addEventListener('click',function(){
       var k=b.dataset.menu;
       if(k==='blend'){openBlendMenu();}
-      else if(k==='takeaway'){menuView='takeaway';renderMenuSoon('Take Away Menu');}
+      else if(k==='takeaway'){openTakeawayMenu();}
       else if(k==='special'){openSpecialMenu();}
     });});
   }
@@ -3060,6 +3069,227 @@ fill="#6F4A36" stroke="none">
     doc.text('Cold',rx0,ry);
     doc.setFontSize(PSZ);
     doc.text(money(off.cold),rEnd,ry+1,{align:'right'});
+  }
+  /* ============ Take Away Menu (More -> Generate Menu -> Take Away) ============
+     Reproduces the dine-in cup menu: a fixed Blend Selection block up top (static
+     for now) + an editable Pour Over Selection grid (4 beans, hot/cold prices).
+     Two identical copies print on A4 landscape with a centre cut line. */
+  var TAKEAWAY_DEFAULT=[
+    {bean:'',name:'Danche vol.2',     origin:'Ethiopia, Anaerobic Washed',  flavour:'Peach, Grapes, Bergamont',       hot:'10', cold:'11'},
+    {bean:'',name:'Alo Bona Village', origin:'Ethiopia, Classic Natural',   flavour:'Floral, Mango, Berry',           hot:'10', cold:'11'},
+    {bean:'',name:'El Vergel',        origin:'Colombia, Washed',            flavour:'Floral, Melon, Honey',           hot:'10', cold:'11'},
+    {bean:'',name:'Alo Village',      origin:'Ethiopia, Cold Fermentation', flavour:'Winy, Grape Candy, Dried Fruit', hot:'15', cold:'16'}
+  ];
+  function tkBlank(){return {bean:'',name:'',origin:'',flavour:'',hot:'',cold:''};}
+  function loadTakeaway(){
+    try{var a=JSON.parse(localStorage.getItem('ratio_takeaway')||'null');
+      if(Array.isArray(a)&&a.length===4)return a.map(function(o){o=o||{};return {bean:o.bean||'',name:o.name||'',origin:o.origin||'',flavour:o.flavour||'',hot:o.hot||'',cold:o.cold||''};});}catch(e){}
+    return TAKEAWAY_DEFAULT.map(function(o){var n={};for(var k in o)n[k]=o[k];return n;});
+  }
+  function saveTakeaway(a){try{localStorage.setItem('ratio_takeaway',JSON.stringify(a));}catch(e){}appStatePush('ratio_takeaway');}
+  var TAKEAWAY=loadTakeaway();
+  /* single-origin beans available to auto-fill a pour-over slot (BEANS + Retail, minus blends) */
+  function takeawayOptionList(){
+    var seen={},out=[],blendSet={};
+    try{blendNames().forEach(function(n){blendSet[String(n).trim().toLowerCase()]=true;});}catch(e){}
+    (BEANS||[]).forEach(function(b){var nm=(b.name||'').trim();var k=nm.toLowerCase();if(!nm||seen[k]||blendSet[k])return;seen[k]=true;out.push(nm);});
+    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k]||blendSet[k])return;seen[k]=true;out.push(nm);});
+    return out;
+  }
+  /* pull origin (country + process) and flavour notes for a chosen bean */
+  function takeawayAutofill(name){
+    name=String(name||'').trim();var key=name.toLowerCase();
+    var b=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===key;})[0]||null;
+    var origin=b?[b.country,b.process].filter(function(v){return String(v||'').trim();}).join(', '):'';
+    var s=(RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===key;})[0]||null;
+    var flav=s?(s.features||[]).filter(Boolean).slice(0,3).join(', '):'';
+    return {name:name, origin:origin, flavour:flav};
+  }
+  function openTakeawayMenu(){
+    menuView='takeaway';
+    var c=document.getElementById('menu-content');
+    if(c)c.innerHTML='<div class="sempty">Loading beans\u2026</div>';
+    Promise.all([ensureBeansForInvoice(),ensureRetailForLabel()]).then(function(){renderTakeaway();}).catch(function(){renderTakeaway();});
+  }
+  function renderTakeaway(){
+    var c=document.getElementById('menu-content');if(!c)return;
+    var opts=takeawayOptionList();
+    var pos=['Top left','Top right','Bottom left','Bottom right'];
+    function optsHtml(cur){
+      return '<option value="">\u2014 pick a bean to auto-fill \u2014</option>'
+        +opts.map(function(n){return '<option value="'+esc(n)+'"'+(n===cur?' selected':'')+'>'+esc(n)+'</option>';}).join('');
+    }
+    function card(i){
+      var v=TAKEAWAY[i]||tkBlank();
+      return '<div class="sp-card" data-i="'+i+'">'
+        +'<div class="sp-cardhd"><span class="sp-badge">'+esc(pos[i].toUpperCase())+'</span><span class="sp-cardsub">Pour Over</span></div>'
+        +'<label class="sp-field"><span class="sp-flab">Auto-fill from bean</span>'
+          +'<select class="tk-auto tk-ti" data-i="'+i+'">'+optsHtml(v.bean)+'</select></label>'
+        +'<label class="sp-field"><span class="sp-flab">Name</span>'
+          +'<input type="text" class="tk-ti tk-f" data-k="name" data-i="'+i+'" value="'+esc(v.name)+'" placeholder="e.g. Danche vol.2"></label>'
+        +'<label class="sp-field"><span class="sp-flab">Origin / Process</span>'
+          +'<input type="text" class="tk-ti tk-f" data-k="origin" data-i="'+i+'" value="'+esc(v.origin)+'" placeholder="e.g. Ethiopia, Anaerobic Washed"></label>'
+        +'<label class="sp-field"><span class="sp-flab">Flavour</span>'
+          +'<input type="text" class="tk-ti tk-f" data-k="flavour" data-i="'+i+'" value="'+esc(v.flavour)+'" placeholder="e.g. Peach, Grapes, Bergamont"></label>'
+        +'<div class="sp-hc">'
+          +'<span class="sp-price tk-price hot"><em>Hot</em> $<input type="text" inputmode="decimal" class="sp-pi tk-p" data-k="hot" data-i="'+i+'" value="'+esc(v.hot)+'" placeholder="0"></span>'
+          +'<span class="sp-price tk-price cold"><em>Cold</em> $<input type="text" inputmode="decimal" class="sp-pi tk-p" data-k="cold" data-i="'+i+'" value="'+esc(v.cold)+'" placeholder="0"></span>'
+        +'</div></div>';
+    }
+    c.innerHTML='<div class="mn-wrap">'
+      +'<p class="gsec" style="padding-left:0">Pour Over Selection \u00b7 4 cups, hot / cold price each</p>'
+      +card(0)+card(1)+card(2)+card(3)
+      +'<p class="mn-note">The Blend Selection block at the top is fixed for now. These four pour-over beans and their hot / cold prices print in a 2\u00d72 grid below it. The PDF prints two identical copies on A4 with a centre cut line.</p>'
+      +'<button class="gbtn" id="tk-gen">Generate Menu PDF</button>'
+      +'</div>';
+    c.querySelectorAll('.tk-auto').forEach(function(sel){sel.addEventListener('change',function(){
+      var i=+sel.dataset.i;var nm=sel.value;
+      TAKEAWAY[i].bean=nm;
+      if(nm){var a=takeawayAutofill(nm);TAKEAWAY[i].name=a.name;if(a.origin)TAKEAWAY[i].origin=a.origin;if(a.flavour)TAKEAWAY[i].flavour=a.flavour;}
+      saveTakeaway(TAKEAWAY);renderTakeaway();
+    });});
+    c.querySelectorAll('.tk-f,.tk-p').forEach(function(inp){inp.addEventListener('input',function(){
+      var i=+inp.dataset.i;if(!TAKEAWAY[i])TAKEAWAY[i]=tkBlank();TAKEAWAY[i][inp.dataset.k]=inp.value;saveTakeaway(TAKEAWAY);
+    });});
+    var gen=document.getElementById('tk-gen');
+    if(gen)gen.addEventListener('click',function(){generateTakeawayPDF();});
+  }
+  function generateTakeawayPDF(){
+    var JS=window.jspdf&&window.jspdf.jsPDF;
+    if(!JS){alert('PDF tool still loading, please try again');return;}
+    var data=TAKEAWAY.map(function(o){o=o||{};return {name:o.name||'',origin:o.origin||'',flavour:o.flavour||'',hot:o.hot||'',cold:o.cold||''};});
+    var img=new Image();
+    img.onload=function(){buildTakeawayPDF(data,img);};
+    img.onerror=function(){buildTakeawayPDF(data,null);};
+    img.src='logo.png';
+  }
+  function buildTakeawayPDF(data,logo){
+    var JS=window.jspdf.jsPDF;
+    var doc=new JS({orientation:'landscape',unit:'pt',format:'a4'});
+    var W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
+    drawTakeawayMenu(doc,0,W/2,H,data,logo);
+    drawTakeawayMenu(doc,W/2,W/2,H,data,logo);
+    doc.setDrawColor(150);doc.setLineWidth(0.7);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([4,4],0);
+    doc.line(W/2,18,W/2,H-18);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    doc.save('Ratio_TakeAway_Menu.pdf');
+  }
+  function drawTakeawayMenu(doc,ox,w,h,data,logo){
+    var INK=[50,43,42], SUB=[120,110,102], MUTE=[150,140,132], LINE=[224,217,212];
+    var HOT=[214,0,108], COLD=[42,143,216];
+    var padX=24, x0=ox+padX, xEnd=ox+w-padX, innerW=w-padX*2;
+
+    /* ---------- header ---------- */
+    var hy=42;
+    if(logo){try{doc.addImage(logo,'PNG',x0,hy-26,26,26);}catch(e){}}
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+    doc.text('Ratio',x0+32,hy-13);doc.text('Coffee',x0+32,hy-4);
+    doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Blend Selection',x0+76,hy-6);
+    doc.setDrawColor(INK[0],INK[1],INK[2]);doc.setLineWidth(1);
+    doc.line(x0+76,hy+3,xEnd,hy+3);
+
+    /* ---------- two blends ---------- */
+    var by=hy+36, colCx=[x0+innerW*0.27, x0+innerW*0.74];
+    var blends=[
+      {name:'DARK KNIGHT 3', sub:'complex flavour', notes:'Plum, Walnut, Dark Choc'},
+      {name:'DANCER',        sub:'smooth flavour',  notes:'Floral, Red Apple, Toffee'}
+    ];
+    blends.forEach(function(bl,ci){
+      var cx=colCx[ci];
+      doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(bl.name,cx,by,{align:'center'});
+      doc.setFont('helvetica','italic');doc.setFontSize(8);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+      doc.text(bl.sub,cx,by+12,{align:'center'});
+      doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(bl.notes,cx,by+25,{align:'center'});
+    });
+    var midX=x0+innerW*0.5;
+    doc.setDrawColor(MUTE[0],MUTE[1],MUTE[2]);doc.setLineWidth(1);
+    doc.line(midX+7,by-11,midX-7,by+27);
+
+    /* ---------- espresso price list ---------- */
+    var py=by+52, rowH=23;
+    var rows=[
+      {main:'Espresso',    size:'',      price:'5'},
+      {main:'Small',       size:'6oz',   price:'5'},
+      {main:'Large',       size:'10 oz', price:'6'},
+      {main:'Fresh Batch', size:'10oz',  price:'6'},
+      {main:'On Ice',      size:'10oz',  price:'7'},
+      {main:'Cold Batch',  size:'10oz',  price:'7', note:'(Barista choice of the day)'}
+    ];
+    rows.forEach(function(r){
+      doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(r.main,x0,py);
+      var mw=doc.getTextWidth(r.main);
+      if(r.size){doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+        doc.text('  |  '+r.size,x0+mw+3,py);}
+      doc.setFont('helvetica','normal');doc.setFontSize(12);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(r.price,xEnd,py,{align:'right'});
+      if(r.note){doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+        doc.text(r.note,x0,py+11);py+=11;}
+      py+=rowH;
+    });
+    py+=2;
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+    doc.text('alternative milk, extra shot',x0,py);doc.text('50 cents',xEnd,py,{align:'right'});py+=11;
+    doc.text('decaf',x0,py);doc.text('1 dollar',xEnd,py,{align:'right'});
+
+    /* ---------- Dirty Ratio dashed box ---------- */
+    var dy=py+16, dh=26;
+    doc.setDrawColor(150,140,132);doc.setLineWidth(0.8);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([3,3],0);
+    if(doc.roundedRect)doc.roundedRect(x0,dy,innerW,dh,13,13,'S');else doc.rect(x0,dy,innerW,dh,'S');
+    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Dirty Ratio',x0+14,dy+dh/2+4);
+    doc.text('9',xEnd-14,dy+dh/2+4,{align:'right'});
+
+    /* ---------- Pour Over Selection ---------- */
+    var poHeadY=dy+dh+34, cx=ox+w/2;
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Pour Over Selection',cx,poHeadY,{align:'center'});
+    var thw=doc.getTextWidth('Pour Over Selection');
+    doc.setDrawColor(INK[0],INK[1],INK[2]);doc.setLineWidth(0.8);
+    doc.line(cx-thw/2-8,poHeadY+6,cx+thw/2+8,poHeadY+6);
+
+    /* 2x2 grid */
+    var gTop=poHeadY+22, gBot=h-24, colGap=18, rowGap=16;
+    var cw=(innerW-colGap)/2, ch=(gBot-gTop-rowGap)/2;
+    var cellX=[x0, x0+cw+colGap, x0, x0+cw+colGap];
+    var cellY=[gTop, gTop, gTop+ch+rowGap, gTop+ch+rowGap];
+    doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.setLineWidth(0.8);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([2,3],0);
+    doc.line(x0+cw+colGap/2,gTop,x0+cw+colGap/2,gBot);
+    doc.line(x0,gTop+ch+rowGap/2,x0+innerW,gTop+ch+rowGap/2);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    for(var i=0;i<4;i++){drawPourCell(doc,cellX[i],cellY[i],cw,data[i]||{},INK,SUB,HOT,COLD);}
+  }
+  function drawPourCell(doc,x,y,w,it,INK,SUB,HOT,COLD){
+    var name=mnAsc(it.name||'');
+    if(!name)return;
+    var hot=String(it.hot==null?'':it.hot).trim(), cold=String(it.cold==null?'':it.cold).trim();
+    /* reserve room for the price pair on the right */
+    doc.setFont('helvetica','bold');doc.setFontSize(11);
+    var pw=doc.getTextWidth((hot||'-')+'  /  '+(cold||'-'));
+    /* name */
+    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(INK[0],INK[1],INK[2]);
+    mnFit(doc,name,x,y+11,w-pw-14,12,8.5);
+    /* prices right-aligned: hot (pink) / cold (blue) */
+    doc.setFont('helvetica','bold');doc.setFontSize(11);
+    var rx=x+w;
+    doc.setTextColor(COLD[0],COLD[1],COLD[2]);doc.text(cold||'-',rx,y+11,{align:'right'});
+    var cwid=doc.getTextWidth(cold||'-');
+    doc.setTextColor(SUB[0],SUB[1],SUB[2]);doc.text('  /  ',rx-cwid,y+11,{align:'right'});
+    var swid=doc.getTextWidth('  /  ');
+    doc.setTextColor(HOT[0],HOT[1],HOT[2]);doc.text(hot||'-',rx-cwid-swid,y+11,{align:'right'});
+    /* origin */
+    if(it.origin){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+      mnFit(doc,it.origin,x,y+25,w,8.5,7);}
+    /* flavour */
+    if(it.flavour){doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(INK[0],INK[1],INK[2]);
+      mnFit(doc,it.flavour,x,y+40,w,10,8);}
   }
   function mnAsc(t){return String(t==null?'':t).replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...');}
   function buildMenuPDF(info4,logo){
