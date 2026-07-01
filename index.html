@@ -4402,21 +4402,51 @@ fill="#6F4A36" stroke="none">
     roastedOpen[date]=true;dateKind[date]=kind;
     renderRoasted();
   }
+  /* blend names that already have a Ratio Coffee cupping sample */
+  function blendCuppedSet(){
+    var set={};
+    (SAMPLES||[]).forEach(function(x){
+      if(x&&x.supplier==='Ratio Coffee'){var k=String(x.sample_id||'').trim().toLowerCase();if(k)set[k]=true;}
+    });
+    return set;
+  }
+  async function ensureBlendSamples(){
+    if(blendSamplesLoaded)return;
+    blendSamplesLoaded=true;
+    try{
+      var res=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('no',{ascending:false});
+      if(!res.error)SAMPLES=res.data||[];
+    }catch(e){}
+    if(roastedTitle==='Pending'&&document.getElementById('beans-content'))renderRoasted();
+  }
   function pendingBlendSectionHTML(){
     var defs=[];try{defs=readyBlendDefs();}catch(e){}
     var head='<div class="gsec" style="padding:12px 18px 4px">Blends \u00b7 ready to cup<span class="bl-cupn">100%</span></div>';
     if(!defs.length){
       return head+'<div class="sempty sm" style="margin:0 14px 8px">No 100% blends yet \u00b7 finish a recipe in F(x) \u2192 Blending</div>';
     }
-    var cards=defs.map(function(bl){
+    var cupped=blendCuppedSet();
+    function recipeOf(bl){return (bl.parts||[]).filter(function(p){return String(p.bean||'').trim();})
+      .map(function(p){return esc(p.bean.trim())+' '+esc(String(p.pct))+'%';}).join(' \u00b7 ');}
+    function card(bl){
       var nm=(bl.name||'').trim();
-      var recipe=(bl.parts||[]).filter(function(p){return String(p.bean||'').trim();})
-        .map(function(p){return esc(p.bean.trim())+' '+esc(String(p.pct))+'%';}).join(' \u00b7 ');
+      var recipe=recipeOf(bl);
+      var sub=recipe?'<span class="bp-sub">'+recipe+'</span>':'';
+      if(cupped[nm.toLowerCase()]){
+        return '<div class="blend-pick done np">'
+          +'<div class="blend-pick-top"><div class="bp-l"><span class="blend-name">'+esc(nm||'\u2014')+'</span>'+sub+'</div>'
+          +'<span class="blend-rt"><span class="rbadge done">Cupped</span>'
+          +'<button class="blend-go redo bl-cupgo" data-bname="'+esc(nm)+'">Re-analyse</button></span></div>'
+          +'</div>';
+      }
       return '<div class="blend-pick np">'
-        +'<div class="bp-l"><span class="blend-name">'+esc(nm||'\u2014')+'</span>'+(recipe?'<span class="bp-sub">'+recipe+'</span>':'')+'</div>'
+        +'<div class="bp-l"><span class="blend-name">'+esc(nm||'\u2014')+'</span>'+sub+'</div>'
         +'<span class="blend-rt"><button class="blend-go bl-cupgo" data-bname="'+esc(nm)+'">Start Analyse</button></span>'
         +'</div>';
-    }).join('');
+    }
+    var pend=defs.filter(function(b){return !cupped[(b.name||'').trim().toLowerCase()];});
+    var done=defs.filter(function(b){return cupped[(b.name||'').trim().toLowerCase()];});
+    var cards=pend.concat(done).map(card).join('');
     return head+'<div class="bl-cuplist">'+cards+'</div>';
   }
   function wirePendingBlend(box){
@@ -4441,6 +4471,7 @@ fill="#6F4A36" stroke="none">
       return;
     }
     var acBar='<div class="ac-bar"><button class="ac-open-btn" id="ac-open">+ Add Coffee</button></div>';
+    ensureBlendSamples();
     var blSec=pendingBlendSectionHTML();
     var order=[],seen={};
     ROASTS.forEach(function(r){var d=r.roast_date||'\u2014';if(!seen[d]){seen[d]=true;order.push(d);}});
