@@ -2518,6 +2518,7 @@ fill="#6F4A36" stroke="none">
       <span class="price-unit">¢ / lb</span>
       <span class="badge badge-up" style="margin-left:auto">▲ +4.15%</span>
     </div>
+    <div id="m-fxinfo" style="font-size:12px;color:#888;margin:0 0 4px">AUD/USD <span id="m-fxinfo-rate">0.6894</span> · <span id="m-fxinfo-time">tap live to refresh</span></div>
     <svg class="spark" viewBox="0 0 100 46" preserveAspectRatio="none">
       <polyline fill="none" stroke="#2e7d32" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" points="2,40 26.2,19.4 50.5,28.9 74.8,18.9 99,6"/>
     </svg>
@@ -2585,15 +2586,24 @@ function mcalc(){
 }
 ['m-c','m-diff','m-fx','m-freight'].forEach(function(id){document.getElementById(id).addEventListener('input',mcalc);});
 var fxBtn=document.getElementById('m-fxlive');
-if(fxBtn){fxBtn.addEventListener('click',function(){
-  fxBtn.textContent='…';
-  fetch('https://open.er-api.com/v6/latest/AUD').then(function(r){return r.json();}).then(function(d){
+function fxStamp(){var d=new Date();var hh=('0'+d.getHours()).slice(-2);var mm=('0'+d.getMinutes()).slice(-2);return hh+':'+mm;}
+function refreshFx(){
+  if(fxBtn)fxBtn.textContent='…';
+  return fetch('https://open.er-api.com/v6/latest/AUD').then(function(r){return r.json();}).then(function(d){
     var u=d&&d.rates&&d.rates.USD;
-    if(u){document.getElementById('m-fx').value=(Math.round(u*10000)/10000).toFixed(4);mcalc();fxBtn.textContent='live ✓';}
-    else{fxBtn.textContent='n/a';}
-  }).catch(function(){fxBtn.textContent='offline';});
-});}
+    if(u){
+      var v=(Math.round(u*10000)/10000).toFixed(4);
+      document.getElementById('m-fx').value=v;
+      document.getElementById('m-fxinfo-rate').textContent=v;
+      document.getElementById('m-fxinfo-time').textContent='updated '+fxStamp();
+      mcalc();
+      if(fxBtn)fxBtn.textContent='live ✓';
+    }else{if(fxBtn)fxBtn.textContent='n/a';document.getElementById('m-fxinfo-time').textContent='rate unavailable';}
+  }).catch(function(){if(fxBtn)fxBtn.textContent='offline';document.getElementById('m-fxinfo-time').textContent='offline · manual rate';});
+}
+if(fxBtn){fxBtn.addEventListener('click',refreshFx);}
 mcalc();
+refreshFx();
 <\/script>
 </body></html>`;
   function openMarket(){closeFolder();openPage('market');var f=document.getElementById('market-frame');if(f&&f.getAttribute('data-loaded')!=='1'){f.srcdoc=MARKET_HTML;f.setAttribute('data-loaded','1');}}
