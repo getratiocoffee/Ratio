@@ -3426,7 +3426,6 @@ fill="#6F4A36" stroke="none">
     ROASTS.forEach(function(r){var d=r.roast_date||'\u2014';if(!seen[d]){seen[d]=true;order.push(d);}});
     document.getElementById('beans-count').textContent=ROASTS.length+' roasts';
     if(!order.length){box.innerHTML=acBar+'<div class="sempty">No roasts yet<br>Log one in Roast, or use + Add Coffee</div>';wireAcOpen();return;}
-    var needLoad=false;
     var body=order.map(function(d){
       var open=!!roastedOpen[d];
       var kind=(dateKind[d]==='blend')?'blend':'single';
@@ -3445,26 +3444,9 @@ fill="#6F4A36" stroke="none">
         if(kind!=='blend'){
           var si=dayRoasts.filter(function(r){return r.kind!=='blend';});
           list=si.length?si.map(function(r){return roastCard(r,true);}).join(''):'<div class="sempty sm">No single-origin roasts this day</div>';
-        }else if(!blendSamplesLoaded){
-          list='<div class="sempty sm">Loading\u2026</div>';needLoad=true;
         }else{
-          var names=[];try{names=readyBlendNames();}catch(e){}
-          var recipeCards=names.map(function(name){
-            var cupped=blendCupped(name,d);
-            if(cupped){
-              return '<div class="blend-pick done">'
-                +'<div class="blend-pick-top"><span class="blend-name">'+esc(name)+'</span>'
-                +'<span class="blend-rt"><span class="rbadge done">Cupped</span><button class="blend-go redo blend-act" data-bn="'+esc(name)+'" data-bdate="'+esc(d)+'">Re-analyse</button></span></div>'
-                +retailSetHTML(name)
-                +'</div>';
-            }
-            return '<button class="blend-pick blend-act" data-bn="'+esc(name)+'" data-bdate="'+esc(d)+'">'
-              +'<span class="blend-name">'+esc(name)+'</span>'
-              +'<span class="blend-rt"><span class="blend-go">Start Analyse</span></span>'
-              +'</button>';
-          }).join('');
           var addedCards=dayRoasts.filter(function(r){return r.kind==='blend';}).map(function(r){return roastCard(r,true);}).join('');
-          list=(recipeCards+addedCards)||'<div class="sempty sm">No blends ready<br>Fill a recipe to 100% in F(x) \u2192 Blending</div>';
+          list=addedCards||'<div class="sempty sm">No blends yet<br>Use + Add Coffee to add one</div>';
         }
         inner='<div class="rd-body">'+seg+list+'</div>';
       }
@@ -3474,11 +3456,9 @@ fill="#6F4A36" stroke="none">
     wireAcOpen();
     box.querySelectorAll('.rdate[data-d]').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.d;roastedOpen[d]=!roastedOpen[d];renderRoasted();});});
     box.querySelectorAll('.date-seg .lbl-tab[data-dd]').forEach(function(t){t.addEventListener('click',function(e){e.stopPropagation();var d=t.getAttribute('data-dd'),k=t.getAttribute('data-dk');if((dateKind[d]||'single')!==k){dateKind[d]=k;renderRoasted();}});});
-    box.querySelectorAll('.blend-act').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();openBlendCupping(el.dataset.bn,el.dataset.bdate);});});
     box.querySelectorAll('.blend-edit[data-eid]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();roastEdit=el.dataset.eid;roastDelConfirm=false;var r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});roastEditStatus=r?r.status:'pending_cupping';renderRoasted();document.getElementById('beans-content').scrollTop=0;});});
     box.querySelectorAll('.blend-go[data-aid]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();openCupping(el.dataset.aid);});});
     bindRetailControls(box);
-    if(needLoad){loadBlendSamples().then(function(){renderRoasted();});}
   }
   function renderRoastEdit(){
     const box=document.getElementById('beans-content');
