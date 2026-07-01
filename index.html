@@ -350,6 +350,7 @@
   .gbtn.ico-ok{width:46px;height:42px;padding:0;display:flex;align-items:center;justify-content:center}
   .gbtn.ico-ok svg{width:20px;height:20px}
   .re-soon{border:1.5px dashed #CBBEB7;border-radius:14px;background:var(--bg);color:var(--muted);font-size:13px;font-weight:600;text-align:center;padding:16px 12px;margin:4px 0 2px}
+  .re-sub{font-family:var(--font-ui);font-size:12.5px;font-weight:600;color:var(--accent);margin:0 0 12px;letter-spacing:.01em}
   .gdel{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
   .gdel-msg{font-size:13px;color:var(--ink);margin-bottom:11px;text-align:center;line-height:1.5}
   .re-seg{display:flex;gap:8px}
@@ -3614,6 +3615,7 @@ fill="#6F4A36" stroke="none">
     if(title)title.textContent=r.bean_name||'Roast';
     document.getElementById('beans-count').textContent=r.country||'';
     box.innerHTML='<div class="gdetail" style="padding-top:8px">'
+      +'<div class="re-sub">Traceback Coffee</div>'
       +'<div class="gform">'
       +'<label class="gfield"><span class="gl">Green used (kg) · changing it adjusts stock</span><input id="re-kg" type="text" inputmode="decimal" value="'+esc(r.green_kg!=null?gnum(r.green_kg):'')+'" /></label>'
       +'<label class="gfield"><span class="gl">Roast date</span><input id="re-date" type="date" value="'+esc(r.roast_date||'')+'" /></label>'
