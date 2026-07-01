@@ -703,6 +703,8 @@
   .sp-badge{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.08em;font-weight:600;color:#fff;background:var(--accent);padding:3px 10px;border-radius:999px}
   .sp-cardsub{font-family:'Fraunces',serif;font-style:italic;font-size:14px;color:var(--muted)}
   .sp-spname{font-family:'Fraunces',serif;font-weight:600;font-size:16px;color:var(--ink)}
+  .sp-rm{margin-left:auto;flex:0 0 auto;border:none;background:transparent;color:var(--muted);font-size:15px;line-height:1;padding:4px 6px;cursor:pointer;border-radius:8px}
+  .sp-rm:active{background:var(--tint);color:var(--accent)}
   .sp-field{display:flex;flex-direction:column;gap:5px;margin-bottom:6px}
   .sp-flab{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.02em}
   .sp-drinks{display:flex;flex-direction:column}
@@ -1343,6 +1345,7 @@ fill="#6F4A36" stroke="none">
     if(lsKey==='ratio_inv_seq'){applyInvSeqToDayKeys(val);return;}
     try{localStorage.setItem(lsKey,JSON.stringify(val));}catch(e){}
     if(lsKey==='ratio_menu_slots'){try{MENU_SLOTS=loadMenuSlots();}catch(e){}}
+    if(lsKey==='ratio_special_slots'){try{SPECIAL_PICK=loadSpecialPick();}catch(e){}}
     if(lsKey==='ratio_special_prices'){try{SPECIAL_PRICES=loadSpecialPrices();}catch(e){}}
     if(lsKey==='ratio_takeaway'){try{TAKEAWAY=loadTakeaway();}catch(e){}}
     if(lsKey==='ratio_dinein'){try{DINEIN=loadDinein();}catch(e){}}
@@ -2888,7 +2891,16 @@ fill="#6F4A36" stroke="none">
     buildMenuPDF(info4,null);
   }
   /* ============ Special Menu ============
-     Auto-lists every bean in Retail Info; each prints as one menu row. */
+     Pick any beans from Retail Info (single-origin AND blends together);
+     each picked bean prints as one row in a single PDF. */
+  /* the beans you've picked for the special menu (ordered names) */
+  function loadSpecialPick(){
+    try{var a=JSON.parse(localStorage.getItem('ratio_special_slots')||'null');
+      if(Array.isArray(a))return a.map(function(x){return String(x||'').trim();}).filter(Boolean);}catch(e){}
+    return [];
+  }
+  function saveSpecialPick(a){try{localStorage.setItem('ratio_special_slots',JSON.stringify(a));}catch(e){}appStatePush('ratio_special_slots');}
+  var SPECIAL_PICK=loadSpecialPick();
   /* offer prices keyed by bean name: { name: {combo,hot,cold,dirty} } */
   function loadSpecialPrices(){
     try{var o=JSON.parse(localStorage.getItem('ratio_special_prices')||'null');
@@ -2906,25 +2918,24 @@ fill="#6F4A36" stroke="none">
       if(!ROASTS||!ROASTS.length){try{return loadRoasts();}catch(e){}}
     }).then(function(){renderSpecial();}).catch(function(){renderSpecial();});
   }
-  /* retail beans of one kind: mode 'blend' = names that ARE blends, else single-origin */
-  var specialMode='single';
-  function specialBeanList(mode){
-    var wantBlend=(mode==='blend');
-    var blend={};try{blendNames().forEach(function(n){blend[String(n).trim().toLowerCase()]=true;});}catch(e){}
+  /* every bean in Retail Info — single-origin AND blends together */
+  function specialAllBeans(){
     var seen={},out=[];
-    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;if(wantBlend!==!!blend[k])return;seen[k]=true;out.push(nm);});
+    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;seen[k]=true;out.push(nm);});
     return out;
   }
   function renderSpecial(){
     var c=document.getElementById('menu-content');if(!c)return;
-    var beans=specialBeanList(specialMode);
-    var isBlend=(specialMode==='blend');
+    var source=specialAllBeans();
+    var picked={};SPECIAL_PICK.forEach(function(n){picked[n.toLowerCase()]=true;});
+    var avail=source.filter(function(n){return !picked[n.toLowerCase()];});
     function priceInp(name,k){return '$<input type="text" inputmode="decimal" class="sp-pi" data-nm="'+esc(name)+'" data-k="'+k+'" value="'+esc(specialPriceFor(name)[k]||'')+'" placeholder="0">';}
     function card(name){
       var info=menuInfoFor(name);
       var fl=(info.flavour&&info.flavour.length)?esc(info.flavour.join(' \u00b7 ')):'Special of the Week';
       return '<div class="sp-card">'
-        +'<div class="sp-cardhd"><span class="sp-spname">'+esc(name)+'</span><span class="sp-cardsub">'+fl+'</span></div>'
+        +'<div class="sp-cardhd"><span class="sp-spname">'+esc(name)+'</span><span class="sp-cardsub">'+fl+'</span>'
+          +'<button class="sp-rm" data-nm="'+esc(name)+'" aria-label="remove">\u2715</button></div>'
         +'<div class="sp-drinks">'
           +'<div class="sp-drink"><div class="sp-dinfo"><span class="sp-dname sp-cred">1+1 Combo</span><span class="sp-dsub">Espresso base \u00b7 black &amp; white</span></div><span class="sp-price">'+priceInp(name,'combo')+'</span></div>'
           +'<div class="sp-drink"><div class="sp-dinfo"><span class="sp-dname sp-cblue">Dirty</span></div><span class="sp-price">'+priceInp(name,'dirty')+'</span></div>'
@@ -2932,20 +2943,29 @@ fill="#6F4A36" stroke="none">
             +'<div class="sp-hc"><span class="sp-price sp-hot"><em>Hot</em> '+priceInp(name,'hot')+'</span><span class="sp-price sp-cold"><em>Cold</em> '+priceInp(name,'cold')+'</span></div></div>'
         +'</div></div>';
     }
-    var empty=!beans.length;
-    var seg='<div class="lbl-seg sp-modeseg" style="margin-bottom:14px">'
-      +'<button class="lbl-tab'+(isBlend?'':' on')+'" data-spmode="single">Single Origin</button>'
-      +'<button class="lbl-tab'+(isBlend?' on':'')+'" data-spmode="blend">Blend</button></div>';
-    var emptyMsg=isBlend?'No blends in Retail Info yet':'No single-origin beans in Retail Info yet';
+    var addSel='<label class="sp-field" style="margin-bottom:14px"><span class="sp-flab">Add a bean from Retail Info</span>'
+      +'<select class="mn-sel" id="sp-add"'+(avail.length?'':' disabled')+'>'
+      +'<option value="">'+(avail.length?'\u2014 choose a bean \u2014':(source.length?'\u2014 all beans added \u2014':'\u2014 no beans in Retail Info \u2014'))+'</option>'
+      +avail.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('')
+      +'</select></label>';
+    var picks=SPECIAL_PICK.length
+      ? SPECIAL_PICK.map(card).join('')
+      : '<div class="sempty" style="padding:22px 8px">No beans picked yet \u00b7 add from Retail Info above</div>';
     c.innerHTML='<div class="mn-wrap">'
-      +'<p class="gsec" style="padding-left:0">'+(isBlend?'All blends':'All single-origin beans')+' from Retail Info \u00b7 set drink prices</p>'
-      +seg
-      +(empty?'<div class="sempty" style="padding:24px 8px">'+emptyMsg+'</div>':beans.map(card).join(''))
-      +'<p class="mn-note">Every '+(isBlend?'blend':'single-origin bean')+' in Retail Info prints as one row \u2014 details on the left, drink prices on the right. 2 per A4 sheet (two identical copies, centre cut line); extra sheets are added automatically.</p>'
-      +'<button class="gbtn" id="sp-gen"'+(empty?' disabled':'')+'>Generate Menu PDF</button>'
+      +'<p class="gsec" style="padding-left:0">Special menu \u00b7 pick beans from Retail Info &amp; set drink prices</p>'
+      +addSel
+      +picks
+      +'<p class="mn-note">Pick any beans from Retail Info \u2014 single-origin and blends together. All picked beans print in one PDF (2 per A4 sheet, two identical copies with a centre cut line; extra sheets added if needed).</p>'
+      +'<button class="gbtn" id="sp-gen"'+(SPECIAL_PICK.length?'':' disabled')+'>Generate Menu PDF</button>'
       +'</div>';
-    c.querySelectorAll('.sp-modeseg .lbl-tab[data-spmode]').forEach(function(t){t.addEventListener('click',function(){
-      var m=t.getAttribute('data-spmode');if(m===specialMode)return;specialMode=m;renderSpecial();
+    var add=document.getElementById('sp-add');
+    if(add)add.addEventListener('change',function(){
+      var v=add.value;if(!v)return;
+      if(SPECIAL_PICK.map(function(n){return n.toLowerCase();}).indexOf(v.toLowerCase())<0){SPECIAL_PICK.push(v);saveSpecialPick(SPECIAL_PICK);}
+      renderSpecial();
+    });
+    c.querySelectorAll('.sp-rm[data-nm]').forEach(function(b){b.addEventListener('click',function(){
+      var nm=b.dataset.nm;SPECIAL_PICK=SPECIAL_PICK.filter(function(n){return n!==nm;});saveSpecialPick(SPECIAL_PICK);renderSpecial();
     });});
     c.querySelectorAll('.sp-pi').forEach(function(inp){
       inp.addEventListener('input',function(){
@@ -2961,8 +2981,8 @@ fill="#6F4A36" stroke="none">
   function generateSpecialPDF(){
     var JS=window.jspdf&&window.jspdf.jsPDF;
     if(!JS){alert('PDF tool still loading, please try again');return;}
-    var beans=specialBeanList(specialMode);
-    if(!beans.length){alert('No '+(specialMode==='blend'?'blends':'single-origin beans')+' in Retail Info');return;}
+    var beans=SPECIAL_PICK.slice();
+    if(!beans.length){alert('Pick at least one bean from Retail Info');return;}
     var rows=beans.map(function(nm){return {bean:menuInfoFor(nm),offer:specialPriceFor(nm)};});
     var img=new Image();
     img.onload=function(){buildSpecialPDF(rows,img);};
