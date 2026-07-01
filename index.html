@@ -2983,7 +2983,18 @@ fill="#6F4A36" stroke="none">
     if(o.variety)orows.push(['Variety',o.variety]);
     if(o.altitude)orows.push(['Altitude',o.altitude+' MASL']);
     if(o.region)orows.push(['Region',o.region]);
-    if(orows.length){
+    if(bean.recipe&&bean.recipe.length){
+      /* blend → pull its recipe (component beans + %) from Blending */
+      lab('RECIPE');
+      bean.recipe.forEach(function(cpt){
+        var pct=cpt.pct?(cpt.pct+'%'):'';
+        doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+        mnFit(doc,cpt.bean,lx,cy,lw-30,8.5,7);
+        if(pct){doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.setFontSize(8.5);doc.text(pct,lx+lw,cy,{align:'right'});}
+        cy+=12;
+      });
+      cy+=15;
+    }else if(orows.length){
       lab('ORIGIN');
       orows.forEach(function(rr){
         doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);
