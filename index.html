@@ -679,6 +679,7 @@
   .mn-hubbtn:active{opacity:.8}
   .mn-hubt{font-size:16px;font-weight:600;color:var(--ink)}
   .mn-hubs{font-size:12px;color:var(--muted)}
+  .mn-blank{width:100%;font-size:13px;color:var(--muted);background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:9px 10px;text-align:center}
   .bl-cmt{width:100%;font-family:inherit;font-size:13px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;margin-top:2px}
   .bl-cmt:focus{outline:none;border-color:var(--accent)}
   .bl-tot{margin-top:4px;font-size:12px;color:var(--muted);text-align:right}
@@ -1235,6 +1236,7 @@ fill="#6F4A36" stroke="none">
   const APP_STATE_KEYS={
     'ratio_na':'na',
     'ratio_menu_slots':'menu_slots',
+    'ratio_special_slots':'special_slots',
     'ratio_rtl_dot':'rtl_dot',
     'ratio_rtl_g':'rtl_g',
     'ratio_rtl_sold':'rtl_sold',
@@ -1278,6 +1280,7 @@ fill="#6F4A36" stroke="none">
     if(lsKey==='ratio_inv_seq'){applyInvSeqToDayKeys(val);return;}
     try{localStorage.setItem(lsKey,JSON.stringify(val));}catch(e){}
     if(lsKey==='ratio_menu_slots'){try{MENU_SLOTS=loadMenuSlots();}catch(e){}}
+    if(lsKey==='ratio_special_slots'){try{SPECIAL_SLOTS=loadSpecialSlots();}catch(e){}}
   }
   function appStateRefreshOpenScreens(){
     try{
@@ -2721,7 +2724,7 @@ fill="#6F4A36" stroke="none">
   function renderMenuView(){
     if(menuView==='blend')renderMenu();
     else if(menuView==='takeaway')renderMenuSoon('Take Away Menu');
-    else if(menuView==='special')renderMenuSoon('Special Menu');
+    else if(menuView==='special')renderSpecial();
     else renderMenuHub();
   }
   function menuBack(){
@@ -2733,13 +2736,13 @@ fill="#6F4A36" stroke="none">
     c.innerHTML='<div class="mn-hub">'
       +'<button class="mn-hubbtn" data-menu="blend"><span class="mn-hubt">Blend Menu</span><span class="mn-hubs">4-blend A4 menu · two-up cut sheet</span></button>'
       +'<button class="mn-hubbtn" data-menu="takeaway"><span class="mn-hubt">Take Away Menu</span><span class="mn-hubs">Coming soon</span></button>'
-      +'<button class="mn-hubbtn" data-menu="special"><span class="mn-hubt">Special Menu</span><span class="mn-hubs">Coming soon</span></button>'
+      +'<button class="mn-hubbtn" data-menu="special"><span class="mn-hubt">Special Menu</span><span class="mn-hubs">Left column · single-origin beans (A4 two-up)</span></button>'
       +'</div>';
     c.querySelectorAll('.mn-hubbtn').forEach(function(b){b.addEventListener('click',function(){
       var k=b.dataset.menu;
       if(k==='blend'){openBlendMenu();}
       else if(k==='takeaway'){menuView='takeaway';renderMenuSoon('Take Away Menu');}
-      else if(k==='special'){menuView='special';renderMenuSoon('Special Menu');}
+      else if(k==='special'){openSpecialMenu();}
     });});
   }
   function renderMenuSoon(label){
@@ -2792,6 +2795,69 @@ fill="#6F4A36" stroke="none">
     var JS=window.jspdf&&window.jspdf.jsPDF;
     if(!JS){alert('PDF tool still loading, please try again');return;}
     var info4=MENU_SLOTS.map(function(n){return menuInfoFor(n);});
+    buildMenuPDF(info4,null);
+  }
+  /* ============ Special Menu ============
+     Same 2x2 layout + PDF as Blend Menu. Difference: the LEFT column (top-left,
+     bottom-left) picks single-origin beans (everything in Retail Info that is NOT a
+     blend). The RIGHT column is left blank for now. Slots persist separately. */
+  function loadSpecialSlots(){
+    try{var a=JSON.parse(localStorage.getItem('ratio_special_slots')||'null');if(Array.isArray(a)&&a.length===4)return a.slice(0,4);}catch(e){}
+    return ['','','',''];
+  }
+  function saveSpecialSlots(a){try{localStorage.setItem('ratio_special_slots',JSON.stringify(a));}catch(e){}appStatePush('ratio_special_slots');}
+  var SPECIAL_SLOTS=loadSpecialSlots();
+  function openSpecialMenu(){
+    menuView='special';
+    var c=document.getElementById('menu-content');
+    if(c)c.innerHTML='<div class="sempty">Loading beans…</div>';
+    Promise.all([ensureBeansForInvoice(),ensureRetailForLabel()]).then(function(){
+      if(!ROASTS||!ROASTS.length){try{return loadRoasts();}catch(e){}}
+    }).then(function(){renderSpecial();}).catch(function(){renderSpecial();});
+  }
+  /* single-origin retail beans = Retail Info names that are NOT blend names */
+  function specialOptionList(){
+    var blendSet={};loadBlendDefs().forEach(function(b){var n=(b.name||'').trim().toLowerCase();if(n)blendSet[n]=true;});
+    var seen={},out=[];
+    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k]||blendSet[k])return;seen[k]=true;out.push(nm);});
+    /* keep any current slot value selectable even if it drops off the list */
+    [SPECIAL_SLOTS[0],SPECIAL_SLOTS[2]].forEach(function(n){var k=String(n||'').trim();if(k&&!seen[k.toLowerCase()]){seen[k.toLowerCase()]=true;out.push(k);}});
+    return out;
+  }
+  function renderSpecial(){
+    var c=document.getElementById('menu-content');if(!c)return;
+    var opts=specialOptionList();
+    var pos=['Top left','Top right','Bottom left','Bottom right'];
+    function sel(i){
+      var cur=SPECIAL_SLOTS[i]||'';
+      var o='<option value=""'+(cur?'':' selected')+'>— none —</option>';
+      o+=opts.map(function(n){return '<option value="'+esc(n)+'"'+(n===cur?' selected':'')+'>'+esc(n)+'</option>';}).join('');
+      return '<label class="mn-slot"><span class="mn-pos">'+pos[i]+'</span>'
+        +'<select class="mn-sel" data-i="'+i+'">'+o+'</select></label>';
+    }
+    function blank(i){
+      return '<label class="mn-slot"><span class="mn-pos">'+pos[i]+'</span>'
+        +'<div class="mn-blank">— blank —</div></label>';
+    }
+    var empty=!opts.length;
+    c.innerHTML='<div class="mn-wrap">'
+      +'<p class="gsec" style="padding-left:0">Left column · pick a single-origin bean</p>'
+      +'<div class="mn-grid">'+sel(0)+blank(1)+sel(2)+blank(3)+'</div>'
+      +(empty?'<div class="sempty" style="padding:24px 8px">No single-origin beans in Retail Info yet</div>':'')
+      +'<p class="mn-note">The left column offers every Retail Info bean that isn\'t a blend; the right column stays blank for now. Info (flavour notes, ready-brew date, net weight) is pulled live from Retail Info. The PDF prints two identical copies on A4 with a centre cut line.</p>'
+      +'<button class="gbtn" id="sp-gen"'+(empty?' disabled':'')+'>Generate Menu PDF</button>'
+      +'</div>';
+    c.querySelectorAll('.mn-sel').forEach(function(s){s.addEventListener('change',function(){
+      SPECIAL_SLOTS[+s.dataset.i]=s.value;saveSpecialSlots(SPECIAL_SLOTS);
+    });});
+    var gen=document.getElementById('sp-gen');
+    if(gen)gen.addEventListener('click',function(){generateSpecialPDF();});
+  }
+  function generateSpecialPDF(){
+    var JS=window.jspdf&&window.jspdf.jsPDF;
+    if(!JS){alert('PDF tool still loading, please try again');return;}
+    /* right column forced blank */
+    var info4=[menuInfoFor(SPECIAL_SLOTS[0]),menuInfoFor(''),menuInfoFor(SPECIAL_SLOTS[2]),menuInfoFor('')];
     buildMenuPDF(info4,null);
   }
   function mnAsc(t){return String(t==null?'':t).replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...');}
