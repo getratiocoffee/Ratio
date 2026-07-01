@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <style>
-  :root{--bg:#F4ECEA;--surface:#FCF6F4;--ink:#322B2A;--muted:#8C8079;--accent:#B25E6A;--tint:#F3DDE0;--line:rgba(50,43,42,0.10);--accent-ink:#6E2F39;--accent-tint:#F3DDE0;--success:#5E8C61;--success-tint:#E2EADD;--success-ink:#3C5236;--danger:#C0392B;--danger-ink:#8E2A22;--brand:#49423A;--on-brand:#F4ECEA;--on-brand-dim:rgba(244,236,234,.7);--font-ui:'Inter',-apple-system,"Segoe UI",system-ui,sans-serif;--font-display:'Fraunces',Georgia,serif;--font-mono:'Space Mono',ui-monospace,"SF Mono",Menlo,monospace}
+  :root{--bg:#F4ECEA;--surface:#FCF6F4;--ink:#322B2A;--muted:#8C8079;--accent:#B25E6A;--tint:#F3DDE0;--line:rgba(50,43,42,0.10);--line-strong:rgba(50,43,42,.22);--accent-ink:#6E2F39;--accent-tint:#F3DDE0;--success:#5E8C61;--success-tint:#E2EADD;--success-ink:#3C5236;--danger:#C0392B;--danger-ink:#8E2A22;--brand:#49423A;--on-brand:#F4ECEA;--on-brand-dim:rgba(244,236,234,.7);--font-ui:'Inter',-apple-system,"Segoe UI",system-ui,sans-serif;--font-display:'Fraunces',Georgia,serif;--font-mono:'Space Mono',ui-monospace,"SF Mono",Menlo,monospace}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
   body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);position:fixed;top:0;left:0;right:0;height:100dvh;display:flex;flex-direction:column}
@@ -277,7 +277,7 @@
   .ps-br{border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;font-family:inherit;font-size:11px;font-weight:600;padding:5px 9px;cursor:pointer;flex:0 0 auto}
   .ps-br.on{background:#6E5B50;border-color:#6E5B50;color:#fff}
   .ps-add{padding:10px 14px}
-  .ps-addsel{width:100%;border:1px dashed var(--line-strong,rgba(50,43,42,.22));border-radius:11px;padding:11px 12px;font-size:14px;color:var(--accent);background:var(--bg);outline:none;font-family:inherit;-webkit-appearance:none;appearance:none}
+  .ps-addsel{width:100%;border:1px dashed var(--line-strong);border-radius:11px;padding:11px 12px;font-size:14px;color:var(--accent);background:var(--bg);outline:none;font-family:inherit;-webkit-appearance:none;appearance:none}
   .ps-addsel:focus{border-color:var(--accent)}
   .ts-hist{display:flex;align-items:center;gap:9px;margin:16px 16px 14px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:13px;color:var(--accent);font-weight:600;font-size:13px;cursor:pointer;font-family:inherit;width:calc(100% - 32px)}
   .ts-hist svg{width:17px;height:17px;flex:0 0 auto}
@@ -621,7 +621,7 @@
   .inv-line{display:flex;justify-content:space-between;align-items:baseline;margin-top:11px;font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--ink)}
   .inv-line .l{font-size:11px;font-weight:400;color:var(--muted);font-family:var(--font-ui)}
   .inv-add{display:flex;flex-wrap:wrap;gap:8px;padding:2px 16px 8px}
-  .inv-add button{flex:1 1 calc(50% - 4px);border:1px dashed var(--line-strong,rgba(50,43,42,.18));background:var(--surface);color:var(--ink);border-radius:12px;padding:11px 8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
+  .inv-add button{flex:1 1 calc(50% - 4px);border:1px dashed var(--line-strong);background:var(--surface);color:var(--ink);border-radius:12px;padding:11px 8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
   .inv-add button:active{background:#FAF2EF}
   .inv-gst{display:flex;align-items:center;justify-content:space-between;margin:12px 16px 0;font-size:14px;color:var(--ink)}
   .inv-gst .sub{font-size:11px;color:var(--muted)}
@@ -731,8 +731,6 @@
   .bl-addwrap{padding:10px 16px calc(env(safe-area-inset-bottom,0px) + 18px)}
   .bl-addwrap .gbtn{width:100%}
   .bl-addwrap .gbtn.ghost{margin-bottom:10px}
-  .bl-saved{text-align:center;font-size:13px;font-weight:600;color:#7E9B7A;margin-top:10px;opacity:0;transition:opacity .2s ease}
-  .bl-saved.show{opacity:1}
   #pdf-frame{width:100%;height:100%;border:none;display:block;background:var(--bg)}
   @media(min-width:520px){body{max-width:430px;margin-left:auto;margin-right:auto;border-left:.5px solid var(--line);border-right:.5px solid var(--line)}}
   /* ---- login gate ---- */
@@ -1009,7 +1007,6 @@ fill="#6F4A36" stroke="none">
   document.getElementById('pgrid').innerHTML=folder.map(([ic,lb])=>`<div class="item" onclick="onOpen('${ic}')"><div class="ic">${I[ic]}</div><div class="lbl">${lb}</div></div>`).join('');
   document.getElementById('swap').innerHTML=I.swap;
   document.getElementById('power').innerHTML='<svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7"/><path d="M6 10v9a1 1 0 0 0 1 1h3v-6h4v6h3a1 1 0 0 0 1-1v-9"/></svg>';
-  function togglePower(){const p=document.getElementById('power');const on=p.dataset.on!=='0';p.dataset.on=on?'0':'1';p.style.color=on?'#49423A':'#5FA45C';}
   function alignCenter(){const pill=document.querySelector('.pill');const c=document.querySelector('.center');const cn=document.querySelector('.cluster .cname');if(pill&&c){c.style.height=Math.round(pill.getBoundingClientRect().height)+'px';let off=0;if(cn&&cn.offsetHeight)off=cn.offsetHeight+6;c.style.marginTop=off+'px';}}
   alignCenter();window.addEventListener('resize',alignCenter);setTimeout(alignCenter,300);
   function press(el){el.classList.remove('pressing');void el.offsetWidth;el.classList.add('pressing');}
@@ -1803,7 +1800,6 @@ fill="#6F4A36" stroke="none">
   const ROAST_PACKS=['100g','150g','200g','250g'];
   const HANDLE_FEE=5;   /* per green-bean line, GST inclusive */
   let INV={buyerName:'',buyerEmail:'',buyerAddr:'',items:[],notes:'',date:'',due:''};
-  function invTaxable(cat){return cat==='Catering'||cat==='Shipping';}
   function invIsGreen(it){return it.cat==='Green Beans';}
   function invHasHandle(it){return invIsGreen(it)&&!!it.beanId;}
   function blankInvItem(cat){cat=cat||INV_CATS[0];return {cat:cat,desc:'',qty:'1',unit:'',gstMode:'plus',pack:'250g',beanId:'',beanName:'',country:''};}
@@ -2026,12 +2022,6 @@ fill="#6F4A36" stroke="none">
   const TS_DAYLBL={mon:'Mon',tue:'Tue',wed:'Wed',thu:'Thu',fri:'Fri',sat:'Sat',sun:'Sun'};
   const TS_MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   function tsHM(s){var p=String(s).split(':');return (+p[0])*60+(+p[1]);}
-  function tsPaid(dayKey,start,end){
-    if(!start||!end)return 0;
-    var x=(tsHM(end)-tsHM(start))/60;if(x<0)x+=24;
-    if(['mon','tue','wed','thu','fri'].indexOf(dayKey)>-1)x-=0.5; // weekday 30min unpaid break
-    return x<0?0:x;
-  }
   function tsHH(x){return (x===Math.round(x)?String(x):String(Math.round(x*10)/10))+'h';}
   function tsPaidBr(start,end,br){
     if(!start||!end)return 0;
@@ -2486,14 +2476,6 @@ fill="#6F4A36" stroke="none">
     ];
   }
   function openLabel(){closeFolder();openPage('label');renderLabel();Promise.all([ensureBeansForInvoice(),ensureRetailForLabel()]).then(function(){if(document.getElementById('label-content'))renderLabel();});}
-  function applyBeanToSO(b){
-    if(!b)return;
-    soForm.name=b.name||soForm.name;
-    soForm.process=b.process||'';
-    soForm.variety=b.variety||'';
-    soForm.altitude=(b.altitude!=null&&b.altitude!=='')?String(b.altitude):'';
-    soForm.region=[b.region,b.country].filter(Boolean).join(', ');
-  }
   var RETAIL_BEANS=[];
   async function ensureRetailForLabel(){
     if(RETAIL_BEANS&&RETAIL_BEANS.length)return;
@@ -2798,10 +2780,6 @@ fill="#6F4A36" stroke="none">
       else if(k==='takeaway'){openTakeawayMenu();}
       else if(k==='special'){openSpecialMenu();}
     });});
-  }
-  function renderMenuSoon(label){
-    var c=document.getElementById('menu-content');if(!c)return;
-    c.innerHTML='<div class="mn-wrap"><div class="re-soon" style="margin-top:14px">'+esc(label)+' — coming soon</div></div>';
   }
   function openBlendMenu(){
     menuView='blend';
@@ -4038,23 +4016,6 @@ fill="#6F4A36" stroke="none">
   }
   function readyBlendNames(){return loadBlendDefs().filter(blendReady).map(function(b){return (b.name||'').trim();});}
   function blendDefByName(name){var n=String(name||'').trim().toLowerCase();if(!n)return null;return loadBlendDefs().filter(function(b){return String(b.name||'').trim().toLowerCase()===n;})[0]||null;}
-  var BLEND_SAMPLES=[];
-  async function loadBlendSamples(){
-    try{var res=await sb.from('samples').select('sample_id,cupping_date').eq('supplier','Ratio Coffee');BLEND_SAMPLES=res&&res.data?res.data:[];}catch(e){BLEND_SAMPLES=[];}
-    blendSamplesLoaded=true;
-  }
-  function blendCupped(name,date){
-    var n=String(name||''),d=String(date||'');
-    return (BLEND_SAMPLES||[]).some(function(s){return String(s.sample_id||'')===n&&String(s.cupping_date||'')===d;});
-  }
-  var RT_SAVE_FOOT='<div class="bl-addwrap" style="padding-top:8px"><button class="gbtn" id="rt-save">Save</button><div class="bl-saved" id="rt-saved">\u2713 Saved</div></div>';
-  function wireRtSave(){
-    var b=document.getElementById('rt-save');if(!b)return;
-    b.addEventListener('click',function(){
-      try{saveDots(loadDots());saveGrams(loadGrams());}catch(e){}
-      var s=document.getElementById('rt-saved');if(s){s.classList.add('show');clearTimeout(window._rtSaveT);window._rtSaveT=setTimeout(function(){s.classList.remove('show');},1800);}
-    });
-  }
   function groupedRoastListHTML(arr){
     var groups={},order=[];
     arr.forEach(function(r){var d=r.roast_date||'—';if(!groups[d]){groups[d]=[];order.push(d);}groups[d].push(r);});
@@ -4453,24 +4414,6 @@ fill="#6F4A36" stroke="none">
       +(chips?'<div class="smp-scoreline">'+chips+'</div>':'')
       +feats
       +(s.comment?'<div class="smp-cmt">'+esc(s.comment)+'</div>':'')+(s.cupper?'<div class="smp-by">Analysed by '+esc(s.cupper)+'</div>':'')+'</div>';
-  }
-  async function openBlendCupping(name,date){
-    openPage('green');
-    document.getElementById('green-title').textContent='Analyse';
-    document.getElementById('green-count').textContent='';
-    document.getElementById('green-content').innerHTML='<div class="sempty">Loading…</div>';
-    var res=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('no',{ascending:false}).order('created_at',{ascending:false});
-    SAMPLES=res.error?[]:(res.data||[]);
-    smpEdit=null;smpEditObj=null;smpDelConfirm=false;
-    smpCuppingRoast=null;blendCupping={name:name,date:date};
-    var prev=SAMPLES.find(function(x){return x.supplier==='Ratio Coffee'&&String(x.sample_id||'')===String(name||'');});
-    var page=Object.assign(blankSmp(),{supplier:'Ratio Coffee',sample_id:name||'',cupping_date:date||todayStr()});
-    if(prev){
-      page.fragrance=prev.fragrance;page.acidity=prev.acidity;page.sweetness=prev.sweetness;page.body=prev.body;page.aftertaste=prev.aftertaste;
-      page.features=(prev.features||[]).slice();page.comment=prev.comment||'';if(prev.process)page.process=prev.process;
-    }
-    smpPages=[page];smpIdx=0;greenView='sample';
-    renderSample(res.error?res.error.message:'');
   }
   async function openCupping(roastId){
     var r=ROASTS.find(function(x){return String(x.id)===String(roastId);});
