@@ -2980,10 +2980,10 @@ fill="#6F4A36" stroke="none">
     if(orows.length){
       lab('ORIGIN');
       orows.forEach(function(rr){
-        doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);
+        doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);
         doc.text(rr[0],lx,cy);
         doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-        doc.text(mnAsc(rr[1]),lx+lw,cy,{align:'right'});cy+=12.5;
+        mnFit(doc,rr[1],lx+lw,cy,lw-58,8.5,7,'right');cy+=12;
       });
       cy+=6;
     }
