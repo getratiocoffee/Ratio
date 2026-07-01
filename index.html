@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <style>
-  :root{--bg:#F4ECEA;--surface:#FCF6F4;--ink:#322B2A;--muted:#8C8079;--accent:#B25E6A;--tint:#F3DDE0;--line:rgba(50,43,42,0.10);--accent-ink:#6E2F39;--accent-tint:#F3DDE0;--success:#5E8C61;--success-tint:#E2EADD;--success-ink:#3C5236;--brand:#49423A;--on-brand:#F4ECEA;--on-brand-dim:rgba(244,236,234,.7);--font-ui:'Inter',-apple-system,"Segoe UI",system-ui,sans-serif;--font-display:'Fraunces',Georgia,serif;--font-mono:'Space Mono',ui-monospace,"SF Mono",Menlo,monospace}
+  :root{--bg:#F4ECEA;--surface:#FCF6F4;--ink:#322B2A;--muted:#8C8079;--accent:#B25E6A;--tint:#F3DDE0;--line:rgba(50,43,42,0.10);--accent-ink:#6E2F39;--accent-tint:#F3DDE0;--success:#5E8C61;--success-tint:#E2EADD;--success-ink:#3C5236;--danger:#C0392B;--danger-ink:#8E2A22;--brand:#49423A;--on-brand:#F4ECEA;--on-brand-dim:rgba(244,236,234,.7);--font-ui:'Inter',-apple-system,"Segoe UI",system-ui,sans-serif;--font-display:'Fraunces',Georgia,serif;--font-mono:'Space Mono',ui-monospace,"SF Mono",Menlo,monospace}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
   body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);position:fixed;top:0;left:0;right:0;height:100dvh;display:flex;flex-direction:column}
@@ -440,15 +440,13 @@
   .rtl-str-row span{font-size:13.5px;color:var(--ink)}
   .rtl-str-row b{font-size:12.5px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:9px;padding:3px 12px}
   .rtl-cmt{font-size:13px;color:var(--muted);margin-top:12px;line-height:1.55;border-top:1px solid var(--line);padding-top:10px}
-  .rtl-sold-wrap{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
-  .rtl-sold{width:100%;font-size:13px;font-weight:600;font-family:inherit;color:var(--accent);background:transparent;border:1px solid var(--line);border-radius:11px;padding:10px;cursor:pointer;line-height:1}
-  .rtl-sold:active{transform:scale(.98)}
-  .rtl-sold-msg{font-size:13px;color:var(--ink);margin-bottom:9px;text-align:center}
-  .rtl-sold-actions{display:flex;gap:8px}
-  .rtl-sold-actions button{flex:1;font-size:13px;font-weight:600;font-family:inherit;border-radius:11px;padding:10px;cursor:pointer;line-height:1;border:1px solid var(--line)}
-  .rtl-sold-cancel{background:transparent;color:var(--muted)}
-  .rtl-sold-yes{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .rtl-sold-actions button:active{transform:scale(.98)}
+  .rtl-stk{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;border-top:1px solid var(--line);padding-top:13px;cursor:pointer;-webkit-user-select:none;user-select:none;touch-action:pan-y}
+  .rtl-stk-label{font-size:13.5px;font-weight:700;color:var(--success-ink);letter-spacing:.01em}
+  .rtl-stk.out .rtl-stk-label{color:var(--danger-ink)}
+  .rtl-stk-track{position:relative;flex:0 0 auto;width:52px;height:30px;border-radius:999px;background:var(--success);transition:background .22s ease}
+  .rtl-stk.out .rtl-stk-track{background:var(--danger)}
+  .rtl-stk-knob{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .22s cubic-bezier(.4,0,.2,1)}
+  .rtl-stk.out .rtl-stk-knob{transform:translateX(22px)}
   .adm-list{display:flex;flex-direction:column;gap:10px;padding:0 16px 8px}
   .adm-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
   .adm-name{font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--ink);line-height:1.2;word-break:break-word}
@@ -1211,6 +1209,7 @@ fill="#6F4A36" stroke="none">
     'ratio_menu_slots':'menu_slots',
     'ratio_rtl_dot':'rtl_dot',
     'ratio_rtl_g':'rtl_g',
+    'ratio_rtl_sold':'rtl_sold',
     'ratio_blends':'blends',
     'ratio_inv_seq':'inv_seq'
   };
@@ -3290,7 +3289,7 @@ fill="#6F4A36" stroke="none">
     renderRoast();
   }
   let beansView='home';
-  var RTL_ROWS=[], RTL_RDBY={}, rtlSoldConfirm=null;
+  var RTL_ROWS=[], RTL_RDBY={};
   async function renderBeansRetail(){
     beansView='retail';
     const box=document.getElementById('beans-content');
@@ -3315,19 +3314,28 @@ fill="#6F4A36" stroke="none">
     if(!rows.length){box.innerHTML='<div class="sempty">No cupped beans yet<br>Cup a bean from Pending</div>';return;}
     var dotMap=loadDots();
     box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">On the shelf</div><div class="rtl-list">'+rows.map(function(s){return retailCard(s,RTL_RDBY[s.sample_id||''],dotMap[s.sample_id||'']||'');}).join('')+'</div>';
-    box.querySelectorAll('.rtl-sold').forEach(function(b){b.addEventListener('click',function(){rtlSoldConfirm=b.dataset.key;paintRetail();});});
-    box.querySelectorAll('.rtl-sold-cancel').forEach(function(b){b.addEventListener('click',function(){rtlSoldConfirm=null;paintRetail();});});
-    box.querySelectorAll('.rtl-sold-yes').forEach(function(b){b.addEventListener('click',function(){retailSoldOut(b.dataset.id,b.dataset.sid);});});
-  }
-  async function retailSoldOut(id,sid){
-    try{
-      if(sid){await sb.from('samples').delete().eq('supplier','Ratio Coffee').eq('sample_id',sid);}
-      else if(id){await sb.from('samples').delete().eq('id',id);}
-    }catch(e){}
-    rtlSoldConfirm=null;
-    RTL_ROWS=RTL_ROWS.filter(function(s){return sid?(String(s.sample_id||'')!==String(sid)):(String(s.id||'')!==String(id));});
-    paintRetail();
-    renderBeansRetail();
+    box.querySelectorAll('.rtl-stk').forEach(function(el){
+      var sx=null,handled=false;
+      function setState(out){
+        var sid=el.dataset.sid,m=loadSold();
+        if(out)m[sid]=1;else delete m[sid];
+        saveSold(m);
+        el.classList.toggle('out',out);
+        el.setAttribute('aria-checked',String(!out));
+        var lab=el.querySelector('.rtl-stk-label');if(lab)lab.textContent=out?'Sold Out':'Available';
+      }
+      function toggle(){setState(!el.classList.contains('out'));}
+      el.addEventListener('touchstart',function(e){sx=e.touches[0].clientX;},{passive:true});
+      el.addEventListener('touchend',function(e){
+        if(sx==null)return;var dx=e.changedTouches[0].clientX-sx;sx=null;handled=true;
+        var out=el.classList.contains('out');
+        if(dx>28){if(!out)setState(true);}          /* swipe right -> Sold Out */
+        else if(dx<-28){if(out)setState(false);}    /* swipe left -> Available */
+        else toggle();                              /* tap */
+        setTimeout(function(){handled=false;},400);
+      },{passive:true});
+      el.addEventListener('click',function(){if(handled)return;toggle();});
+    });
   }
   var RTL_DOTCOL={y:'#E0B341',b:'#3D7DBF',d:'#22386B',r:'#C0392B'};
   var RTL_GRAMS=[100,150,200,250];
@@ -3335,6 +3343,8 @@ fill="#6F4A36" stroke="none">
   function saveDots(m){try{localStorage.setItem('ratio_rtl_dot',JSON.stringify(m));}catch(e){}appStatePush('ratio_rtl_dot');}
   function loadGrams(){try{return JSON.parse(localStorage.getItem('ratio_rtl_g')||'{}');}catch(e){return {};}}
   function saveGrams(m){try{localStorage.setItem('ratio_rtl_g',JSON.stringify(m));}catch(e){}appStatePush('ratio_rtl_g');}
+  function loadSold(){try{return JSON.parse(localStorage.getItem('ratio_rtl_sold')||'{}');}catch(e){return {};}}
+  function saveSold(m){try{localStorage.setItem('ratio_rtl_sold',JSON.stringify(m));}catch(e){}appStatePush('ratio_rtl_sold');}
   function retailCard(s,roastDate,color){
     var FEAT={fragrance:'Fragrance',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
     var id=esc(s.sample_id||s.supplier||'—');
@@ -3365,13 +3375,9 @@ fill="#6F4A36" stroke="none">
       var bcmt=(blendDef.comment||'').trim();
       if(bcmt)blendCmtHtml='<div class="rtl-gram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'+esc(bcmt)+'</div>';
     }
-    var soldKey=String(s.id||s.sample_id||'');
-    var soldHtml;
-    if(rtlSoldConfirm&&String(rtlSoldConfirm)===soldKey){
-      soldHtml='<div class="rtl-sold-wrap"><div class="rtl-sold-msg">Hide this bean from the shelf?</div><div class="rtl-sold-actions"><button class="rtl-sold-cancel">Cancel</button><button class="rtl-sold-yes" data-id="'+esc(String(s.id||''))+'" data-sid="'+esc(String(s.sample_id||''))+'">Hide</button></div></div>';
-    }else{
-      soldHtml='<div class="rtl-sold-wrap"><button class="rtl-sold" data-key="'+esc(soldKey)+'">Hide</button></div>';
-    }
+    var stkSid=s.sample_id||'';
+    var stkOut=!!loadSold()[stkSid];
+    var soldHtml='<div class="rtl-stk'+(stkOut?' out':'')+'" data-sid="'+esc(stkSid)+'" role="switch" aria-checked="'+(!stkOut)+'" aria-label="stock status"><span class="rtl-stk-label">'+(stkOut?'Sold Out':'Available')+'</span><span class="rtl-stk-track"><span class="rtl-stk-knob"></span></span></div>';
     return '<div class="rtl-card">'
       +dotHtml
       +'<div class="rtl-id">'+id+(blendDef?' <span class="rtl-blend-tag">Blend</span>':'')+'</div>'
