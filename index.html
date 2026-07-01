@@ -680,10 +680,11 @@
   .auth .hint.err{color:var(--accent)}
   .auth .hint.ok{color:var(--muted)}
   /* ---- role-based view ---- */
-  body:not(.role-staff) .cluster{display:none}
-  body:not(.role-staff) #swap{display:none}
-  body:not(.role-staff) .bar{justify-content:center}
-  body:not(.role-staff) .center{height:auto!important}
+  /* customer 看精簡首頁（無 dock）；director/roaster/retail/staff 都保留 dock */
+  body.role-customer .cluster{display:none}
+  body.role-customer #swap{display:none}
+  body.role-customer .bar{justify-content:center}
+  body.role-customer .center{height:auto!important}
 </style>
 </head>
 <body>
@@ -1296,17 +1297,52 @@ fill="#6F4A36" stroke="none">
       setHint('',null);
     }
 
+    /* ===== 五角色權限 =====
+       · 誰是哪個角色 → Supabase 的 profiles.role 欄位（director/roaster/retail/staff/customer）
+       · 每個角色能看哪些 dock 功能 → Supabase 的 app_state.role_permissions（可後台調整）
+       · 下面這份是「讀不到 Supabase 時」的內建預設，兩邊保持一致。
+       dock 模組代號：timesheet, beans, task, recipe, roast, green, order, fx           */
+    const DEFAULT_ROLE_PERMS = {
+      director: { label:'董事',     dock:'ALL' },
+      roaster:  { label:'烘豆師',   dock:['roast','green','beans','fx'] },
+      retail:   { label:'零售經理', dock:['timesheet','beans','order','task','fx'] },
+      staff:    { label:'員工',     dock:['timesheet','beans'] },
+      customer: { label:'客戶',     dock:[] }
+    };
+
+    function applyDockPermissions(cfg){
+      const dock = cfg ? cfg.dock : 'ALL';
+      document.querySelectorAll('.pill .item[data-id]').forEach(it=>{
+        const id = it.dataset.id;
+        const show = (dock==='ALL') || (Array.isArray(dock) && dock.indexOf(id)>=0);
+        it.style.display = show ? '' : 'none';
+      });
+    }
+
     async function applyRole(user){
       let role='customer', name=(user.email||'');
       try{
         const {data}=await sb.from('profiles').select('name,role').eq('id',user.id).single();
         if(data){role=data.role||'customer';if(data.name)name=data.name;}
       }catch(e){}
-      document.body.classList.remove('role-staff','role-customer');
-      document.body.classList.add(role==='staff'?'role-staff':'role-customer');
-      window.CURRENT_USER=name;
+      // 讀取權限設定（後台可調）；讀不到就用內建預設
+      let perms = DEFAULT_ROLE_PERMS;
+      try{
+        const {data:ps}=await sb.from('app_state').select('value').eq('key','role_permissions').single();
+        if(ps&&ps.value&&typeof ps.value==='object') perms = ps.value;
+      }catch(e){}
+      // 未知角色一律當 customer 處理
+      if(!perms[role]) role='customer';
+      const cfg = perms[role] || DEFAULT_ROLE_PERMS.customer;
+      window.CURRENT_ROLE=role; window.CURRENT_USER=name;
+      // body class：role-director / role-roaster / role-retail / role-staff / role-customer
+      document.body.classList.remove('role-director','role-roaster','role-retail','role-staff','role-customer');
+      document.body.classList.add('role-'+role);
+      // 依權限顯示/隱藏 dock 模組
+      applyDockPermissions(cfg);
+      // 顯示名字 · 角色
       const who=document.getElementById('who');
-      if(who)who.textContent=name+' · '+(role==='staff'?'Staff':'Customer');
+      if(who)who.textContent=name+' · '+(cfg.label||role);
       if(typeof alignCenter==='function')alignCenter();
     }
     async function onSession(session){
