@@ -440,13 +440,26 @@
   .rtl-str-row span{font-size:13.5px;color:var(--ink)}
   .rtl-str-row b{font-size:12.5px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:9px;padding:3px 12px}
   .rtl-cmt{font-size:13px;color:var(--muted);margin-top:12px;line-height:1.55;border-top:1px solid var(--line);padding-top:10px}
-  .rtl-stk{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;border-top:1px solid var(--line);padding-top:13px;cursor:pointer;-webkit-user-select:none;user-select:none;touch-action:pan-y}
+  .rtl-stkwrap{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;border-top:1px solid var(--line);padding-top:13px;min-height:34px}
+  .rtl-stk{display:flex;align-items:center;gap:11px;cursor:pointer;-webkit-user-select:none;user-select:none;touch-action:pan-y}
+  .rtl-stk.confirming{pointer-events:none;opacity:.45}
   .rtl-stk-label{font-size:13.5px;font-weight:700;color:var(--success-ink);letter-spacing:.01em}
   .rtl-stk.out .rtl-stk-label{color:var(--danger-ink)}
   .rtl-stk-track{position:relative;flex:0 0 auto;width:52px;height:30px;border-radius:999px;background:var(--success);transition:background .22s ease}
   .rtl-stk.out .rtl-stk-track{background:var(--danger)}
   .rtl-stk-knob{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .22s cubic-bezier(.4,0,.2,1)}
   .rtl-stk.out .rtl-stk-knob{transform:translateX(22px)}
+  .rtl-del{flex:0 0 auto;display:flex;align-items:center;justify-content:center;width:38px;height:34px;border:1px solid var(--line);background:transparent;color:var(--danger);border-radius:11px;cursor:pointer;padding:0}
+  .rtl-stk:not(.out) + .rtl-del{display:none}
+  .rtl-del svg{width:17px;height:17px}
+  .rtl-del:active{transform:scale(.96)}
+  .rtl-del-confirm{margin-top:11px}
+  .rtl-del-msg{font-size:13px;color:var(--ink);margin-bottom:9px;text-align:center;line-height:1.45}
+  .rtl-del-actions{display:flex;gap:8px}
+  .rtl-del-actions button{flex:1;font-size:13px;font-weight:600;font-family:inherit;border-radius:11px;padding:10px;cursor:pointer;line-height:1;border:1px solid var(--line)}
+  .rtl-del-cancel{background:transparent;color:var(--muted)}
+  .rtl-del-yes{background:var(--danger);color:#fff;border-color:var(--danger)}
+  .rtl-del-actions button:active{transform:scale(.98)}
   .adm-list{display:flex;flex-direction:column;gap:10px;padding:0 16px 8px}
   .adm-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
   .adm-name{font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--ink);line-height:1.2;word-break:break-word}
@@ -3289,7 +3302,7 @@ fill="#6F4A36" stroke="none">
     renderRoast();
   }
   let beansView='home';
-  var RTL_ROWS=[], RTL_RDBY={};
+  var RTL_ROWS=[], RTL_RDBY={}, rtlDelConfirm=null;
   async function renderBeansRetail(){
     beansView='retail';
     const box=document.getElementById('beans-content');
@@ -3336,6 +3349,20 @@ fill="#6F4A36" stroke="none">
       },{passive:true});
       el.addEventListener('click',function(){if(handled)return;toggle();});
     });
+    box.querySelectorAll('.rtl-del').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();rtlDelConfirm=b.dataset.key;paintRetail();});});
+    box.querySelectorAll('.rtl-del-cancel').forEach(function(b){b.addEventListener('click',function(){rtlDelConfirm=null;paintRetail();});});
+    box.querySelectorAll('.rtl-del-yes').forEach(function(b){b.addEventListener('click',function(){retailDelete(b.dataset.id,b.dataset.sid);});});
+  }
+  async function retailDelete(id,sid){
+    try{
+      if(sid){await sb.from('samples').delete().eq('supplier','Ratio Coffee').eq('sample_id',sid);}
+      else if(id){await sb.from('samples').delete().eq('id',id);}
+    }catch(e){}
+    rtlDelConfirm=null;
+    RTL_ROWS=RTL_ROWS.filter(function(s){return sid?(String(s.sample_id||'')!==String(sid)):(String(s.id||'')!==String(id));});
+    try{var m=loadSold();if(sid&&m[sid]!=null){delete m[sid];saveSold(m);}}catch(e){}
+    paintRetail();
+    renderBeansRetail();
   }
   var RTL_DOTCOL={y:'#E0B341',b:'#3D7DBF',d:'#22386B',r:'#C0392B'};
   var RTL_GRAMS=[100,150,200,250];
@@ -3377,7 +3404,13 @@ fill="#6F4A36" stroke="none">
     }
     var stkSid=s.sample_id||'';
     var stkOut=!!loadSold()[stkSid];
-    var soldHtml='<div class="rtl-stk'+(stkOut?' out':'')+'" data-sid="'+esc(stkSid)+'" role="switch" aria-checked="'+(!stkOut)+'" aria-label="stock status"><span class="rtl-stk-label">'+(stkOut?'Sold Out':'Available')+'</span><span class="rtl-stk-track"><span class="rtl-stk-knob"></span></span></div>';
+    var delKey=stkSid||('id:'+String(s.id||''));
+    var confirming=(rtlDelConfirm!=null&&String(rtlDelConfirm)===delKey);
+    var trashSvg='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/><path d="M9 7V4h6v3"/></svg>';
+    var stkMain='<div class="rtl-stk'+(stkOut?' out':'')+(confirming?' confirming':'')+'" data-sid="'+esc(stkSid)+'" role="switch" aria-checked="'+(!stkOut)+'" aria-label="stock status"><span class="rtl-stk-track"><span class="rtl-stk-knob"></span></span><span class="rtl-stk-label">'+(stkOut?'Sold Out':'Available')+'</span></div>';
+    var trashBtn=confirming?'':('<button class="rtl-del" data-key="'+esc(delKey)+'" aria-label="delete bean">'+trashSvg+'</button>');
+    var soldHtml='<div class="rtl-stkwrap">'+stkMain+trashBtn+'</div>'
+      +(confirming?('<div class="rtl-del-confirm"><div class="rtl-del-msg">Delete this bean permanently?<br>This can\u2019t be undone.</div><div class="rtl-del-actions"><button class="rtl-del-cancel">Cancel</button><button class="rtl-del-yes" data-id="'+esc(String(s.id||''))+'" data-sid="'+esc(stkSid)+'">Delete</button></div></div>'):'');
     return '<div class="rtl-card">'
       +dotHtml
       +'<div class="rtl-id">'+id+(blendDef?' <span class="rtl-blend-tag">Blend</span>':'')+'</div>'
