@@ -2864,9 +2864,8 @@ fill="#6F4A36" stroke="none">
   }
   /* single-origin retail beans = Retail Info names that are NOT blend names */
   function specialOptionList(){
-    var blendSet={};loadBlendDefs().forEach(function(b){var n=(b.name||'').trim().toLowerCase();if(n)blendSet[n]=true;});
     var seen={},out=[];
-    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k]||blendSet[k])return;seen[k]=true;out.push(nm);});
+    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;seen[k]=true;out.push(nm);});
     /* keep any current slot value selectable even if it drops off the list */
     [SPECIAL_SLOTS[0],SPECIAL_SLOTS[2]].forEach(function(n){var k=String(n||'').trim();if(k&&!seen[k.toLowerCase()]){seen[k.toLowerCase()]=true;out.push(k);}});
     return out;
@@ -2883,7 +2882,7 @@ fill="#6F4A36" stroke="none">
       var cur=SPECIAL_SLOTS[sloti]||'';
       return '<div class="sp-card" data-row="'+row+'">'
         +'<div class="sp-cardhd"><span class="sp-badge">'+label+'</span><span class="sp-cardsub">Special of the Week</span></div>'
-        +'<label class="sp-field"><span class="sp-flab">Single-origin bean</span>'
+        +'<label class="sp-field"><span class="sp-flab">Retail Info bean</span>'
           +'<select class="mn-sel" data-i="'+sloti+'">'+optsHtml(cur)+'</select></label>'
         +'<div class="sp-drinks">'
           +'<div class="sp-drink"><div class="sp-dinfo"><span class="sp-dname sp-cred">1+1 Combo</span><span class="sp-dsub">Espresso base \u00b7 black &amp; white</span></div><span class="sp-price">'+priceInp(row,'combo')+'</span></div>'
@@ -2895,7 +2894,7 @@ fill="#6F4A36" stroke="none">
     var empty=!opts.length;
     c.innerHTML='<div class="mn-wrap">'
       +'<p class="gsec" style="padding-left:0">Weekly special \u00b7 pair a bean with its drink prices</p>'
-      +(empty?'<div class="sempty" style="padding:24px 8px">No single-origin beans in Retail Info yet</div>':(card(0,0,'TOP')+card(2,1,'BOTTOM')))
+      +(empty?'<div class="sempty" style="padding:24px 8px">No beans in Retail Info yet</div>':(card(0,0,'TOP')+card(2,1,'BOTTOM')))
       +'<p class="mn-note">Each card prints as one row on the menu \u2014 the bean details on the left, these three drinks on the right. Two identical copies print on A4 with a centre cut line.</p>'
       +'<button class="gbtn" id="sp-gen"'+(empty?' disabled':'')+'>Generate Menu PDF</button>'
       +'</div>';
