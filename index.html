@@ -2983,7 +2983,7 @@ fill="#6F4A36" stroke="none">
         doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);
         doc.text(rr[0],lx,cy);
         doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-        mnFit(doc,rr[1],lx+lw,cy,lw-50,9.5,7,'right');cy+=12.5;
+        doc.text(mnAsc(rr[1]),lx+lw,cy,{align:'right'});cy+=12.5;
       });
       cy+=6;
     }
@@ -2997,15 +2997,17 @@ fill="#6F4A36" stroke="none">
         cy+=12.5;
       });
     }
-    /* FLAVOUR — anchored at the bottom, made prominent */
+    /* FLAVOUR — one line, no wrap, font grown to fill the column width */
     if(bean.flavour&&bean.flavour.length){
-      doc.setFontSize(15.5);
-      var fl=doc.splitTextToSize(mnAsc(bean.flavour.join('  \u00b7  ')),lw);if(fl.length>3)fl=fl.slice(0,3);
-      var flH=18,lastY=y+h-18,firstY=lastY-(fl.length-1)*flH,labY=firstY-16;
+      var flText=mnAsc(bean.flavour.join('  \u00b7  '));
+      doc.setFont('helvetica','bold');
+      var fs=24;doc.setFontSize(fs);
+      while(fs>9&&doc.getTextWidth(flText)>lw){fs-=0.5;doc.setFontSize(fs);}
+      var baseY=y+h-16,labY=baseY-fs*0.9-8;
       doc.setFont('helvetica','bold');doc.setFontSize(6.6);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);
       doc.text('FLAVOUR',lx,labY,{charSpace:1.1});
-      doc.setFont('helvetica','bold');doc.setFontSize(15.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-      fl.forEach(function(ln,i){doc.text(ln,lx,firstY+i*flH);});
+      doc.setFont('helvetica','bold');doc.setFontSize(fs);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(flText,lx,baseY);
     }
 
     /* ================= RIGHT · weekly offer ================= */
