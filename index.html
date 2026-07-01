@@ -2922,26 +2922,31 @@ fill="#6F4A36" stroke="none">
       {bean:menuInfoFor(SPECIAL_SLOTS[0]),offer:SPECIAL_PRICES[0]||{combo:'',hot:'',cold:'',dirty:''}},
       {bean:menuInfoFor(SPECIAL_SLOTS[2]),offer:SPECIAL_PRICES[1]||{combo:'',hot:'',cold:'',dirty:''}}
     ];
-    buildSpecialPDF(rows);
+    var img=new Image();
+    img.onload=function(){buildSpecialPDF(rows,img);};
+    img.onerror=function(){buildSpecialPDF(rows,null);};
+    img.src='logo.png';
   }
-  function buildSpecialPDF(rows){
+  function buildSpecialPDF(rows,logo){
     var JS=window.jspdf.jsPDF;
     var doc=new JS({orientation:'landscape',unit:'pt',format:'a4'});
     var W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
-    drawSpecialMenu(doc,0,W/2,H,rows);
-    drawSpecialMenu(doc,W/2,W/2,H,rows);
+    drawSpecialMenu(doc,0,W/2,H,rows,logo);
+    drawSpecialMenu(doc,W/2,W/2,H,rows,logo);
     doc.setDrawColor(150);doc.setLineWidth(0.7);
     if(doc.setLineDashPattern)doc.setLineDashPattern([4,4],0);
     doc.line(W/2,18,W/2,H-18);
     if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
     doc.save('Ratio_Special_Menu.pdf');
   }
-  function drawSpecialMenu(doc,ox,w,h,rows){
-    var padX=22,padTop=22,padBot=22,gap=16;
+  function drawSpecialMenu(doc,ox,w,h,rows,logo){
+    var padX=22,padTop=20,padBot=22,gap=16,headH=0;
     var x0=ox+padX, innerW=w-padX*2;
-    var bandH=(h-padTop-padBot-gap)/2;
-    drawSpecialBand(doc,x0,padTop,innerW,bandH,rows[0]);
-    drawSpecialBand(doc,x0,padTop+bandH+gap,innerW,bandH,rows[1]);
+    if(logo){var ls=26;try{doc.addImage(logo,'PNG',ox+w/2-ls/2,padTop,ls,ls);}catch(e){}headH=ls+12;}
+    var top=padTop+headH;
+    var bandH=(h-top-padBot-gap)/2;
+    drawSpecialBand(doc,x0,top,innerW,bandH,rows[0]);
+    drawSpecialBand(doc,x0,top+bandH+gap,innerW,bandH,rows[1]);
   }
   function drawSpecialBand(doc,x,y,w,h,row){
     var INK=[50,43,42],BROWN=[73,66,58],BERRY=[178,94,106],LABEL=[169,158,150],LINE=[237,230,225],SUB=[92,83,76],RED=[192,57,43],BLUE=[42,101,158];
