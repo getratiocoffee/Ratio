@@ -459,6 +459,13 @@
   .adm-seg{font-size:12px;font-weight:600;font-family:inherit;color:var(--muted);background:transparent;border:none;border-radius:8px;padding:7px 11px;cursor:pointer;line-height:1}
   .adm-seg.on{background:var(--accent);color:#fff}
   .adm-seg:active{transform:scale(.96)}
+  /* five-role admin card */
+  .adm-card2{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 14px;display:flex;flex-direction:column;gap:10px}
+  .adm-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .adm-role.cur{color:var(--accent);flex:0 0 auto}
+  .adm-toggle.wrap{display:flex;flex-wrap:wrap;gap:6px;background:transparent;border:none;padding:0}
+  .adm-toggle.wrap .adm-seg{border:1px solid var(--line);border-radius:10px;padding:8px 11px;background:var(--bg)}
+  .adm-toggle.wrap .adm-seg.on{background:var(--accent);color:#fff;border-color:var(--accent)}
   .lbl-namewrap{position:relative;display:flex;align-items:stretch;gap:6px}
   .lbl-namewrap input{flex:1;min-width:0}
   .lbl-namebtn{flex:0 0 auto;width:42px;display:flex;align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--line);border-radius:11px;cursor:pointer;color:var(--accent)}
@@ -680,10 +687,11 @@
   .auth .hint.err{color:var(--accent)}
   .auth .hint.ok{color:var(--muted)}
   /* ---- role-based view ---- */
-  body:not(.role-staff) .cluster{display:none}
-  body:not(.role-staff) #swap{display:none}
-  body:not(.role-staff) .bar{justify-content:center}
-  body:not(.role-staff) .center{height:auto!important}
+  /* customer 看精簡首頁（無 dock）；director/roaster/retail/staff 都保留 dock */
+  body.role-customer .cluster{display:none}
+  body.role-customer #swap{display:none}
+  body.role-customer .bar{justify-content:center}
+  body.role-customer .center{height:auto!important}
 </style>
 </head>
 <body>
@@ -1296,17 +1304,52 @@ fill="#6F4A36" stroke="none">
       setHint('',null);
     }
 
+    /* ===== 五角色權限 =====
+       · 誰是哪個角色 → Supabase 的 profiles.role 欄位（director/roaster/retail/staff/customer）
+       · 每個角色能看哪些 dock 功能 → Supabase 的 app_state.role_permissions（可後台調整）
+       · 下面這份是「讀不到 Supabase 時」的內建預設，兩邊保持一致。
+       dock 模組代號：timesheet, beans, task, recipe, roast, green, order, fx           */
+    const DEFAULT_ROLE_PERMS = {
+      director: { label:'董事',     dock:'ALL' },
+      roaster:  { label:'烘豆師',   dock:['roast','green','beans','fx'] },
+      retail:   { label:'零售經理', dock:['timesheet','beans','order','task','fx'] },
+      staff:    { label:'員工',     dock:['timesheet','beans'] },
+      customer: { label:'客戶',     dock:[] }
+    };
+
+    function applyDockPermissions(cfg){
+      const dock = cfg ? cfg.dock : 'ALL';
+      document.querySelectorAll('.pill .item[data-id]').forEach(it=>{
+        const id = it.dataset.id;
+        const show = (dock==='ALL') || (Array.isArray(dock) && dock.indexOf(id)>=0);
+        it.style.display = show ? '' : 'none';
+      });
+    }
+
     async function applyRole(user){
       let role='customer', name=(user.email||'');
       try{
         const {data}=await sb.from('profiles').select('name,role').eq('id',user.id).single();
         if(data){role=data.role||'customer';if(data.name)name=data.name;}
       }catch(e){}
-      document.body.classList.remove('role-staff','role-customer');
-      document.body.classList.add(role==='staff'?'role-staff':'role-customer');
-      window.CURRENT_USER=name;
+      // 讀取權限設定（後台可調）；讀不到就用內建預設
+      let perms = DEFAULT_ROLE_PERMS;
+      try{
+        const {data:ps}=await sb.from('app_state').select('value').eq('key','role_permissions').single();
+        if(ps&&ps.value&&typeof ps.value==='object') perms = ps.value;
+      }catch(e){}
+      // 未知角色一律當 customer 處理
+      if(!perms[role]) role='customer';
+      const cfg = perms[role] || DEFAULT_ROLE_PERMS.customer;
+      window.CURRENT_ROLE=role; window.CURRENT_USER=name;
+      // body class：role-director / role-roaster / role-retail / role-staff / role-customer
+      document.body.classList.remove('role-director','role-roaster','role-retail','role-staff','role-customer');
+      document.body.classList.add('role-'+role);
+      // 依權限顯示/隱藏 dock 模組
+      applyDockPermissions(cfg);
+      // 顯示名字 · 角色
       const who=document.getElementById('who');
-      if(who)who.textContent=name+' · '+(role==='staff'?'Staff':'Customer');
+      if(who)who.textContent=name+' · '+(cfg.label||role);
       if(typeof alignCenter==='function')alignCenter();
     }
     async function onSession(session){
@@ -2168,25 +2211,26 @@ fill="#6F4A36" stroke="none">
     }catch(e){box.innerHTML='<div class="sempty">Load failed</div>';return;}
     renderAdmin();
   }
+  /* 五個角色（代號 → 顯示名）。改這裡就能改 Admin 頁的選項。 */
+  var ADMIN_ROLES=[['director','董事'],['roaster','烘豆師'],['retail','零售經理'],['staff','員工'],['customer','客戶']];
+  function roleLabel(r){var f=ADMIN_ROLES.find(function(x){return x[0]===r;});return f?f[1]:'客戶';}
   function adminCard(m){
-    var isStaff=m.role==='staff';
     var nm=esc(m.name||m.id||'—');
-    return '<div class="adm-card"><div class="adm-info"><div class="adm-name">'+nm+'</div>'
-      +'<div class="adm-role '+(isStaff?'staff':'cust')+'">'+(isStaff?'Staff':'Customer')+'</div></div>'
-      +'<div class="adm-toggle">'
-      +'<button class="adm-seg'+(!isStaff?' on':'')+'" data-id="'+esc(String(m.id))+'" data-role="customer">Customer</button>'
-      +'<button class="adm-seg'+(isStaff?' on':'')+'" data-id="'+esc(String(m.id))+'" data-role="staff">Staff</button>'
-      +'</div></div>';
+    var cur=m.role||'customer';
+    var segs=ADMIN_ROLES.map(function(r){
+      return '<button class="adm-seg'+(cur===r[0]?' on':'')+'" data-id="'+esc(String(m.id))+'" data-role="'+r[0]+'">'+r[1]+'</button>';
+    }).join('');
+    return '<div class="adm-card2"><div class="adm-head"><div class="adm-name">'+nm+'</div>'
+      +'<div class="adm-role cur">'+roleLabel(cur)+'</div></div>'
+      +'<div class="adm-toggle wrap">'+segs+'</div></div>';
   }
   function renderAdmin(){
     var box=document.getElementById('admin-content');if(!box)return;
     var cnt=document.getElementById('admin-count');
     if(cnt)cnt.textContent=MEMBERS.length?(MEMBERS.length+(MEMBERS.length===1?' member':' members')):'';
     if(!MEMBERS.length){box.innerHTML='<div class="sempty">No members yet</div>';return;}
-    var staff=MEMBERS.filter(function(m){return m.role==='staff';});
-    var cust=MEMBERS.filter(function(m){return m.role!=='staff';});
-    var html='<div class="gsec" style="padding:12px 18px 2px">Staff · '+staff.length+'</div><div class="adm-list">'+(staff.length?staff.map(adminCard).join(''):'<div class="sempty" style="padding:14px">None</div>')+'</div>';
-    html+='<div class="gsec" style="padding:12px 18px 2px">Customers · '+cust.length+'</div><div class="adm-list">'+(cust.length?cust.map(adminCard).join(''):'<div class="sempty" style="padding:14px">None</div>')+'</div>';
+    var html='<div class="gsec" style="padding:12px 18px 2px">Members · '+MEMBERS.length+'</div>'
+      +'<div class="adm-list">'+MEMBERS.map(adminCard).join('')+'</div>';
     box.innerHTML=html;
     box.querySelectorAll('.adm-seg').forEach(function(b){b.addEventListener('click',function(){setMemberRole(b.dataset.id,b.dataset.role);});});
   }
