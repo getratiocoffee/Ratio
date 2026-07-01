@@ -3391,7 +3391,7 @@ fill="#6F4A36" stroke="none">
     var kind=(acDraft.kind==='blend')?'blend':'single';
     if(!name){if(msg){msg.textContent='Enter a coffee name';msg.className='gform-msg err';}return;}
     var bean=BEANS.find(function(b){return String(b.id)===String(beanId);});
-    var rec={bean_id:(bean?beanId:null),bean_name:name,country:(bean?bean.country:null),green_kg:null,status:'pending_cupping',roast_date:date,kind:kind};
+    var rec={bean_id:null,bean_name:name,country:(bean?bean.country:null),green_kg:null,status:'pending_cupping',roast_date:date,kind:kind};
     if(btn)btn.disabled=true;if(msg){msg.textContent='Adding…';msg.className='gform-msg';}
     var ins=await sb.from('roasts').insert(rec).select();
     if(ins.error&&rec.kind!==undefined){var r2=Object.assign({},rec);delete r2.kind;ins=await sb.from('roasts').insert(r2).select();}
