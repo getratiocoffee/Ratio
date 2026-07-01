@@ -3202,7 +3202,7 @@ fill="#6F4A36" stroke="none">
     var cupped=r.status==='cupped';
     var bk=r.bean_name||'';
     var sub=r.country?'<span class="bp-sub">'+esc(r.country)+'</span>':'';
-    var editBtn='<button class="blend-edit" data-eid="'+esc(r.id)+'" aria-label="Edit roast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>';
+    var editBtn='<button class="blend-edit" data-eid="'+esc(r.id)+'" aria-label="Edit roast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>';
     if(!tappable){
       return '<div class="blend-pick done np"><div class="blend-pick-top"><div class="bp-l"><span class="blend-name">'+esc(bk||'—')+'</span>'+sub+'</div>'
         +'<span class="blend-rt"><span class="rbadge'+(cupped?' done':'')+'">'+(cupped?'Cupped':'Pending')+'</span></span></div></div>';
