@@ -4437,6 +4437,7 @@ fill="#6F4A36" stroke="none">
           +'<div class="blend-pick-top"><div class="bp-l"><span class="blend-name">'+esc(nm||'\u2014')+'</span>'+sub+'</div>'
           +'<span class="blend-rt"><span class="rbadge done">Cupped</span>'
           +'<button class="blend-go redo bl-cupgo" data-bname="'+esc(nm)+'">Re-analyse</button></span></div>'
+          +(nm?retailSetHTML(nm):'')
           +'</div>';
       }
       return '<div class="blend-pick np">'
