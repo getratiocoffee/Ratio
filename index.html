@@ -522,6 +522,7 @@
   .smp-head .bean-nm{flex:1;min-width:0}
   .smp-head .smp-head-right{flex:0 0 auto;display:flex;align-items:center;gap:8px}
   .smp-body{margin-top:11px;cursor:pointer}
+  .smp-radar{margin-top:10px;max-width:240px;margin-left:auto;margin-right:auto}
   .smp-scoreline{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
   .sc-chip{font-size:11px;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:2px 8px}
   .sc-chip b{color:var(--ink);margin-left:4px;font-family:var(--font-mono)}
@@ -4826,9 +4827,30 @@ fill="#6F4A36" stroke="none">
     smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpAfterEdit();
   }
   var sampleOpen={};
+  /* inline SVG radar for the History screen — 5 axes, inner=Light, outer=Strong */
+  function sampleRadarSVG(s){
+    var axes=[['fragrance','Fragrance'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
+    if(!axes.some(function(a){return s[a[0]]!=null;}))return '';
+    var W=232,H=176,cx=W/2,cy=H/2+4,R=46,n=axes.length;
+    function pt(i,r){var a=i*2*Math.PI/n;return [cx+r*Math.sin(a),cy-r*Math.cos(a)];}
+    function poly(r){return axes.map(function(_,i){var p=pt(i,r);return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ');}
+    var grid='';[1,2,3].forEach(function(l){grid+='<polygon points="'+poly(R*l/3)+'" fill="none" stroke="rgba(50,43,42,0.12)" stroke-width="1"/>';});
+    var spokes='';for(var i=0;i<n;i++){var p=pt(i,R);spokes+='<line x1="'+cx+'" y1="'+cy+'" x2="'+p[0].toFixed(1)+'" y2="'+p[1].toFixed(1)+'" stroke="rgba(50,43,42,0.10)" stroke-width="1"/>';}
+    var dpts=axes.map(function(a,i){var v=(s[a[0]]==null?0:s[a[0]]);return pt(i,R*(v/3));});
+    var dpoly=dpts.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ');
+    var dots=dpts.map(function(p){return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="2" fill="#B25E6A"/>';}).join('');
+    var labels='';axes.forEach(function(a,i){
+      var lp=pt(i,R+15),anc=(lp[0]<cx-2?'end':(lp[0]>cx+2?'start':'middle'));
+      labels+='<text x="'+lp[0].toFixed(1)+'" y="'+(lp[1]+3).toFixed(1)+'" font-size="9" font-weight="700" fill="#8C8079" text-anchor="'+anc+'">'+a[1]+'</text>';
+    });
+    return '<div class="smp-radar"><svg viewBox="0 0 '+W+' '+H+'" width="100%" xmlns="http://www.w3.org/2000/svg">'
+      +grid+spokes
+      +'<polygon points="'+dpoly+'" fill="rgba(178,94,106,0.18)" stroke="#B25E6A" stroke-width="1.6" stroke-linejoin="round"/>'
+      +dots+labels+'</svg></div>';
+  }
   function sampleCard(s){
     var open=!!sampleOpen[s.id];
-    var chips=[['F/A',s.fragrance],['Acid',s.acidity],['Sweet',s.sweetness],['Body',s.body],['After',s.aftertaste]].filter(function(x){return x[1]!=null;}).map(function(x){return '<span class="sc-chip">'+x[0]+'<b>'+strLabel(x[1])+'</b></span>';}).join('');
+    var radar=sampleRadarSVG(s);
     var sub=[s.supplier?'Supplier '+esc(s.supplier):'',s.process?esc(s.process):''].filter(Boolean).join(' · ');
     var dec=s.decision==='buy'?'<span class="smp-badge buy">Buy</span>':(s.decision==='maybe'?'<span class="smp-badge maybe">Maybe</span>':(s.decision==='skip'?'<span class="smp-badge skip">Skip</span>':''));
     var nm=(s.no!=null?'<span class="smp-no">No.'+s.no+'</span> ':'')+esc(s.sample_id||s.supplier||'Sample');
@@ -4838,7 +4860,7 @@ fill="#6F4A36" stroke="none">
     var head='<button class="smp-head'+(open?' open':'')+'" data-toggle="'+esc(s.id)+'">'+chev+'<span class="bean-nm">'+nm+'</span><span class="smp-head-right">'+dec+'</span></button>';
     var body=open?('<div class="smp-body" data-edit="'+esc(s.id)+'">'
       +'<div class="bean-sub">'+esc(fmtDate(s.cupping_date))+(sub?' · '+sub:'')+'</div>'
-      +(chips?'<div class="smp-scoreline">'+chips+'</div>':'')
+      +radar
       +feats
       +(s.comment?'<div class="smp-cmt">'+esc(s.comment)+'</div>':'')
       +(s.cupper?'<div class="smp-by">Analysed by '+esc(s.cupper)+'</div>':'')
