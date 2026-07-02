@@ -3808,7 +3808,8 @@ fill="#6F4A36" stroke="none">
     var o='<option value="">— Single Origin —</option>';
     (BEANS||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'');}).forEach(function(b){
       var nm=(b.name||'').trim();if(!nm)return;
-      o+='<option value="'+esc(nm)+'"'+(sel===nm?' selected':'')+'>'+esc(nm)+(b.country?' \u00b7 '+esc(b.country):'')+'</option>';
+      var proc=(b.process||'').trim();
+      o+='<option value="'+esc(nm)+'"'+(sel===nm?' selected':'')+'>'+esc(nm)+(proc?' \u00b7 '+esc(proc):'')+'</option>';
     });
     if(sel&&!(BEANS||[]).some(function(b){return (b.name||'').trim()===sel;}))o+='<option value="'+esc(sel)+'" selected>'+esc(sel)+'</option>';
     return o;
