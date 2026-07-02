@@ -3509,8 +3509,8 @@ fill="#6F4A36" stroke="none">
     if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
     doc.save('Ratio_DineIn_Menu.pdf');
   }
-  /* Single clear column, wrapped in one card, with small-caps section labels
-     (ESPRESSO BLENDS / DRINKS / POUR OVER) so the hierarchy reads at a glance.        */
+  /* Single clear column, wrapped in one card: two customer choices \u2014
+     ESPRESSO BASE (Dark Knight / Dancer + drink prices) or FILTER COFFEE (pour over).  */
   function drawDineInBand(doc,ox,w,h,cfg,logo){
     var INK=[50,43,42], SUB=[120,110,102], MUTE=[150,140,132], LABEL=[70,62,58];
     var HOT=[214,0,108], COLD=[42,143,216];
@@ -3528,10 +3528,12 @@ fill="#6F4A36" stroke="none">
     doc.text('Dine In Menu',x0+66,hy-6);
     doc.setDrawColor(INK[0],INK[1],INK[2]);doc.setLineWidth(1.1);
     doc.line(x0,hy+8,xEnd,hy+8);
-    var cy=hy+30;
+    doc.setFont('helvetica','italic');doc.setFontSize(8.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+    doc.text('Choose Espresso Base or Filter Coffee',x0,hy+21);
+    var cy=hy+38;
 
-    /* ---------- espresso blends ---------- */
-    lab('ESPRESSO BLENDS',cy);cy+=16;
+    /* ---------- espresso base (blends + drink prices, one continuous choice) ---------- */
+    lab('ESPRESSO BASE',cy);cy+=16;
     var blends=(cfg.blends||[]).filter(function(b){return b&&b.name;}).slice(0,2);
     if(blends.length){
       var colCx=blends.length>1?[x0+innerW*0.27,x0+innerW*0.73]:[x0+innerW*0.5];
@@ -3551,19 +3553,50 @@ fill="#6F4A36" stroke="none">
       }
       cy+=48;
     }
-    doc.setDrawColor(230,222,216);doc.setLineWidth(0.8);doc.line(x0,cy,xEnd,cy);cy+=22;
+    cy+=8;
 
-    /* ---------- drinks price list ---------- */
-    lab('DRINKS',cy);cy+=17;
-    var rows=[
+    var espRows=[
       ['Espresso','',pv('espresso')],
       ['Small','6oz',pv('small')],
-      ['Large','10 oz',pv('large')],
+      ['Large','10 oz',pv('large')]
+    ];
+    espRows.forEach(function(r){
+      doc.setFont('helvetica','bold');doc.setFontSize(11.5);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(r[0],x0,cy);
+      var mw=doc.getTextWidth(r[0]);
+      if(r[1]){doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+        doc.text('  |  '+r[1],x0+mw+3,cy);}
+      doc.setFont('helvetica','normal');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(r[2],xEnd,cy,{align:'right'});
+      cy+=21;
+    });
+    cy+=3;
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+    doc.text('alternative milk, extra shot',x0,cy);doc.text(pv('altmilk','50 cents'),xEnd,cy,{align:'right'});cy+=11;
+    doc.text('decaf',x0,cy);doc.text(pv('decaf','1 dollar'),xEnd,cy,{align:'right'});cy+=20;
+
+    /* ---------- Dirty Ratio \u00b7 signature blend drink ---------- */
+    var dh=28;
+    doc.setDrawColor(150,140,132);doc.setLineWidth(0.8);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([3,3],0);
+    if(doc.roundedRect)doc.roundedRect(x0,cy,innerW,dh,13,13,'S');else doc.rect(x0,cy,innerW,dh,'S');
+    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Dirty Ratio',x0+14,cy+13);
+    doc.text(pv('dirty'),xEnd-14,cy+13,{align:'right'});
+    doc.setFont('helvetica','italic');doc.setFontSize(7.6);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+    doc.text('signature \u00b7 blend-based',x0+14,cy+23);
+    cy+=dh+18;
+    doc.setDrawColor(230,222,216);doc.setLineWidth(0.8);doc.line(x0,cy,xEnd,cy);cy+=16;
+
+    /* ---------- automatic brewing ---------- */
+    lab('AUTOMATIC BREWING',cy);cy+=17;
+    var brewRows=[
       ['Fresh Batch','10oz',pv('fresh')],
       ['On Ice','10oz',pv('ice')],
       ['Cold Batch','10oz',pv('cold'),'(Barista choice of the day)']
     ];
-    rows.forEach(function(r){
+    brewRows.forEach(function(r){
       doc.setFont('helvetica','bold');doc.setFontSize(11.5);doc.setTextColor(INK[0],INK[1],INK[2]);
       doc.text(r[0],x0,cy);
       var mw=doc.getTextWidth(r[0]);
@@ -3575,25 +3608,14 @@ fill="#6F4A36" stroke="none">
         doc.text(r[3],x0,cy+11);cy+=11;}
       cy+=21;
     });
-    cy+=3;
-    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
-    doc.text('alternative milk, extra shot',x0,cy);doc.text(pv('altmilk','50 cents'),xEnd,cy,{align:'right'});cy+=11;
-    doc.text('decaf',x0,cy);doc.text(pv('decaf','1 dollar'),xEnd,cy,{align:'right'});cy+=20;
+    cy+=4;
+    doc.setDrawColor(230,222,216);doc.setLineWidth(0.8);doc.line(x0,cy,xEnd,cy);cy+=16;
 
-    /* ---------- Dirty Ratio featured row ---------- */
-    var dh=27;
-    doc.setDrawColor(150,140,132);doc.setLineWidth(0.8);
-    if(doc.setLineDashPattern)doc.setLineDashPattern([3,3],0);
-    if(doc.roundedRect)doc.roundedRect(x0,cy,innerW,dh,13,13,'S');else doc.rect(x0,cy,innerW,dh,'S');
-    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
-    doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-    doc.text('Dirty Ratio',x0+14,cy+dh/2+4);
-    doc.text(pv('dirty'),xEnd-14,cy+dh/2+4,{align:'right'});
-    cy+=dh+22;
-    doc.setDrawColor(230,222,216);doc.setLineWidth(0.8);doc.line(x0,cy,xEnd,cy);cy+=22;
-
-    /* ---------- pour over ---------- */
-    lab('POUR OVER',cy);cy+=17;
+    /* ---------- filter coffee (pour over) \u00b7 hot or iced ---------- */
+    lab('FILTER COFFEE',cy);
+    doc.setFont('helvetica','italic');doc.setFontSize(8);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+    doc.text('hot or iced',xEnd,cy,{align:'right'});
+    cy+=17;
     var pours=(cfg.pours||[]).filter(function(p){return p&&p.name;}).slice(0,4);
     pours.forEach(function(p,pi){
       doc.setFont('helvetica','bold');doc.setFontSize(11.5);doc.setTextColor(INK[0],INK[1],INK[2]);
@@ -3609,9 +3631,9 @@ fill="#6F4A36" stroke="none">
       var meta=[p.origin,p.flavour].filter(Boolean).join('  \u00b7  ');
       if(meta){doc.setFont('helvetica','normal');doc.setFontSize(8.6);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
         mnFit(doc,meta,x0,cy,innerW,8.6,7);cy+=13;}
-      if(pi<pours.length-1)cy+=8;
+      if(pi<pours.length-1)cy+=4;
     });
-    cy+=14;
+    cy+=8;
 
     /* ---------- one clean card wrapping everything ---------- */
     doc.setDrawColor(200,188,180);doc.setLineWidth(1.3);
