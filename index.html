@@ -4553,9 +4553,8 @@ fill="#6F4A36" stroke="none">
   }
   function pendingBlendSectionHTML(){
     var defs=[];try{defs=readyBlendDefs();}catch(e){}
-    var head='<div class="gsec" style="padding:12px 18px 4px">Blends \u00b7 ready to cup<span class="bl-cupn">100%</span></div>';
     if(!defs.length){
-      return head+'<div class="sempty sm" style="margin:0 14px 8px">No 100% blends yet \u00b7 finish a recipe in F(x) \u2192 Blending</div>';
+      return '';
     }
     var cupped=blendCuppedSet();
     function recipeOf(bl){return (bl.parts||[]).filter(function(p){return String(p.bean||'').trim();})
@@ -4582,12 +4581,12 @@ fill="#6F4A36" stroke="none">
     (ROASTS||[]).forEach(function(r){if((r.kind||'single')==='blend'){var k=String(r.bean_name||'').trim().toLowerCase();if(k)roasted[k]=true;}});
     var show=defs.filter(function(b){return !roasted[(b.name||'').trim().toLowerCase()];});
     if(!show.length){
-      return head+'<div class="sempty sm" style="margin:0 14px 8px">All ready blends are logged \u00b7 see their date folders below</div>';
+      return '';
     }
     var pend=show.filter(function(b){return !cupped[(b.name||'').trim().toLowerCase()];});
     var done=show.filter(function(b){return cupped[(b.name||'').trim().toLowerCase()];});
     var cards=pend.concat(done).map(card).join('');
-    return head+'<div class="bl-cuplist">'+cards+'</div>';
+    return '<div class="bl-cuplist">'+cards+'</div>';
   }
   function wirePendingBlend(box){
     box.querySelectorAll('.bl-cupgo[data-bname]').forEach(function(el){
