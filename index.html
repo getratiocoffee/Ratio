@@ -3522,15 +3522,7 @@ fill="#6F4A36" stroke="none">
     var padX=52, cardPad=padX-14, x0=ox+padX, xEnd=ox+w-padX, innerW=w-padX*2, top=22;
     var P=cfg.prices||{};
     function pv(k,d){var s=String(P[k]==null?'':P[k]).trim();return s||d||'\u2014';}
-    function lab(t,cy){
-      doc.setFont('helvetica','bold');doc.setFontSize(7.5);
-      var tw=doc.getTextWidth(t);
-      var padL=6,pillH=12,pillW=tw+padL*2;
-      doc.setFillColor(BERRY[0],BERRY[1],BERRY[2]);
-      if(doc.roundedRect)doc.roundedRect(x0,cy-8.7,pillW,pillH,6,6,'F');else doc.rect(x0,cy-8.7,pillW,pillH,'F');
-      doc.setTextColor(255,255,255);
-      doc.text(t,x0+padL,cy,{charSpace:0.6});
-    }
+    function lab(t,cy){doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.text(t,x0,cy,{charSpace:1.3});}
     var GRAY=[176,170,163];
     function dotRGB(name){
       name=(name||'').trim();
