@@ -399,7 +399,7 @@
   .smp-score{display:flex;flex-direction:column;align-items:stretch;gap:9px;padding:13px 14px;border-top:1px solid var(--line)}
   .smp-score:first-child{border-top:none}
   .smp-sname{font-size:14px;color:var(--ink);font-weight:500}
-  .str-slider{position:relative;padding:10px 4px 2px}
+  .str-slider{position:relative;padding:10px 4px 2px;max-width:190px;margin-left:auto;margin-right:auto}
   .str-rail{position:relative;height:8px;border-radius:99px;background:var(--surface-sunken,#EFE3E1);margin:8px 0;cursor:pointer;touch-action:none}
   .str-rail::before{content:"";position:absolute;top:-11px;bottom:-11px;left:0;right:0}
   .str-dot{position:absolute;top:50%;width:5px;height:5px;border-radius:50%;background:rgba(50,43,42,0.22);transform:translate(-50%,-50%);pointer-events:none}
@@ -4816,9 +4816,9 @@ fill="#6F4A36" stroke="none">
       +'<div class="smp-sec"><div class="smp-sec-h">Cupping Strength</div><div class="smp-scores">'+scores+'</div>'
       +'<div class="smp-live-radar" id="smp-live-radar">'+sampleRadarSVG(p,true)+'</div>'
       +'<div class="smp-flav-bubbles" id="smp-flav-bubbles">'+flavBubbles(p.features)+'</div></div>'
+      +(cupping?'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn buy" id="smp-submit">Submit</button></div></div>':'<div class="smp-decide-wrap"><div class="smp-dec-h">Purchase decision</div><div class="smp-decide"><button class="gbtn skip" id="smp-skip">Skip</button><button class="gbtn maybe" id="smp-maybe">Maybe</button><button class="gbtn buy" id="smp-buy">Buy</button></div></div>')
       +'<div class="smp-sec"><div class="smp-sec-h">Comment · what makes it unique</div><textarea id="smp-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
-      +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':(okMsg?' ok':''))+'" id="smp-msg">'+(errMsg?('Load failed: '+esc(errMsg)+' (run the samples table SQL in Supabase first)'):(okMsg?esc(okMsg):''))+'</div></div>'
-      +(cupping?'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn buy" id="smp-submit">Submit</button></div></div>':'<div class="smp-decide-wrap"><div class="smp-dec-h">Purchase decision</div><div class="smp-decide"><button class="gbtn skip" id="smp-skip">Skip</button><button class="gbtn maybe" id="smp-maybe">Maybe</button><button class="gbtn buy" id="smp-buy">Buy</button></div></div>');
+      +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':(okMsg?' ok':''))+'" id="smp-msg">'+(errMsg?('Load failed: '+esc(errMsg)+' (run the samples table SQL in Supabase first)'):(okMsg?esc(okMsg):''))+'</div></div>';
     var today=todayStr();
     var todays=SAMPLES.filter(function(x){return x.cupping_date===today;});
     var list=cupping?'':(todays.length?('<div class="smp-sec"><div class="smp-sec-h">Samples today · tap to edit/delete</div><div class="smp-list">'+todays.map(sampleCard).join('')+'</div><div class="smp-hint">Older records live under History in the dock</div></div>'):'');
