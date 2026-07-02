@@ -4481,7 +4481,7 @@ fill="#6F4A36" stroke="none">
       var bn=[];try{bn=readyBlendNames();}catch(e){}
       opts+=bn.map(function(n){return '<option value="'+esc(n)+'" data-nm="'+esc(n)+'"'+(String(acDraft.beanId)===String(n)?' selected':'')+'>'+esc(n)+'</option>';}).join('');
     }else{
-      opts+=(BEANS||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'');}).map(function(b){return '<option value="'+esc(b.id)+'" data-nm="'+esc(b.name||'')+'"'+(String(acDraft.beanId)===String(b.id)?' selected':'')+'>'+esc(b.name||'(no name)')+(b.country?' · '+esc(b.country):'')+'</option>';}).join('');
+      opts+=(BEANS||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'');}).map(function(b){var proc=(b.process||'').trim();return '<option value="'+esc(b.id)+'" data-nm="'+esc(b.name||'')+'"'+(String(acDraft.beanId)===String(b.id)?' selected':'')+'>'+esc(b.name||'(no name)')+(proc?' · '+esc(proc):'')+'</option>';}).join('');
     }
     var pickLab=isBlend?'From a 100% blend recipe (optional)':'From green stock (optional)';
     return '<div class="gdetail" style="padding-top:10px">'
