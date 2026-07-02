@@ -3650,7 +3650,7 @@ fill="#6F4A36" stroke="none">
     [1,2,3].forEach(function(v){poly(fields.map(function(f,i){return pt(i,maxR*v/3);}),'S');});
     fields.forEach(function(f,i){var p=pt(i,maxR);doc.line(cx,cy,p.x,p.y);});
     /* ring level labels along the top spoke */
-    doc.setFont('helvetica','normal');doc.setFontSize(5.4);doc.setTextColor(muted[0],muted[1],muted[2]);
+    doc.setFont('helvetica','bold');doc.setFontSize(5.4);doc.setTextColor(muted[0],muted[1],muted[2]);
     [[1,'Light'],[2,'Medium'],[3,'Strong']].forEach(function(rr){doc.text(rr[1],cx-4,cy-(maxR*rr[0]/3)+1.6,{align:'right'});});
     /* filled data polygon */
     var dataPts=fields.map(function(f,i){var v=scores[f]||0;return pt(i,maxR*v/3);});
@@ -3661,7 +3661,7 @@ fill="#6F4A36" stroke="none">
     doc.setFillColor(accent[0],accent[1],accent[2]);
     fields.forEach(function(f,i){if(scores[f]==null)return;var p=pt(i,maxR*scores[f]/3);doc.circle(p.x,p.y,1.6,'F');});
     /* axis labels */
-    doc.setFont('helvetica','normal');doc.setFontSize(6.4);doc.setTextColor(muted[0],muted[1],muted[2]);
+    doc.setFont('helvetica','bold');doc.setFontSize(6.4);doc.setTextColor(muted[0],muted[1],muted[2]);
     fields.forEach(function(f,i){
       var p=pt(i,maxR+8);
       var align=(Math.abs(p.x-cx)<1)?'center':(p.x>cx?'left':'right');
@@ -4828,13 +4828,13 @@ fill="#6F4A36" stroke="none">
     }).join('');
     var ringLabs=[[1,'Light'],[2,'Medium'],[3,'Strong']].map(function(rr){
       var r=maxR*rr[0]/3,y=cy-r;
-      return '<text x="'+(cx-4)+'" y="'+(y+2.6)+'" font-size="5.6" fill="var(--muted)" text-anchor="end" font-family="var(--font-ui)">'+rr[1]+'</text>';
+      return '<text x="'+(cx-4)+'" y="'+(y+2.6)+'" font-size="5.6" font-weight="700" fill="var(--muted)" text-anchor="end" font-family="var(--font-ui)">'+rr[1]+'</text>';
     }).join('');
     var spokes=RADAR_FIELDS.map(function(f,i){var p=pt(i,maxR);return '<line x1="'+cx+'" y1="'+cy+'" x2="'+p.x.toFixed(1)+'" y2="'+p.y.toFixed(1)+'" stroke="var(--line-strong)" stroke-width="1"/>';}).join('');
     var dataPts=RADAR_FIELDS.map(function(f,i){var v=s[f]||0;var p=pt(i,maxR*v/3);return p.x.toFixed(1)+','+p.y.toFixed(1);});
     var poly='<polygon points="'+dataPts.join(' ')+'" fill="var(--accent)" fill-opacity=".32" stroke="var(--accent)" stroke-width="1.6" stroke-linejoin="round"/>';
     var dots=RADAR_FIELDS.map(function(f,i){var v=s[f];if(v==null)return '';var p=pt(i,maxR*v/3);return '<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="2.2" fill="var(--accent)"/>';}).join('');
-    var labs=RADAR_FIELDS.map(function(f,i){var p=pt(i,maxR+9);var anchor=(Math.abs(p.x-cx)<1)?'middle':(p.x>cx?'start':'end');return '<text x="'+p.x.toFixed(1)+'" y="'+(p.y+2.6).toFixed(1)+'" font-size="7" fill="var(--muted)" text-anchor="'+anchor+'" font-family="var(--font-ui)">'+RADAR_LABELS[i]+'</text>';}).join('');
+    var labs=RADAR_FIELDS.map(function(f,i){var p=pt(i,maxR+9);var anchor=(Math.abs(p.x-cx)<1)?'middle':(p.x>cx?'start':'end');return '<text x="'+p.x.toFixed(1)+'" y="'+(p.y+2.6).toFixed(1)+'" font-size="7" font-weight="700" fill="var(--muted)" text-anchor="'+anchor+'" font-family="var(--font-ui)">'+RADAR_LABELS[i]+'</text>';}).join('');
     return '<svg class="cup-radar" viewBox="0 0 100 100" width="118" height="118">'+rings+ringLabs+spokes+poly+dots+labs+'</svg>';
   }
   function sampleCard(s){
