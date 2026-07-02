@@ -4682,7 +4682,7 @@ fill="#6F4A36" stroke="none">
     ROASTS=ROASTS.filter(function(x){return String(x.id)!==String(r.id);});
     roastEdit=null;roastDelConfirm=false;renderRoasted();
   }
-  let SAMPLES=[], smpPages=[], smpIdx=0, smpEdit=null, smpEditObj=null, smpDelConfirm=false, smpEditFrom='sample', smpCuppingRoast=null;
+  let SAMPLES=[], smpPages=[], smpIdx=0, smpEdit=null, smpEditObj=null, smpDelConfirm=false, smpEditFrom='sample', smpCuppingRoast=null, smpDupConfirm=false;
   function nextNo(date){var m=0;SAMPLES.forEach(function(x){if(x.cupping_date===date&&typeof x.no==='number'&&x.no>m)m=x.no;});return m+1;}
   const SMP_FIELDS=[['fragrance','Fragrance / Aroma'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
   function todayStr(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
@@ -4700,7 +4700,7 @@ fill="#6F4A36" stroke="none">
     box.innerHTML='<div class="sempty">Loading…</div>';
     const {data,error}=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('no',{ascending:false}).order('created_at',{ascending:false});
     SAMPLES=error?[]:(data||[]);
-    smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpCuppingRoast=null;
+    smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpCuppingRoast=null;smpDupConfirm=false;
     if(view==='history'){greenView='history';renderHistory();}
     else{smpPages=[blankSmp()];smpIdx=0;greenView='sample';renderSample(error?error.message:'');}
   }
@@ -4709,18 +4709,13 @@ fill="#6F4A36" stroke="none">
     const box=document.getElementById('green-content');
     if(smpEdit){renderSampleEdit();return;}
     document.getElementById('green-title').textContent='History';
-    var prodList=SAMPLES.filter(function(s){return s.supplier==='Ratio Coffee';});
-    var sampList=SAMPLES.filter(function(s){return s.supplier!=='Ratio Coffee';});
-    var list=historyTab==='production'?prodList:sampList;
+    var list=SAMPLES.filter(function(s){return s.supplier!=='Ratio Coffee';});
     document.getElementById('green-count').textContent=list.length+' samples';
-    var tabs='<div class="lbl-seg date-seg hist-seg" style="padding:12px 18px 0">'
-      +'<button class="lbl-tab'+(historyTab!=='production'?' on':'')+'" data-ht="sample">Sample</button>'
-      +'<button class="lbl-tab'+(historyTab==='production'?' on':'')+'" data-ht="production">Production</button></div>';
-    if(!list.length){box.innerHTML=tabs+'<div class="sempty">No samples yet</div>';wireHistoryTabs(box);return;}
+    if(!list.length){box.innerHTML='<div class="sempty">No samples yet</div>';return;}
     var groups={},order=[];
     list.forEach(function(s){var d=s.cupping_date||'—';if(!groups[d]){groups[d]=[];order.push(d);}groups[d].push(s);});
     if(order.length&&historyOpen[order[0]]===undefined)historyOpen[order[0]]=true;
-    box.innerHTML=tabs+'<div class="gsec" style="padding:12px 18px 2px">Tap a date to expand · tap a sample to show details · tap details to edit</div>'+order.map(function(d){
+    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">Tap a date to expand · tap a sample to show details · tap details to edit</div>'+order.map(function(d){
       var items=groups[d];var open=!!historyOpen[d];
       var buy=items.filter(function(x){return x.decision==='buy';}).length;
       var head='<button class="rdate'+(open?' open':'')+'" data-d="'+esc(d)+'">'
@@ -4730,7 +4725,6 @@ fill="#6F4A36" stroke="none">
       var body=open?'<div class="rd-body">'+items.map(sampleCard).join('')+'</div>':'';
       return '<div class="rgroup">'+head+body+'</div>';
     }).join('');
-    wireHistoryTabs(box);
     box.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.d;historyOpen[d]=!historyOpen[d];renderHistory();});});
     box.querySelectorAll('.smp-head[data-toggle]').forEach(function(el){el.addEventListener('click',function(){
       var id=el.dataset.toggle;sampleOpen[id]=!sampleOpen[id];smpDelHist=null;renderHistory();
@@ -4750,11 +4744,6 @@ fill="#6F4A36" stroke="none">
     });});
     box.querySelectorAll('.decopt[data-dec]').forEach(function(el){el.addEventListener('click',function(e){
       e.stopPropagation();setSampleDecision(el.dataset.id,el.dataset.dec,function(){renderHistory();});
-    });});
-  }
-  function wireHistoryTabs(box){
-    box.querySelectorAll('.hist-seg .lbl-tab[data-ht]').forEach(function(t){t.addEventListener('click',function(){
-      var v=t.getAttribute('data-ht');if(v===historyTab)return;historyTab=v;renderHistory();
     });});
   }
   var STRENGTH=[[1,'Light'],[2,'Medium'],[3,'Strong']];
@@ -4851,11 +4840,13 @@ fill="#6F4A36" stroke="none">
     box.innerHTML=nav+form+list;
     bindStrengthSliders(box,p);
     bindFlavBubbles('smp',box);
-    var _prev=document.getElementById('smp-prev');if(_prev)_prev.addEventListener('click',function(){captureSmp();smpIdx=(smpIdx-1+smpPages.length)%smpPages.length;renderSample();box.scrollTop=0;});
-    var _next=document.getElementById('smp-next');if(_next)_next.addEventListener('click',function(){captureSmp();smpIdx=(smpIdx+1)%smpPages.length;renderSample();box.scrollTop=0;});
-    var _add=document.getElementById('smp-add');if(_add)_add.addEventListener('click',function(){captureSmp();smpPages.push(blankSmp());smpIdx=smpPages.length-1;renderSample();box.scrollTop=0;});
+    var _prev=document.getElementById('smp-prev');if(_prev)_prev.addEventListener('click',function(){captureSmp();smpDupConfirm=false;smpIdx=(smpIdx-1+smpPages.length)%smpPages.length;renderSample();box.scrollTop=0;});
+    var _next=document.getElementById('smp-next');if(_next)_next.addEventListener('click',function(){captureSmp();smpDupConfirm=false;smpIdx=(smpIdx+1)%smpPages.length;renderSample();box.scrollTop=0;});
+    var _add=document.getElementById('smp-add');if(_add)_add.addEventListener('click',function(){captureSmp();smpDupConfirm=false;smpPages.push(blankSmp());smpIdx=smpPages.length-1;renderSample();box.scrollTop=0;});
     var _save=document.getElementById('smp-save');if(_save)_save.addEventListener('click',function(){saveSample();});
     var _submit=document.getElementById('smp-submit');if(_submit)_submit.addEventListener('click',submitCupping);
+    var _sid=document.getElementById('smp-id');if(_sid)_sid.addEventListener('input',function(){smpDupConfirm=false;});
+    var _sdt=document.getElementById('smp-date');if(_sdt)_sdt.addEventListener('input',function(){smpDupConfirm=false;});
     box.querySelectorAll('.smp-head[data-toggle]').forEach(function(el){el.addEventListener('click',function(){
       var id=el.dataset.toggle;sampleOpen[id]=!sampleOpen[id];smpDelHist=null;renderSample();box.scrollTop=box.scrollTop;
     });});
@@ -4940,7 +4931,6 @@ fill="#6F4A36" stroke="none">
     smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpAfterEdit();
   }
   var smpDelHist=null;   /* id of the sample showing an inline delete confirm in History/Analyse */
-  var historyTab='sample';   /* 'sample' | 'production' — History screen tab */
   async function deleteSampleById(id,after){
     const {error}=await sb.from('samples').delete().eq('id',id);
     if(error){alert('Delete failed: '+error.message);return;}
@@ -5117,6 +5107,15 @@ fill="#6F4A36" stroke="none">
     var p=smpPages[smpIdx];
     var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||null,sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:p.decision||null,cupper:(window.CURRENT_USER||null)};
     if(!rec.supplier&&!rec.sample_id){msg.textContent='Enter at least Supplier or ID';msg.className='gform-msg err';return;}
+    var dupKey=(rec.sample_id||'').trim().toLowerCase();
+    var isDup=dupKey&&SAMPLES.some(function(x){return x.cupping_date===rec.cupping_date&&(x.sample_id||'').trim().toLowerCase()===dupKey;});
+    if(isDup&&!smpDupConfirm){
+      smpDupConfirm=true;
+      msg.textContent='⚠️ 同一天已有「'+rec.sample_id+'」的紀錄，再按一次 Submit 確認新增';
+      msg.className='gform-msg err';
+      return;
+    }
+    smpDupConfirm=false;
     if(saveBtn)saveBtn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
     let ins=await sb.from('samples').insert(rec).select();
     if(ins.error&&rec.features!==undefined){var r2=Object.assign({},rec);delete r2.features;ins=await sb.from('samples').insert(r2).select();}
