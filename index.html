@@ -520,9 +520,19 @@
   .smp-head .rd-chev{flex:0 0 auto;transition:transform .15s ease}
   .smp-head.open .rd-chev{transform:rotate(90deg)}
   .smp-head .bean-nm{flex:1;min-width:0}
+  .smp-head .bean-nm .smp-proc{font-weight:500;color:var(--muted)}
   .smp-head .smp-head-right{flex:0 0 auto;display:flex;align-items:center;gap:8px}
-  .smp-body{margin-top:11px;cursor:pointer;text-align:center}
+  .smp-body{margin-top:11px;text-align:center}
+  .smp-body .smp-tap{cursor:pointer}
   .smp-body .smp-feats{justify-content:center}
+  .smp-foot{display:flex;justify-content:flex-end;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+  .smp-del{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:#B2544E;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+  .smp-del:active{background:#F6DEDC}
+  .smp-del svg{width:17px;height:17px}
+  .smp-delbar{margin-top:12px;padding:12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:11px;text-align:center}
+  .smp-delbar span{font-size:13px;color:var(--ink);line-height:1.5}
+  .smp-delact{display:flex;gap:10px}
+  .smp-delact .gbtn{margin:0;flex:1}
   .smp-meta{margin-top:6px;font-size:12px;color:var(--ink)}
   .smp-meta:first-of-type{margin-top:12px}
   .smp-meta .smp-meta-l{font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;margin-right:7px}
@@ -4680,11 +4690,20 @@ fill="#6F4A36" stroke="none">
     }).join('');
     box.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.d;historyOpen[d]=!historyOpen[d];renderHistory();});});
     box.querySelectorAll('.smp-head[data-toggle]').forEach(function(el){el.addEventListener('click',function(){
-      var id=el.dataset.toggle;sampleOpen[id]=!sampleOpen[id];renderHistory();
+      var id=el.dataset.toggle;sampleOpen[id]=!sampleOpen[id];smpDelHist=null;renderHistory();
     });});
-    box.querySelectorAll('.smp-body[data-edit]').forEach(function(el){el.addEventListener('click',function(){
+    box.querySelectorAll('.smp-tap[data-edit]').forEach(function(el){el.addEventListener('click',function(){
       var s=SAMPLES.find(function(x){return String(x.id)===String(el.dataset.edit);});
       if(s){smpEdit=s.id;smpEditObj=Object.assign({},s);smpEditFrom='history';smpDelConfirm=false;renderHistory();box.scrollTop=0;}
+    });});
+    box.querySelectorAll('.smp-del[data-del]').forEach(function(el){el.addEventListener('click',function(e){
+      e.stopPropagation();smpDelHist=el.dataset.del;renderHistory();
+    });});
+    box.querySelectorAll('[data-delcancel]').forEach(function(el){el.addEventListener('click',function(e){
+      e.stopPropagation();smpDelHist=null;renderHistory();
+    });});
+    box.querySelectorAll('[data-delok]').forEach(function(el){el.addEventListener('click',function(e){
+      e.stopPropagation();deleteSampleById(el.dataset.delok,function(){renderHistory();});
     });});
   }
   var STRENGTH=[[1,'Light'],[2,'Medium'],[3,'Strong']];
@@ -4757,11 +4776,20 @@ fill="#6F4A36" stroke="none">
     var _skip=document.getElementById('smp-skip');if(_skip)_skip.addEventListener('click',function(){saveSample('skip');});
     var _submit=document.getElementById('smp-submit');if(_submit)_submit.addEventListener('click',submitCupping);
     box.querySelectorAll('.smp-head[data-toggle]').forEach(function(el){el.addEventListener('click',function(){
-      var id=el.dataset.toggle;sampleOpen[id]=!sampleOpen[id];renderSample();box.scrollTop=box.scrollTop;
+      var id=el.dataset.toggle;sampleOpen[id]=!sampleOpen[id];smpDelHist=null;renderSample();box.scrollTop=box.scrollTop;
     });});
-    box.querySelectorAll('.smp-body[data-edit]').forEach(function(el){el.addEventListener('click',function(){
+    box.querySelectorAll('.smp-tap[data-edit]').forEach(function(el){el.addEventListener('click',function(){
       var s=SAMPLES.find(function(x){return String(x.id)===String(el.dataset.edit);});
       if(s){smpEdit=s.id;smpEditObj=Object.assign({},s);smpEditFrom='sample';smpDelConfirm=false;renderSample();box.scrollTop=0;}
+    });});
+    box.querySelectorAll('.smp-del[data-del]').forEach(function(el){el.addEventListener('click',function(e){
+      e.stopPropagation();smpDelHist=el.dataset.del;renderSample();
+    });});
+    box.querySelectorAll('[data-delcancel]').forEach(function(el){el.addEventListener('click',function(e){
+      e.stopPropagation();smpDelHist=null;renderSample();
+    });});
+    box.querySelectorAll('[data-delok]').forEach(function(el){el.addEventListener('click',function(e){
+      e.stopPropagation();deleteSampleById(el.dataset.delok,function(){renderSample();});
     });});
   }
   function renderSampleEdit(){
@@ -4830,6 +4858,14 @@ fill="#6F4A36" stroke="none">
     SAMPLES=SAMPLES.filter(function(x){return String(x.id)!==String(smpEdit);});
     smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpAfterEdit();
   }
+  var smpDelHist=null;   /* id of the sample showing an inline delete confirm in History/Analyse */
+  async function deleteSampleById(id,after){
+    const {error}=await sb.from('samples').delete().eq('id',id);
+    if(error){alert('Delete failed: '+error.message);return;}
+    SAMPLES=SAMPLES.filter(function(x){return String(x.id)!==String(id);});
+    smpDelHist=null;delete sampleOpen[id];
+    if(after)after();
+  }
   var sampleOpen={};
   /* inline SVG radar for the History screen — 5 axes, inner=Light, outer=Strong */
   function sampleRadarSVG(s){
@@ -4856,7 +4892,7 @@ fill="#6F4A36" stroke="none">
     var open=!!sampleOpen[s.id];
     var radar=sampleRadarSVG(s);
     var dec=s.decision==='buy'?'<span class="smp-badge buy">Buy</span>':(s.decision==='maybe'?'<span class="smp-badge maybe">Maybe</span>':(s.decision==='skip'?'<span class="smp-badge skip">Skip</span>':''));
-    var nm=(s.no!=null?'<span class="smp-no">No.'+s.no+'</span> ':'')+esc(s.sample_id||s.supplier||'Sample');
+    var nm=(s.no!=null?'<span class="smp-no">No.'+s.no+'</span> ':'')+esc(s.sample_id||s.supplier||'Sample')+((s.process||'').trim()?' <span class="smp-proc">'+esc(s.process.trim())+'</span>':'');
     var FEAT={fragrance:'Fragrance',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
     var feats=(s.features&&s.features.length)?('<div class="smp-feats">'+s.features.map(function(k){return '<span class="feat-chip">'+esc(FEAT[k]||k)+'</span>';}).join('')+'</div>'):'';
     function metaRow(lab,val){return val?'<div class="smp-meta"><span class="smp-meta-l">'+lab+'</span><span class="smp-meta-v">'+esc(val)+'</span></div>':'';}
@@ -4865,11 +4901,23 @@ fill="#6F4A36" stroke="none">
       +metaRow('Analysed date',fmtDate(s.cupping_date));
     var chev='<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>';
     var head='<button class="smp-head'+(open?' open':'')+'" data-toggle="'+esc(s.id)+'">'+chev+'<span class="bean-nm">'+nm+'</span><span class="smp-head-right">'+dec+'</span></button>';
-    var body=open?('<div class="smp-body" data-edit="'+esc(s.id)+'">'
+    var binSVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13M10 11v6M14 11v6"/></svg>';
+    var footer;
+    if(smpDelHist===s.id){
+      footer='<div class="smp-delbar"><span>Delete this sample? This can\u2019t be undone.</span>'
+        +'<div class="smp-delact"><button class="gbtn ghost" data-delcancel="1">Cancel</button>'
+        +'<button class="gbtn danger" data-delok="'+esc(s.id)+'">Delete</button></div></div>';
+    }else{
+      footer='<div class="smp-foot"><button class="smp-del" data-del="'+esc(s.id)+'" aria-label="delete">'+binSVG+'</button></div>';
+    }
+    var body=open?('<div class="smp-body">'
+      +'<div class="smp-tap" data-edit="'+esc(s.id)+'">'
       +radar
       +feats
       +(s.comment?'<div class="smp-cmt">'+esc(s.comment)+'</div>':'')
       +meta
+      +'</div>'
+      +footer
       +'</div>'):'';
     return '<div class="smp-item">'+head+body+'</div>';
   }
