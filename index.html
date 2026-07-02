@@ -422,7 +422,15 @@
   .smp-feats{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
   .feat-chip{font-size:11px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:8px;padding:2px 9px}
   .rtl-list{display:flex;flex-direction:column;gap:12px;padding:14px 16px 18px}
-  .rtl-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;position:relative;overflow:hidden}
+  .rtl-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:0;position:relative;overflow:hidden}
+  .rtl-head{display:flex;align-items:center;gap:8px;width:100%;background:var(--tint);border:none;padding:14px 16px;margin:0;cursor:pointer;font-family:inherit;text-align:left;border-radius:16px}
+  .rtl-head.open{border-radius:16px 16px 0 0}
+  .rtl-head .rd-chev{flex:0 0 auto;color:var(--accent-ink)}
+  .rtl-head-name{font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--accent-ink);line-height:1.25;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rtl-head-right{flex:0 0 auto;font-size:11.5px;font-weight:600;color:var(--accent-ink);opacity:.65}
+  .rtl-head-right.out{opacity:1;color:#B25E6A}
+  .rtl-dot-inline{flex:0 0 auto;width:10px;height:10px;border-radius:50%}
+  .rtl-body{padding:14px 18px 18px}
   .rtl-id{font-family:var(--font-display);font-size:20px;font-weight:600;color:var(--accent-ink);background:var(--tint);line-height:1.25;margin:-18px -18px 4px;padding:14px 44px 14px 18px;border-radius:16px 16px 0 0}
   .rtl-dotwrap{position:absolute;top:15px;right:15px}
   .rtl-dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);background:transparent;cursor:pointer;padding:0;display:block}
@@ -4259,7 +4267,7 @@ fill="#6F4A36" stroke="none">
     renderRoast();
   }
   let beansView='home';
-  var RTL_ROWS=[], RTL_RDBY={}, rtlDelConfirm=null;
+  var RTL_ROWS=[], RTL_RDBY={}, rtlDelConfirm=null, rtlOpen={};
   async function renderBeansRetail(){
     beansView='retail';
     const box=document.getElementById('beans-content');
@@ -4284,6 +4292,9 @@ fill="#6F4A36" stroke="none">
     if(!rows.length){box.innerHTML='<div class="sempty">No cupped beans yet<br>Cup a bean from Pending</div>';return;}
     var dotMap=loadDots();
     box.innerHTML='<div class="rtl-list">'+rows.map(function(s){return retailCard(s,RTL_RDBY[s.sample_id||''],dotMap[s.sample_id||'']||'');}).join('')+'</div>';
+    box.querySelectorAll('.rtl-head[data-toggle]').forEach(function(el){el.addEventListener('click',function(){
+      var k=el.dataset.toggle;rtlOpen[k]=!rtlOpen[k];paintRetail();
+    });});
     box.querySelectorAll('.rtl-stk').forEach(function(el){
       var sx=null,handled=false;
       function setState(out){
@@ -4359,6 +4370,7 @@ fill="#6F4A36" stroke="none">
       var bcmt=(blendDef.comment||'').trim();
       if(bcmt)blendCmtHtml='<div class="rtl-gram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'+esc(bcmt)+'</div>';
     }
+    var dotInline=dotCol?('<span class="rtl-dot-inline" style="background:'+dotCol+'" aria-label="status colour"></span>'):'';
     var stkSid=s.sample_id||'';
     var stkOut=!!loadSold()[stkSid];
     var delKey=stkSid||('id:'+String(s.id||''));
@@ -4368,9 +4380,12 @@ fill="#6F4A36" stroke="none">
     var trashBtn=confirming?'':('<button class="rtl-del" data-key="'+esc(delKey)+'" aria-label="delete bean">'+trashSvg+'</button>');
     var soldHtml='<div class="rtl-stkwrap">'+stkMain+trashBtn+'</div>'
       +(confirming?('<div class="rtl-del-confirm"><div class="rtl-del-msg">Delete this bean permanently?<br>This can\u2019t be undone.</div><div class="rtl-del-actions"><button class="rtl-del-cancel">Cancel</button><button class="rtl-del-yes" data-id="'+esc(String(s.id||''))+'" data-sid="'+esc(stkSid)+'">Delete</button></div></div>'):'');
-    return '<div class="rtl-card">'
-      +dotHtml
-      +'<div class="rtl-id">'+id+(blendDef?' <span class="rtl-blend-tag">Blend</span>':'')+'</div>'
+    var open=!!rtlOpen[delKey]||confirming;
+    var chev='<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>';
+    var header='<button class="rtl-head'+(open?' open':'')+'" data-toggle="'+esc(delKey)+'">'+chev+dotInline
+      +'<span class="rtl-head-name">'+id+(blendDef?' <span class="rtl-blend-tag">Blend</span>':'')+'</span>'
+      +'<span class="rtl-head-right'+(stkOut?' out':'')+'">'+(stkOut?'Sold Out':'Available')+'</span></button>';
+    var body=open?('<div class="rtl-body">'
       +readyHtml
       +'<div class="rtl-date"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Roasted · '+esc(rd)+'</div>'
       +gramHtml
@@ -4379,7 +4394,8 @@ fill="#6F4A36" stroke="none">
       +'<div class="rtl-flav-h">Flavour</div>'+flav
       +scHtml
       +soldHtml
-      +'</div>';
+      +'</div>'):'';
+    return '<div class="rtl-card">'+header+body+'</div>';
   }
   let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending', addCoffeeOpen=false, acDraft={beanId:'',name:'',date:'',kind:'single'}, dateKind={}, cuppedOpen={};
   function fmtDate(d){if(!d||d==='—')return 'No date';var p=String(d).split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0].slice(-2)):d;}
