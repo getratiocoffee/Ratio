@@ -3519,19 +3519,19 @@ fill="#6F4A36" stroke="none">
     function pv(k,d){var s=String(P[k]==null?'':P[k]).trim();return s||d||'\u2014';}
     function lab(t,cy){doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.text(t,x0,cy,{charSpace:1.3});}
 
-    /* ---------- highlighted header banner \u00b7 berry accent ---------- */
-    var BERRY=[178,94,106], CREAM=[249,227,230];
-    var bannerTop=top-8, bannerH=56, bx=ox+14, bw=w-28, r=10;
+    /* ---------- highlighted header \u00b7 folder-tab shape ---------- */
+    var BERRY=[178,94,106];
+    var bannerTop=top-8, tabW=(w-28)*0.62, tabH=44, bx=ox+14, r=10;
     doc.setFillColor(BERRY[0],BERRY[1],BERRY[2]);
-    if(doc.roundedRect)doc.roundedRect(bx,bannerTop,bw,bannerH,r,r,'F');else doc.rect(bx,bannerTop,bw,bannerH,'F');
-    doc.rect(bx,bannerTop+bannerH-r,bw,r,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(CREAM[0],CREAM[1],CREAM[2]);
-    doc.text('RATIO COFFEE',x0,bannerTop+17,{charSpace:1.3});
-    doc.setFont('helvetica','bold');doc.setFontSize(18);doc.setTextColor(255,255,255);
-    doc.text('Dine In Menu',x0,bannerTop+37);
-    doc.setFont('helvetica','italic');doc.setFontSize(8.5);doc.setTextColor(CREAM[0],CREAM[1],CREAM[2]);
-    doc.text('Choose Espresso Base or Filter Coffee',x0,bannerTop+49);
-    var cy=bannerTop+bannerH+22;
+    if(doc.roundedRect)doc.roundedRect(bx,bannerTop,tabW,tabH,r,r,'F');else doc.rect(bx,bannerTop,tabW,tabH,'F');
+    doc.rect(bx,bannerTop+tabH-r,tabW,r,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(255,255,255);
+    doc.text('Dine In Menu',bx+14,bannerTop+tabH/2+5.5);
+    var cy=bannerTop+tabH+16;
+    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+    doc.text('RATIO COFFEE',x0,cy,{charSpace:1.3});cy+=12;
+    doc.setFont('helvetica','italic');doc.setFontSize(8.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+    doc.text('Choose Espresso Base or Filter Coffee',x0,cy);cy+=16;
 
     /* ---------- espresso base (blends + drink prices, one continuous choice) ---------- */
     lab('ESPRESSO BASE',cy);cy+=16;
@@ -3552,14 +3552,15 @@ fill="#6F4A36" stroke="none">
         doc.setDrawColor(MUTE[0],MUTE[1],MUTE[2]);doc.setLineWidth(1);
         doc.line(midX+7,cy-10,midX-7,cy+28);
       }
-      cy+=48;
+      cy+=44;
     }
     cy+=8;
 
     var espRows=[
       ['Espresso','',pv('espresso')],
       ['Small','6oz',pv('small')],
-      ['Large','10 oz',pv('large')]
+      ['Large','10 oz',pv('large')],
+      ['On Ice','10oz',pv('ice')]
     ];
     espRows.forEach(function(r){
       doc.setFont('helvetica','bold');doc.setFontSize(11.5);doc.setTextColor(INK[0],INK[1],INK[2]);
@@ -3573,28 +3574,28 @@ fill="#6F4A36" stroke="none">
     });
     cy+=3;
     doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
-    doc.text('alternative milk, extra shot',x0,cy);doc.text(pv('altmilk','50 cents'),xEnd,cy,{align:'right'});cy+=11;
+    doc.text('extra shot, alternative milk \u2014 extra surcharge applies',x0,cy);doc.text(pv('altmilk','50 cents'),xEnd,cy,{align:'right'});cy+=11;
     doc.text('decaf',x0,cy);doc.text(pv('decaf','1 dollar'),xEnd,cy,{align:'right'});cy+=20;
 
-    /* ---------- Dirty Ratio \u00b7 signature blend drink ---------- */
-    var dh=28;
-    doc.setDrawColor(150,140,132);doc.setLineWidth(0.8);
-    if(doc.setLineDashPattern)doc.setLineDashPattern([3,3],0);
-    if(doc.roundedRect)doc.roundedRect(x0,cy,innerW,dh,13,13,'S');else doc.rect(x0,cy,innerW,dh,'S');
-    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    /* ---------- Dirty Ratio \u00b7 signature blend drink, no border ---------- */
     doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-    doc.text('Dirty Ratio',x0+14,cy+13);
-    doc.text(pv('dirty'),xEnd-14,cy+13,{align:'right'});
+    doc.text('Dirty Ratio',x0,cy);
+    doc.text(pv('dirty'),xEnd,cy,{align:'right'});
+    cy+=13;
     doc.setFont('helvetica','italic');doc.setFontSize(7.6);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-    doc.text('signature \u00b7 blend-based',x0+14,cy+23);
-    cy+=dh+18;
+    doc.text('signature \u00b7 blend-based',x0,cy);
+    cy+=13;
+    var dirtyDesc='Freeze-distilled milk, chilled espresso layered on the surface \u2014 a pudding-like cold beverage.';
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+    var dLines=doc.splitTextToSize(mnAsc(dirtyDesc),innerW);
+    dLines.forEach(function(ln){doc.text(ln,x0,cy);cy+=10.5;});
+    cy+=12;
     doc.setDrawColor(230,222,216);doc.setLineWidth(0.8);doc.line(x0,cy,xEnd,cy);cy+=16;
 
     /* ---------- automatic brewing ---------- */
     lab('AUTOMATIC BREWING',cy);cy+=17;
     var brewRows=[
       ['Fresh Batch','10oz',pv('fresh')],
-      ['On Ice','10oz',pv('ice')],
       ['Cold Batch','10oz',pv('cold'),'(Barista choice of the day)']
     ];
     brewRows.forEach(function(r){
@@ -3634,7 +3635,7 @@ fill="#6F4A36" stroke="none">
         mnFit(doc,meta,x0,cy,innerW,8.6,7);cy+=13;}
       if(pi<pours.length-1)cy+=4;
     });
-    cy+=8;
+    cy+=4;
 
     /* ---------- one clean card wrapping everything ---------- */
     doc.setDrawColor(200,188,180);doc.setLineWidth(1.3);
