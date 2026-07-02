@@ -4409,7 +4409,7 @@ fill="#6F4A36" stroke="none">
       +'</div>'):'';
     return '<div class="rtl-card">'+header+body+'</div>';
   }
-  let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending', addCoffeeOpen=false, acDraft={beanId:'',name:'',date:'',kind:'single'}, dateKind={}, cuppedOpen={};
+  let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending', addCoffeeOpen=false, acDraft={beanId:'',name:'',date:'',kind:'single'}, dateKind={}, cuppedOpen={}, acDupSig='';
   function fmtDate(d){if(!d||d==='—')return 'No date';var p=String(d).split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0].slice(-2)):d;}
   function beansBack(){
     if(roastEdit){roastEdit=null;roastDelConfirm=false;renderRoasted();return;}
@@ -4514,6 +4514,15 @@ fill="#6F4A36" stroke="none">
     var beanId=sel?sel.value:'';
     var kind=(acDraft.kind==='blend')?'blend':'single';
     if(!name){if(msg){msg.textContent='Enter a coffee name';msg.className='gform-msg err';}return;}
+    /* duplicate guard: same coffee name + same roast date already logged → warn once, confirm on 2nd click */
+    var dupSig=name.toLowerCase()+'|'+date;
+    var isDup=(ROASTS||[]).some(function(r){return String(r.bean_name||'').trim().toLowerCase()===name.toLowerCase()&&(r.roast_date||'')===date;});
+    if(isDup&&acDupSig!==dupSig){
+      acDupSig=dupSig;
+      if(msg){msg.innerHTML='\u26a0\ufe0f \u5df2\u6709\u76f8\u540c\u8c46\u5b50 + \u540c\u4e00\u70d8\u7119\u65e5\u671f\uff08'+esc(fmtDate(date))+'\uff09\u7684\u8a18\u9304\u3002<br>\u518d\u6309\u4e00\u6b21 Add \u4ecd\u8981\u65b0\u589e\u3002';msg.className='gform-msg err';}
+      if(btn)btn.textContent='Add anyway';
+      return;
+    }
     var bean=BEANS.find(function(b){return String(b.id)===String(beanId);});
     var rec={bean_id:null,bean_name:name,country:(bean?bean.country:null),green_kg:null,status:'pending_cupping',roast_date:date,kind:kind};
     if(btn)btn.disabled=true;if(msg){msg.textContent='Adding…';msg.className='gform-msg';}
@@ -4521,7 +4530,7 @@ fill="#6F4A36" stroke="none">
     if(ins.error&&rec.kind!==undefined){var r2=Object.assign({},rec);delete r2.kind;ins=await sb.from('roasts').insert(r2).select();}
     if(ins.error){if(btn)btn.disabled=false;if(msg){msg.textContent='Failed: '+ins.error.message;msg.className='gform-msg err';}return;}
     if(ins.data&&ins.data[0])ROASTS.unshift(ins.data[0]);
-    addCoffeeOpen=false;
+    addCoffeeOpen=false;acDupSig='';
     roastedOpen[date]=true;dateKind[date]=kind;
     renderRoasted();
   }
@@ -4591,7 +4600,7 @@ fill="#6F4A36" stroke="none">
     if(roastEdit){renderRoastEdit();return;}
     if(title)title.textContent=roastedTitle;
     var isPending=(roastedTitle==='Pending');
-    function wireAcOpen(){var ao=box.querySelector('#ac-open');if(ao)ao.addEventListener('click',async function(){acDraft={beanId:'',name:'',date:todayStr(),kind:'single'};if((!BEANS||!BEANS.length)&&typeof loadBeans==='function'){try{await loadBeans();}catch(e){}}addCoffeeOpen=true;renderRoasted();});}
+    function wireAcOpen(){var ao=box.querySelector('#ac-open');if(ao)ao.addEventListener('click',async function(){acDraft={beanId:'',name:'',date:todayStr(),kind:'single'};acDupSig='';if((!BEANS||!BEANS.length)&&typeof loadBeans==='function'){try{await loadBeans();}catch(e){}}addCoffeeOpen=true;renderRoasted();});}
     if(isPending&&addCoffeeOpen){if(title)title.textContent='Add Coffee';var acc=document.getElementById('beans-count');if(acc)acc.textContent='';box.innerHTML=acFormHTML();bindAcForm(box);return;}
     if(!isPending){
       var allR=ROASTS.slice();
