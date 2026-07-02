@@ -4347,7 +4347,7 @@ fill="#6F4A36" stroke="none">
     var cmt=s.comment?'<div class="rtl-cmt">'+esc(s.comment)+'</div>':'';
     var SMAP={fragrance:'Fragrance / Aroma',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
     var sc=[['fragrance',s.fragrance],['acidity',s.acidity],['sweetness',s.sweetness],['body',s.body],['aftertaste',s.aftertaste]].filter(function(x){return x[1]!=null;});
-    var scHtml=sc.length?('<details class="rtl-str"><summary><svg class="rtl-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg><span>More detail</span></summary>'+sampleRadarSVG(s)+'<div class="rtl-str-list">'+sc.map(function(x){return '<div class="rtl-str-row"><span>'+SMAP[x[0]]+'</span><b>'+strLabel(x[1])+'</b></div>';}).join('')+'</div></details>'):'';
+    var scHtml=sc.length?('<details class="rtl-str"><summary><svg class="rtl-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg><span>More detail</span></summary>'+sampleRadarSVG(s)+'</details>'):'';
     var blendDef=blendDefByName(s.sample_id||'');
     var recipeHtml='';
     var blendCmtHtml='';
