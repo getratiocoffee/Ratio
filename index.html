@@ -3542,6 +3542,7 @@ fill="#6F4A36" stroke="none">
     doc.setDrawColor(BERRY[0],BERRY[1],BERRY[2]);doc.setLineWidth(1.4);
     doc.line(bx+tabW+10,bannerTop+tabH-2,xEnd,bannerTop+tabH-2);
     var cy=bannerTop+tabH+22;
+    var espressoY0=cy;
 
     /* ---------- espresso base (blends + drink prices, one continuous choice) ---------- */
     var blends=(cfg.blends||[]).filter(function(b){return b&&b.name;}).slice(0,2);
@@ -3593,6 +3594,7 @@ fill="#6F4A36" stroke="none">
     doc.text('decaf',x0,cy);doc.text(pv('decaf','1 dollar'),xEnd,cy,{align:'right'});cy+=20;
 
     /* ---------- Dirty Ratio \u00b7 signature blend drink, no border ---------- */
+    var signatureY0=cy;
     lab('SIGNATURE',cy);cy+=16;
     doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
     doc.text('Dirty Ratio',x0,cy);
@@ -3609,6 +3611,7 @@ fill="#6F4A36" stroke="none">
     doc.setDrawColor(230,222,216);doc.setLineWidth(0.8);doc.line(x0,cy,xEnd,cy);cy+=12;
 
     /* ---------- automatic brewing ---------- */
+    var automatedY0=cy;
     lab('AUTOMATED BREWING',cy);cy+=17;
     var brewRows=[
       ['Fresh Batch','10oz',pv('fresh')],
@@ -3630,6 +3633,7 @@ fill="#6F4A36" stroke="none">
     doc.setDrawColor(230,222,216);doc.setLineWidth(0.8);doc.line(x0,cy,xEnd,cy);cy+=12;
 
     /* ---------- filter coffee (pour over) \u00b7 hot or iced ---------- */
+    var filterY0=cy;
     lab('FILTER COFFEE',cy);
     doc.setFont('helvetica','italic');doc.setFontSize(8);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
     doc.text('hot or iced',xEnd,cy,{align:'right'});
@@ -3661,6 +3665,22 @@ fill="#6F4A36" stroke="none">
     doc.setDrawColor(200,188,180);doc.setLineWidth(1.3);
     var cardBottom=Math.min(cy,h-10);
     if(doc.roundedRect)doc.roundedRect(ox+cardPad,top-8,w-2*cardPad,cardBottom-(top-8),10,10,'S');else doc.rect(ox+cardPad,top-8,w-2*cardPad,cardBottom-(top-8),'S');
+
+    /* ---------- folder-index side tab strip \u00b7 rotated labels, one per section ---------- */
+    var tabStripW=15, tabStripX=(ox+cardPad)-tabStripW;
+    var segs=[['ESPRESSO BASED',espressoY0,signatureY0],['SIGNATURE',signatureY0,automatedY0],
+      ['AUTOMATED',automatedY0,filterY0],['FILTER',filterY0,cardBottom]];
+    segs.forEach(function(s){
+      var segTop=s[1],segH=s[2]-s[1]-3;
+      if(segH<=6)return;
+      doc.setFillColor(BERRY[0],BERRY[1],BERRY[2]);
+      if(doc.roundedRect)doc.roundedRect(tabStripX,segTop,tabStripW,segH,4,4,'F');else doc.rect(tabStripX,segTop,tabStripW,segH,'F');
+      doc.rect(tabStripX+tabStripW-4,segTop,4,segH,'F');
+      doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+      var fs=7.5;doc.setFontSize(fs);
+      while(fs>5.5&&doc.getTextWidth(s[0])>segH-8){fs-=0.5;doc.setFontSize(fs);}
+      doc.text(s[0],tabStripX+tabStripW/2,segTop+segH/2,{align:'center',angle:90,charSpace:0.6});
+    });
   }
 
   function buildMenuPDF(info4,logo){
