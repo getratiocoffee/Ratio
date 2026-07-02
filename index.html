@@ -3529,8 +3529,19 @@ fill="#6F4A36" stroke="none">
       return GRAY;
     }
 
+    /* ---------- highlighted header \u00b7 folder-tab shape ---------- */
     var BERRY=[178,94,106];
-    var cy=top+54;
+    var bannerTop=top-8, tabW=(w-2*cardPad)*0.62, tabH=44, bx=ox+cardPad, r=10;
+    doc.setFillColor(BERRY[0],BERRY[1],BERRY[2]);
+    if(doc.roundedRect)doc.roundedRect(bx,bannerTop,tabW,tabH,r,r,'F');else doc.rect(bx,bannerTop,tabW,tabH,'F');
+    doc.rect(bx,bannerTop+tabH-r,tabW,r,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(255,255,255);
+    doc.text('Dine In Menu',bx+14,bannerTop+tabH/2+5.5);
+    doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Ratio Crows Nest',xEnd,bannerTop+tabH/2+5.5,{align:'right'});
+    doc.setDrawColor(BERRY[0],BERRY[1],BERRY[2]);doc.setLineWidth(1.4);
+    doc.line(bx+tabW+10,bannerTop+tabH-2,xEnd,bannerTop+tabH-2);
+    var cy=bannerTop+tabH+22;
     var espressoY0=cy;
 
     /* ---------- espresso base (blends + drink prices, one continuous choice) ---------- */
@@ -3654,23 +3665,6 @@ fill="#6F4A36" stroke="none">
     doc.setDrawColor(200,188,180);doc.setLineWidth(1.3);
     var cardBottom=Math.min(cy,h-10);
     if(doc.roundedRect)doc.roundedRect(ox+cardPad,top-8,w-2*cardPad,cardBottom-(top-8),10,10,'S');else doc.rect(ox+cardPad,top-8,w-2*cardPad,cardBottom-(top-8),'S');
-
-    /* ---------- folder-index side tab strip \u00b7 title + rotated section labels ---------- */
-    var tabStripW=19, tabStripX=(ox+cardPad)-tabStripW;
-    var segs=[['DINE IN',top-8,espressoY0,9.5],['ESPRESSO BASED',espressoY0,signatureY0,7.5],
-      ['SIGNATURE',signatureY0,automatedY0,7.5],['AUTOMATED',automatedY0,filterY0,7.5],
-      ['FILTER',filterY0,cardBottom,7.5]];
-    segs.forEach(function(s){
-      var segTop=s[1],segH=s[2]-s[1]-3;
-      if(segH<=6)return;
-      doc.setFillColor(BERRY[0],BERRY[1],BERRY[2]);
-      if(doc.roundedRect)doc.roundedRect(tabStripX,segTop,tabStripW,segH,4,4,'F');else doc.rect(tabStripX,segTop,tabStripW,segH,'F');
-      doc.rect(tabStripX+tabStripW-4,segTop,4,segH,'F');
-      doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
-      var fs=s[3]||7.5;doc.setFontSize(fs);
-      while(fs>5.5&&doc.getTextWidth(s[0])>segH-8){fs-=0.5;doc.setFontSize(fs);}
-      doc.text(s[0],tabStripX+tabStripW/2,segTop+segH/2,{align:'center',angle:90,charSpace:0.6});
-    });
   }
 
   function buildMenuPDF(info4,logo){
