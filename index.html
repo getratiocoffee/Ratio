@@ -406,6 +406,12 @@
   .str-thumb{position:absolute;top:50%;width:22px;height:22px;border-radius:50%;background:var(--accent);border:3px solid var(--surface);box-shadow:0 1px 5px rgba(50,43,42,.3);transform:translate(-50%,-50%);transition:left .16s cubic-bezier(.4,0,.2,1),opacity .15s ease;pointer-events:none;z-index:2}
   .smp-live-radar{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);max-width:250px;margin-left:auto;margin-right:auto}
   .smp-flav-bubbles{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:12px}
+  .smp-decrow{display:flex;gap:8px;margin-top:12px}
+  .decopt{flex:1;padding:10px;font-size:13px;font-weight:600;font-family:inherit;border-radius:11px;background:var(--surface);color:var(--muted);border:1px solid var(--line);cursor:pointer;transition:background .12s ease,border-color .12s ease,color .12s ease}
+  .decopt:active{transform:scale(.97)}
+  .decopt.on.buy{background:#5E8C61;color:#fff;border-color:#5E8C61}
+  .decopt.on.maybe{background:#C9A24B;color:#fff;border-color:#C9A24B}
+  .decopt.on.skip{background:#9A8B82;color:#fff;border-color:#9A8B82}
   .smp-flav-bubbles:empty{margin-top:0}
   .flav-bubble{font-size:12px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:999px;padding:5px 13px}
   .smp-dec-h{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:9px;text-align:center}
@@ -4725,6 +4731,9 @@ fill="#6F4A36" stroke="none">
     box.querySelectorAll('[data-delok]').forEach(function(el){el.addEventListener('click',function(e){
       e.stopPropagation();deleteSampleById(el.dataset.delok,function(){renderHistory();});
     });});
+    box.querySelectorAll('.decopt[data-dec]').forEach(function(el){el.addEventListener('click',function(e){
+      e.stopPropagation();setSampleDecision(el.dataset.id,el.dataset.dec,function(){renderHistory();});
+    });});
   }
   var STRENGTH=[[1,'Light'],[2,'Medium'],[3,'Strong']];
   function strLabel(v){return v>=3?'Strong':(v===2?'Medium':(v===1?'Light':''));}
@@ -4803,16 +4812,16 @@ fill="#6F4A36" stroke="none">
     var form=''
       +'<div class="smp-sec"><div class="smp-sec-h">Sample details</div><div class="smp-fields">'
       +'<label class="smp-f"><span>Cupping date</span><input id="smp-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" /></label>'
-      +'<div class="smp-f2"><label class="smp-f"><span>Supplier</span><input id="smp-supplier" type="text" value="'+esc(p.supplier||'')+'" /></label>'
-      +'<label class="smp-f"><span>Cupping ID</span><input id="smp-id" type="text" value="'+esc(p.sample_id||'')+'" /></label></div>'
+      +'<div class="smp-f2"><label class="smp-f"><span>Cupping ID</span><input id="smp-id" type="text" value="'+esc(p.sample_id||'')+'" /></label>'
+      +'<label class="smp-f"><span>Supplier</span><input id="smp-supplier" type="text" value="'+esc(p.supplier||'')+'" /></label></div>'
       +'<label class="smp-f"><span>Process</span><input id="smp-process" type="text" value="'+esc(p.process||'')+'" /></label>'
       +'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Flavour characters · up to 3</div>'+charFields('smp',p)+'</div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Cupping Strength</div><div class="smp-scores">'+scores+'</div>'
       +'<div class="smp-live-radar" id="smp-live-radar">'+sampleRadarSVG(p,true)+'</div>'
       +'<div class="smp-flav-bubbles" id="smp-flav-bubbles">'+flavBubbles(p.features)+'</div></div>'
-      +(cupping?'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn buy" id="smp-submit">Submit</button></div></div>':'<div class="smp-decide-wrap"><div class="smp-dec-h">Purchase decision</div><div class="smp-decide"><button class="gbtn skip" id="smp-skip">Skip</button><button class="gbtn maybe" id="smp-maybe">Maybe</button><button class="gbtn buy" id="smp-buy">Buy</button></div></div>')
       +'<div class="smp-sec"><div class="smp-sec-h">Comment · what makes it unique</div><textarea id="smp-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
+      +'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn buy" id="'+(cupping?'smp-submit':'smp-save')+'">Submit</button></div></div>'
       +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':(okMsg?' ok':''))+'" id="smp-msg">'+(errMsg?('Load failed: '+esc(errMsg)+' (run the samples table SQL in Supabase first)'):(okMsg?esc(okMsg):''))+'</div></div>';
     var today=todayStr();
     var todays=SAMPLES.filter(function(x){return x.cupping_date===today;});
@@ -4823,9 +4832,7 @@ fill="#6F4A36" stroke="none">
     var _prev=document.getElementById('smp-prev');if(_prev)_prev.addEventListener('click',function(){captureSmp();smpIdx=(smpIdx-1+smpPages.length)%smpPages.length;renderSample();box.scrollTop=0;});
     var _next=document.getElementById('smp-next');if(_next)_next.addEventListener('click',function(){captureSmp();smpIdx=(smpIdx+1)%smpPages.length;renderSample();box.scrollTop=0;});
     var _add=document.getElementById('smp-add');if(_add)_add.addEventListener('click',function(){captureSmp();smpPages.push(blankSmp());smpIdx=smpPages.length-1;renderSample();box.scrollTop=0;});
-    var _buy=document.getElementById('smp-buy');if(_buy)_buy.addEventListener('click',function(){saveSample('buy');});
-    var _maybe=document.getElementById('smp-maybe');if(_maybe)_maybe.addEventListener('click',function(){saveSample('maybe');});
-    var _skip=document.getElementById('smp-skip');if(_skip)_skip.addEventListener('click',function(){saveSample('skip');});
+    var _save=document.getElementById('smp-save');if(_save)_save.addEventListener('click',function(){saveSample();});
     var _submit=document.getElementById('smp-submit');if(_submit)_submit.addEventListener('click',submitCupping);
     box.querySelectorAll('.smp-head[data-toggle]').forEach(function(el){el.addEventListener('click',function(){
       var id=el.dataset.toggle;sampleOpen[id]=!sampleOpen[id];smpDelHist=null;renderSample();box.scrollTop=box.scrollTop;
@@ -4843,6 +4850,9 @@ fill="#6F4A36" stroke="none">
     box.querySelectorAll('[data-delok]').forEach(function(el){el.addEventListener('click',function(e){
       e.stopPropagation();deleteSampleById(el.dataset.delok,function(){renderSample();});
     });});
+    box.querySelectorAll('.decopt[data-dec]').forEach(function(el){el.addEventListener('click',function(e){
+      e.stopPropagation();setSampleDecision(el.dataset.id,el.dataset.dec,function(){renderSample();});
+    });});
   }
   function renderSampleEdit(){
     const box=document.getElementById('green-content');
@@ -4854,8 +4864,8 @@ fill="#6F4A36" stroke="none">
     box.innerHTML=''
       +'<div class="smp-sec" style="margin-top:14px"><div class="smp-sec-h">Sample details</div><div class="smp-fields">'
       +'<label class="smp-f"><span>Cupping date · locked</span><input id="se-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" readonly /></label>'
-      +'<div class="smp-f2"><label class="smp-f"><span>Supplier</span><input id="se-supplier" type="text" value="'+esc(p.supplier||'')+'" /></label>'
-      +'<label class="smp-f"><span>Cupping ID</span><input id="se-id" type="text" value="'+esc(p.sample_id||'')+'" /></label></div>'
+      +'<div class="smp-f2"><label class="smp-f"><span>Cupping ID</span><input id="se-id" type="text" value="'+esc(p.sample_id||'')+'" /></label>'
+      +'<label class="smp-f"><span>Supplier</span><input id="se-supplier" type="text" value="'+esc(p.supplier||'')+'" /></label></div>'
       +'<label class="smp-f"><span>Process</span><input id="se-process" type="text" value="'+esc(p.process||'')+'" /></label>'
       +'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Flavour characters · up to 3</div>'+charFields('se',p)+'</div>'
@@ -4959,6 +4969,11 @@ fill="#6F4A36" stroke="none">
     }else{
       footer='<div class="smp-foot"><button class="smp-del" data-del="'+esc(s.id)+'" aria-label="delete">'+binSVG+'</button></div>';
     }
+    var decsel='<div class="smp-decrow">'
+      +'<button class="decopt skip'+(s.decision==='skip'?' on':'')+'" data-dec="skip" data-id="'+esc(s.id)+'">Skip</button>'
+      +'<button class="decopt maybe'+(s.decision==='maybe'?' on':'')+'" data-dec="maybe" data-id="'+esc(s.id)+'">Maybe</button>'
+      +'<button class="decopt buy'+(s.decision==='buy'?' on':'')+'" data-dec="buy" data-id="'+esc(s.id)+'">Buy</button>'
+      +'</div>';
     var body=open?('<div class="smp-body">'
       +'<div class="smp-tap" data-edit="'+esc(s.id)+'">'
       +radar
@@ -4966,9 +4981,18 @@ fill="#6F4A36" stroke="none">
       +(s.comment?'<div class="smp-cmt">'+esc(s.comment)+'</div>':'')
       +meta
       +'</div>'
+      +decsel
       +footer
       +'</div>'):'';
     return '<div class="smp-item">'+head+body+'</div>';
+  }
+  async function setSampleDecision(id,dec,after){
+    var s=SAMPLES.find(function(x){return String(x.id)===String(id);});
+    var newDec=(s&&s.decision===dec)?null:dec;
+    const {error}=await sb.from('samples').update({decision:newDec}).eq('id',id);
+    if(error){alert('Update failed: '+error.message);return;}
+    if(s)s.decision=newDec;
+    if(after)after();
   }
   async function openCupping(roastId){
     var r=ROASTS.find(function(x){return String(x.id)===String(roastId);});
@@ -5061,23 +5085,23 @@ fill="#6F4A36" stroke="none">
     openPage('beans');
     renderRoasted();
   }
-  async function saveSample(decision){
+  async function saveSample(){
     captureSmp();
     const msg=document.getElementById('smp-msg');
-    const buy=document.getElementById('smp-buy'),skip=document.getElementById('smp-skip'),maybe=document.getElementById('smp-maybe');
+    const saveBtn=document.getElementById('smp-save');
     var p=smpPages[smpIdx];
-    var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||null,sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:decision,cupper:(window.CURRENT_USER||null)};
+    var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||null,sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:p.decision||null,cupper:(window.CURRENT_USER||null)};
     if(!rec.supplier&&!rec.sample_id){msg.textContent='Enter at least Supplier or ID';msg.className='gform-msg err';return;}
-    buy.disabled=true;skip.disabled=true;if(maybe)maybe.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
+    if(saveBtn)saveBtn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
     let ins=await sb.from('samples').insert(rec).select();
     if(ins.error&&rec.features!==undefined){var r2=Object.assign({},rec);delete r2.features;ins=await sb.from('samples').insert(r2).select();}
     if(ins.error&&rec.cupper!==undefined){var r3=Object.assign({},rec);delete r3.cupper;delete r3.features;ins=await sb.from('samples').insert(r3).select();}
-    if(ins.error){buy.disabled=false;skip.disabled=false;if(maybe)maybe.disabled=false;msg.textContent='Save failed: '+ins.error.message;msg.className='gform-msg err';return;}
+    if(ins.error){if(saveBtn)saveBtn.disabled=false;msg.textContent='Save failed: '+ins.error.message;msg.className='gform-msg err';return;}
     if(ins.data&&ins.data[0])SAMPLES.unshift(ins.data[0]);
     smpPages.splice(smpIdx,1);
     if(!smpPages.length)smpPages=[blankSmp()];
     if(smpIdx>=smpPages.length)smpIdx=smpPages.length-1;
-    renderSample('','Saved ('+(decision==='buy'?'Buy':(decision==='maybe'?'Maybe':'Skip'))+') — on to the next');
+    renderSample('','Saved — set Skip / Maybe / Buy on the card below');
     document.getElementById('green-content').scrollTop=0;
   }
   function swapSides(){var pdfS=document.getElementById('screen-pdf');if(pdfS&&pdfS.classList.contains('open')){pdfBack();return;}const pg=document.querySelector('.screen.open');if(pg){if(pg.id==='screen-green'&&typeof greenBack==='function'){greenBack();return;}if(pg.id==='screen-beans'&&typeof beansBack==='function'){beansBack();return;}if(pg.id==='screen-contacts'&&typeof contactsBack==='function'){contactsBack();return;}if(pg.id==='screen-menu'&&typeof menuBack==='function'){menuBack();return;}closePage();return;}if(dockStack.length){dockBack();return;}const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
