@@ -3056,12 +3056,12 @@ fill="#6F4A36" stroke="none">
       lab('RECIPE');
       bean.recipe.forEach(function(cpt){
         var pct=cpt.pct?(cpt.pct+'%'):'';
-        doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-        mnFit(doc,cpt.bean,lx,cy,lw-30,8.5,7);
-        if(pct){doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.setFontSize(8.5);doc.text(pct,lx+lw,cy,{align:'right'});}
         var ctry=(cpt.country||'').trim();
-        if(ctry){cy+=9.5;doc.setFont('helvetica','italic');doc.setFontSize(7);doc.setTextColor(SUB[0],SUB[1],SUB[2]);mnFit(doc,ctry,lx,cy,lw-30,7,6);cy+=11.5;}
-        else cy+=12;
+        var label=cpt.bean+(ctry?(', '+ctry):'');
+        doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+        mnFit(doc,label,lx,cy,lw-30,8.5,7);
+        if(pct){doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.setFontSize(8.5);doc.text(pct,lx+lw,cy,{align:'right'});}
+        cy+=12;
       });
       cy+=15;
     }else if(orows.length){
