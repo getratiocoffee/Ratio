@@ -3602,6 +3602,14 @@ fill="#6F4A36" stroke="none">
     if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
     var pours=cfg.pours||[];
     for(var i=0;i<4;i++){drawPourCell(doc,cellX[i],cellY[i],cw,pours[i]||{},INK,SUB,HOT,COLD);}
+
+    /* ---------- card borders (drawn last so text sits inside them) ---------- */
+    var cardX=ox+14, cardW=w-28;
+    doc.setDrawColor(225,217,212);doc.setLineWidth(0.8);
+    var c1Y=12, c1H=(dy+dh+14)-c1Y;
+    if(doc.roundedRect)doc.roundedRect(cardX,c1Y,cardW,c1H,10,10,'S');else doc.rect(cardX,c1Y,cardW,c1H,'S');
+    var c2Y=poHeadY-24, c2H=(gBot+10)-c2Y;
+    if(doc.roundedRect)doc.roundedRect(cardX,c2Y,cardW,c2H,10,10,'S');else doc.rect(cardX,c2Y,cardW,c2H,'S');
   }
 
   function buildMenuPDF(info4,logo){
