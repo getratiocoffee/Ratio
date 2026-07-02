@@ -4065,8 +4065,14 @@ fill="#6F4A36" stroke="none">
     box.querySelectorAll('.rgch').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var k=b.dataset.gk,g=parseInt(b.dataset.g,10);var m=loadGrams();if(m[k]===g)delete m[k];else m[k]=g;saveGrams(m);
       var row=b.closest('.rtl-gbtns');if(row)row.querySelectorAll('.rgch').forEach(function(x){x.classList.toggle('on',m[k]===parseInt(x.dataset.g,10));});});});
   }
+  function roastCupped(r){
+    if(!r)return false;
+    if(r.status==='cupped')return true;
+    if((r.kind||'single')==='blend'){try{return !!blendCuppedSet()[String(r.bean_name||'').trim().toLowerCase()];}catch(e){}}
+    return false;
+  }
   function roastCard(r,tappable){
-    var cupped=r.status==='cupped';
+    var cupped=roastCupped(r);
     var bk=r.bean_name||'';
     var sub=r.country?'<span class="bp-sub">'+esc(r.country)+'</span>':'';
     var editBtn='<button class="blend-edit" data-eid="'+esc(r.id)+'" aria-label="Edit roast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>';
@@ -4445,17 +4451,17 @@ fill="#6F4A36" stroke="none">
         +'<span class="blend-rt"><button class="blend-go bl-cupgo" data-bname="'+esc(nm)+'">Start Analyse</button></span>'
         +'</div>';
     }
-    var pend=defs.filter(function(b){return !cupped[(b.name||'').trim().toLowerCase()];});
-    var done=defs.filter(function(b){return cupped[(b.name||'').trim().toLowerCase()];});
-    var inner=pend.map(card).join('');
-    if(done.length){
-      var bo=!!cuppedOpen['blend'];
-      inner+='<button class="cup-toggle'+(bo?' open':'')+'" data-ck="blend">'
-        +'<span class="cup-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
-        +'<span class="cup-lbl">Cupped</span><span class="cup-n">'+done.length+'</span></button>';
-      if(bo)inner+='<div class="cup-body">'+done.map(card).join('')+'</div>';
+    /* blends that already have a roast entry live in their date folder, not here */
+    var roasted={};
+    (ROASTS||[]).forEach(function(r){if((r.kind||'single')==='blend'){var k=String(r.bean_name||'').trim().toLowerCase();if(k)roasted[k]=true;}});
+    var show=defs.filter(function(b){return !roasted[(b.name||'').trim().toLowerCase()];});
+    if(!show.length){
+      return head+'<div class="sempty sm" style="margin:0 14px 8px">All ready blends are logged \u00b7 see their date folders below</div>';
     }
-    return head+'<div class="bl-cuplist">'+inner+'</div>';
+    var pend=show.filter(function(b){return !cupped[(b.name||'').trim().toLowerCase()];});
+    var done=show.filter(function(b){return cupped[(b.name||'').trim().toLowerCase()];});
+    var cards=pend.concat(done).map(card).join('');
+    return head+'<div class="bl-cuplist">'+cards+'</div>';
   }
   function wirePendingBlend(box){
     box.querySelectorAll('.bl-cupgo[data-bname]').forEach(function(el){
@@ -4489,7 +4495,7 @@ fill="#6F4A36" stroke="none">
       var open=!!roastedOpen[d];
       var kind=(dateKind[d]==='blend')?'blend':'single';
       var dayRoasts=ROASTS.filter(function(r){return (r.roast_date||'\u2014')===d;});
-      var pending=dayRoasts.filter(function(r){return r.status!=='cupped';}).length;
+      var pending=dayRoasts.filter(function(r){return !roastCupped(r);}).length;
       var head='<button class="rdate'+(open?' open':'')+'" data-d="'+esc(d)+'">'
         +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
         +'<span class="rd-date">'+esc(fmtDate(d))+'</span>'
@@ -4501,8 +4507,8 @@ fill="#6F4A36" stroke="none">
           +'<button class="lbl-tab'+(kind==='blend'?' on':'')+'" data-dk="blend" data-dd="'+esc(d)+'">Blend</button></div>';
         var list='';
         function buildRoastList(arr,ckey,emptyMsg){
-          var pend=arr.filter(function(r){return r.status!=='cupped';});
-          var cup=arr.filter(function(r){return r.status==='cupped';});
+          var pend=arr.filter(function(r){return !roastCupped(r);});
+          var cup=arr.filter(function(r){return roastCupped(r);});
           var out=pend.map(function(r){return roastCard(r,true);}).join('')
             +cup.map(function(r){return roastCard(r,true);}).join('');
           return out||('<div class="sempty sm">'+emptyMsg+'</div>');
