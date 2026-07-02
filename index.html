@@ -523,6 +523,9 @@
   .smp-head .smp-head-right{flex:0 0 auto;display:flex;align-items:center;gap:8px}
   .smp-body{margin-top:11px;cursor:pointer;text-align:center}
   .smp-body .smp-feats{justify-content:center}
+  .smp-meta{margin-top:6px;font-size:12px;color:var(--ink)}
+  .smp-meta:first-of-type{margin-top:12px}
+  .smp-meta .smp-meta-l{font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;margin-right:7px}
   .smp-radar{margin-top:10px;max-width:240px;margin-left:auto;margin-right:auto}
   .smp-scoreline{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
   .sc-chip{font-size:11px;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:2px 8px}
@@ -4852,19 +4855,21 @@ fill="#6F4A36" stroke="none">
   function sampleCard(s){
     var open=!!sampleOpen[s.id];
     var radar=sampleRadarSVG(s);
-    var sub=[s.supplier?'Supplier '+esc(s.supplier):'',s.process?esc(s.process):''].filter(Boolean).join(' · ');
     var dec=s.decision==='buy'?'<span class="smp-badge buy">Buy</span>':(s.decision==='maybe'?'<span class="smp-badge maybe">Maybe</span>':(s.decision==='skip'?'<span class="smp-badge skip">Skip</span>':''));
     var nm=(s.no!=null?'<span class="smp-no">No.'+s.no+'</span> ':'')+esc(s.sample_id||s.supplier||'Sample');
     var FEAT={fragrance:'Fragrance',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
     var feats=(s.features&&s.features.length)?('<div class="smp-feats">'+s.features.map(function(k){return '<span class="feat-chip">'+esc(FEAT[k]||k)+'</span>';}).join('')+'</div>'):'';
+    function metaRow(lab,val){return val?'<div class="smp-meta"><span class="smp-meta-l">'+lab+'</span><span class="smp-meta-v">'+esc(val)+'</span></div>':'';}
+    var meta=metaRow('Supplier',s.supplier)
+      +metaRow('Analysed by',s.cupper)
+      +metaRow('Analysed date',fmtDate(s.cupping_date));
     var chev='<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>';
     var head='<button class="smp-head'+(open?' open':'')+'" data-toggle="'+esc(s.id)+'">'+chev+'<span class="bean-nm">'+nm+'</span><span class="smp-head-right">'+dec+'</span></button>';
     var body=open?('<div class="smp-body" data-edit="'+esc(s.id)+'">'
-      +'<div class="bean-sub">'+esc(fmtDate(s.cupping_date))+(sub?' · '+sub:'')+'</div>'
+      +radar
       +feats
       +(s.comment?'<div class="smp-cmt">'+esc(s.comment)+'</div>':'')
-      +(s.cupper?'<div class="smp-by">Analysed by '+esc(s.cupper)+'</div>':'')
-      +radar
+      +meta
       +'</div>'):'';
     return '<div class="smp-item">'+head+body+'</div>';
   }
