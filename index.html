@@ -1101,7 +1101,7 @@ fill="#6F4A36" stroke="none">
     roast:{contentTitle:'Roasting Reminder',
            left:{label:'Production',zh:'',icon:'factory',act:'roast:prod'},
            right:{label:'History',zh:'',icon:'history',act:'roast:hist'}},
-    green:{contentTitle:'Green Bean Reminder',
+    green:{contentTitle:'Cupping Reminder',
            left:{label:'Trade',zh:'',icon:'trade',to:'green.trade'},
            right:{label:'Sample',zh:'',icon:'sample',to:'green.sample'}},
     'green.trade':{left:{label:'Buy',zh:'',icon:'buy',act:'green:buy'},
@@ -4426,11 +4426,17 @@ fill="#6F4A36" stroke="none">
     return order.map(function(d){
       var items=groups[d];
       var pending=items.filter(function(r){return r.status!=='cupped';}).length;
+      var singleN=items.filter(function(r){return r.kind!=='blend';}).length;
+      var blendN=items.filter(function(r){return r.kind==='blend';}).length;
       var open=!!roastedOpen[d];
+      var metaParts=[];
+      if(singleN)metaParts.push(singleN+' Single');
+      if(blendN)metaParts.push(blendN+' Blend');
+      if(pending)metaParts.push('<b>'+pending+' Pending</b>');
       var head='<button class="rdate'+(open?' open':'')+'" data-d="'+esc(d)+'">'
         +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
         +'<span class="rd-date">'+esc(fmtDate(d))+'</span>'
-        +'<span class="rd-meta">'+items.length+' roasts'+(pending?' · <b>'+pending+' Pending</b>':'')+'</span></button>';
+        +'<span class="rd-meta">'+metaParts.join(' · ')+'</span></button>';
       var body=open?'<div class="rd-body">'+items.map(function(r){return roastCard(r,true);}).join('')+'</div>':'';
       return '<div class="rgroup">'+head+body+'</div>';
     }).join('');
