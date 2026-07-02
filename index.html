@@ -3514,14 +3514,24 @@ fill="#6F4A36" stroke="none">
   function drawDineInBand(doc,ox,w,h,cfg,logo){
     var INK=[50,43,42], SUB=[120,110,102], MUTE=[150,140,132], LABEL=[70,62,58];
     var HOT=[214,0,108], COLD=[42,143,216];
-    var padX=28, x0=ox+padX, xEnd=ox+w-padX, innerW=w-padX*2, top=22;
+    var padX=42, cardPad=padX-14, x0=ox+padX, xEnd=ox+w-padX, innerW=w-padX*2, top=22;
     var P=cfg.prices||{};
     function pv(k,d){var s=String(P[k]==null?'':P[k]).trim();return s||d||'\u2014';}
     function lab(t,cy){doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.text(t,x0,cy,{charSpace:1.3});}
+    var GRAY=[176,170,163];
+    function dotRGB(name){
+      name=(name||'').trim();
+      if(name){try{
+        var dm=loadDots(),k=dm[name];
+        if(!k){var lk=name.toLowerCase();Object.keys(dm).forEach(function(kk){if(!k&&String(kk).trim().toLowerCase()===lk)k=dm[kk];});}
+        if(k&&RTL_DOTCOL[k]){var rgb=mnHexRgb(RTL_DOTCOL[k]);if(rgb)return rgb;}
+      }catch(e){}}
+      return GRAY;
+    }
 
     /* ---------- highlighted header \u00b7 folder-tab shape ---------- */
     var BERRY=[178,94,106];
-    var bannerTop=top-8, tabW=(w-28)*0.62, tabH=44, bx=ox+14, r=10;
+    var bannerTop=top-8, tabW=(w-2*cardPad)*0.62, tabH=44, bx=ox+cardPad, r=10;
     doc.setFillColor(BERRY[0],BERRY[1],BERRY[2]);
     if(doc.roundedRect)doc.roundedRect(bx,bannerTop,tabW,tabH,r,r,'F');else doc.rect(bx,bannerTop,tabW,tabH,'F');
     doc.rect(bx,bannerTop+tabH-r,tabW,r,'F');
@@ -3529,6 +3539,8 @@ fill="#6F4A36" stroke="none">
     doc.text('Dine In Menu',bx+14,bannerTop+tabH/2+5.5);
     doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(INK[0],INK[1],INK[2]);
     doc.text('Ratio Crows Nest',xEnd,bannerTop+tabH/2+5.5,{align:'right'});
+    doc.setDrawColor(BERRY[0],BERRY[1],BERRY[2]);doc.setLineWidth(1.4);
+    doc.line(bx+tabW+10,bannerTop+tabH-2,xEnd,bannerTop+tabH-2);
     var cy=bannerTop+tabH+22;
 
     /* ---------- espresso base (blends + drink prices, one continuous choice) ---------- */
@@ -3538,8 +3550,13 @@ fill="#6F4A36" stroke="none">
       var colCx=blends.length>1?[x0+innerW*0.27,x0+innerW*0.73]:[x0+innerW*0.5];
       blends.forEach(function(bl,ci){
         var cx=colCx[ci];
+        var nm=mnAsc(bl.name).toUpperCase();
         doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-        mnFit(doc,mnAsc(bl.name).toUpperCase(),cx,cy,innerW*0.42,12.5,9,'center');
+        mnFit(doc,nm,cx,cy,innerW*0.42,12.5,9,'center');
+        var tw=doc.getTextWidth(nm);
+        var dc=dotRGB(bl.bl||bl.name);
+        doc.setFillColor(dc[0],dc[1],dc[2]);
+        doc.circle(cx-tw/2-8,cy-3.6,3,'F');
         if(bl.sub){doc.setFont('helvetica','italic');doc.setFontSize(8.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
           doc.text(mnAsc(bl.sub),cx,cy+13,{align:'center'});}
         if(bl.notes){doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(INK[0],INK[1],INK[2]);
@@ -3617,9 +3634,13 @@ fill="#6F4A36" stroke="none">
     doc.text('hot or iced',xEnd,cy,{align:'right'});
     cy+=17;
     var pours=(cfg.pours||[]).filter(function(p){return p&&p.name;}).slice(0,4);
+    var dotIndent=13, nx=x0+dotIndent;
     pours.forEach(function(p,pi){
+      var dc=dotRGB(p.bean||p.name);
+      doc.setFillColor(dc[0],dc[1],dc[2]);
+      doc.circle(x0+4,cy-3.6,3,'F');
       doc.setFont('helvetica','bold');doc.setFontSize(11.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-      mnFit(doc,mnAsc(p.name),x0,cy,innerW-80,11.5,8.5);
+      mnFit(doc,mnAsc(p.name),nx,cy,innerW-80-dotIndent,11.5,8.5);
       var hot=String(p.hot==null?'':p.hot).trim(), cold=String(p.cold==null?'':p.cold).trim();
       doc.setFont('helvetica','bold');doc.setFontSize(10.5);
       doc.setTextColor(COLD[0],COLD[1],COLD[2]);doc.text(cold||'-',xEnd,cy,{align:'right'});
@@ -3629,9 +3650,9 @@ fill="#6F4A36" stroke="none">
       doc.setTextColor(HOT[0],HOT[1],HOT[2]);doc.text(hot||'-',xEnd-cwid-swid,cy,{align:'right'});
       cy+=13;
       if(p.origin){doc.setFont('helvetica','normal');doc.setFontSize(7.6);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-        mnFit(doc,p.origin,x0,cy,innerW,7.6,6.5);cy+=11;}
+        mnFit(doc,p.origin,nx,cy,innerW-dotIndent,7.6,6.5);cy+=11;}
       if(p.flavour){doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(INK[0],INK[1],INK[2]);
-        mnFit(doc,p.flavour,x0,cy,innerW,10,7.5);cy+=15;}
+        mnFit(doc,p.flavour,nx,cy,innerW-dotIndent,10,7.5);cy+=15;}
       if(pi<pours.length-1)cy+=2;
     });
     cy+=2;
@@ -3639,7 +3660,7 @@ fill="#6F4A36" stroke="none">
     /* ---------- one clean card wrapping everything ---------- */
     doc.setDrawColor(200,188,180);doc.setLineWidth(1.3);
     var cardBottom=Math.min(cy,h-10);
-    if(doc.roundedRect)doc.roundedRect(ox+14,top-8,w-28,cardBottom-(top-8),10,10,'S');else doc.rect(ox+14,top-8,w-28,cardBottom-(top-8),'S');
+    if(doc.roundedRect)doc.roundedRect(ox+cardPad,top-8,w-2*cardPad,cardBottom-(top-8),10,10,'S');else doc.rect(ox+cardPad,top-8,w-2*cardPad,cardBottom-(top-8),'S');
   }
 
   function buildMenuPDF(info4,logo){
