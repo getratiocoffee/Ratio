@@ -538,6 +538,7 @@
   .smp-foot{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
   .smp-foot .decopt{flex:1}
   .smp-foot .smp-del{flex:0 0 auto}
+  .smp-foot .smp-del.solo{margin-left:auto}
   .smp-del{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:#B2544E;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
   .smp-del:active{background:#F6DEDC}
   .smp-del svg{width:17px;height:17px}
@@ -4997,7 +4998,7 @@ fill="#6F4A36" stroke="none">
           +'<button class="decopt maybe'+(s.decision==='maybe'?' on':'')+'" data-dec="maybe" data-id="'+esc(s.id)+'">Maybe</button>'
           +'<button class="decopt buy'+(s.decision==='buy'?' on':'')+'" data-dec="buy" data-id="'+esc(s.id)+'">Buy</button>'
         ))
-        +'<button class="smp-del" data-del="'+esc(s.id)+'" aria-label="delete">'+binSVG+'</button></div>';
+        +'<button class="smp-del'+(isProdRoast?' solo':'')+'" data-del="'+esc(s.id)+'" aria-label="delete">'+binSVG+'</button></div>';
     }
     var body=open?('<div class="smp-body">'
       +'<div class="smp-tap" data-edit="'+esc(s.id)+'">'
