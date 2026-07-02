@@ -3519,18 +3519,19 @@ fill="#6F4A36" stroke="none">
     function pv(k,d){var s=String(P[k]==null?'':P[k]).trim();return s||d||'\u2014';}
     function lab(t,cy){doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.text(t,x0,cy,{charSpace:1.3});}
 
-    /* ---------- header ---------- */
-    var hy=top+30;
-    if(logo){try{doc.addImage(logo,'PNG',x0,hy-22,20,20);}catch(e){}}
-    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-    doc.text('Ratio',x0+27,hy-12);doc.text('Coffee',x0+27,hy-4);
-    doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(INK[0],INK[1],INK[2]);
-    doc.text('Dine In Menu',x0+66,hy-6);
-    doc.setDrawColor(INK[0],INK[1],INK[2]);doc.setLineWidth(1.1);
-    doc.line(x0,hy+8,xEnd,hy+8);
-    doc.setFont('helvetica','italic');doc.setFontSize(8.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-    doc.text('Choose Espresso Base or Filter Coffee',x0,hy+21);
-    var cy=hy+38;
+    /* ---------- highlighted header banner ---------- */
+    var BROWN=[73,66,58], CREAM=[238,229,222];
+    var bannerTop=top-8, bannerH=56, bx=ox+14, bw=w-28, r=10;
+    doc.setFillColor(BROWN[0],BROWN[1],BROWN[2]);
+    if(doc.roundedRect)doc.roundedRect(bx,bannerTop,bw,bannerH,r,r,'F');else doc.rect(bx,bannerTop,bw,bannerH,'F');
+    doc.rect(bx,bannerTop+bannerH-r,bw,r,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(CREAM[0],CREAM[1],CREAM[2]);
+    doc.text('RATIO COFFEE',x0,bannerTop+17,{charSpace:1.3});
+    doc.setFont('helvetica','bold');doc.setFontSize(18);doc.setTextColor(255,255,255);
+    doc.text('Dine In Menu',x0,bannerTop+37);
+    doc.setFont('helvetica','italic');doc.setFontSize(8.5);doc.setTextColor(CREAM[0],CREAM[1],CREAM[2]);
+    doc.text('Choose Espresso Base or Filter Coffee',x0,bannerTop+49);
+    var cy=bannerTop+bannerH+22;
 
     /* ---------- espresso base (blends + drink prices, one continuous choice) ---------- */
     lab('ESPRESSO BASE',cy);cy+=16;
