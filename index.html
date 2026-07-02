@@ -2772,6 +2772,7 @@ fill="#6F4A36" stroke="none">
     var g=loadGrams()[name];
     var cmt=(def&&(def.comment||'').trim())||(s&&s.comment)||'';
     var SMAP={fragrance:'Aroma',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
+    var strengthNum={fragrance:(s&&s.fragrance)||null,acidity:(s&&s.acidity)||null,sweetness:(s&&s.sweetness)||null,body:(s&&s.body)||null,aftertaste:(s&&s.aftertaste)||null};
     var strength=[['fragrance',s&&s.fragrance],['acidity',s&&s.acidity],['sweetness',s&&s.sweetness],['body',s&&s.body],['aftertaste',s&&s.aftertaste]]
       .filter(function(x){return x[1]!=null;})
       .map(function(x){return {label:SMAP[x[0]],val:strLabel(x[1])};})
@@ -2786,7 +2787,7 @@ fill="#6F4A36" stroke="none">
       origin.altitude=(selfB.altitude!=null&&selfB.altitude!=='')?String(selfB.altitude):'';
       origin.region=[selfB.region,selfB.country].filter(Boolean).join(', ');
     }
-    return {name:name, flavour:feats.slice(0,3), recipe:recipe, strength:strength, ready:ready, net:(g?String(g):''), comment:cmt, color:color, origin:origin};
+    return {name:name, flavour:feats.slice(0,3), recipe:recipe, strength:strength, strengthNum:strengthNum, ready:ready, net:(g?String(g):''), comment:cmt, color:color, origin:origin};
   }
   var menuView='hub';
   function openMenu(){
@@ -3076,15 +3077,10 @@ fill="#6F4A36" stroke="none">
       });
       cy+=15;
     }
-    if(bean.strength&&bean.strength.length){
+    if(bean.strengthNum&&['fragrance','acidity','sweetness','body','aftertaste'].some(function(f){return bean.strengthNum[f]!=null;})){
       lab('CUPPING');
-      bean.strength.forEach(function(s){
-        doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);
-        doc.text(mnAsc(s.label),lx,cy);
-        doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-        doc.text(mnAsc(s.val),lx+lw,cy,{align:'right'});
-        cy+=12.5;
-      });
+      var rMax=Math.min(30,lw/2-14);
+      cy=drawCupRadarPDF(doc,lx+lw/2,cy+rMax+4,rMax,bean.strengthNum,BERRY,[140,128,121],LINE);
     }
     /* FLAVOUR — one line, no wrap, font grown to fill the column width */
     if(bean.flavour&&bean.flavour.length){
@@ -3637,6 +3633,41 @@ fill="#6F4A36" stroke="none">
     while(s>min&&doc.getTextWidth(text)>maxW){s-=0.5;doc.setFontSize(s);}
     doc.text(text,x,yy,align?{align:align}:undefined);
     return s;
+  }
+  /* Vector cupping radar for jsPDF menus \u00b7 centre-to-outward = Light / Medium / Strong.
+     cx,cy = centre point, maxR = outer radius, scores = {fragrance,acidity,sweetness,body,aftertaste} raw 1-3.
+     Returns the y-coordinate just below the drawn block (for layout flow). */
+  function drawCupRadarPDF(doc,cx,cy,maxR,scores,accent,muted,lineCol){
+    var fields=['fragrance','acidity','sweetness','body','aftertaste'];
+    var labels=['Aroma','Acidity','Sweet','Body','After'];
+    function pt(i,r){var ang=(-90+i*72)*Math.PI/180;return {x:cx+r*Math.cos(ang),y:cy+r*Math.sin(ang)};}
+    function poly(pts,style){
+      var deltas=[];for(var i=1;i<pts.length;i++)deltas.push([pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y]);
+      doc.lines(deltas,pts[0].x,pts[0].y,[1,1],style,true);
+    }
+    /* grid rings + spokes */
+    doc.setDrawColor(lineCol[0],lineCol[1],lineCol[2]);doc.setLineWidth(0.6);
+    [1,2,3].forEach(function(v){poly(fields.map(function(f,i){return pt(i,maxR*v/3);}),'S');});
+    fields.forEach(function(f,i){var p=pt(i,maxR);doc.line(cx,cy,p.x,p.y);});
+    /* ring level labels along the top spoke */
+    doc.setFont('helvetica','normal');doc.setFontSize(5.4);doc.setTextColor(muted[0],muted[1],muted[2]);
+    [[1,'Light'],[2,'Medium'],[3,'Strong']].forEach(function(rr){doc.text(rr[1],cx-4,cy-(maxR*rr[0]/3)+1.6,{align:'right'});});
+    /* filled data polygon */
+    var dataPts=fields.map(function(f,i){var v=scores[f]||0;return pt(i,maxR*v/3);});
+    if(doc.GState){doc.saveGraphicsState();doc.setGState(new doc.GState({opacity:0.32}));}
+    doc.setFillColor(accent[0],accent[1],accent[2]);poly(dataPts,'F');
+    if(doc.GState)doc.restoreGraphicsState();
+    doc.setDrawColor(accent[0],accent[1],accent[2]);doc.setLineWidth(1.1);poly(dataPts,'S');
+    doc.setFillColor(accent[0],accent[1],accent[2]);
+    fields.forEach(function(f,i){if(scores[f]==null)return;var p=pt(i,maxR*scores[f]/3);doc.circle(p.x,p.y,1.6,'F');});
+    /* axis labels */
+    doc.setFont('helvetica','normal');doc.setFontSize(6.4);doc.setTextColor(muted[0],muted[1],muted[2]);
+    fields.forEach(function(f,i){
+      var p=pt(i,maxR+8);
+      var align=(Math.abs(p.x-cx)<1)?'center':(p.x>cx?'left':'right');
+      doc.text(labels[i],p.x,p.y+2.2,{align:align});
+    });
+    return cy+maxR+16;
   }
   function drawCell(doc,x,y,w,h,info,INK,BROWN,BERRY,MUTE){
     /* card outline */
