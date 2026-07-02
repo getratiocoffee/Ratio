@@ -3514,7 +3514,7 @@ fill="#6F4A36" stroke="none">
   function drawDineInBand(doc,ox,w,h,cfg,logo){
     var INK=[50,43,42], SUB=[120,110,102], MUTE=[150,140,132], LABEL=[70,62,58];
     var HOT=[214,0,108], COLD=[42,143,216];
-    var padX=42, cardPad=padX-14, x0=ox+padX, xEnd=ox+w-padX, innerW=w-padX*2, top=22;
+    var padX=52, cardPad=padX-14, x0=ox+padX, xEnd=ox+w-padX, innerW=w-padX*2, top=22;
     var P=cfg.prices||{};
     function pv(k,d){var s=String(P[k]==null?'':P[k]).trim();return s||d||'\u2014';}
     function lab(t,cy){doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.text(t,x0,cy,{charSpace:1.3});}
@@ -3656,7 +3656,7 @@ fill="#6F4A36" stroke="none">
     if(doc.roundedRect)doc.roundedRect(ox+cardPad,top-8,w-2*cardPad,cardBottom-(top-8),10,10,'S');else doc.rect(ox+cardPad,top-8,w-2*cardPad,cardBottom-(top-8),'S');
 
     /* ---------- folder-index side tab strip \u00b7 title + rotated section labels ---------- */
-    var tabStripW=15, tabStripX=(ox+cardPad)-tabStripW;
+    var tabStripW=19, tabStripX=(ox+cardPad)-tabStripW;
     var segs=[['DINE IN',top-8,espressoY0,9.5],['ESPRESSO BASED',espressoY0,signatureY0,7.5],
       ['SIGNATURE',signatureY0,automatedY0,7.5],['AUTOMATED',automatedY0,filterY0,7.5],
       ['FILTER',filterY0,cardBottom,7.5]];
