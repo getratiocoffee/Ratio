@@ -4860,10 +4860,10 @@ fill="#6F4A36" stroke="none">
     var head='<button class="smp-head'+(open?' open':'')+'" data-toggle="'+esc(s.id)+'">'+chev+'<span class="bean-nm">'+nm+'</span><span class="smp-head-right">'+dec+'</span></button>';
     var body=open?('<div class="smp-body" data-edit="'+esc(s.id)+'">'
       +'<div class="bean-sub">'+esc(fmtDate(s.cupping_date))+(sub?' · '+sub:'')+'</div>'
-      +radar
       +feats
       +(s.comment?'<div class="smp-cmt">'+esc(s.comment)+'</div>':'')
       +(s.cupper?'<div class="smp-by">Analysed by '+esc(s.cupper)+'</div>':'')
+      +radar
       +'</div>'):'';
     return '<div class="smp-item">'+head+body+'</div>';
   }
