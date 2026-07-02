@@ -4824,7 +4824,7 @@ fill="#6F4A36" stroke="none">
       +'<label class="smp-f"><span>Cupping date</span><input id="smp-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" /></label>'
       +'<div class="smp-f2"><label class="smp-f"><span>Cupping ID</span><input id="smp-id" type="text" value="'+esc(p.sample_id||'')+'" /></label>'
       +'<label class="smp-f"><span>Supplier</span><input id="smp-supplier" type="text" value="'+esc(p.supplier||'')+'" /></label></div>'
-      +'<label class="smp-f"><span>Process</span><input id="smp-process" type="text" value="'+esc(p.process||'')+'" /></label>'
+      +(blendCupping?'':'<label class="smp-f"><span>Process</span><input id="smp-process" type="text" value="'+esc(p.process||'')+'" /></label>')
       +'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Flavour characters · up to 3</div>'+charFields('smp',p)+'</div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Cupping Strength</div><div class="smp-scores">'+scores+'</div>'
