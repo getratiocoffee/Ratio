@@ -3509,12 +3509,11 @@ fill="#6F4A36" stroke="none">
     if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
     doc.save('Ratio_DineIn_Menu.pdf');
   }
-  /* Same structural layout as the Take Away Menu (header / two blends / price list /
-     dashed Dirty Ratio box / Pour Over 2x2 grid) \u2014 restyled with the Special Menu
-     banner's bolditalic BROWN headings + RED/BLUE hot-cold accents.                    */
+  /* Same structural layout AND styling as the Take Away Menu \u2014 plain bold black
+     headings, HOT pink / COLD blue accents \u2014 driven by the editable Dine In data.       */
   function drawDineInBand(doc,ox,w,h,cfg,logo){
-    var INK=[50,43,42],BROWN=[73,66,58],SUB=[120,110,102],MUTE=[150,140,132],LINE=[224,217,212];
-    var RED=[192,57,43],BLUE=[42,101,158];
+    var INK=[50,43,42], SUB=[120,110,102], MUTE=[150,140,132], LINE=[224,217,212];
+    var HOT=[214,0,108], COLD=[42,143,216];
     var padX=24,x0=ox+padX,xEnd=ox+w-padX,innerW=w-padX*2;
     var P=cfg.prices||{};
     function pv(k,d){var s=String(P[k]==null?'':P[k]).trim();return s||d||'\u2014';}
@@ -3524,11 +3523,9 @@ fill="#6F4A36" stroke="none">
     if(logo){try{doc.addImage(logo,'PNG',x0,hy-26,26,26);}catch(e){}}
     doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
     doc.text('Ratio',x0+32,hy-13);doc.text('Coffee',x0+32,hy-4);
-    doc.setFont('helvetica','bolditalic');doc.setFontSize(15);doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);
-    doc.text('Dine In Menu',x0+76,hy-6);
-    doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);
-    doc.text('Ratio Crows Nest',xEnd,hy-6,{align:'right'});
-    doc.setDrawColor(BROWN[0],BROWN[1],BROWN[2]);doc.setLineWidth(1);
+    doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Blend Selection',x0+76,hy-6);
+    doc.setDrawColor(INK[0],INK[1],INK[2]);doc.setLineWidth(1);
     doc.line(x0+76,hy+3,xEnd,hy+3);
 
     /* ---------- two blends ---------- */
@@ -3575,22 +3572,22 @@ fill="#6F4A36" stroke="none">
     doc.text('alternative milk, extra shot',x0,py);doc.text(pv('altmilk','50 cents'),xEnd,py,{align:'right'});py+=11;
     doc.text('decaf',x0,py);doc.text(pv('decaf','1 dollar'),xEnd,py,{align:'right'});
 
-    /* ---------- Dirty Ratio dashed box \u00b7 BLUE accent (Special Menu banner language) ---------- */
+    /* ---------- Dirty Ratio dashed box ---------- */
     var dy=py+16, dh=26;
     doc.setDrawColor(150,140,132);doc.setLineWidth(0.8);
     if(doc.setLineDashPattern)doc.setLineDashPattern([3,3],0);
     if(doc.roundedRect)doc.roundedRect(x0,dy,innerW,dh,13,13,'S');else doc.rect(x0,dy,innerW,dh,'S');
     if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
-    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(BLUE[0],BLUE[1],BLUE[2]);
+    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(INK[0],INK[1],INK[2]);
     doc.text('Dirty Ratio',x0+14,dy+dh/2+4);
-    doc.setFontSize(13);doc.text(pv('dirty'),xEnd-14,dy+dh/2+4,{align:'right'});
+    doc.text(pv('dirty'),xEnd-14,dy+dh/2+4,{align:'right'});
 
     /* ---------- Pour Over Selection ---------- */
     var poHeadY=dy+dh+34, cx=ox+w/2;
-    doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(INK[0],INK[1],INK[2]);
     doc.text('Pour Over Selection',cx,poHeadY,{align:'center'});
     var thw=doc.getTextWidth('Pour Over Selection');
-    doc.setDrawColor(BROWN[0],BROWN[1],BROWN[2]);doc.setLineWidth(0.8);
+    doc.setDrawColor(INK[0],INK[1],INK[2]);doc.setLineWidth(0.8);
     doc.line(cx-thw/2-8,poHeadY+6,cx+thw/2+8,poHeadY+6);
 
     /* 2x2 grid */
@@ -3604,7 +3601,7 @@ fill="#6F4A36" stroke="none">
     doc.line(x0,gTop+ch+rowGap/2,x0+innerW,gTop+ch+rowGap/2);
     if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
     var pours=cfg.pours||[];
-    for(var i=0;i<4;i++){drawPourCell(doc,cellX[i],cellY[i],cw,pours[i]||{},INK,SUB,RED,BLUE);}
+    for(var i=0;i<4;i++){drawPourCell(doc,cellX[i],cellY[i],cw,pours[i]||{},INK,SUB,HOT,COLD);}
   }
 
   function buildMenuPDF(info4,logo){
