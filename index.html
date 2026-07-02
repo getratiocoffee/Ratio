@@ -4070,12 +4070,27 @@ fill="#6F4A36" stroke="none">
       else{upd[f]=v===''?null:v;}
     });
     if(!upd.name){msg.textContent='Name cannot be empty';msg.className='gform-msg err';return;}
+    var _bi=BEANS.findIndex(function(x){return String(x.id)===String(greenBeanId);});
+    var oldName=(_bi>-1?(BEANS[_bi].name||''):'').trim();
+    var newName=(upd.name||'').trim();
+    var renamed=oldName&&newName&&oldName!==newName;
     btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
     const {error}=await sb.from('beans').update(upd).eq('id',greenBeanId);
+    if(error){btn.disabled=false;msg.textContent='Save failed: '+error.message;msg.className='gform-msg err';return;}
+    /* rename cascade: keep cupping (samples) + roasts in sync with Green info */
+    if(renamed){
+      msg.textContent='Saving\u2026 relinking cupping records';
+      var e1=(await sb.from('samples').update({sample_id:newName}).eq('sample_id',oldName)).error;
+      var e2=(await sb.from('roasts').update({bean_name:newName}).eq('bean_name',oldName)).error;
+      if(e1||e2){btn.disabled=false;msg.textContent='Renamed the bean, but relinking failed: '+((e1||e2).message)+' \u2014 please retry';msg.className='gform-msg err';return;}
+      /* sync in-memory arrays so the UI shows the new name immediately */
+      (SAMPLES||[]).forEach(function(s){if((s.sample_id||'')===oldName)s.sample_id=newName;});
+      (RETAIL_BEANS||[]).forEach(function(s){if((s.sample_id||'')===oldName)s.sample_id=newName;});
+      (RTL_ROWS||[]).forEach(function(s){if((s.sample_id||'')===oldName)s.sample_id=newName;});
+      (ROASTS||[]).forEach(function(r){if((r.bean_name||'')===oldName)r.bean_name=newName;});
+    }
     btn.disabled=false;
-    if(error){msg.textContent='Save failed: '+error.message;msg.className='gform-msg err';return;}
-    const i=BEANS.findIndex(function(x){return String(x.id)===String(greenBeanId);});
-    if(i>-1)BEANS[i]=Object.assign({},BEANS[i],upd);
+    if(_bi>-1)BEANS[_bi]=Object.assign({},BEANS[_bi],upd);
     greenEdit=false;renderGreen();
   }
   async function deleteBean(){
