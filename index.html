@@ -3519,10 +3519,10 @@ fill="#6F4A36" stroke="none">
     function pv(k,d){var s=String(P[k]==null?'':P[k]).trim();return s||d||'\u2014';}
     function lab(t,cy){doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.text(t,x0,cy,{charSpace:1.3});}
 
-    /* ---------- highlighted header banner ---------- */
-    var BROWN=[73,66,58], CREAM=[238,229,222];
+    /* ---------- highlighted header banner \u00b7 berry accent ---------- */
+    var BERRY=[178,94,106], CREAM=[249,227,230];
     var bannerTop=top-8, bannerH=56, bx=ox+14, bw=w-28, r=10;
-    doc.setFillColor(BROWN[0],BROWN[1],BROWN[2]);
+    doc.setFillColor(BERRY[0],BERRY[1],BERRY[2]);
     if(doc.roundedRect)doc.roundedRect(bx,bannerTop,bw,bannerH,r,r,'F');else doc.rect(bx,bannerTop,bw,bannerH,'F');
     doc.rect(bx,bannerTop+bannerH-r,bw,r,'F');
     doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(CREAM[0],CREAM[1],CREAM[2]);
