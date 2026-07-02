@@ -4977,10 +4977,13 @@ fill="#6F4A36" stroke="none">
         +'<div class="smp-delact"><button class="gbtn ghost" data-delcancel="1">Cancel</button>'
         +'<button class="gbtn danger" data-delok="'+esc(s.id)+'">Delete</button></div></div>';
     }else{
+      var isProdRoast=(s.supplier==='Ratio Coffee');
       footer='<div class="smp-foot">'
-        +'<button class="decopt skip'+(s.decision==='skip'?' on':'')+'" data-dec="skip" data-id="'+esc(s.id)+'">Skip</button>'
-        +'<button class="decopt maybe'+(s.decision==='maybe'?' on':'')+'" data-dec="maybe" data-id="'+esc(s.id)+'">Maybe</button>'
-        +'<button class="decopt buy'+(s.decision==='buy'?' on':'')+'" data-dec="buy" data-id="'+esc(s.id)+'">Buy</button>'
+        +(isProdRoast?'':(
+          '<button class="decopt skip'+(s.decision==='skip'?' on':'')+'" data-dec="skip" data-id="'+esc(s.id)+'">Skip</button>'
+          +'<button class="decopt maybe'+(s.decision==='maybe'?' on':'')+'" data-dec="maybe" data-id="'+esc(s.id)+'">Maybe</button>'
+          +'<button class="decopt buy'+(s.decision==='buy'?' on':'')+'" data-dec="buy" data-id="'+esc(s.id)+'">Buy</button>'
+        ))
         +'<button class="smp-del" data-del="'+esc(s.id)+'" aria-label="delete">'+binSVG+'</button></div>';
     }
     var body=open?('<div class="smp-body">'
