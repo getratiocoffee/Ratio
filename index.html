@@ -3583,7 +3583,9 @@ fill="#6F4A36" stroke="none">
     doc.text(pv('dirty'),xEnd-14,dy+dh/2+4,{align:'right'});
 
     /* ---------- Pour Over Selection ---------- */
-    var poHeadY=dy+dh+34, cx=ox+w/2;
+    var c1Bottom=dy+dh+16, cardGap=14;
+    var c2Y=c1Bottom+cardGap;
+    var poHeadY=c2Y+24, cx=ox+w/2;
     doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(INK[0],INK[1],INK[2]);
     doc.text('Pour Over Selection',cx,poHeadY,{align:'center'});
     var thw=doc.getTextWidth('Pour Over Selection');
@@ -3606,9 +3608,9 @@ fill="#6F4A36" stroke="none">
     /* ---------- card borders (drawn last so text sits inside them) ---------- */
     var cardX=ox+14, cardW=w-28;
     doc.setDrawColor(200,188,180);doc.setLineWidth(1.3);
-    var c1Y=12, c1H=(dy+dh+14)-c1Y;
+    var c1Y=12, c1H=c1Bottom-c1Y;
     if(doc.roundedRect)doc.roundedRect(cardX,c1Y,cardW,c1H,10,10,'S');else doc.rect(cardX,c1Y,cardW,c1H,'S');
-    var c2Y=poHeadY-24, c2H=(gBot+10)-c2Y;
+    var c2H=(gBot+12)-c2Y;
     if(doc.roundedRect)doc.roundedRect(cardX,c2Y,cardW,c2H,10,10,'S');else doc.rect(cardX,c2Y,cardW,c2H,'S');
   }
 
