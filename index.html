@@ -515,6 +515,8 @@
   .smp-scoreline{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
   .sc-chip{font-size:11px;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:2px 8px}
   .sc-chip b{color:var(--ink);margin-left:4px;font-family:var(--font-mono)}
+  .smp-radar-wrap{display:flex;justify-content:center;margin-top:6px}
+  .cup-radar{display:block}
   .smp-cmt{font-size:13px;color:var(--ink);margin-top:8px;line-height:1.5}
   .smp-by{font-size:11px;color:var(--muted);margin-top:6px;font-weight:500}
   .smp-badge{font-size:11px;font-weight:600;border-radius:8px;padding:3px 11px;color:#fff}
@@ -4782,8 +4784,30 @@ fill="#6F4A36" stroke="none">
     SAMPLES=SAMPLES.filter(function(x){return String(x.id)!==String(smpEdit);});
     smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpAfterEdit();
   }
+  var RADAR_FIELDS=['fragrance','acidity','sweetness','body','aftertaste'];
+  var RADAR_LABELS=['Frag','Acid','Sweet','Body','After'];
+  function radarSVG(s){
+    if(!RADAR_FIELDS.some(function(f){return s[f]!=null;}))return '';
+    var cx=50,cy=48,maxR=32;
+    function pt(i,r){var ang=(-90+i*72)*Math.PI/180;return {x:cx+r*Math.cos(ang),y:cy+r*Math.sin(ang)};}
+    var rings=[1,2,3].map(function(v){
+      var r=maxR*v/3;
+      var pts=RADAR_FIELDS.map(function(f,i){var p=pt(i,r);return p.x.toFixed(1)+','+p.y.toFixed(1);}).join(' ');
+      return '<polygon points="'+pts+'" fill="none" stroke="var(--line-strong)" stroke-width="1"/>';
+    }).join('');
+    var ringLabs=[[1,'Light'],[2,'Medium'],[3,'Strong']].map(function(rr){
+      var r=maxR*rr[0]/3,y=cy-r;
+      return '<text x="'+(cx-4)+'" y="'+(y+2.6)+'" font-size="5.6" fill="var(--muted)" text-anchor="end" font-family="var(--font-ui)">'+rr[1]+'</text>';
+    }).join('');
+    var spokes=RADAR_FIELDS.map(function(f,i){var p=pt(i,maxR);return '<line x1="'+cx+'" y1="'+cy+'" x2="'+p.x.toFixed(1)+'" y2="'+p.y.toFixed(1)+'" stroke="var(--line-strong)" stroke-width="1"/>';}).join('');
+    var dataPts=RADAR_FIELDS.map(function(f,i){var v=s[f]||0;var p=pt(i,maxR*v/3);return p.x.toFixed(1)+','+p.y.toFixed(1);});
+    var poly='<polygon points="'+dataPts.join(' ')+'" fill="var(--accent)" fill-opacity=".32" stroke="var(--accent)" stroke-width="1.6" stroke-linejoin="round"/>';
+    var dots=RADAR_FIELDS.map(function(f,i){var v=s[f];if(v==null)return '';var p=pt(i,maxR*v/3);return '<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="2.2" fill="var(--accent)"/>';}).join('');
+    var labs=RADAR_FIELDS.map(function(f,i){var p=pt(i,maxR+9);var anchor=(Math.abs(p.x-cx)<1)?'middle':(p.x>cx?'start':'end');return '<text x="'+p.x.toFixed(1)+'" y="'+(p.y+2.6).toFixed(1)+'" font-size="7" fill="var(--muted)" text-anchor="'+anchor+'" font-family="var(--font-ui)">'+RADAR_LABELS[i]+'</text>';}).join('');
+    return '<svg class="cup-radar" viewBox="0 0 100 100" width="118" height="118">'+rings+ringLabs+spokes+poly+dots+labs+'</svg>';
+  }
   function sampleCard(s){
-    var chips=[['F/A',s.fragrance],['Acid',s.acidity],['Sweet',s.sweetness],['Body',s.body],['After',s.aftertaste]].filter(function(x){return x[1]!=null;}).map(function(x){return '<span class="sc-chip">'+x[0]+'<b>'+strLabel(x[1])+'</b></span>';}).join('');
+    var radar=radarSVG(s);
     var sub=[s.supplier?'Supplier '+esc(s.supplier):'',s.process?esc(s.process):''].filter(Boolean).join(' · ');
     var dec=s.decision==='buy'?'<span class="smp-badge buy">Buy</span>':(s.decision==='maybe'?'<span class="smp-badge maybe">Maybe</span>':(s.decision==='skip'?'<span class="smp-badge skip">Skip</span>':'<span class="rd-meta">'+esc(fmtDate(s.cupping_date))+'</span>'));
     var nm=(s.no!=null?'<span class="smp-no">No.'+s.no+'</span> ':'')+esc(s.sample_id||s.supplier||'Sample');
@@ -4791,7 +4815,7 @@ fill="#6F4A36" stroke="none">
     var feats=(s.features&&s.features.length)?('<div class="smp-feats">'+s.features.map(function(k){return '<span class="feat-chip">'+esc(FEAT[k]||k)+'</span>';}).join('')+'</div>'):'';
     return '<div class="smp-item" data-id="'+esc(s.id)+'"><div class="bean-top"><span class="bean-nm">'+nm+'</span>'+dec+'</div>'
       +'<div class="bean-sub">'+esc(fmtDate(s.cupping_date))+(sub?' · '+sub:'')+'</div>'
-      +(chips?'<div class="smp-scoreline">'+chips+'</div>':'')
+      +(radar?'<div class="smp-radar-wrap">'+radar+'</div>':'')
       +feats
       +(s.comment?'<div class="smp-cmt">'+esc(s.comment)+'</div>':'')+(s.cupper?'<div class="smp-by">Analysed by '+esc(s.cupper)+'</div>':'')+'</div>';
   }
