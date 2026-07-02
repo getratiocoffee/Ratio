@@ -3058,7 +3058,7 @@ fill="#6F4A36" stroke="none">
       var pr=[rows[pi*2]||null, rows[pi*2+1]||null];
       drawSpecialMenu(doc,0,W/2,H,pr,logo);
       drawSpecialMenu(doc,W/2,W/2,H,pr,logo);
-      doc.setDrawColor(150);doc.setLineWidth(0.7);
+      doc.setDrawColor(30,26,25);doc.setLineWidth(0.7);
       if(doc.setLineDashPattern)doc.setLineDashPattern([4,4],0);
       doc.line(W/2,18,W/2,H-18);
       if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
@@ -3073,13 +3073,13 @@ fill="#6F4A36" stroke="none">
     drawSpecialBand(doc,x0,padTop+bandH+gap,innerW,bandH,rows[1],logo);
   }
   function drawSpecialBand(doc,x,y,w,h,row,logo){
-    var INK=[50,43,42],BROWN=[73,66,58],BERRY=[178,94,106],LABEL=[0,0,0],LINE=[237,230,225],SUB=[0,0,0],RED=[192,57,43],BLUE=[42,101,158];
+    var INK=[0,0,0],BROWN=[73,66,58],BERRY=[178,94,106],LABEL=[0,0,0],LINE=[30,26,25],SUB=[0,0,0],RED=[192,57,43],BLUE=[42,101,158];
     row=row||{};var bean=row.bean||{},off=row.offer||{};
     /* card outline */
-    doc.setDrawColor(225,217,212);doc.setLineWidth(0.8);
+    doc.setDrawColor(30,26,25);doc.setLineWidth(0.8);
     if(doc.roundedRect)doc.roundedRect(x,y,w,h,10,10,'S');else doc.rect(x,y,w,h,'S');
     if(!bean.name){
-      doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(160,150,142);
+      doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(178,94,106);
       doc.text('\u2014 empty \u2014',x+w/2,y+h/2,{align:'center'});
       return;
     }
@@ -3136,7 +3136,7 @@ fill="#6F4A36" stroke="none">
     if(bean.cupScores&&bean.cupScores.some(function(o){return o.n!=null;})){
       lab('CUPPING');
       var rR=26,rCx=lx+lw/2,rCy=cy+9+rR;
-      drawCuppingRadar(doc,rCx,rCy,rR,bean.cupScores,band,[168,158,149]);
+      drawCuppingRadar(doc,rCx,rCy,rR,bean.cupScores,band,[124,58,68]);
       cy=rCy+rR+9+15;
     }
     /* FLAVOUR — one line, no wrap, font grown to fill the column width */
@@ -3155,8 +3155,8 @@ fill="#6F4A36" stroke="none">
     /* ================= RIGHT · weekly offer ================= */
     var rx0=x+leftW+16,rEnd=x+w-15,rw=rEnd-rx0,ry=y+tabH+16;
     function money(v){v=String(v==null?'':v).trim().replace(/^\$+/,'');return '$'+(v||'\u2014');}
-    function rule(){doc.setDrawColor(240,233,228);doc.setLineWidth(0.8);doc.line(rx0,ry,rEnd,ry);}
-    function catTitle(t){doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(168,158,149);doc.text(t.toUpperCase(),rx0,ry,{charSpace:1});ry+=13;}
+    function rule(){doc.setDrawColor(30,26,25);doc.setLineWidth(0.8);doc.line(rx0,ry,rEnd,ry);}
+    function catTitle(t){doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(178,94,106);doc.text(t.toUpperCase(),rx0,ry,{charSpace:1});ry+=13;}
     var PSZ=18;   /* one price size for every drink */
     /* Special of the Week — plain heading, no highlight, top aligned to the banner bottom */
     doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(INK[0],INK[1],INK[2]);
@@ -3287,14 +3287,14 @@ fill="#6F4A36" stroke="none">
     var W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
     drawTakeawayMenu(doc,0,W/2,H,data,logo);
     drawTakeawayMenu(doc,W/2,W/2,H,data,logo);
-    doc.setDrawColor(150);doc.setLineWidth(0.7);
+    doc.setDrawColor(30,26,25);doc.setLineWidth(0.7);
     if(doc.setLineDashPattern)doc.setLineDashPattern([4,4],0);
     doc.line(W/2,18,W/2,H-18);
     if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
     doc.save('Ratio_TakeAway_Menu.pdf');
   }
   function drawTakeawayMenu(doc,ox,w,h,data,logo){
-    var INK=[50,43,42], SUB=[120,110,102], MUTE=[150,140,132], LINE=[224,217,212];
+    var INK=[0,0,0], SUB=[0,0,0], MUTE=[124,58,68], LINE=[30,26,25];
     var HOT=[214,0,108], COLD=[42,143,216];
     var padX=24, x0=ox+padX, xEnd=ox+w-padX, innerW=w-padX*2;
 
@@ -3356,7 +3356,7 @@ fill="#6F4A36" stroke="none">
 
     /* ---------- Dirty Ratio dashed box ---------- */
     var dy=py+16, dh=26;
-    doc.setDrawColor(150,140,132);doc.setLineWidth(0.8);
+    doc.setDrawColor(30,26,25);doc.setLineWidth(0.8);
     if(doc.setLineDashPattern)doc.setLineDashPattern([3,3],0);
     if(doc.roundedRect)doc.roundedRect(x0,dy,innerW,dh,13,13,'S');else doc.rect(x0,dy,innerW,dh,'S');
     if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
@@ -3562,14 +3562,14 @@ fill="#6F4A36" stroke="none">
     var W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
     drawDineInMenu(doc,0,W/2,H,cfg,logo);
     drawDineInMenu(doc,W/2,W/2,H,cfg,logo);
-    doc.setDrawColor(150);doc.setLineWidth(0.7);
+    doc.setDrawColor(30,26,25);doc.setLineWidth(0.7);
     if(doc.setLineDashPattern)doc.setLineDashPattern([4,4],0);
     doc.line(W/2,18,W/2,H-18);
     if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
     doc.save('Ratio_DineIn_Menu.pdf');
   }
   function drawDineInMenu(doc,ox,w,h,cfg,logo){
-    var INK=[50,43,42], SUB=[120,110,102], MUTE=[150,140,132], LINE=[224,217,212];
+    var INK=[0,0,0], SUB=[0,0,0], MUTE=[124,58,68], LINE=[30,26,25];
     var HOT=[214,0,108], COLD=[42,143,216];
     var padX=24, x0=ox+padX, xEnd=ox+w-padX, innerW=w-padX*2;
     var P=cfg.prices||{};
@@ -3629,7 +3629,7 @@ fill="#6F4A36" stroke="none">
 
     /* ---------- Dirty Ratio dashed box ---------- */
     var dy=py+16, dh=26;
-    doc.setDrawColor(150,140,132);doc.setLineWidth(0.8);
+    doc.setDrawColor(30,26,25);doc.setLineWidth(0.8);
     if(doc.setLineDashPattern)doc.setLineDashPattern([3,3],0);
     if(doc.roundedRect)doc.roundedRect(x0,dy,innerW,dh,13,13,'S');else doc.rect(x0,dy,innerW,dh,'S');
     if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
@@ -3667,14 +3667,14 @@ fill="#6F4A36" stroke="none">
     drawMenu(doc,0,W/2,H,info4,logo);
     drawMenu(doc,W/2,W/2,H,info4,logo);
     /* centre dashed cut line */
-    doc.setDrawColor(150);doc.setLineWidth(0.7);
+    doc.setDrawColor(30,26,25);doc.setLineWidth(0.7);
     if(doc.setLineDashPattern)doc.setLineDashPattern([4,4],0);
     doc.line(W/2,18,W/2,H-18);
     if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
     doc.save('Ratio_Menu.pdf');
   }
   function drawMenu(doc,ox,w,h,info4,logo){
-    var INK=[50,43,42], BROWN=[73,66,58], BERRY=[178,94,106], MUTE=[140,128,120];
+    var INK=[0,0,0], BROWN=[73,66,58], BERRY=[178,94,106], MUTE=[124,58,68];
     var padX=24, padTop=24, padBot=24;
     var x0=ox+padX, innerW=w-padX*2;
     /* full-bleed 2x2 grid — fills the whole half-page */
@@ -3699,10 +3699,10 @@ fill="#6F4A36" stroke="none">
     function pt(i,r){var a=i*2*Math.PI/n;return [cx+r*Math.sin(a), cy-r*Math.cos(a)];}
     function segsOf(pts){var s=[];for(var i=1;i<pts.length;i++)s.push([pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]]);return s;}
     /* grid rings: Light / Medium / Strong */
-    doc.setLineWidth(0.5);doc.setDrawColor(233,226,220);
+    doc.setLineWidth(0.5);doc.setDrawColor(30,26,25);
     [1,2,3].forEach(function(lvl){var pts=[];for(var i=0;i<n;i++)pts.push(pt(i,R*lvl/3));doc.lines(segsOf(pts),pts[0][0],pts[0][1],[1,1],'S',true);});
     /* spokes */
-    doc.setDrawColor(238,231,226);
+    doc.setDrawColor(30,26,25);
     for(var i=0;i<n;i++){var sp=pt(i,R);doc.line(cx,cy,sp[0],sp[1]);}
     /* data polygon (0 = centre when a bean has no reading on that axis) */
     var dpts=scores.map(function(o,i){var v=(o.n==null?0:o.n);return pt(i,R*(v/3));});
@@ -3724,7 +3724,7 @@ fill="#6F4A36" stroke="none">
   }
   function drawCell(doc,x,y,w,h,info,INK,BROWN,BERRY,MUTE){
     /* card outline */
-    doc.setDrawColor(225,217,212);doc.setLineWidth(0.8);
+    doc.setDrawColor(30,26,25);doc.setLineWidth(0.8);
     if(doc.roundedRect)doc.roundedRect(x,y,w,h,9,9,'S');else doc.rect(x,y,w,h,'S');
     var px=x+15, pw=w-30;
     if(!info||!info.name){
@@ -3790,20 +3790,20 @@ fill="#6F4A36" stroke="none">
     /* ===== cupping strength — radar chart (secondary, muted) — inner=Light, outer=Strong ===== */
     if(hasCup){
       var ccy=cupTop;
-      doc.setFont('helvetica','bold');doc.setFontSize(6.3);doc.setTextColor(178,168,158);
+      doc.setFont('helvetica','bold');doc.setFontSize(6.3);doc.setTextColor(178,94,106);
       doc.text('CUPPING STRENGTH',px,ccy,{charSpace:1});ccy+=RADAR_HEAD;
       var rCx=px+pw/2, rCy=ccy+RADAR_PAD+RADAR_R;
-      drawCuppingRadar(doc,rCx,rCy,RADAR_R,info.cupScores,band,[168,158,149]);
+      drawCuppingRadar(doc,rCx,rCy,RADAR_R,info.cupScores,band,[124,58,68]);
     }
     /* ===== bottom line: special comment (left) + net weight (right), same baseline ===== */
     var netTxt=info.net?(mnAsc(info.net)+'g net'):'';
     var netW=0;
     if(netTxt){doc.setFont('helvetica','normal');doc.setFontSize(8.5);netW=doc.getTextWidth(netTxt);}
     if(hasC){
-      doc.setFont('helvetica','italic');doc.setTextColor(168,158,149);
+      doc.setFont('helvetica','italic');doc.setTextColor(0,0,0);
       mnFit(doc,info.comment,px,commentY,pw-(netW?netW+10:0),7.5,6);
     }
-    if(netTxt){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(162,152,142);
+    if(netTxt){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(0,0,0);
       doc.text(netTxt,x+w-15,netY,{align:'right'});}
   }
   function blendBeanOptions(sel){
