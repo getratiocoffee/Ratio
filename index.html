@@ -4659,6 +4659,7 @@ fill="#6F4A36" stroke="none">
     box.innerHTML='<div class="gdetail" style="padding-top:8px">'
       +'<div class="re-sub">Traceback Coffee</div>'
       +'<div class="gform">'
+      +'<label class="gfield"><span class="gl">Coffee name · syncs Retail &amp; cupping</span><input id="re-name" type="text" value="'+esc(r.bean_name||'')+'" placeholder="Coffee name" /></label>'
       +'<label class="gfield"><span class="gl">Green used (kg) · changing it adjusts stock</span><input id="re-kg" type="text" inputmode="decimal" value="'+esc(r.green_kg!=null?gnum(r.green_kg):'')+'" /></label>'
       +'<label class="gfield"><span class="gl">Roast date</span><input id="re-date" type="date" value="'+esc(r.roast_date||'')+'" /></label>'
       +'<div class="re-soon">Detailed roast info coming soon</div>'
@@ -4686,6 +4687,11 @@ fill="#6F4A36" stroke="none">
     const btn=document.getElementById('re-save');
     const r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});
     if(!r)return;
+    var nmEl=document.getElementById('re-name');
+    var newName=(nmEl?nmEl.value:'').trim();
+    var oldName=(r.bean_name||'').trim();
+    var renamed=!!newName&&newName!==oldName;
+    if(nmEl&&!newName){msg.textContent='Coffee name cannot be empty';msg.className='gform-msg err';return;}
     var newKg=parseFloat(document.getElementById('re-kg').value);
     var newDate=document.getElementById('re-date').value;
     if(isNaN(newKg)||newKg<0){msg.textContent='Enter a valid quantity';msg.className='gform-msg err';return;}
@@ -4695,9 +4701,26 @@ fill="#6F4A36" stroke="none">
     if(delta!==0 && r.kind!=='single' && r.kind!=='blend' && r.green_kg!=null)await adjustStock(r.bean_id, -delta);
     var upd={green_kg:newKg};
     if(newDate)upd.roast_date=newDate;
+    if(renamed)upd.bean_name=newName;
     const {error}=await sb.from('roasts').update(upd).eq('id',r.id);
     if(error){btn.disabled=false;msg.textContent='Save failed: '+error.message;msg.className='gform-msg err';return;}
-    r.green_kg=newKg;if(newDate)r.roast_date=newDate;
+    /* rename cascade: keep Retail Info (samples) + other roasts in sync */
+    if(renamed){
+      msg.textContent='Saving\u2026 relinking Retail records';
+      var e1=(await sb.from('samples').update({sample_id:newName}).eq('sample_id',oldName)).error;
+      var e2=(await sb.from('roasts').update({bean_name:newName}).eq('bean_name',oldName)).error;
+      if(e1||e2){btn.disabled=false;msg.textContent='Renamed the roast, but relinking failed: '+((e1||e2).message)+' \u2014 please retry';msg.className='gform-msg err';return;}
+      /* sync in-memory arrays so the UI shows the new name immediately */
+      (SAMPLES||[]).forEach(function(s){if((s.sample_id||'')===oldName)s.sample_id=newName;});
+      if(typeof RETAIL_BEANS!=='undefined'&&RETAIL_BEANS)RETAIL_BEANS.forEach(function(s){if((s.sample_id||'')===oldName)s.sample_id=newName;});
+      (RTL_ROWS||[]).forEach(function(s){if((s.sample_id||'')===oldName)s.sample_id=newName;});
+      (ROASTS||[]).forEach(function(x){if((x.bean_name||'')===oldName)x.bean_name=newName;});
+      /* carry Retail dot colour / gram / sold-out status to the new name */
+      [[loadDots,saveDots],[loadGrams,saveGrams],[loadSold,saveSold]].forEach(function(pair){
+        try{var m=pair[0]();if(oldName in m){if(!(newName in m))m[newName]=m[oldName];delete m[oldName];pair[1](m);}}catch(e){}
+      });
+    }
+    r.green_kg=newKg;if(newDate)r.roast_date=newDate;if(renamed)r.bean_name=newName;
     roastEdit=null;roastDelConfirm=false;renderRoasted();
   }
   async function deleteRoast(){
