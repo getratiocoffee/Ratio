@@ -3492,6 +3492,11 @@ fill="#6F4A36" stroke="none">
     var JS=window.jspdf&&window.jspdf.jsPDF;
     if(!JS){alert('PDF tool still loading, please try again');return;}
     var cfg=diClone(DINEIN);
+    /* refresh pour-over origin/flavour live from Retail Info \u2014 don't rely on the
+       possibly-stale snapshot saved when the bean was first picked. */
+    (cfg.pours||[]).forEach(function(p){
+      if(p&&p.bean){var a=takeawayAutofill(p.bean);if(a.origin)p.origin=a.origin;if(a.flavour)p.flavour=a.flavour;}
+    });
     var img=new Image();
     img.onload=function(){buildDineinPDF(cfg,img);};
     img.onerror=function(){buildDineinPDF(cfg,null);};
