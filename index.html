@@ -1088,8 +1088,7 @@ fill="#6F4A36" stroke="none">
     calendar:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>`,
     plus:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>`,
     calc:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8"/><path d="M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15v3M8 18h4"/></svg>`,
-    blend:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="13" r="6"/><circle cx="15" cy="13" r="6"/></svg>`,
-    leaf:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></svg>`
+    blend:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="13" r="6"/><circle cx="15" cy="13" r="6"/></svg>`
   };
   /* node tree. Each node = two buttons (left/right). A button has `act` (opens a screen) OR `to` (a deeper node). */
   const DOCK_NODES={
@@ -1103,10 +1102,8 @@ fill="#6F4A36" stroke="none">
            left:{label:'Production',zh:'',icon:'factory',act:'roast:prod'},
            right:{label:'History',zh:'',icon:'history',act:'roast:hist'}},
     green:{contentTitle:'Green Bean Reminder',
-           left:{label:'Buyer',zh:'',icon:'bag',to:'green.buyer'},
+           left:{label:'Trade',zh:'',icon:'trade',to:'green.trade'},
            right:{label:'Sample',zh:'',icon:'sample',to:'green.sample'}},
-    'green.buyer':{left:{label:'Inventory',zh:'',icon:'leaf',act:'green:inventory'},
-                   right:{label:'Trade',zh:'',icon:'trade',to:'green.trade'}},
     'green.trade':{left:{label:'Buy',zh:'',icon:'buy',act:'green:buy'},
                    right:{label:'Sell',zh:'',icon:'sell',act:'green:sell'}},
     'green.sample':{left:{label:'Analyse',zh:'',icon:'analyse',act:'green:analyse'},
@@ -1197,7 +1194,9 @@ fill="#6F4A36" stroke="none">
   let tsFilter=null;
   function renderModulePanel(rootKey){
     var deep=dockStack[dockStack.length-1];
+    if(deep==='green'){openPage('green');loadBeans('countries');return;}
     if(deep==='green.trade'){if(typeof closePage==='function')closePage();renderCMarket();return;}
+    if(deep==='green.sample'){if(typeof closePage==='function')closePage();hideCPanel();setFeedChannel(FEED_CHANNELS['green']||'general');return;}
     if(rootKey==='timesheet'){
       const cw=currentWeekStart();
       const w=thisWeekEntry();
@@ -1313,7 +1312,6 @@ fill="#6F4A36" stroke="none">
     else if(act==='beans:prod'){roastedTitle='Pending';openPage('beans');beansView='production';loadRoasted();}
     else if(act==='roast:prod'){openPage('green');loadBeans('roast');}
     else if(act==='roast:hist'){roastedTitle='History';openPage('beans');beansView='production';loadRoasted();}
-    else if(act==='green:inventory'){openPage('green');loadBeans('countries');}
     else if(act==='green:buy'){openPage('green');greenSoon='Buy';greenView='soon';renderGreen();}
     else if(act==='green:sell'){openPage('green');greenSoon='Sell';greenView='soon';renderGreen();}
     else if(act==='green:analyse'){openPage('green');loadSamples();}
@@ -2335,7 +2333,7 @@ fill="#6F4A36" stroke="none">
     if(id==='file'){openFile();return;}
     if(id==='user'){openContacts();return;}
     if(id==='admin'){openAdmin();return;}
-    if(id==='green'){dockTo(['green']);openPage('green');loadBeans('countries');return;}
+    if(id==='green'){dockTo(['green']);return;}
     if(DOCK_NODES[id]){dockTo([id]);return;}
     console.log('open:',id);/* TODO: route other modules */
   }
