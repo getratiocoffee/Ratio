@@ -3017,7 +3017,7 @@ fill="#6F4A36" stroke="none">
     drawSpecialBand(doc,x0,padTop+bandH+gap,innerW,bandH,rows[1],logo);
   }
   function drawSpecialBand(doc,x,y,w,h,row,logo){
-    var INK=[50,43,42],BROWN=[73,66,58],BERRY=[178,94,106],LABEL=[0,0,0],LINE=[237,230,225],SUB=[0,0,0],RED=[192,57,43],BLUE=[42,101,158];
+    var INK=[50,43,42],BROWN=[73,66,58],BERRY=[178,94,106],LABEL=[0,0,0],LINE=[237,230,225],SUB=[0,0,0],RED=BERRY,BLUE=INK;
     row=row||{};var bean=row.bean||{},off=row.offer||{};
     /* card outline */
     doc.setDrawColor(225,217,212);doc.setLineWidth(0.8);
