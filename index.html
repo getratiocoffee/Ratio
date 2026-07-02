@@ -4519,7 +4519,7 @@ fill="#6F4A36" stroke="none">
     var isDup=(ROASTS||[]).some(function(r){return String(r.bean_name||'').trim().toLowerCase()===name.toLowerCase()&&(r.roast_date||'')===date;});
     if(isDup&&acDupSig!==dupSig){
       acDupSig=dupSig;
-      if(msg){msg.innerHTML='\u26a0\ufe0f \u5df2\u6709\u76f8\u540c\u8c46\u5b50 + \u540c\u4e00\u70d8\u7119\u65e5\u671f\uff08'+esc(fmtDate(date))+'\uff09\u7684\u8a18\u9304\u3002<br>\u518d\u6309\u4e00\u6b21 Add \u4ecd\u8981\u65b0\u589e\u3002';msg.className='gform-msg err';}
+      if(msg){msg.innerHTML='\u26a0\ufe0f A roast with this coffee on '+esc(fmtDate(date))+' already exists.<br>Press Add again to add it anyway.';msg.className='gform-msg err';}
       if(btn)btn.textContent='Add anyway';
       return;
     }
