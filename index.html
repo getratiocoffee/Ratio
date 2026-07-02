@@ -1072,7 +1072,7 @@ fill="#6F4A36" stroke="none">
   };
   const shop=[['timesheet','Timesheet'],['beans','Beans'],['task','Task'],['recipe','Recipe']];
   const roastery=[['roast','Roaster'],['green','Green Buyer'],['order','Order'],['fx','Blender']];
-  const folder=[['label','Generate Label'],['menu','Generate Menu'],['news','Generate Invoice'],['post','Post'],['file','File'],['gift','Gifts'],['user','Account'],['admin','Admin'],['cog','Settings'],['bag','Shop']];
+  const folder=[['label','Generate Label'],['menu','Generate Menu'],['news','Generate Invoice'],['post','Post'],['file','File'],['user','Account'],['admin','Admin']];
 
   function fill(side,arr){const el=document.querySelector(`.pill[data-side="${side}"]`);el.innerHTML='';
     arr.forEach(([ic,lb])=>{const d=document.createElement('div');d.className='item';d.dataset.id=ic;
