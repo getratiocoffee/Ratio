@@ -3014,7 +3014,7 @@ fill="#6F4A36" stroke="none">
     drawSpecialBand(doc,x0,padTop+bandH+gap,innerW,bandH,rows[1],logo);
   }
   function drawSpecialBand(doc,x,y,w,h,row,logo){
-    var INK=[50,43,42],BROWN=[73,66,58],BERRY=[178,94,106],LABEL=[169,158,150],LINE=[237,230,225],SUB=[92,83,76],RED=[192,57,43],BLUE=[42,101,158];
+    var INK=[50,43,42],BROWN=[73,66,58],BERRY=[178,94,106],LABEL=[0,0,0],LINE=[237,230,225],SUB=[0,0,0],RED=[192,57,43],BLUE=[42,101,158];
     row=row||{};var bean=row.bean||{},off=row.offer||{};
     /* card outline */
     doc.setDrawColor(225,217,212);doc.setLineWidth(0.8);
@@ -3025,8 +3025,8 @@ fill="#6F4A36" stroke="none">
       return;
     }
     var leftW=Math.min(232,w*0.56);
-    /* logo · centered above the right (offer) column */
-    if(logo){var ls=24;var lcx=x+leftW+(w-leftW)/2;try{doc.addImage(logo,'PNG',lcx-ls/2,y+8,ls,ls);}catch(e){}}
+    /* "Ratio" wordmark · centered above the right (offer) column */
+    {var lcx=x+leftW+(w-leftW)/2;doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);doc.text('Ratio',lcx,y+22.5,{align:'center'});}
     var band=mnHexRgb(bean.color)||BROWN;
     /* ---- TAB header (top-left, rounded top corners only) ---- */
     var tabH=34,r=10;
@@ -3108,12 +3108,12 @@ fill="#6F4A36" stroke="none">
     mnFit(doc,'1+1 Combo',rx0,ry,rw-52,12.5,9);
     doc.setFontSize(PSZ);
     doc.text(money(off.combo),rEnd,ry+2,{align:'right'});ry+=14;
-    doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(155,143,134);
+    doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(0,0,0);
     doc.text('Espresso base (black and white)',rx0,ry);ry+=24;
     rule();ry+=22;
     /* Drink 2 · Dirty (blue) */
     doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(BLUE[0],BLUE[1],BLUE[2]);
-    doc.text('Dirty',rx0,ry);
+    doc.text('Dirty Ratio',rx0,ry);
     doc.setFontSize(PSZ);
     doc.text(money(off.dirty),rEnd,ry+2,{align:'right'});ry+=26;
     rule();ry+=22;
