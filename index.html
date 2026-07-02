@@ -408,6 +408,9 @@
   .str-scale .str-sl{transition:color .12s ease}
   .str-scale .str-sl.on{color:var(--accent)}
   .smp-live-radar{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);max-width:250px;margin-left:auto;margin-right:auto}
+  .smp-flav-bubbles{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:12px}
+  .smp-flav-bubbles:empty{margin-top:0}
+  .flav-bubble{font-size:12px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:999px;padding:5px 13px}
   .smp-dec-h{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:9px;text-align:center}
   .smp-f input[readonly]{opacity:.55;cursor:default;pointer-events:none}
   .smp-pick{flex:0 0 auto;width:22px;height:22px;border-radius:7px;border:1.7px solid #D6C8C1;background:transparent;cursor:pointer;padding:0;position:relative;transition:background .12s ease,border-color .12s ease}
@@ -4771,6 +4774,19 @@ fill="#6F4A36" stroke="none">
     for(var i=0;i<3;i++){var e=document.getElementById(prefix+'-char'+i);if(e){var v=(e.value||'').trim();if(v)arr.push(v);}}
     p.features=arr;
   }
+  /* flavour bubbles shown under the live radar; update as the user types */
+  function flavBubbles(vals){
+    vals=(vals||[]).map(function(v){return String(v||'').trim();}).filter(Boolean);
+    return vals.map(function(v){return '<span class="flav-bubble">'+esc(v)+'</span>';}).join('');
+  }
+  function bindFlavBubbles(prefix,box){
+    function refresh(){
+      var vals=[];
+      for(var i=0;i<3;i++){var e=document.getElementById(prefix+'-char'+i);if(e){var v=(e.value||'').trim();if(v)vals.push(v);}}
+      var c=box.querySelector('#smp-flav-bubbles');if(c)c.innerHTML=flavBubbles(vals);
+    }
+    for(var i=0;i<3;i++){var e=document.getElementById(prefix+'-char'+i);if(e)e.addEventListener('input',refresh);}
+  }
   function renderSample(errMsg,okMsg){
     const box=document.getElementById('green-content');
     if(smpEdit){renderSampleEdit();return;}
@@ -4793,12 +4809,13 @@ fill="#6F4A36" stroke="none">
       +'<div class="smp-sec"><div class="smp-sec-h">Sample details</div><div class="smp-fields">'
       +'<label class="smp-f"><span>Cupping date</span><input id="smp-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" /></label>'
       +'<div class="smp-f2"><label class="smp-f"><span>Supplier</span><input id="smp-supplier" type="text" value="'+esc(p.supplier||'')+'" /></label>'
-      +'<label class="smp-f"><span>ID</span><input id="smp-id" type="text" value="'+esc(p.sample_id||'')+'" /></label></div>'
+      +'<label class="smp-f"><span>Cupping ID</span><input id="smp-id" type="text" value="'+esc(p.sample_id||'')+'" /></label></div>'
       +'<label class="smp-f"><span>Process</span><input id="smp-process" type="text" value="'+esc(p.process||'')+'" /></label>'
       +'</div></div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">Cupping Strength</div><div class="smp-scores">'+scores+'</div>'
-      +'<div class="smp-live-radar" id="smp-live-radar">'+sampleRadarSVG(p,true)+'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Flavour characters · up to 3</div>'+charFields('smp',p)+'</div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Cupping Strength</div><div class="smp-scores">'+scores+'</div>'
+      +'<div class="smp-live-radar" id="smp-live-radar">'+sampleRadarSVG(p,true)+'</div>'
+      +'<div class="smp-flav-bubbles" id="smp-flav-bubbles">'+flavBubbles(p.features)+'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Comment · what makes it unique</div><textarea id="smp-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
       +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':(okMsg?' ok':''))+'" id="smp-msg">'+(errMsg?('Load failed: '+esc(errMsg)+' (run the samples table SQL in Supabase first)'):(okMsg?esc(okMsg):''))+'</div></div>'
       +(cupping?'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn buy" id="smp-submit">Submit</button></div></div>':'<div class="smp-decide-wrap"><div class="smp-dec-h">Purchase decision</div><div class="smp-decide"><button class="gbtn skip" id="smp-skip">Skip</button><button class="gbtn maybe" id="smp-maybe">Maybe</button><button class="gbtn buy" id="smp-buy">Buy</button></div></div>');
@@ -4807,6 +4824,7 @@ fill="#6F4A36" stroke="none">
     var list=cupping?'':(todays.length?('<div class="smp-sec"><div class="smp-sec-h">Samples today · tap to edit/delete</div><div class="smp-list">'+todays.map(sampleCard).join('')+'</div><div class="smp-hint">Older records live under History in the dock</div></div>'):'');
     box.innerHTML=nav+form+list;
     bindStrengthSliders(box,p);
+    bindFlavBubbles('smp',box);
     var _prev=document.getElementById('smp-prev');if(_prev)_prev.addEventListener('click',function(){captureSmp();smpIdx=(smpIdx-1+smpPages.length)%smpPages.length;renderSample();box.scrollTop=0;});
     var _next=document.getElementById('smp-next');if(_next)_next.addEventListener('click',function(){captureSmp();smpIdx=(smpIdx+1)%smpPages.length;renderSample();box.scrollTop=0;});
     var _add=document.getElementById('smp-add');if(_add)_add.addEventListener('click',function(){captureSmp();smpPages.push(blankSmp());smpIdx=smpPages.length-1;renderSample();box.scrollTop=0;});
@@ -4842,12 +4860,13 @@ fill="#6F4A36" stroke="none">
       +'<div class="smp-sec" style="margin-top:14px"><div class="smp-sec-h">Sample details</div><div class="smp-fields">'
       +'<label class="smp-f"><span>Cupping date · locked</span><input id="se-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" readonly /></label>'
       +'<div class="smp-f2"><label class="smp-f"><span>Supplier</span><input id="se-supplier" type="text" value="'+esc(p.supplier||'')+'" /></label>'
-      +'<label class="smp-f"><span>ID</span><input id="se-id" type="text" value="'+esc(p.sample_id||'')+'" /></label></div>'
+      +'<label class="smp-f"><span>Cupping ID</span><input id="se-id" type="text" value="'+esc(p.sample_id||'')+'" /></label></div>'
       +'<label class="smp-f"><span>Process</span><input id="se-process" type="text" value="'+esc(p.process||'')+'" /></label>'
       +'</div></div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">Cupping Strength</div><div class="smp-scores">'+scores+'</div>'
-      +'<div class="smp-live-radar" id="smp-live-radar">'+sampleRadarSVG(p,true)+'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Flavour characters · up to 3</div>'+charFields('se',p)+'</div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Cupping Strength</div><div class="smp-scores">'+scores+'</div>'
+      +'<div class="smp-live-radar" id="smp-live-radar">'+sampleRadarSVG(p,true)+'</div>'
+      +'<div class="smp-flav-bubbles" id="smp-flav-bubbles">'+flavBubbles(p.features)+'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Purchase decision</div>'+seg+'</div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Comment · what makes it unique</div><textarea id="se-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
       +'<div class="smp-msg-wrap"><div class="gform-msg" id="se-msg"></div></div>'
@@ -4860,6 +4879,7 @@ fill="#6F4A36" stroke="none">
       p.decision=o.dataset.s;box.querySelectorAll('.re-opt').forEach(function(x){x.classList.toggle('on',x.dataset.s===p.decision);});
     });});
     bindStrengthSliders(box,p);
+    bindFlavBubbles('se',box);
     document.getElementById('se-cancel').addEventListener('click',function(){smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpAfterEdit();box.scrollTop=0;});
     document.getElementById('se-save').addEventListener('click',saveSampleEdit);
     var dd=document.getElementById('se-del');if(dd)dd.addEventListener('click',function(){smpDelConfirm=true;renderSampleEdit();});
