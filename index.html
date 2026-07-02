@@ -4708,12 +4708,18 @@ fill="#6F4A36" stroke="none">
     const box=document.getElementById('green-content');
     if(smpEdit){renderSampleEdit();return;}
     document.getElementById('green-title').textContent='History';
-    document.getElementById('green-count').textContent=SAMPLES.length+' samples';
-    if(!SAMPLES.length){box.innerHTML='<div class="sempty">No samples yet</div>';return;}
+    var prodList=SAMPLES.filter(function(s){return s.supplier==='Ratio Coffee';});
+    var sampList=SAMPLES.filter(function(s){return s.supplier!=='Ratio Coffee';});
+    var list=historyTab==='production'?prodList:sampList;
+    document.getElementById('green-count').textContent=list.length+' samples';
+    var tabs='<div class="lbl-seg date-seg hist-seg" style="padding:12px 18px 0">'
+      +'<button class="lbl-tab'+(historyTab!=='production'?' on':'')+'" data-ht="sample">Sample</button>'
+      +'<button class="lbl-tab'+(historyTab==='production'?' on':'')+'" data-ht="production">Production</button></div>';
+    if(!list.length){box.innerHTML=tabs+'<div class="sempty">No samples yet</div>';wireHistoryTabs(box);return;}
     var groups={},order=[];
-    SAMPLES.forEach(function(s){var d=s.cupping_date||'—';if(!groups[d]){groups[d]=[];order.push(d);}groups[d].push(s);});
+    list.forEach(function(s){var d=s.cupping_date||'—';if(!groups[d]){groups[d]=[];order.push(d);}groups[d].push(s);});
     if(order.length&&historyOpen[order[0]]===undefined)historyOpen[order[0]]=true;
-    box.innerHTML='<div class="gsec" style="padding:12px 18px 2px">Tap a date to expand · tap a sample to show details · tap details to edit</div>'+order.map(function(d){
+    box.innerHTML=tabs+'<div class="gsec" style="padding:12px 18px 2px">Tap a date to expand · tap a sample to show details · tap details to edit</div>'+order.map(function(d){
       var items=groups[d];var open=!!historyOpen[d];
       var buy=items.filter(function(x){return x.decision==='buy';}).length;
       var head='<button class="rdate'+(open?' open':'')+'" data-d="'+esc(d)+'">'
@@ -4723,6 +4729,7 @@ fill="#6F4A36" stroke="none">
       var body=open?'<div class="rd-body">'+items.map(sampleCard).join('')+'</div>':'';
       return '<div class="rgroup">'+head+body+'</div>';
     }).join('');
+    wireHistoryTabs(box);
     box.querySelectorAll('.rdate').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.d;historyOpen[d]=!historyOpen[d];renderHistory();});});
     box.querySelectorAll('.smp-head[data-toggle]').forEach(function(el){el.addEventListener('click',function(){
       var id=el.dataset.toggle;sampleOpen[id]=!sampleOpen[id];smpDelHist=null;renderHistory();
@@ -4742,6 +4749,11 @@ fill="#6F4A36" stroke="none">
     });});
     box.querySelectorAll('.decopt[data-dec]').forEach(function(el){el.addEventListener('click',function(e){
       e.stopPropagation();setSampleDecision(el.dataset.id,el.dataset.dec,function(){renderHistory();});
+    });});
+  }
+  function wireHistoryTabs(box){
+    box.querySelectorAll('.hist-seg .lbl-tab[data-ht]').forEach(function(t){t.addEventListener('click',function(){
+      var v=t.getAttribute('data-ht');if(v===historyTab)return;historyTab=v;renderHistory();
     });});
   }
   var STRENGTH=[[1,'Light'],[2,'Medium'],[3,'Strong']];
@@ -4927,6 +4939,7 @@ fill="#6F4A36" stroke="none">
     smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpAfterEdit();
   }
   var smpDelHist=null;   /* id of the sample showing an inline delete confirm in History/Analyse */
+  var historyTab='sample';   /* 'sample' | 'production' — History screen tab */
   async function deleteSampleById(id,after){
     const {error}=await sb.from('samples').delete().eq('id',id);
     if(error){alert('Delete failed: '+error.message);return;}
