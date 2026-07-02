@@ -709,7 +709,12 @@
   #calc-frame{width:100%;height:100%;border:none;display:block;background:var(--bg)}
   .bl-list{padding:6px 16px 4px;display:flex;flex-direction:column;gap:12px}
   .bl-card{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:12px 12px 10px}
-  .bl-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .bl-head{display:flex;align-items:center;gap:8px}
+  .bl-head:has(+ .bl-body){margin-bottom:0}
+  .bl-toggle{flex:0 0 auto;width:26px;height:26px;border:none;background:transparent;color:var(--muted);display:grid;place-items:center;padding:0;cursor:pointer}
+  .bl-toggle .rd-chev{transition:transform .15s ease}
+  .bl-toggle.open .rd-chev{transform:rotate(90deg)}
+  .bl-body{margin-top:10px}
   .bl-name{flex:1;min-width:0;font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--ink);border:none;background:transparent;border-bottom:1px solid var(--line);padding:4px 2px}
   .bl-name:focus{outline:none;border-bottom-color:var(--accent)}
   .bl-del{flex:0 0 auto;width:32px;height:32px;border:none;background:transparent;color:var(--muted);display:grid;place-items:center;border-radius:9px;cursor:pointer}
@@ -3827,6 +3832,7 @@ fill="#6F4A36" stroke="none">
     document.getElementById('blend-content').innerHTML='<div class="sempty">Loading\u2026</div>';
     ensureBeansForInvoice().then(function(){if(document.querySelector('#screen-blend.open'))renderBlending();});
   }
+  var blOpen={};
   function renderBlending(){
     var el=document.getElementById('blend-content');if(!el)return;
     var defs=loadBlendDefs();
@@ -3839,12 +3845,16 @@ fill="#6F4A36" stroke="none">
           +'<div class="bl-pct"><input type="number" inputmode="numeric" class="bl-pctin" data-bi="'+bi+'" data-pi="'+pi+'" value="'+esc((p.pct===0||p.pct)?String(p.pct):'')+'" placeholder="0" min="0" max="100" /><span>%</span></div>'
           +'</div>';
       }).join('');
+      var open=!!blOpen[bi];
+      var chev='<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>';
       return '<div class="bl-card">'
-        +'<div class="bl-head"><input class="bl-name" data-bi="'+bi+'" value="'+esc(bl.name||'')+'" placeholder="Blend name" />'
+        +'<div class="bl-head"><button class="bl-toggle'+(open?' open':'')+'" data-bo="'+bi+'">'+chev+'</button><input class="bl-name" data-bi="'+bi+'" value="'+esc(bl.name||'')+'" placeholder="Blend name" />'
         +'<button class="bl-del" data-bi="'+bi+'" aria-label="delete blend">'+trash+'</button></div>'
-        +rows
-        +'<input class="bl-cmt" data-bi="'+bi+'" value="'+esc(bl.comment||'')+'" placeholder="Special comment \u00b7 e.g. V3.0 Competition Blend" />'
-        +'<div class="bl-foot"><div class="bl-cost">'+blendCostHTML(bl)+'</div><div class="bl-tot '+totCls+'">Total <b>'+tot+'%</b>'+(tot===100?'':' \u00b7 should be 100%')+'</div></div>'
+        +(open?('<div class="bl-body">'
+          +rows
+          +'<input class="bl-cmt" data-bi="'+bi+'" value="'+esc(bl.comment||'')+'" placeholder="Special comment \u00b7 e.g. V3.0 Competition Blend" />'
+          +'<div class="bl-foot"><div class="bl-cost">'+blendCostHTML(bl)+'</div><div class="bl-tot '+totCls+'">Total <b>'+tot+'%</b>'+(tot===100?'':' \u00b7 should be 100%')+'</div></div>'
+          +'</div>'):'')
         +'</div>';
     }).join('');
     el.innerHTML='<div class="gsec" style="padding:14px 18px 2px">Blends \u00b7 pick 3 single origins &amp; set %</div>'
@@ -3852,6 +3862,7 @@ fill="#6F4A36" stroke="none">
       +'<div class="bl-addwrap"><button class="gbtn ghost" id="bl-add">+ New blend</button>'
       +'<button class="gbtn" id="bl-save">Save recipe</button>'
       +'<div class="bl-saved" id="bl-saved">\u2713 Saved</div></div>';
+    el.querySelectorAll('.bl-toggle[data-bo]').forEach(function(b){b.addEventListener('click',function(){var bi=+b.dataset.bo;blOpen[bi]=!blOpen[bi];renderBlending();});});
     el.querySelectorAll('.bl-name').forEach(function(inp){inp.addEventListener('input',function(){var d=loadBlendDefs();d[+inp.dataset.bi].name=inp.value;saveBlendDefs(d);});});
     el.querySelectorAll('.bl-bean').forEach(function(s){s.addEventListener('change',function(){var d=loadBlendDefs();d[+s.dataset.bi].parts[+s.dataset.pi].bean=s.value;saveBlendDefs(d);var card=s.closest('.bl-card'),ce=card&&card.querySelector('.bl-cost');if(ce)ce.innerHTML=blendCostHTML(d[+s.dataset.bi]);});});
     el.querySelectorAll('.bl-cmt').forEach(function(inp){inp.addEventListener('input',function(){var d=loadBlendDefs();d[+inp.dataset.bi].comment=inp.value;saveBlendDefs(d);});});
@@ -3859,7 +3870,7 @@ fill="#6F4A36" stroke="none">
       var card=i.closest('.bl-card'),t=card&&card.querySelector('.bl-tot');if(t){var tt=blendTotal(d[+i.dataset.bi]);t.className='bl-tot '+(tt===100?'ok':(tt>100?'over':''));t.innerHTML='Total <b>'+tt+'%</b>'+(tt===100?'':' \u00b7 should be 100%');}
       var ce=card&&card.querySelector('.bl-cost');if(ce)ce.innerHTML=blendCostHTML(d[+i.dataset.bi]);});});
     el.querySelectorAll('.bl-del').forEach(function(b){b.addEventListener('click',function(){var d=loadBlendDefs();d.splice(+b.dataset.bi,1);saveBlendDefs(d);renderBlending();});});
-    var add=document.getElementById('bl-add');if(add)add.addEventListener('click',function(){var d=loadBlendDefs();d.push(blankBlend(''));saveBlendDefs(d);renderBlending();el.scrollTop=el.scrollHeight;});
+    var add=document.getElementById('bl-add');if(add)add.addEventListener('click',function(){var d=loadBlendDefs();d.push(blankBlend(''));blOpen[d.length-1]=true;saveBlendDefs(d);renderBlending();el.scrollTop=el.scrollHeight;});
     var save=document.getElementById('bl-save');if(save)save.addEventListener('click',function(){
       var d=loadBlendDefs();
       el.querySelectorAll('.bl-name').forEach(function(inp){if(d[+inp.dataset.bi])d[+inp.dataset.bi].name=inp.value;});
