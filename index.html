@@ -3544,7 +3544,6 @@ fill="#6F4A36" stroke="none">
     var cy=bannerTop+tabH+22;
 
     /* ---------- espresso base (blends + drink prices, one continuous choice) ---------- */
-    lab('ESPRESSO BASED',cy);cy+=16;
     var blends=(cfg.blends||[]).filter(function(b){return b&&b.name;}).slice(0,2);
     if(blends.length){
       var colCx=blends.length>1?[x0+innerW*0.27,x0+innerW*0.73]:[x0+innerW*0.5];
@@ -3567,9 +3566,10 @@ fill="#6F4A36" stroke="none">
         doc.setDrawColor(MUTE[0],MUTE[1],MUTE[2]);doc.setLineWidth(1);
         doc.line(midX+7,cy-10,midX-7,cy+28);
       }
-      cy+=40;
+      cy+=36;
     }
     cy+=8;
+    lab('ESPRESSO BASED',cy);cy+=16;
 
     var espRows=[
       ['Espresso','',pv('espresso')],
@@ -3593,19 +3593,20 @@ fill="#6F4A36" stroke="none">
     doc.text('decaf',x0,cy);doc.text(pv('decaf','1 dollar'),xEnd,cy,{align:'right'});cy+=20;
 
     /* ---------- Dirty Ratio \u00b7 signature blend drink, no border ---------- */
+    lab('SIGNATURE',cy);cy+=16;
     doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
     doc.text('Dirty Ratio',x0,cy);
     doc.text(pv('dirty'),xEnd,cy,{align:'right'});
     cy+=13;
     doc.setFont('helvetica','italic');doc.setFontSize(7.6);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-    doc.text('signature \u00b7 blend-based',x0,cy);
+    doc.text('blend-based',x0,cy);
     cy+=13;
     var dirtyDesc='Freeze-distilled milk topped with chilled espresso \u2014 a pudding-like cold drink.';
     doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
     var dLines=doc.splitTextToSize(mnAsc(dirtyDesc),innerW);
     dLines.forEach(function(ln){doc.text(ln,x0,cy);cy+=10.5;});
     cy+=8;
-    doc.setDrawColor(230,222,216);doc.setLineWidth(0.8);doc.line(x0,cy,xEnd,cy);cy+=14;
+    doc.setDrawColor(230,222,216);doc.setLineWidth(0.8);doc.line(x0,cy,xEnd,cy);cy+=12;
 
     /* ---------- automatic brewing ---------- */
     lab('AUTOMATED BREWING',cy);cy+=17;
@@ -3626,7 +3627,7 @@ fill="#6F4A36" stroke="none">
       cy+=21;
     });
     cy+=2;
-    doc.setDrawColor(230,222,216);doc.setLineWidth(0.8);doc.line(x0,cy,xEnd,cy);cy+=14;
+    doc.setDrawColor(230,222,216);doc.setLineWidth(0.8);doc.line(x0,cy,xEnd,cy);cy+=12;
 
     /* ---------- filter coffee (pour over) \u00b7 hot or iced ---------- */
     lab('FILTER COFFEE',cy);
@@ -3655,7 +3656,6 @@ fill="#6F4A36" stroke="none">
         mnFit(doc,p.flavour,nx,cy,innerW-dotIndent,10,7.5);cy+=15;}
       if(pi<pours.length-1)cy+=2;
     });
-    cy+=2;
 
     /* ---------- one clean card wrapping everything ---------- */
     doc.setDrawColor(200,188,180);doc.setLineWidth(1.3);
