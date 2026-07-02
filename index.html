@@ -399,13 +399,14 @@
   .smp-score{display:flex;flex-direction:column;align-items:stretch;gap:9px;padding:13px 14px;border-top:1px solid var(--line)}
   .smp-score:first-child{border-top:none}
   .smp-sname{font-size:14px;color:var(--ink);font-weight:500}
-  .str-slider{position:relative;padding-top:6px}
-  .str-rail{position:relative;height:6px;border-radius:99px;background:var(--surface-sunken,#EFE3E1);margin:0 0 9px}
-  .str-thumb{position:absolute;top:50%;width:20px;height:20px;border-radius:50%;background:var(--accent);border:3px solid var(--surface);box-shadow:0 1px 4px rgba(50,43,42,.25);transform:translate(-50%,-50%);transition:left .18s cubic-bezier(.4,0,.2,1),opacity .15s ease;pointer-events:none}
-  .str-ticks{display:flex;gap:7px}
-  .str-tick{flex:1;padding:8px 4px;font-size:12.5px;font-weight:600;font-family:inherit;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--muted);cursor:pointer;transition:background .12s ease,border-color .12s ease,color .12s ease}
-  .str-tick.on{background:var(--accent);border-color:var(--accent);color:#fff}
-  .str-tick:active{transform:scale(.97)}
+  .str-slider{position:relative;padding:10px 4px 2px}
+  .str-rail{position:relative;height:8px;border-radius:99px;background:var(--surface-sunken,#EFE3E1);margin:8px 0;cursor:pointer;touch-action:none}
+  .str-rail::before{content:"";position:absolute;top:-11px;bottom:-11px;left:0;right:0}
+  .str-dot{position:absolute;top:50%;width:5px;height:5px;border-radius:50%;background:rgba(50,43,42,0.22);transform:translate(-50%,-50%);pointer-events:none}
+  .str-thumb{position:absolute;top:50%;width:22px;height:22px;border-radius:50%;background:var(--accent);border:3px solid var(--surface);box-shadow:0 1px 5px rgba(50,43,42,.3);transform:translate(-50%,-50%);transition:left .16s cubic-bezier(.4,0,.2,1),opacity .15s ease;pointer-events:none;z-index:2}
+  .str-scale{display:flex;justify-content:space-between;font-size:11px;font-weight:600;color:var(--muted)}
+  .str-scale .str-sl{transition:color .12s ease}
+  .str-scale .str-sl.on{color:var(--accent)}
   .smp-live-radar{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);max-width:250px;margin-left:auto;margin-right:auto}
   .smp-dec-h{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:9px;text-align:center}
   .smp-f input[readonly]{opacity:.55;cursor:default;pointer-events:none}
@@ -4731,22 +4732,28 @@ fill="#6F4A36" stroke="none">
   function strengthRow(p,name){
     var v=p[name]||0;
     var thumb='<span class="str-thumb" style="'+(v?('left:'+strThumbPos(v)+';opacity:1'):'opacity:0')+'"></span>';
-    var ticks=STRENGTH.map(function(o){return '<button class="str-tick'+(v===o[0]?' on':'')+'" data-n="'+o[0]+'">'+o[1]+'</button>';}).join('');
-    return '<div class="str-slider" data-name="'+name+'" data-v="'+v+'"><div class="str-rail">'+thumb+'</div><div class="str-ticks">'+ticks+'</div></div>';
+    var dots=STRENGTH.map(function(o){return '<span class="str-dot" style="left:'+strThumbPos(o[0])+'"></span>';}).join('');
+    var scale=STRENGTH.map(function(o){return '<span class="str-sl'+(v===o[0]?' on':'')+'">'+o[1]+'</span>';}).join('');
+    return '<div class="str-slider" data-name="'+name+'" data-v="'+v+'"><div class="str-rail">'+dots+thumb+'</div><div class="str-scale">'+scale+'</div></div>';
   }
-  /* wire up the strength sliders; on change, update thumb + live radar (if present) */
+  /* tap or drag anywhere on the bar to set Light/Medium/Strong; live radar updates */
   function bindStrengthSliders(box,p){
     box.querySelectorAll('.str-slider').forEach(function(dr){
-      var name=dr.dataset.name;
-      dr.querySelectorAll('.str-tick').forEach(function(b){b.addEventListener('click',function(){
-        var n=+b.dataset.n;p[name]=(p[name]===n?null:n);
-        var v=p[name]||0;dr.dataset.v=v;
-        dr.querySelectorAll('.str-tick').forEach(function(x){x.classList.toggle('on',+x.dataset.n===v);});
-        var th=dr.querySelector('.str-thumb');
-        if(th){if(v){th.style.left=strThumbPos(v);th.style.opacity='1';}else{th.style.opacity='0';}}
-        var c=box.querySelector('#smp-live-radar');
-        if(c)c.innerHTML=sampleRadarSVG(p,true);
-      });});
+      var name=dr.dataset.name, rail=dr.querySelector('.str-rail');
+      function setFromX(clientX){
+        var r=rail.getBoundingClientRect(),frac=(clientX-r.left)/r.width;
+        if(frac<0)frac=0;if(frac>1)frac=1;
+        var v=Math.min(3,Math.max(1,Math.round(frac*2)+1));
+        p[name]=v;dr.dataset.v=v;
+        var th=dr.querySelector('.str-thumb');if(th){th.style.left=strThumbPos(v);th.style.opacity='1';}
+        dr.querySelectorAll('.str-sl').forEach(function(el,i){el.classList.toggle('on',(i+1)===v);});
+        var c=box.querySelector('#smp-live-radar');if(c)c.innerHTML=sampleRadarSVG(p,true);
+      }
+      var dragging=false;
+      rail.addEventListener('pointerdown',function(e){dragging=true;try{rail.setPointerCapture(e.pointerId);}catch(_){}setFromX(e.clientX);e.preventDefault();});
+      rail.addEventListener('pointermove',function(e){if(dragging)setFromX(e.clientX);});
+      rail.addEventListener('pointerup',function(){dragging=false;});
+      rail.addEventListener('pointercancel',function(){dragging=false;});
     });
   }
   function scoreRow(p,f){
