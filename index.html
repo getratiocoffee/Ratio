@@ -2774,10 +2774,9 @@ fill="#6F4A36" stroke="none">
       .filter(function(x){return x[1]!=null;})
       .map(function(x){return {label:SMAP[x[0]],val:strLabel(x[1]),n:x[1]};})
       .filter(function(o){return !!o.val;});
-    /* fixed 5-axis order for the cupping-strength radar chart (Blend Menu) — light(inner) to strong(outer) */
-    var RADAR_ABBR={fragrance:'Aroma',acidity:'Acid',sweetness:'Sweet',body:'Body',aftertaste:'After'};
+    /* fixed 5-axis order for the cupping-strength radar chart — light(inner) to strong(outer); full words, same as SMAP */
     var cupScores=['fragrance','acidity','sweetness','body','aftertaste'].map(function(k){
-      return {key:k,label:RADAR_ABBR[k],n:(s&&s[k]!=null)?s[k]:null};
+      return {key:k,label:SMAP[k],n:(s&&s[k]!=null)?s[k]:null};
     });
     var dotKey='';try{var dm=loadDots();if(dm[name])dotKey=dm[name];else{var lk=name.trim().toLowerCase();Object.keys(dm).forEach(function(k){if(!dotKey&&String(k).trim().toLowerCase()===lk)dotKey=dm[k];});}}catch(e){}
     var color=(dotKey&&RTL_DOTCOL[dotKey])||'';
@@ -3031,7 +3030,7 @@ fill="#6F4A36" stroke="none">
     }
     var leftW=Math.min(232,w*0.56);
     /* "Ratio" wordmark · centered above the right (offer) column */
-    {var lcx=x+leftW+(w-leftW)/2;doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);doc.text('Ratio',lcx,y+22.5,{align:'center'});}
+    {var lcx=x+leftW+(w-leftW)/2;doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);doc.text('Ratio Crows Nest',lcx,y+22.5,{align:'center'});}
     var band=mnHexRgb(bean.color)||BROWN;
     /* ---- TAB header (top-left, rounded top corners only) ---- */
     var tabH=34,r=10;
@@ -3061,12 +3060,12 @@ fill="#6F4A36" stroke="none">
       lab('RECIPE');
       bean.recipe.forEach(function(cpt){
         var pct=cpt.pct?(cpt.pct+'%'):'';
-        doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-        mnFit(doc,cpt.bean,lx,cy,lw-30,8.5,7);
-        if(pct){doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.setFontSize(8.5);doc.text(pct,lx+lw,cy,{align:'right'});}
         var ctry=(cpt.country||'').trim();
-        if(ctry){cy+=9.5;doc.setFont('helvetica','italic');doc.setFontSize(7);doc.setTextColor(SUB[0],SUB[1],SUB[2]);mnFit(doc,ctry,lx,cy,lw-30,7,6);cy+=11.5;}
-        else cy+=12;
+        var line=cpt.bean+(ctry?('  \u00b7  '+ctry):'');
+        doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+        mnFit(doc,line,lx,cy,lw-30,8.5,6.5);
+        if(pct){doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.setFontSize(8.5);doc.text(pct,lx+lw,cy,{align:'right'});}
+        cy+=12;
       });
       cy+=15;
     }else if(orows.length){
@@ -3102,11 +3101,13 @@ fill="#6F4A36" stroke="none">
     var rx0=x+leftW+16,rEnd=x+w-15,rw=rEnd-rx0,ry=y+tabH+16;
     function money(v){v=String(v==null?'':v).trim().replace(/^\$+/,'');return '$'+(v||'\u2014');}
     function rule(){doc.setDrawColor(240,233,228);doc.setLineWidth(0.8);doc.line(rx0,ry,rEnd,ry);}
+    function catTitle(t){doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(168,158,149);doc.text(t.toUpperCase(),rx0,ry,{charSpace:1});ry+=13;}
     var PSZ=18;   /* one price size for every drink */
     /* Special of the Week — plain heading, no highlight, top aligned to the banner bottom */
     doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(INK[0],INK[1],INK[2]);
     doc.text('Special of the Week',rx0,ry);ry+=28;
     /* Drink 1 · 1+1 Combo (red) */
+    catTitle('Espresso Based');
     doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(RED[0],RED[1],RED[2]);
     mnFit(doc,'1+1 Combo',rx0,ry,rw-52,12.5,9);
     doc.setFontSize(PSZ);
@@ -3115,14 +3116,14 @@ fill="#6F4A36" stroke="none">
     doc.text('Espresso base (black and white)',rx0,ry);ry+=24;
     rule();ry+=22;
     /* Drink 2 · Dirty (blue) */
+    catTitle('Signature');
     doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(BLUE[0],BLUE[1],BLUE[2]);
     doc.text('Dirty Ratio',rx0,ry);
     doc.setFontSize(PSZ);
     doc.text(money(off.dirty),rEnd,ry+2,{align:'right'});ry+=26;
     rule();ry+=22;
     /* Drink 3 · Filter Pour Over (Hot red / Cold blue) */
-    doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-    doc.text('Filter Pour Over',rx0,ry);ry+=24;
+    catTitle('Hand Pour - Filter Coffee');
     doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(RED[0],RED[1],RED[2]);
     doc.text('Hot',rx0,ry);
     doc.setFontSize(PSZ);
