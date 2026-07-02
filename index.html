@@ -3538,17 +3538,15 @@ fill="#6F4A36" stroke="none">
     }
 
     /* ---------- highlighted header \u00b7 folder-tab shape ---------- */
-    var BERRY=[178,94,106];
-    var bannerTop=top-8, tabW=(w-2*cardPad)*0.62, tabH=44, bx=ox+cardPad, r=10;
+    var BERRY=[178,94,106], CREAM=[249,227,230];
+    var bannerTop=top-8, tabW=w-2*cardPad, tabH=44, bx=ox+cardPad, r=10;
     doc.setFillColor(BERRY[0],BERRY[1],BERRY[2]);
     if(doc.roundedRect)doc.roundedRect(bx,bannerTop,tabW,tabH,r,r,'F');else doc.rect(bx,bannerTop,tabW,tabH,'F');
     doc.rect(bx,bannerTop+tabH-r,tabW,r,'F');
     doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(255,255,255);
     doc.text('Dine In Menu',bx+14,bannerTop+tabH/2+5.5);
-    doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(CREAM[0],CREAM[1],CREAM[2]);
     doc.text('Ratio Crows Nest',xEnd,bannerTop+tabH/2+5.5,{align:'right'});
-    doc.setDrawColor(BERRY[0],BERRY[1],BERRY[2]);doc.setLineWidth(1.4);
-    doc.line(bx+tabW+10,bannerTop+tabH-2,xEnd,bannerTop+tabH-2);
     var cy=bannerTop+tabH+22;
     var espressoY0=cy;
 
