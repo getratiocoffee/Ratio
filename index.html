@@ -717,6 +717,8 @@
   .bl-body{margin-top:10px}
   .bl-name{flex:1;min-width:0;font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--ink);border:none;background:transparent;border-bottom:1px solid var(--line);padding:4px 2px}
   .bl-name:focus{outline:none;border-bottom-color:var(--accent)}
+  .bl-name.dup{border-bottom-color:var(--danger);color:var(--danger)}
+  .bl-saved.err{color:var(--danger);font-weight:600}
   .bl-del{flex:0 0 auto;width:32px;height:32px;border:none;background:transparent;color:var(--muted);display:grid;place-items:center;border-radius:9px;cursor:pointer}
   .bl-del:active{background:var(--tint);color:var(--accent)}
   .bl-del svg{width:18px;height:18px}
@@ -3834,6 +3836,19 @@ fill="#6F4A36" stroke="none">
     ensureBeansForInvoice().then(function(){if(document.querySelector('#screen-blend.open'))renderBlending();});
   }
   var blOpen={};
+  function blendDupNames(){
+    var d=loadBlendDefs(),cnt={},dups={};
+    d.forEach(function(b){var k=String(b&&b.name||'').trim().toLowerCase();if(!k)return;cnt[k]=(cnt[k]||0)+1;if(cnt[k]>1)dups[k]=true;});
+    return dups;
+  }
+  function markBlendDups(el){
+    var dups=blendDupNames();
+    el.querySelectorAll('.bl-name').forEach(function(inp){
+      var k=String(inp.value||'').trim().toLowerCase();
+      inp.classList.toggle('dup',!!(k&&dups[k]));
+    });
+    return dups;
+  }
   function renderBlending(){
     var el=document.getElementById('blend-content');if(!el)return;
     var defs=loadBlendDefs();
@@ -3864,7 +3879,7 @@ fill="#6F4A36" stroke="none">
       +'<button class="gbtn" id="bl-save">Save recipe</button>'
       +'<div class="bl-saved" id="bl-saved">\u2713 Saved</div></div>';
     el.querySelectorAll('.bl-toggle[data-bo]').forEach(function(b){b.addEventListener('click',function(){var bi=+b.dataset.bo;blOpen[bi]=!blOpen[bi];renderBlending();});});
-    el.querySelectorAll('.bl-name').forEach(function(inp){inp.addEventListener('input',function(){var d=loadBlendDefs();d[+inp.dataset.bi].name=inp.value;saveBlendDefs(d);});});
+    el.querySelectorAll('.bl-name').forEach(function(inp){inp.addEventListener('input',function(){var d=loadBlendDefs();d[+inp.dataset.bi].name=inp.value;saveBlendDefs(d);markBlendDups(el);});});
     el.querySelectorAll('.bl-bean').forEach(function(s){s.addEventListener('change',function(){var d=loadBlendDefs();d[+s.dataset.bi].parts[+s.dataset.pi].bean=s.value;saveBlendDefs(d);var card=s.closest('.bl-card'),ce=card&&card.querySelector('.bl-cost');if(ce)ce.innerHTML=blendCostHTML(d[+s.dataset.bi]);});});
     el.querySelectorAll('.bl-cmt').forEach(function(inp){inp.addEventListener('input',function(){var d=loadBlendDefs();d[+inp.dataset.bi].comment=inp.value;saveBlendDefs(d);});});
     el.querySelectorAll('.bl-pctin').forEach(function(i){i.addEventListener('input',function(){var d=loadBlendDefs();d[+i.dataset.bi].parts[+i.dataset.pi].pct=i.value;saveBlendDefs(d);
@@ -3879,8 +3894,15 @@ fill="#6F4A36" stroke="none">
       el.querySelectorAll('.bl-pctin').forEach(function(i){if(d[+i.dataset.bi]&&d[+i.dataset.bi].parts[+i.dataset.pi])d[+i.dataset.bi].parts[+i.dataset.pi].pct=i.value;});
       el.querySelectorAll('.bl-cmt').forEach(function(inp){if(d[+inp.dataset.bi])d[+inp.dataset.bi].comment=inp.value;});
       saveBlendDefs(d);
-      var sv=document.getElementById('bl-saved');if(sv){sv.classList.add('show');clearTimeout(window._blSaveT);window._blSaveT=setTimeout(function(){sv.classList.remove('show');},1800);}
+      var sv=document.getElementById('bl-saved');
+      var dups=markBlendDups(el);
+      if(Object.keys(dups).length){
+        if(sv){sv.classList.add('err','show');sv.textContent='\u26a0\ufe0f Blend names must be unique';clearTimeout(window._blSaveT);window._blSaveT=setTimeout(function(){sv.classList.remove('show');},2600);}
+        return;
+      }
+      if(sv){sv.classList.remove('err');sv.textContent='\u2713 Saved';sv.classList.add('show');clearTimeout(window._blSaveT);window._blSaveT=setTimeout(function(){sv.classList.remove('show');},1800);}
     });
+    markBlendDups(el);
   }
   /* ============ Contacts (More → Account) ============ */
   const CONTACT_TYPES=['Supplier','Customer','Roaster','Service'];
