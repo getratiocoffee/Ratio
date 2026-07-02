@@ -399,10 +399,14 @@
   .smp-score{display:flex;flex-direction:column;align-items:stretch;gap:9px;padding:13px 14px;border-top:1px solid var(--line)}
   .smp-score:first-child{border-top:none}
   .smp-sname{font-size:14px;color:var(--ink);font-weight:500}
-  .strength{display:flex;gap:7px}
-  .str-opt{flex:1;padding:9px 4px;font-size:13px;font-weight:600;font-family:inherit;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--muted);cursor:pointer;transition:background .12s ease,border-color .12s ease,color .12s ease}
-  .str-opt.on{background:var(--accent);border-color:var(--accent);color:#fff}
-  .str-opt:active{transform:scale(.97)}
+  .str-slider{position:relative;padding-top:6px}
+  .str-rail{position:relative;height:6px;border-radius:99px;background:var(--surface-sunken,#EFE3E1);margin:0 0 9px}
+  .str-thumb{position:absolute;top:50%;width:20px;height:20px;border-radius:50%;background:var(--accent);border:3px solid var(--surface);box-shadow:0 1px 4px rgba(50,43,42,.25);transform:translate(-50%,-50%);transition:left .18s cubic-bezier(.4,0,.2,1),opacity .15s ease;pointer-events:none}
+  .str-ticks{display:flex;gap:7px}
+  .str-tick{flex:1;padding:8px 4px;font-size:12.5px;font-weight:600;font-family:inherit;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--muted);cursor:pointer;transition:background .12s ease,border-color .12s ease,color .12s ease}
+  .str-tick.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .str-tick:active{transform:scale(.97)}
+  .smp-live-radar{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);max-width:250px;margin-left:auto;margin-right:auto}
   .smp-dec-h{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:9px;text-align:center}
   .smp-f input[readonly]{opacity:.55;cursor:default;pointer-events:none}
   .smp-pick{flex:0 0 auto;width:22px;height:22px;border-radius:7px;border:1.7px solid #D6C8C1;background:transparent;cursor:pointer;padding:0;position:relative;transition:background .12s ease,border-color .12s ease}
@@ -4723,9 +4727,27 @@ fill="#6F4A36" stroke="none">
   }
   var STRENGTH=[[1,'Light'],[2,'Medium'],[3,'Strong']];
   function strLabel(v){return v>=3?'Strong':(v===2?'Medium':(v===1?'Light':''));}
+  function strThumbPos(v){return ((2*v-1)/6*100).toFixed(2)+'%';}
   function strengthRow(p,name){
     var v=p[name]||0;
-    return '<div class="strength" data-name="'+name+'">'+STRENGTH.map(function(o){return '<button class="str-opt'+(v===o[0]?' on':'')+'" data-n="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div>';
+    var thumb='<span class="str-thumb" style="'+(v?('left:'+strThumbPos(v)+';opacity:1'):'opacity:0')+'"></span>';
+    var ticks=STRENGTH.map(function(o){return '<button class="str-tick'+(v===o[0]?' on':'')+'" data-n="'+o[0]+'">'+o[1]+'</button>';}).join('');
+    return '<div class="str-slider" data-name="'+name+'" data-v="'+v+'"><div class="str-rail">'+thumb+'</div><div class="str-ticks">'+ticks+'</div></div>';
+  }
+  /* wire up the strength sliders; on change, update thumb + live radar (if present) */
+  function bindStrengthSliders(box,p){
+    box.querySelectorAll('.str-slider').forEach(function(dr){
+      var name=dr.dataset.name;
+      dr.querySelectorAll('.str-tick').forEach(function(b){b.addEventListener('click',function(){
+        var n=+b.dataset.n;p[name]=(p[name]===n?null:n);
+        var v=p[name]||0;dr.dataset.v=v;
+        dr.querySelectorAll('.str-tick').forEach(function(x){x.classList.toggle('on',+x.dataset.n===v);});
+        var th=dr.querySelector('.str-thumb');
+        if(th){if(v){th.style.left=strThumbPos(v);th.style.opacity='1';}else{th.style.opacity='0';}}
+        var c=box.querySelector('#smp-live-radar');
+        if(c)c.innerHTML=sampleRadarSVG(p,true);
+      });});
+    });
   }
   function scoreRow(p,f){
     return '<div class="smp-score"><span class="smp-sname">'+f[1]+'</span>'+strengthRow(p,f[0])+'</div>';
@@ -4767,7 +4789,8 @@ fill="#6F4A36" stroke="none">
       +'<label class="smp-f"><span>ID</span><input id="smp-id" type="text" value="'+esc(p.sample_id||'')+'" /></label></div>'
       +'<label class="smp-f"><span>Process</span><input id="smp-process" type="text" value="'+esc(p.process||'')+'" /></label>'
       +'</div></div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">Cupping Strength</div><div class="smp-scores">'+scores+'</div></div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Cupping Strength</div><div class="smp-scores">'+scores+'</div>'
+      +'<div class="smp-live-radar" id="smp-live-radar">'+sampleRadarSVG(p,true)+'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Flavour characters · up to 3</div>'+charFields('smp',p)+'</div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Comment · what makes it unique</div><textarea id="smp-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
       +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':(okMsg?' ok':''))+'" id="smp-msg">'+(errMsg?('Load failed: '+esc(errMsg)+' (run the samples table SQL in Supabase first)'):(okMsg?esc(okMsg):''))+'</div></div>'
@@ -4776,13 +4799,7 @@ fill="#6F4A36" stroke="none">
     var todays=SAMPLES.filter(function(x){return x.cupping_date===today;});
     var list=cupping?'':(todays.length?('<div class="smp-sec"><div class="smp-sec-h">Samples today · tap to edit/delete</div><div class="smp-list">'+todays.map(sampleCard).join('')+'</div><div class="smp-hint">Older records live under History in the dock</div></div>'):'');
     box.innerHTML=nav+form+list;
-    box.querySelectorAll('.strength').forEach(function(dr){
-      var name=dr.dataset.name;
-      dr.querySelectorAll('.str-opt').forEach(function(b){b.addEventListener('click',function(){
-        var n=+b.dataset.n;p[name]=(p[name]===n?null:n);
-        var v=p[name]||0;dr.querySelectorAll('.str-opt').forEach(function(x){x.classList.toggle('on',+x.dataset.n===v);});
-      });});
-    });
+    bindStrengthSliders(box,p);
     var _prev=document.getElementById('smp-prev');if(_prev)_prev.addEventListener('click',function(){captureSmp();smpIdx=(smpIdx-1+smpPages.length)%smpPages.length;renderSample();box.scrollTop=0;});
     var _next=document.getElementById('smp-next');if(_next)_next.addEventListener('click',function(){captureSmp();smpIdx=(smpIdx+1)%smpPages.length;renderSample();box.scrollTop=0;});
     var _add=document.getElementById('smp-add');if(_add)_add.addEventListener('click',function(){captureSmp();smpPages.push(blankSmp());smpIdx=smpPages.length-1;renderSample();box.scrollTop=0;});
@@ -4821,7 +4838,8 @@ fill="#6F4A36" stroke="none">
       +'<label class="smp-f"><span>ID</span><input id="se-id" type="text" value="'+esc(p.sample_id||'')+'" /></label></div>'
       +'<label class="smp-f"><span>Process</span><input id="se-process" type="text" value="'+esc(p.process||'')+'" /></label>'
       +'</div></div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">Cupping Strength</div><div class="smp-scores">'+scores+'</div></div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Cupping Strength</div><div class="smp-scores">'+scores+'</div>'
+      +'<div class="smp-live-radar" id="smp-live-radar">'+sampleRadarSVG(p,true)+'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Flavour characters · up to 3</div>'+charFields('se',p)+'</div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Purchase decision</div>'+seg+'</div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Comment · what makes it unique</div><textarea id="se-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
@@ -4831,16 +4849,10 @@ fill="#6F4A36" stroke="none">
           ?'<div class="gdel-msg">Delete this sample? This cannot be undone.</div><div class="gform-actions"><button class="gbtn ghost" id="se-del-cancel">Cancel</button><button class="gbtn danger" id="se-del-yes">Delete</button></div>'
           :'<button class="gbtn dghost" id="se-del">Delete this sample</button>')
       +'</div></div>';
-    box.querySelectorAll('.strength').forEach(function(dr){
-      var name=dr.dataset.name;
-      dr.querySelectorAll('.str-opt').forEach(function(b){b.addEventListener('click',function(){
-        var n=+b.dataset.n;p[name]=(p[name]===n?null:n);
-        var v=p[name]||0;dr.querySelectorAll('.str-opt').forEach(function(x){x.classList.toggle('on',+x.dataset.n===v);});
-      });});
-    });
     box.querySelectorAll('.re-opt').forEach(function(o){o.addEventListener('click',function(){
       p.decision=o.dataset.s;box.querySelectorAll('.re-opt').forEach(function(x){x.classList.toggle('on',x.dataset.s===p.decision);});
     });});
+    bindStrengthSliders(box,p);
     document.getElementById('se-cancel').addEventListener('click',function(){smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpAfterEdit();box.scrollTop=0;});
     document.getElementById('se-save').addEventListener('click',saveSampleEdit);
     var dd=document.getElementById('se-del');if(dd)dd.addEventListener('click',function(){smpDelConfirm=true;renderSampleEdit();});
@@ -4883,9 +4895,9 @@ fill="#6F4A36" stroke="none">
   }
   var sampleOpen={};
   /* inline SVG radar for the History screen — 5 axes, inner=Light, outer=Strong */
-  function sampleRadarSVG(s){
+  function sampleRadarSVG(s,force){
     var axes=[['fragrance','Fragrance'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
-    if(!axes.some(function(a){return s[a[0]]!=null;}))return '';
+    if(!force&&!axes.some(function(a){return s[a[0]]!=null;}))return '';
     var W=232,H=176,cx=W/2,cy=H/2+4,R=46,n=axes.length;
     function pt(i,r){var a=i*2*Math.PI/n;return [cx+r*Math.sin(a),cy-r*Math.cos(a)];}
     function poly(r){return axes.map(function(_,i){var p=pt(i,r);return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ');}
