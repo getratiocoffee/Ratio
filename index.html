@@ -3079,15 +3079,11 @@ fill="#6F4A36" stroke="none">
       });
       cy+=15;
     }
-    if(bean.strength&&bean.strength.length){
+    if(bean.cupScores&&bean.cupScores.some(function(o){return o.n!=null;})){
       lab('CUPPING');
-      bean.strength.forEach(function(s){
-        doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);
-        doc.text(mnAsc(s.label),lx,cy);
-        doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-        doc.text(mnAsc(s.val),lx+lw,cy,{align:'right'});
-        cy+=12.5;
-      });
+      var rR=26,rCx=lx+lw/2,rCy=cy+9+rR;
+      drawCuppingRadar(doc,rCx,rCy,rR,bean.cupScores,band,[168,158,149]);
+      cy=rCy+rR+9+15;
     }
     /* FLAVOUR — one line, no wrap, font grown to fill the column width */
     if(bean.flavour&&bean.flavour.length){
