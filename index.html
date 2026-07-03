@@ -3469,6 +3469,31 @@ fill="#6F4A36" stroke="none">
     if(c)c.innerHTML='<div class="sempty">Loading beans\u2026</div>';
     Promise.all([ensureBeansForInvoice(),ensureRetailForLabel()]).then(function(){renderDinein();}).catch(function(){renderDinein();});
   }
+  /* Live lookup of a bean's retail dot colour \u2014 not cached, so it always reflects the current Retail Info assignment.
+     Falls back to a prefix match (either direction) when the exact name isn't a key in the dots map, since
+     retail sample_id names (e.g. "Danche") are sometimes shorter than the descriptive dot-map keys
+     (e.g. "Danche Anaerobic Washed" / "Danche Red Honey"). */
+  function beanColorFor(name){
+    name=String(name||'').trim();if(!name)return '';
+    try{
+      var dm=loadDots();
+      var dotKey='';
+      if(dm[name])dotKey=dm[name];
+      if(!dotKey){
+        var lk=name.toLowerCase();
+        Object.keys(dm).forEach(function(k){if(!dotKey&&String(k).trim().toLowerCase()===lk)dotKey=dm[k];});
+      }
+      if(!dotKey){
+        var lk2=name.toLowerCase();
+        Object.keys(dm).forEach(function(k){
+          if(dotKey)return;
+          var kk=String(k).trim().toLowerCase();
+          if(kk&&(kk.indexOf(lk2)===0||lk2.indexOf(kk)===0))dotKey=dm[k];
+        });
+      }
+      return (dotKey&&RTL_DOTCOL[dotKey])||'';
+    }catch(e){return '';}
+  }
   function beanProcessFor(name){
     var key=String(name||'').trim().toLowerCase();if(!key)return '';
     var b=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===key;})[0];
@@ -3532,7 +3557,8 @@ fill="#6F4A36" stroke="none">
     var pos=['Top left','Top right','Bottom left','Bottom right'];
     function pourCard(i){
       var v=DINEIN.pours[i]||{bean:'',name:'',origin:'',flavour:'',hot:'',cold:'',highlight:false,color:''};
-      var dot=v.color?'<span class="di-dot" style="background:'+esc(v.color)+'"></span>':'';
+      var liveCol=beanColorFor(v.bean||v.name);
+      var dot=liveCol?'<span class="di-dot" style="background:'+esc(liveCol)+'"></span>':'';
       return '<div class="sp-card" data-sec="pour" data-i="'+i+'">'
         +'<div class="sp-cardhd"><span class="sp-badge">'+esc(pos[i].toUpperCase())+'</span><span class="sp-cardsub">Pour Over</span>'
           +'<button type="button" class="di-hlbtn'+(v.highlight?' on':'')+'" data-sec="pour" data-i="'+i+'" aria-pressed="'+(v.highlight?'true':'false')+'">Highlight</button>'+dot+'</div>'
@@ -3715,7 +3741,7 @@ fill="#6F4A36" stroke="none">
     (cfg.pours||[]).slice(0,4).forEach(function(it){
       var name=mnAsc(it.name||'');if(!name)return;
       var hl=!!it.highlight;
-      var beanCol=mnHexRgb(it.color)||null;
+      var beanCol=mnHexRgb(beanColorFor(it.bean||it.name))||null;
       var hot=String(it.hot==null?'':it.hot).trim(), cold=String(it.cold==null?'':it.cold).trim();
       if(hl){doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
         doc.text('STAFF PICK',x0,y,{charSpace:1.2});y+=9;}
