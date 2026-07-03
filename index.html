@@ -3759,7 +3759,7 @@ fill="#6F4A36" stroke="none">
       while(nsz>6&&doc.getTextWidth(nt)>w-16){nsz-=0.3;doc.setFontSize(nsz);}
       while(doc.getTextWidth(nt)>w-14&&nt.length>4){nt=nt.slice(0,-2);}
       if(nt!==mnAsc(String(info.note))){nt=nt.replace(/[\s\u2026.]+$/,'')+'\u2026';}
-      var barH=nsz+7,barTop=y+bandH+5;
+      var barH=nsz+7,barTop=y+bandH;   /* flush under the name band, no white gap */
       var lt=[Math.round(band[0]+(255-band[0])*0.80),Math.round(band[1]+(255-band[1])*0.80),Math.round(band[2]+(255-band[2])*0.80)];
       doc.setFillColor(lt[0],lt[1],lt[2]);
       doc.rect(x,barTop,w,barH,'F');   /* full-width highlight row */
@@ -3768,6 +3768,10 @@ fill="#6F4A36" stroke="none">
       doc.text(nt,x+w/2,barTop+barH/2+nsz*0.34,{align:'center'});
       cy=barTop+barH+14;
     }
+    /* redraw a crisp cell border on top of the coloured name band + note bar,
+       so the black outline stays a clean unbroken line where the fills reach the edges */
+    doc.setDrawColor(30,26,25);doc.setLineWidth(0.8);
+    if(doc.roundedRect)doc.roundedRect(x,y,w,h,9,9,'S');else doc.rect(x,y,w,h,'S');
     /* ===== FLAVOUR — primary focus (large) ===== */
     if(info.flavour&&info.flavour.length){
       doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
