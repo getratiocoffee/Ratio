@@ -3732,7 +3732,7 @@ fill="#6F4A36" stroke="none">
     if(doc.roundedRect)doc.roundedRect(x,y,w,h,9,9,'S');else doc.rect(x,y,w,h,'S');
     var px=x+15, pw=w-30;
     if(!info||!info.name){
-      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+      doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
       doc.text('— empty —',x+w/2,y+h/2,{align:'center'});
       return;
     }
@@ -3776,7 +3776,7 @@ fill="#6F4A36" stroke="none">
     if(info.flavour&&info.flavour.length){
       doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
       doc.text('FLAVOUR',px,cy,{charSpace:1.1});cy+=14;
-      doc.setFont('helvetica','normal');doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.setFont('helvetica','bold');doc.setTextColor(INK[0],INK[1],INK[2]);
       mnFit(doc,info.flavour.join('  ·  '),px,cy,pw,12.5,8.5);cy+=12;
     }
     cy+=8;
