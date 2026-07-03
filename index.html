@@ -1928,7 +1928,7 @@ fill="#6F4A36" stroke="none">
     (BEANS||[]).forEach(function(b){
       var sel=String(b.id)===String(it.beanId)?' selected':'';
       var stock=(b.quantity!=null)?(' · '+gnum(b.quantity)+'kg in stock'):'';
-      o+='<option value="'+esc(b.id)+'"'+sel+'>'+esc(b.name)+(b.country?' · '+esc(b.country):'')+' — $'+(b.cost_per_kg!=null?b.cost_per_kg:'?')+'/kg'+stock+'</option>';
+      o+='<option value="'+esc(b.id)+'"'+sel+'>'+esc(b.name)+(b.process?' · '+esc(b.process):'')+' — $'+(b.cost_per_kg!=null?b.cost_per_kg:'?')+'/kg'+stock+'</option>';
     });
     return o;
   }
