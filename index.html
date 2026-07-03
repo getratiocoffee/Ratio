@@ -789,6 +789,7 @@
   .di-pin:focus{outline:none;border-color:var(--accent)}
   .di-hlbtn{margin-left:auto;flex:0 0 auto;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.04em;font-weight:600;color:var(--muted);background:var(--bg);border:1px solid var(--line);padding:4px 10px;border-radius:999px;cursor:pointer}
   .di-hlbtn.on{color:#fff;background:var(--accent);border-color:var(--accent)}
+  .di-dot{flex:0 0 auto;width:14px;height:14px;border-radius:50%;display:inline-block;border:1px solid rgba(50,43,42,.12)}
   .sp-dotb{margin-left:auto;width:14px;height:14px;border-radius:50%;display:inline-block;border:1px solid rgba(50,43,42,.12)}
   .mn-prev{margin-top:11px;padding-top:11px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
   .mn-pv-row{display:flex;gap:10px;font-size:12px;line-height:1.45}
@@ -3435,10 +3436,10 @@ fill="#6F4A36" stroke="none">
     freshNote:'(Dark Knight V4.0 or Dancer V3.0 only)',
     coldNote:'(Barista choice of the day)',
     pours:[
-      {bean:'',name:'Danche Anaerobic Washed',       origin:'Ethiopia, Anaerobic Washed',  flavour:'Peach, Grapes, Bergamot',        hot:'10', cold:'11', highlight:false},
-      {bean:'',name:'Gatitu AA',                     origin:'Kenya, Washed',               flavour:'Plum, Blackberry, Toffee',       hot:'10', cold:'11', highlight:false},
-      {bean:'',name:'Alo Village White Honey',       origin:'Ethiopia, White Honey',       flavour:'Bergamot, Stone Fruit, Longan',  hot:'15', cold:'16', highlight:false},
-      {bean:'',name:'Alo Village Cold Fermentation', origin:'Ethiopia, Cold Fermentation', flavour:'Winey, Grape Candy, Dried Fruit', hot:'15', cold:'16', highlight:false}
+      {bean:'',name:'Danche Anaerobic Washed',       origin:'Ethiopia, Anaerobic Washed',  flavour:'Peach, Grapes, Bergamot',        hot:'10', cold:'11', highlight:false, color:''},
+      {bean:'',name:'Gatitu AA',                     origin:'Kenya, Washed',               flavour:'Plum, Blackberry, Toffee',       hot:'10', cold:'11', highlight:false, color:''},
+      {bean:'',name:'Alo Village White Honey',       origin:'Ethiopia, White Honey',       flavour:'Bergamot, Stone Fruit, Longan',  hot:'15', cold:'16', highlight:false, color:''},
+      {bean:'',name:'Alo Village Cold Fermentation', origin:'Ethiopia, Cold Fermentation', flavour:'Winey, Grape Candy, Dried Fruit', hot:'15', cold:'16', highlight:false, color:''}
     ]
   };
   var DINEIN_TXTKEYS=['dirtySub','dirtyDesc','freshNote','coldNote'];
@@ -3511,10 +3512,11 @@ fill="#6F4A36" stroke="none">
     /* ----- pour over cards ----- */
     var pos=['Top left','Top right','Bottom left','Bottom right'];
     function pourCard(i){
-      var v=DINEIN.pours[i]||{bean:'',name:'',origin:'',flavour:'',hot:'',cold:'',highlight:false};
+      var v=DINEIN.pours[i]||{bean:'',name:'',origin:'',flavour:'',hot:'',cold:'',highlight:false,color:''};
+      var dot=v.color?'<span class="di-dot" style="background:'+esc(v.color)+'"></span>':'';
       return '<div class="sp-card" data-sec="pour" data-i="'+i+'">'
         +'<div class="sp-cardhd"><span class="sp-badge">'+esc(pos[i].toUpperCase())+'</span><span class="sp-cardsub">Pour Over</span>'
-          +'<button type="button" class="di-hlbtn'+(v.highlight?' on':'')+'" data-sec="pour" data-i="'+i+'" aria-pressed="'+(v.highlight?'true':'false')+'">Highlight</button></div>'
+          +'<button type="button" class="di-hlbtn'+(v.highlight?' on':'')+'" data-sec="pour" data-i="'+i+'" aria-pressed="'+(v.highlight?'true':'false')+'">Highlight</button>'+dot+'</div>'
         +'<label class="sp-field"><span class="sp-flab">Auto-fill from bean</span>'
           +'<select class="di-psel tk-ti" data-i="'+i+'">'+optlist(pourOpts,v.bean,'\u2014 pick a bean to auto-fill \u2014')+'</select></label>'
         +'<label class="sp-field"><span class="sp-flab">Name</span>'
@@ -3564,7 +3566,9 @@ fill="#6F4A36" stroke="none">
     });});
     c.querySelectorAll('.di-psel').forEach(function(sel){sel.addEventListener('change',function(){
       var i=+sel.dataset.i;var nm=sel.value;DINEIN.pours[i].bean=nm;
-      if(nm){var a=takeawayAutofill(nm);DINEIN.pours[i].name=a.name;if(a.origin)DINEIN.pours[i].origin=a.origin;if(a.flavour)DINEIN.pours[i].flavour=a.flavour;}
+      if(nm){var a=takeawayAutofill(nm);DINEIN.pours[i].name=a.name;if(a.origin)DINEIN.pours[i].origin=a.origin;if(a.flavour)DINEIN.pours[i].flavour=a.flavour;
+        var info=menuInfoFor(nm);DINEIN.pours[i].color=info.color||'';}
+      else{DINEIN.pours[i].color='';}
       saveDinein(DINEIN);renderDinein();
     });});
     c.querySelectorAll('.di-pf,.di-pp').forEach(function(inp){inp.addEventListener('input',function(){
@@ -3692,6 +3696,8 @@ fill="#6F4A36" stroke="none">
     (cfg.pours||[]).slice(0,4).forEach(function(it){
       var name=mnAsc(it.name||'');if(!name)return;
       var hl=!!it.highlight;
+      var beanCol=mnHexRgb(it.color)||null;
+      var nameCol=beanCol||(hl?BERRY:INK);
       var hot=String(it.hot==null?'':it.hot).trim(), cold=String(it.cold==null?'':it.cold).trim();
       if(hl){doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
         doc.text('STAFF PICK',x0,y,{charSpace:1.2});y+=9;}
@@ -3704,9 +3710,9 @@ fill="#6F4A36" stroke="none">
       var swid=doc.getTextWidth(' / ');
       doc.setTextColor(HOT[0],HOT[1],HOT[2]);doc.text(hot||'-',rx-cwid-swid,y,{align:'right'});
       var priceW=cwid+swid+doc.getTextWidth(hot||'-');
-      /* name */
+      /* name \u2014 tinted with the bean's own retail colour when assigned */
       doc.setFont('helvetica','bold');doc.setFontSize(11);
-      doc.setTextColor(hl?BERRY[0]:INK[0], hl?BERRY[1]:INK[1], hl?BERRY[2]:INK[2]);
+      doc.setTextColor(nameCol[0],nameCol[1],nameCol[2]);
       mnFit(doc,name,x0,y,innerW-priceW-12,11,8.5);
       y+=12;
       if(it.origin){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
