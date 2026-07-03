@@ -427,6 +427,7 @@
   .rtl-head.open{border-radius:16px 16px 0 0}
   .rtl-head .rd-chev{flex:0 0 auto;color:var(--accent-ink)}
   .rtl-head-name{font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--accent-ink);line-height:1.25;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rtl-head-proc{font-family:var(--font-ui);font-size:12px;font-weight:500;color:var(--text-soft,#8a8078);margin-left:6px}
   .rtl-head-right{flex:0 0 auto;font-size:11.5px;font-weight:600;color:var(--accent-ink);opacity:.65}
   .rtl-head-right.out{opacity:1;color:#B25E6A}
   .rtl-dot-inline{flex:0 0 auto;width:10px;height:10px;border-radius:50%}
@@ -4507,6 +4508,8 @@ fill="#6F4A36" stroke="none">
   function retailCard(s,roastDate,color){
     var FEAT={fragrance:'Fragrance',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
     var id=esc(s.sample_id||s.supplier||'—');
+    var procTag=beanProcessFor(s.sample_id||'');
+    var procHtml=procTag?('<span class="rtl-head-proc">'+esc(procTag)+'</span>'):'';
     var dotCol=color&&RTL_DOTCOL[color];
     var dotHtml=dotCol?('<div class="rtl-dotwrap"><span class="rtl-dot ro on" style="background:'+dotCol+'" aria-label="status colour"></span></div>'):'';
     var gv=loadGrams()[s.sample_id||''];
@@ -4547,7 +4550,7 @@ fill="#6F4A36" stroke="none">
     var open=!!rtlOpen[delKey]||confirming;
     var chev='<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>';
     var header='<button class="rtl-head'+(open?' open':'')+'" data-toggle="'+esc(delKey)+'">'+chev+dotInline
-      +'<span class="rtl-head-name">'+id+'</span>'
+      +'<span class="rtl-head-name">'+id+procHtml+'</span>'
       +(blendDef?'<span class="rtl-blend-tag rtl-head-right">Blend</span>':'')+'</button>';
     var body=open?('<div class="rtl-body">'
       +readyHtml
