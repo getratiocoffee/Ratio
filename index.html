@@ -3751,24 +3751,22 @@ fill="#6F4A36" stroke="none">
     while(ns>11&&doc.getTextWidth(mnAsc(info.name))>pw){ns-=0.5;doc.setFontSize(ns);}
     doc.text(mnAsc(info.name),px,y+bandH/2+ns*0.34,{maxWidth:pw});
     var cy=y+bandH+20;
-    /* ===== NOTE — small highlighted title, centred under the name ===== */
+    /* ===== NOTE — small highlighted title bar, centred under the name ===== */
     if(info.note){
       var nt=mnAsc(String(info.note));
       doc.setFont('helvetica','bold');
       var nsz=8.5;doc.setFontSize(nsz);
-      while(nsz>6&&doc.getTextWidth(nt)>pw-16){nsz-=0.3;doc.setFontSize(nsz);}
-      while(doc.getTextWidth(nt)>pw-14&&nt.length>4){nt=nt.slice(0,-2);}
+      while(nsz>6&&doc.getTextWidth(nt)>w-16){nsz-=0.3;doc.setFontSize(nsz);}
+      while(doc.getTextWidth(nt)>w-14&&nt.length>4){nt=nt.slice(0,-2);}
       if(nt!==mnAsc(String(info.note))){nt=nt.replace(/[\s\u2026.]+$/,'')+'\u2026';}
-      var tw=doc.getTextWidth(nt);
-      var pillH=nsz+7,pillW=Math.min(pw,tw+16);
-      var pillX=x+(w-pillW)/2,pillTop=y+bandH+6;
+      var barH=nsz+7,barTop=y+bandH+5;
       var lt=[Math.round(band[0]+(255-band[0])*0.80),Math.round(band[1]+(255-band[1])*0.80),Math.round(band[2]+(255-band[2])*0.80)];
       doc.setFillColor(lt[0],lt[1],lt[2]);
-      if(doc.roundedRect)doc.roundedRect(pillX,pillTop,pillW,pillH,pillH/2,pillH/2,'F');else doc.rect(pillX,pillTop,pillW,pillH,'F');
+      doc.rect(x,barTop,w,barH,'F');   /* full-width highlight row */
       var dk=[Math.round(band[0]*0.5),Math.round(band[1]*0.5),Math.round(band[2]*0.5)];
       doc.setTextColor(dk[0],dk[1],dk[2]);
-      doc.text(nt,x+w/2,pillTop+pillH/2+nsz*0.34,{align:'center'});
-      cy=pillTop+pillH+14;
+      doc.text(nt,x+w/2,barTop+barH/2+nsz*0.34,{align:'center'});
+      cy=barTop+barH+14;
     }
     /* ===== FLAVOUR — primary focus (large) ===== */
     if(info.flavour&&info.flavour.length){
