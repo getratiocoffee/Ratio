@@ -4386,21 +4386,22 @@ fill="#6F4A36" stroke="none">
       }
     }
     var sub=proc?('<span class="bp-sub">'+esc(proc)+'</span>'):'';
-    var editBtn='<button class="blend-edit" data-eid="'+esc(r.id)+'" aria-label="Edit roast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>';
+    var dateSub=r.roast_date?('<span class="bp-sub">'+esc(fmtDate(r.roast_date))+'</span>'):'';
+    var subBlock=sub+dateSub;'<button class="blend-edit" data-eid="'+esc(r.id)+'" aria-label="Edit roast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>';
     if(!tappable){
-      return '<div class="blend-pick done np"><div class="blend-pick-top"><div class="bp-l"><span class="blend-name">'+esc(bk||'—')+'</span>'+sub+'</div>'
+      return '<div class="blend-pick done np"><div class="blend-pick-top"><div class="bp-l"><span class="blend-name">'+esc(bk||'—')+'</span>'+subBlock+'</div>'
         +'<span class="blend-rt"><span class="rbadge'+(cupped?' done':'')+'">'+(cupped?'Cupped':'Pending')+'</span></span></div></div>';
     }
     if(cupped){
       return '<div class="blend-pick done np" data-id="'+esc(r.id)+'">'
-        +'<div class="blend-pick-top"><div class="bp-l"><span class="blend-name">'+esc(bk||'—')+'</span>'+sub+'</div>'
+        +'<div class="blend-pick-top"><div class="bp-l"><span class="blend-name">'+esc(bk||'—')+'</span>'+subBlock+'</div>'
         +'<span class="blend-rt"><span class="rbadge done">Cupped</span>'
         +'<button class="blend-go redo" data-aid="'+esc(r.id)+'">Re-analyse</button>'+editBtn+'</span></div>'
         +(bk?retailSetHTML(bk):'')
         +'</div>';
     }
     return '<div class="blend-pick np" data-id="'+esc(r.id)+'">'
-      +'<div class="bp-l"><span class="blend-name">'+esc(bk||'—')+'</span>'+sub+'</div>'
+      +'<div class="bp-l"><span class="blend-name">'+esc(bk||'—')+'</span>'+subBlock+'</div>'
       +'<span class="blend-rt"><button class="blend-go" data-aid="'+esc(r.id)+'">Start Analyse</button>'+editBtn+'</span>'
       +'</div>';
   }
