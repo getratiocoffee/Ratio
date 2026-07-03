@@ -3469,13 +3469,32 @@ fill="#6F4A36" stroke="none">
     if(c)c.innerHTML='<div class="sempty">Loading beans\u2026</div>';
     Promise.all([ensureBeansForInvoice(),ensureRetailForLabel()]).then(function(){renderDinein();}).catch(function(){renderDinein();});
   }
+  function beanProcessFor(name){
+    var key=String(name||'').trim().toLowerCase();if(!key)return '';
+    var b=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===key;})[0];
+    if(b&&b.process)return b.process;
+    var s=(RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===key;})[0];
+    if(s&&s.process)return s.process;
+    return '';
+  }
+  /* Dine In pour-over picker: only beans that exist in Retail Info (not the full green-bean roastery list) */
+  function retailOnlyBeanList(){
+    var seen={},out=[],blendSet={};
+    try{blendNames().forEach(function(n){blendSet[String(n).trim().toLowerCase()]=true;});}catch(e){}
+    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k]||blendSet[k])return;seen[k]=true;out.push(nm);});
+    return out;
+  }
   function renderDinein(){
     var c=document.getElementById('menu-content');if(!c)return;
-    var pourOpts=takeawayOptionList();
+    var pourOpts=retailOnlyBeanList();
     var blOpts=[];try{blOpts=blendNames();}catch(e){}
     function optlist(opts,cur,ph){
       return '<option value="">'+esc(ph)+'</option>'
         +opts.map(function(n){return '<option value="'+esc(n)+'"'+(n===cur?' selected':'')+'>'+esc(n)+'</option>';}).join('');
+    }
+    function pourOptList(opts,cur,ph){
+      return '<option value="">'+esc(ph)+'</option>'
+        +opts.map(function(n){var proc=beanProcessFor(n);return '<option value="'+esc(n)+'"'+(n===cur?' selected':'')+'>'+esc(n)+(proc?' \u00b7 '+esc(proc):'')+'</option>';}).join('');
     }
     /* ----- blend cards ----- */
     function blendCard(i){
@@ -3518,7 +3537,7 @@ fill="#6F4A36" stroke="none">
         +'<div class="sp-cardhd"><span class="sp-badge">'+esc(pos[i].toUpperCase())+'</span><span class="sp-cardsub">Pour Over</span>'
           +'<button type="button" class="di-hlbtn'+(v.highlight?' on':'')+'" data-sec="pour" data-i="'+i+'" aria-pressed="'+(v.highlight?'true':'false')+'">Highlight</button>'+dot+'</div>'
         +'<label class="sp-field"><span class="sp-flab">Auto-fill from bean</span>'
-          +'<select class="di-psel tk-ti" data-i="'+i+'">'+optlist(pourOpts,v.bean,'\u2014 pick a bean to auto-fill \u2014')+'</select></label>'
+          +'<select class="di-psel tk-ti" data-i="'+i+'">'+pourOptList(pourOpts,v.bean,'\u2014 pick a bean to auto-fill \u2014')+'</select></label>'
         +'<label class="sp-field"><span class="sp-flab">Name</span>'
           +'<input type="text" class="tk-ti di-pf" data-i="'+i+'" data-k="name" value="'+esc(v.name)+'" placeholder="e.g. Danche vol.2"></label>'
         +'<label class="sp-field"><span class="sp-flab">Origin / Process</span>'
