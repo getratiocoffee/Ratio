@@ -3782,7 +3782,7 @@ fill="#6F4A36" stroke="none">
     cy+=8;
     /* footer + cupping placement, computed from the bottom up */
     var by=y+h-13;
-    var hasC=!!info.comment;
+    var hasC=false;   /* comment + net weight are no longer printed */
     var commentY=by, netY=by;
     var hasCup=!!(info.cupScores&&info.cupScores.some(function(o){return o.n!=null;}));
     var RADAR_R=20,RADAR_HEAD=11,RADAR_PAD=9;
@@ -3820,16 +3820,6 @@ fill="#6F4A36" stroke="none">
       var rCx=px+pw/2, rCy=ccy+RADAR_PAD+RADAR_R;
       drawCuppingRadar(doc,rCx,rCy,RADAR_R,info.cupScores,band,[124,58,68]);
     }
-    /* ===== bottom line: special comment (left) + net weight (right), same baseline ===== */
-    var netTxt=info.net?(mnAsc(info.net)+'g net'):'';
-    var netW=0;
-    if(netTxt){doc.setFont('helvetica','normal');doc.setFontSize(8.5);netW=doc.getTextWidth(netTxt);}
-    if(hasC){
-      doc.setFont('helvetica','italic');doc.setTextColor(0,0,0);
-      mnFit(doc,info.comment,px,commentY,pw-(netW?netW+10:0),7.5,6);
-    }
-    if(netTxt){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(0,0,0);
-      doc.text(netTxt,x+w-15,netY,{align:'right'});}
   }
   function blendBeanOptions(sel){
     var o='<option value="">— Single Origin —</option>';
