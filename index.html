@@ -693,6 +693,34 @@
   .inv-trow.grand{font-weight:700;font-size:18px;border-top:1px solid var(--line);margin-top:6px;padding-top:10px}
   .inv-gen-wrap{position:sticky;bottom:0;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 14px);background:linear-gradient(to top,var(--bg) 72%,rgba(244,236,234,0))}
   .ct-type{flex:0 0 auto;font-size:11px;font-weight:600;border-radius:8px;padding:3px 10px;white-space:nowrap;color:#fff}
+  /* ---- Order module ---- */
+  .ord-card{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:14px 16px}
+  .ord-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;cursor:pointer}
+  .ord-no{font-family:'Space Mono',monospace;font-size:15px;font-weight:700;color:var(--ink)}
+  .ord-badges{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+  .ord-badge{flex:0 0 auto;font-size:11px;font-weight:600;border-radius:8px;padding:3px 10px;white-space:nowrap;color:#fff}
+  .ord-badge.flag{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+  .ord-badge.pay{background:transparent;color:#B08A4F;border:1px solid #B08A4F}
+  .ord-sub{font-size:12px;color:var(--muted);margin-top:3px}
+  .ord-sum{font-size:13px;color:var(--ink);margin-top:5px}
+  .ord-body{border-top:1px dashed var(--line);margin-top:11px;padding-top:11px;display:flex;flex-direction:column;gap:9px}
+  .ord-items{display:flex;flex-direction:column;gap:4px}
+  .ord-it{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--ink)}
+  .ord-it .oi-price{font-family:'Space Mono',monospace;flex:0 0 auto}
+  .ord-total{display:flex;justify-content:space-between;font-size:14px;font-weight:700;color:var(--ink);border-top:1px solid var(--line);padding-top:7px}
+  .ord-total span:last-child{font-family:'Space Mono',monospace}
+  .ord-line{display:flex;gap:8px;font-size:12.5px;color:var(--ink);line-height:1.45}
+  .ord-line .ol-l{flex:0 0 76px;font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;padding-top:2px}
+  .ord-steps{display:flex;gap:4px;flex-wrap:wrap;padding-top:2px}
+  .ord-step{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;font-size:11px;font-weight:600;padding:5px 11px;cursor:pointer;font-family:inherit}
+  .ord-step.on{color:#fff;border-color:transparent}
+  .ord-actrow{display:flex;gap:8px;justify-content:flex-end;padding-top:2px}
+  .ord-actrow .gbtn{width:auto;padding:9px 18px;font-size:13px;margin:0}
+  .ord-itemrow{display:grid;grid-template-columns:minmax(0,1fr) 62px 44px 68px 28px;gap:6px;align-items:center}
+  .ord-itemrow input{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 9px;font-size:13px;color:var(--ink);outline:none;font-family:inherit;min-width:0}
+  .ord-itemrow input:focus{border-color:var(--accent)}
+  .ord-itemrow .oi-x{border:none;background:none;color:var(--muted);font-size:17px;cursor:pointer;padding:4px;line-height:1}
+  .ord-colhead{display:grid;grid-template-columns:minmax(0,1fr) 62px 44px 68px 28px;gap:6px;font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--muted);text-transform:uppercase;padding:0 2px}
   .post-wrap{display:flex;flex-direction:column;align-items:center;text-align:center;padding:26px 24px calc(env(safe-area-inset-bottom,0px) + 24px)}
   .post-qr{width:240px;height:240px;background:#fff;border-radius:18px;padding:14px;border:1px solid var(--line);box-shadow:0 3px 16px rgba(50,43,42,.07);box-sizing:border-box}
   .post-qr img{width:100%;height:100%;display:block;image-rendering:pixelated}
@@ -936,6 +964,17 @@
     </div>
   </div>
 
+  <div class="screen" id="screen-order">
+    <header class="shead">
+      <span class="logo"><img src="logo.png" alt="Ratio" /></span>
+      <span class="hkey" id="order-count"></span>
+    </header>
+    <div class="stitle" id="order-title">Orders</div>
+    <div class="sbody">
+      <div id="order-content"></div>
+    </div>
+  </div>
+
   <div class="screen" id="screen-post">
     <header class="shead">
       <span class="logo"><img src="logo.png" alt="Ratio" /></span>
@@ -1134,7 +1173,9 @@ fill="#6F4A36" stroke="none">
     /* not built yet — tapping shows the reminder title + a "Coming soon" placeholder dock */
     task:{soon:true,contentTitle:'Task Reminder'},
     recipe:{soon:true,contentTitle:'Recipe Reminder'},
-    order:{soon:true,contentTitle:'Order Reminder'},
+    order:{contentTitle:'Order Reminder',
+           left:{label:'Orders',zh:'',icon:'bag',act:'order:list'},
+           right:{label:'New Order',zh:'',icon:'plus',act:'order:new'}},
     fx:{contentTitle:'F(x)',
         left:{label:'Blending',zh:'',icon:'blend',act:'fx:blend'},
         right:{label:'Retail Calc',zh:'',icon:'calc',act:'fx:calc'}},
@@ -1342,6 +1383,8 @@ fill="#6F4A36" stroke="none">
     else if(act==='timesheet:next'){var pw=planWeeksFromToday();openWeekView(pw.next,'Next week');}
     else if(act==='timesheet:after'){var pw=planWeeksFromToday();openWeekView(pw.after,'Week after');}
     else if(act==='timesheet:hist'){document.getElementById('ts-title').textContent='History';document.getElementById('ts-week').textContent='';renderTimesheetWeeks(historyWeeks());openPage('timesheet');}
+    else if(act==='order:list'){openOrders('list');}
+    else if(act==='order:new'){openOrders('new');}
     else if(act==='order:calc'||act==='fx:calc'){openOrderCalc();}
     else if(act==='fx:blend'){openBlending();}
     setActiveDock(act);
@@ -4155,6 +4198,253 @@ fill="#6F4A36" stroke="none">
     if(up.error){var m=document.getElementById('ct-msg');if(m){m.textContent='Delete failed: '+up.error.message;m.className='gform-msg err';}contactDelConfirm=false;renderContactEdit();return;}
     CONTACTS=CONTACTS.filter(function(x){return String(x.id)!==String(contactEdit);});
     contactEdit=null;contactObj=null;contactDelConfirm=false;renderContacts();
+  }
+
+  /* ============ Orders (dock → Order) ============ */
+  const ORD_STATUSES=['new','confirmed','roasting','ready','dispatched'];
+  const ORD_LABELS={new:'New',confirmed:'Confirmed',roasting:'Roasting',ready:'Ready',dispatched:'Dispatched'};
+  const ORD_COLORS={new:'#B25E6A',confirmed:'#7C7BA0',roasting:'#B08A4F',ready:'#7E9B7A',dispatched:'#9A8B82'};
+  const ORD_CHANNELS=['manual','square','instagram','subscription'];
+  const ORD_CUST_TYPES=['shop','home','event','overseas'];
+  let ORDERS=[],ORD_CUSTOMERS=[],ordCustMap={};
+  let ordFilterStatus=null,ordFilterChannel=null,ordFilterType=null,ordOpen={},ordEdit=null,ordObj=null,ordDelConfirm=false;
+  function ordCap(s){s=String(s||'');return s?s.charAt(0).toUpperCase()+s.slice(1):'';}
+  function ordDate(ts){if(!ts)return '';var d=new Date(ts);if(isNaN(d))return '';return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+String(d.getFullYear()).slice(-2);}
+  function ordMoney(n){var x=Number(n);return isNaN(x)?'—':'$'+x.toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  function ordItemNorm(it){it=it||{};return {
+    name:String(it.name||it.bean||it.description||'').trim(),
+    grams:(it.grams!=null?it.grams:(it.size!=null?it.size:'')),
+    qty:Number(it.qty!=null?it.qty:(it.quantity!=null?it.quantity:1))||1,
+    price:(it.price!=null?it.price:(it.unit_price!=null?it.unit_price:''))};}
+  function ordItems(o){var a=o&&o.items;if(!Array.isArray(a))return [];return a.map(ordItemNorm).filter(function(i){return i.name;});}
+  function ordItemLabel(i){return i.name+(i.grams?' '+i.grams+'g':'');}
+  function ordSummary(o){var a=ordItems(o);if(!a.length)return 'No items';var f=a[0];var s=ordItemLabel(f)+' × '+f.qty;if(a.length>1)s+=' · +'+(a.length-1)+' more';return s;}
+  function ordAddrText(a){if(!a)return '';if(typeof a==='string')return a;if(a.text)return String(a.text);try{return Object.values(a).filter(function(v){return v&&typeof v==='string';}).join(', ');}catch(e){return '';}}
+  function ordCust(o){return (o&&o.customer_id&&ordCustMap[o.customer_id])||null;}
+  function openOrders(view){
+    openPage('order');
+    ordEdit=null;ordObj=null;ordDelConfirm=false;
+    if(view==='new'){ordEdit='new';ordObj=blankOrder();}
+    loadOrders();
+  }
+  function blankOrder(){return {customer_id:'',newCust:{name:'',email:'',phone:'',type:'home'},items:[{name:'',grams:'',qty:1,price:''}],channel:'manual',payment_method:'bank_transfer',payment_note:'',shipping:'',notes:'',status:'new'};}
+  async function loadOrders(){
+    var box=document.getElementById('order-content');
+    box.innerHTML='<div class="sempty">Loading…</div>';
+    ensureBeansForInvoice();
+    var rs=await Promise.all([
+      sb.from('orders').select('*').order('created_at',{ascending:false}),
+      sb.from('customers').select('*').order('name')
+    ]);
+    if(rs[0].error){box.innerHTML='<div class="sempty">Load failed: '+esc(rs[0].error.message)+'</div>';document.getElementById('order-count').textContent='';return;}
+    ORDERS=rs[0].data||[];
+    ORD_CUSTOMERS=rs[1].error?[]:(rs[1].data||[]);
+    ordCustMap={};ORD_CUSTOMERS.forEach(function(c){ordCustMap[c.id]=c;});
+    renderOrders();
+  }
+  function renderOrders(){
+    if(ordEdit){renderOrderForm();return;}
+    var box=document.getElementById('order-content');
+    document.getElementById('order-title').textContent='Orders';
+    var list=ORDERS.filter(function(o){
+      if(ordFilterStatus&&o.status!==ordFilterStatus)return false;
+      if(ordFilterChannel&&o.channel!==ordFilterChannel)return false;
+      if(ordFilterType){var c=ordCust(o);if(!c||c.type!==ordFilterType)return false;}
+      return true;
+    });
+    document.getElementById('order-count').textContent=list.length+(list.length===1?' order':' orders');
+    var chips='<div class="ts-filter"><button class="tf-chip'+(!ordFilterStatus?' on':'')+'" data-fs="">All</button>'
+      +ORD_STATUSES.map(function(s){return '<button class="tf-chip'+(ordFilterStatus===s?' on':'')+'" data-fs="'+s+'">'+ORD_LABELS[s]+'</button>';}).join('')+'</div>'
+      +'<div class="ts-filter" style="padding-top:0"><button class="tf-chip'+(!ordFilterChannel?' on':'')+'" data-fc="">All channels</button>'
+      +ORD_CHANNELS.map(function(c){return '<button class="tf-chip'+(ordFilterChannel===c?' on':'')+'" data-fc="'+c+'">'+ordCap(c)+'</button>';}).join('')+'</div>'
+      +'<div class="ts-filter" style="padding-top:0"><button class="tf-chip'+(!ordFilterType?' on':'')+'" data-ft="">All customers</button>'
+      +ORD_CUST_TYPES.map(function(t){return '<button class="tf-chip'+(ordFilterType===t?' on':'')+'" data-ft="'+t+'">'+ordCap(t)+'</button>';}).join('')+'</div>';
+    var body;
+    if(!list.length){body='<div class="sempty">'+(ORDERS.length?'No orders match these filters':'No orders yet')+'</div>';}
+    else{body='<div class="gbeans">'+list.map(ordCardHTML).join('')+'</div>';}
+    box.innerHTML=chips+body+'<div class="inv-gen-wrap"><button class="gbtn" id="ord-add">+ New order</button></div>';
+    box.querySelectorAll('[data-fs]').forEach(function(b){b.addEventListener('click',function(){ordFilterStatus=b.dataset.fs||null;renderOrders();});});
+    box.querySelectorAll('[data-fc]').forEach(function(b){b.addEventListener('click',function(){ordFilterChannel=b.dataset.fc||null;renderOrders();});});
+    box.querySelectorAll('[data-ft]').forEach(function(b){b.addEventListener('click',function(){ordFilterType=b.dataset.ft||null;renderOrders();});});
+    box.querySelectorAll('.ord-head[data-toggle]').forEach(function(el){el.addEventListener('click',function(){var id=el.dataset.toggle;ordOpen[id]=!ordOpen[id];renderOrders();});});
+    box.querySelectorAll('.ord-step[data-st]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();setOrderStatus(el.dataset.id,el.dataset.st);});});
+    box.querySelectorAll('[data-editord]').forEach(function(el){el.addEventListener('click',function(e){
+      e.stopPropagation();
+      var o=ORDERS.find(function(x){return String(x.id)===String(el.dataset.editord);});
+      if(o){ordEdit=o.id;ordObj=orderToForm(o);ordDelConfirm=false;renderOrders();box.scrollTop=0;}
+    });});
+    var add=document.getElementById('ord-add');if(add)add.addEventListener('click',function(){ordEdit='new';ordObj=blankOrder();ordDelConfirm=false;renderOrders();box.scrollTop=0;});
+  }
+  function ordCardHTML(o){
+    var open=!!ordOpen[o.id];
+    var c=ordCust(o);
+    var badges='<span class="ord-badge" style="background:'+(ORD_COLORS[o.status]||'#9A8B82')+'">'+esc(ORD_LABELS[o.status]||ordCap(o.status))+'</span>';
+    if(c&&c.type==='overseas')badges+='<span class="ord-badge flag">Overseas</span>';
+    if(o.payment_status==='pending_payment')badges+='<span class="ord-badge pay">Awaiting payment</span>';
+    if(o.payment_status==='overdue')badges+='<span class="ord-badge" style="background:#C0392B">Overdue</span>';
+    var head='<div class="ord-head" data-toggle="'+esc(o.id)+'"><div style="min-width:0">'
+      +'<div class="ord-no">#'+String(o.order_no||'').padStart(4,'0')+'</div>'
+      +'<div class="ord-sub">'+esc(c?(c.name+(c.type?' · '+ordCap(c.type):'')):'No customer')+'</div>'
+      +'<div class="ord-sum">'+esc(ordSummary(o))+'</div>'
+      +'<div class="ord-sub">'+(o.total!=null?ordMoney(o.total)+' · ':'')+esc(ordCap(o.channel))+' · '+ordDate(o.created_at)+'</div>'
+      +'</div><div class="ord-badges">'+badges+'</div></div>';
+    var body='';
+    if(open){
+      var items=ordItems(o);
+      var rows=items.map(function(i){var line=(Number(i.qty)||0)*(Number(i.price)||0);return '<div class="ord-it"><span>'+i.qty+' × '+esc(ordItemLabel(i))+'</span><span class="oi-price">'+(i.price===''?'—':ordMoney(line))+'</span></div>';}).join('')||'<div class="ord-sub">No items</div>';
+      var steps='<div class="ord-steps">'+ORD_STATUSES.map(function(s){var on=o.status===s;return '<button class="ord-step'+(on?' on':'')+'" data-id="'+esc(o.id)+'" data-st="'+s+'"'+(on?' style="background:'+ORD_COLORS[s]+'"':'')+'>'+ORD_LABELS[s]+'</button>';}).join('')+'</div>';
+      var lines='';
+      if(c)lines+='<div class="ord-line"><span class="ol-l">Customer</span><span>'+esc(c.name||'')+(c.email?' · '+esc(c.email):'')+(c.phone?' · '+esc(c.phone):'')+'</span></div>';
+      var addr=ordAddrText(o.shipping_address);
+      if(addr)lines+='<div class="ord-line"><span class="ol-l">Ship to</span><span>'+esc(addr)+'</span></div>';
+      lines+='<div class="ord-line"><span class="ol-l">Payment</span><span>'+esc(ordCap((o.payment_method||'').replace('_',' ')))+' · '+esc(ordCap((o.payment_status||'').replace('_',' ')))+(o.payment_note?' · '+esc(o.payment_note):'')+'</span></div>';
+      if(o.notes)lines+='<div class="ord-line"><span class="ol-l">Notes</span><span>'+esc(o.notes)+'</span></div>';
+      if(o.dispatched_at)lines+='<div class="ord-line"><span class="ol-l">Dispatched</span><span>'+ordDate(o.dispatched_at)+'</span></div>';
+      body='<div class="ord-body"><div class="ord-items">'+rows+'</div>'
+        +'<div class="ord-total"><span>Total</span><span>'+(o.total!=null?ordMoney(o.total):'—')+'</span></div>'
+        +lines+steps
+        +'<div class="ord-actrow"><button class="gbtn ghost" data-editord="'+esc(o.id)+'">Edit</button></div></div>';
+    }
+    return '<div class="ord-card">'+head+body+'</div>';
+  }
+  async function setOrderStatus(id,st){
+    var o=ORDERS.find(function(x){return String(x.id)===String(id);});
+    if(!o||o.status===st)return;
+    var patch={status:st,dispatched_at:st==='dispatched'?new Date().toISOString():null};
+    var r=await sb.from('orders').update(patch).eq('id',id);
+    if(r.error){alert('Update failed: '+r.error.message);return;}
+    o.status=st;o.dispatched_at=patch.dispatched_at;
+    renderOrders();
+  }
+  /* ---- New / edit order form ---- */
+  function orderToForm(o){
+    var items=ordItems(o).map(function(i){return {name:i.name,grams:i.grams,qty:i.qty,price:i.price};});
+    if(!items.length)items=[{name:'',grams:'',qty:1,price:''}];
+    return {id:o.id,order_no:o.order_no,customer_id:o.customer_id||'',newCust:{name:'',email:'',phone:'',type:'home'},
+      items:items,channel:o.channel||'manual',payment_method:o.payment_method||'bank_transfer',
+      payment_note:o.payment_note||'',shipping:ordAddrText(o.shipping_address),notes:o.notes||'',status:o.status||'new'};
+  }
+  function captureOrderForm(){
+    var p=ordObj;if(!p)return;
+    var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
+    p.customer_id=g('ord-cust');
+    p.newCust.name=g('ord-nc-name').trim();p.newCust.email=g('ord-nc-email').trim();
+    p.newCust.phone=g('ord-nc-phone').trim();p.newCust.type=g('ord-nc-type')||'home';
+    p.channel=g('ord-channel')||'manual';
+    p.payment_method=g('ord-pay')||'bank_transfer';
+    p.payment_note=g('ord-paynote').trim();
+    p.shipping=g('ord-ship').trim();
+    p.notes=g('ord-notes').trim();
+    if(ordEdit!=='new')p.status=g('ord-status')||p.status;
+    var rows=document.querySelectorAll('#ord-items .ord-itemrow');
+    p.items=[];
+    rows.forEach(function(r){
+      p.items.push({name:(r.querySelector('.oi-name').value||'').trim(),
+        grams:r.querySelector('.oi-grams').value,
+        qty:r.querySelector('.oi-qty').value,
+        price:r.querySelector('.oi-price-in').value});
+    });
+    if(!p.items.length)p.items=[{name:'',grams:'',qty:1,price:''}];
+  }
+  function ordFormTotal(p){return p.items.reduce(function(s,i){var q=Number(i.qty)||0,pr=Number(i.price);return s+(isNaN(pr)?0:q*pr);},0);}
+  function renderOrderForm(){
+    var box=document.getElementById('order-content');
+    var p=ordObj;var isNew=ordEdit==='new';
+    document.getElementById('order-title').textContent=isNew?'New Order':('#'+String(p.order_no||'').padStart(4,'0'));
+    document.getElementById('order-count').textContent=isNew?'':ORD_LABELS[p.status]||'';
+    var custOpts='<option value="">— No customer —</option>'
+      +ORD_CUSTOMERS.map(function(c){return '<option value="'+esc(c.id)+'"'+(String(c.id)===String(p.customer_id)?' selected':'')+'>'+esc(c.name||'—')+(c.type?' · '+ordCap(c.type):'')+'</option>';}).join('')
+      +'<option value="__new"'+(p.customer_id==='__new'?' selected':'')+'>+ New customer</option>';
+    var beanNames={};(BEANS||[]).forEach(function(b){var n=(b.name||'').trim();if(n)beanNames[n]=1;});
+    try{blendNames().forEach(function(n){beanNames[n]=1;});}catch(e){}
+    var datalist='<datalist id="ord-beanlist">'+Object.keys(beanNames).sort().map(function(n){return '<option value="'+esc(n)+'"></option>';}).join('')+'</datalist>';
+    var itemRows=p.items.map(function(i,idx){
+      return '<div class="ord-itemrow" data-i="'+idx+'">'
+        +'<input class="oi-name" list="ord-beanlist" value="'+esc(i.name)+'" placeholder="Bean / blend" />'
+        +'<input class="oi-grams" type="number" inputmode="numeric" value="'+esc(i.grams===0||i.grams?String(i.grams):'')+'" placeholder="250" />'
+        +'<input class="oi-qty" type="number" inputmode="numeric" value="'+esc(i.qty===0||i.qty?String(i.qty):'')+'" placeholder="1" />'
+        +'<input class="oi-price-in" type="number" inputmode="decimal" step="0.01" value="'+esc(i.price===0||i.price?String(i.price):'')+'" placeholder="0.00" />'
+        +'<button class="oi-x" data-rm="'+idx+'" aria-label="remove item">×</button></div>';
+    }).join('');
+    var newCust=p.customer_id==='__new'?(
+      '<div class="gform" style="gap:8px;padding:10px;border:1px dashed var(--line);border-radius:12px">'
+      +'<label class="gfield"><span class="gl">Name</span><input id="ord-nc-name" type="text" value="'+esc(p.newCust.name)+'" placeholder="Customer name" /></label>'
+      +'<label class="gfield"><span class="gl">Email</span><input id="ord-nc-email" type="email" value="'+esc(p.newCust.email)+'" /></label>'
+      +'<label class="gfield"><span class="gl">Phone</span><input id="ord-nc-phone" type="tel" value="'+esc(p.newCust.phone)+'" /></label>'
+      +'<label class="gfield"><span class="gl">Type</span><select class="inv-sel" id="ord-nc-type">'+ORD_CUST_TYPES.map(function(t){return '<option value="'+t+'"'+(p.newCust.type===t?' selected':'')+'>'+ordCap(t)+'</option>';}).join('')+'</select></label>'
+      +'</div>'
+    ):'<input id="ord-nc-name" type="hidden" value="'+esc(p.newCust.name)+'" /><input id="ord-nc-email" type="hidden" value="'+esc(p.newCust.email)+'" /><input id="ord-nc-phone" type="hidden" value="'+esc(p.newCust.phone)+'" /><input id="ord-nc-type" type="hidden" value="'+esc(p.newCust.type)+'" />';
+    var statusField=isNew?'':'<label class="gfield"><span class="gl">Status</span><select class="inv-sel" id="ord-status">'+ORD_STATUSES.map(function(s){return '<option value="'+s+'"'+(p.status===s?' selected':'')+'>'+ORD_LABELS[s]+'</option>';}).join('')+'</select></label>';
+    box.innerHTML=datalist+'<div class="gform" style="padding:16px 16px 0">'
+      +'<label class="gfield"><span class="gl">Customer</span><select class="inv-sel" id="ord-cust">'+custOpts+'</select></label>'
+      +newCust
+      +'<div class="gfield"><span class="gl">Items</span>'
+      +'<div class="ord-colhead"><span>Bean / blend</span><span>Grams</span><span>Qty</span><span>Price</span><span></span></div>'
+      +'<div id="ord-items" style="display:flex;flex-direction:column;gap:6px">'+itemRows+'</div>'
+      +'<button class="gbtn ghost" id="ord-additem" style="margin:8px 0 0">+ Add item</button></div>'
+      +'<div class="ord-total" style="border:none;padding-top:0"><span>Total</span><span id="ord-formtotal">'+ordMoney(ordFormTotal(p))+'</span></div>'
+      +statusField
+      +'<label class="gfield"><span class="gl">Channel</span><select class="inv-sel" id="ord-channel">'+ORD_CHANNELS.map(function(c){return '<option value="'+c+'"'+(p.channel===c?' selected':'')+'>'+ordCap(c)+'</option>';}).join('')+'</select></label>'
+      +'<label class="gfield"><span class="gl">Payment</span><select class="inv-sel" id="ord-pay"><option value="bank_transfer"'+(p.payment_method==='bank_transfer'?' selected':'')+'>Bank transfer</option><option value="platform"'+(p.payment_method==='platform'?' selected':'')+'>Platform</option></select></label>'
+      +'<label class="gfield"><span class="gl">Payment note</span><input id="ord-paynote" type="text" value="'+esc(p.payment_note)+'" placeholder="e.g. transfer reference" /></label>'
+      +'<label class="gfield"><span class="gl">Ship to</span><textarea id="ord-ship" class="gta" rows="2" placeholder="Street, suburb STATE postcode">'+esc(p.shipping)+'</textarea></label>'
+      +'<label class="gfield"><span class="gl">Notes</span><textarea id="ord-notes" class="gta" rows="2">'+esc(p.notes)+'</textarea></label>'
+      +'<div class="gform-msg" id="ord-msg"></div>'
+      +'<div class="gform-actions"><button class="gbtn ghost" id="ord-cancel">Cancel</button><button class="gbtn savegate" id="ord-save">'+(isNew?'Create order':'Save')+'</button></div>'
+      +(isNew?'':'<div class="gdel">'+(ordDelConfirm?'<div class="gdel-msg">Delete order #'+String(p.order_no||'').padStart(4,'0')+'? This cannot be undone.</div><div class="gform-actions"><button class="gbtn ghost" id="ord-del-cancel">Cancel</button><button class="gbtn danger" id="ord-del-yes">Delete</button></div>':'<button class="gbtn dghost" id="ord-del">Delete this order</button>')+'</div>')
+      +'</div>';
+    var cust=document.getElementById('ord-cust');
+    cust.addEventListener('change',function(){captureOrderForm();renderOrderForm();});
+    function liveTotal(){captureOrderForm();var t=document.getElementById('ord-formtotal');if(t)t.textContent=ordMoney(ordFormTotal(ordObj));}
+    box.querySelectorAll('#ord-items input').forEach(function(i){i.addEventListener('input',liveTotal);});
+    box.querySelectorAll('.oi-x[data-rm]').forEach(function(b){b.addEventListener('click',function(){captureOrderForm();ordObj.items.splice(+b.dataset.rm,1);if(!ordObj.items.length)ordObj.items=[{name:'',grams:'',qty:1,price:''}];renderOrderForm();});});
+    document.getElementById('ord-additem').addEventListener('click',function(){captureOrderForm();ordObj.items.push({name:'',grams:'',qty:1,price:''});renderOrderForm();});
+    document.getElementById('ord-cancel').addEventListener('click',function(){ordEdit=null;ordObj=null;ordDelConfirm=false;renderOrders();box.scrollTop=0;});
+    document.getElementById('ord-save').addEventListener('click',saveOrder);
+    var d=document.getElementById('ord-del');if(d)d.addEventListener('click',function(){captureOrderForm();ordDelConfirm=true;renderOrderForm();});
+    var dc=document.getElementById('ord-del-cancel');if(dc)dc.addEventListener('click',function(){captureOrderForm();ordDelConfirm=false;renderOrderForm();});
+    var dy=document.getElementById('ord-del-yes');if(dy)dy.addEventListener('click',deleteOrder);
+  }
+  async function saveOrder(){
+    captureOrderForm();
+    var p=ordObj;var isNew=ordEdit==='new';
+    var msg=document.getElementById('ord-msg');var btn=document.getElementById('ord-save');
+    var items=p.items.map(function(i){return {name:String(i.name||'').trim(),grams:i.grams===''?null:Number(i.grams),qty:Number(i.qty)||1,price:i.price===''?null:Number(i.price)};}).filter(function(i){return i.name;});
+    if(!items.length){msg.textContent='Add at least one item';msg.className='gform-msg err';return;}
+    if(p.customer_id==='__new'&&!p.newCust.name){msg.textContent='New customer needs a name';msg.className='gform-msg err';return;}
+    btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
+    var customerId=p.customer_id&&p.customer_id!=='__new'?p.customer_id:null;
+    if(p.customer_id==='__new'){
+      var ci=await sb.from('customers').insert({name:p.newCust.name,email:p.newCust.email||null,phone:p.newCust.phone||null,type:p.newCust.type}).select();
+      if(ci.error){btn.disabled=false;msg.textContent='Customer save failed: '+ci.error.message;msg.className='gform-msg err';return;}
+      if(ci.data&&ci.data[0]){customerId=ci.data[0].id;ORD_CUSTOMERS.push(ci.data[0]);ordCustMap[customerId]=ci.data[0];}
+    }
+    var total=Math.round(items.reduce(function(s,i){return s+(i.qty*(i.price||0));},0)*100)/100;
+    var rec={customer_id:customerId,items:items,total:total,channel:p.channel,
+      payment_method:p.payment_method,payment_note:p.payment_note||null,
+      shipping_address:p.shipping?{text:p.shipping}:null,notes:p.notes||null};
+    if(isNew){
+      rec.status='new';
+      rec.payment_status=p.payment_method==='bank_transfer'?'pending_payment':'paid';
+      var ins=await sb.from('orders').insert(rec).select();
+      if(ins.error){btn.disabled=false;msg.textContent='Save failed: '+ins.error.message;msg.className='gform-msg err';return;}
+      if(ins.data&&ins.data[0])ORDERS.unshift(ins.data[0]);
+    }else{
+      rec.status=p.status;
+      var cur=ORDERS.find(function(x){return String(x.id)===String(ordEdit);});
+      rec.dispatched_at=p.status==='dispatched'?((cur&&cur.dispatched_at)||new Date().toISOString()):null;
+      var up=await sb.from('orders').update(rec).eq('id',ordEdit).select();
+      if(up.error){btn.disabled=false;msg.textContent='Save failed: '+up.error.message;msg.className='gform-msg err';return;}
+      var i=ORDERS.findIndex(function(x){return String(x.id)===String(ordEdit);});
+      if(i>-1&&up.data&&up.data[0])ORDERS[i]=up.data[0];
+    }
+    ordEdit=null;ordObj=null;ordDelConfirm=false;renderOrders();
+  }
+  async function deleteOrder(){
+    var r=await sb.from('orders').delete().eq('id',ordEdit);
+    if(r.error){var m=document.getElementById('ord-msg');if(m){m.textContent='Delete failed: '+r.error.message;m.className='gform-msg err';}ordDelConfirm=false;renderOrderForm();return;}
+    ORDERS=ORDERS.filter(function(x){return String(x.id)!==String(ordEdit);});
+    ordEdit=null;ordObj=null;ordDelConfirm=false;renderOrders();
   }
 
   /* ---- Green module: country → bean → detail drill-down ---- */
