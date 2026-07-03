@@ -3200,10 +3200,10 @@ fill="#6F4A36" stroke="none">
      for now) + an editable Pour Over Selection grid (4 beans, hot/cold prices).
      Two identical copies print on A4 landscape with a centre cut line. */
   var TAKEAWAY_DEFAULT=[
-    {bean:'',name:'Danche vol.2',     origin:'Ethiopia, Anaerobic Washed',  flavour:'Peach, Grapes, Bergamont',       hot:'10', cold:'11'},
-    {bean:'',name:'Alo Bona Village', origin:'Ethiopia, Classic Natural',   flavour:'Floral, Mango, Berry',           hot:'10', cold:'11'},
-    {bean:'',name:'El Vergel',        origin:'Colombia, Washed',            flavour:'Floral, Melon, Honey',           hot:'10', cold:'11'},
-    {bean:'',name:'Alo Village',      origin:'Ethiopia, Cold Fermentation', flavour:'Winy, Grape Candy, Dried Fruit', hot:'15', cold:'16'}
+    {bean:'',name:'Danche vol.2',     origin:'Anaerobic Washed',  flavour:'Peach, Grapes, Bergamont',       hot:'10', cold:'11'},
+    {bean:'',name:'Alo Bona Village', origin:'Classic Natural',   flavour:'Floral, Mango, Berry',           hot:'10', cold:'11'},
+    {bean:'',name:'El Vergel',        origin:'Washed',            flavour:'Floral, Melon, Honey',           hot:'10', cold:'11'},
+    {bean:'',name:'Alo Village',      origin:'Cold Fermentation', flavour:'Winy, Grape Candy, Dried Fruit', hot:'15', cold:'16'}
   ];
   function tkBlank(){return {bean:'',name:'',origin:'',flavour:'',hot:'',cold:''};}
   function loadTakeaway(){
@@ -3221,11 +3221,12 @@ fill="#6F4A36" stroke="none">
     (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k]||blendSet[k])return;seen[k]=true;out.push(nm);});
     return out;
   }
-  /* pull origin (country + process) and flavour notes for a chosen bean */
+  /* pull process (no country) and flavour notes for a chosen bean */
   function takeawayAutofill(name){
     name=String(name||'').trim();var key=name.toLowerCase();
     var b=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===key;})[0]||null;
-    var origin=b?[b.country,b.process].filter(function(v){return String(v||'').trim();}).join(', '):'';
+    var origin=b?String(b.process||'').trim():'';
+    if(!origin){var proc=beanProcessFor(name);origin=proc?String(proc).trim():'';}
     var s=(RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===key;})[0]||null;
     var flav=s?(s.features||[]).filter(Boolean).slice(0,3).join(', '):'';
     return {name:name, origin:origin, flavour:flav};
@@ -3252,8 +3253,8 @@ fill="#6F4A36" stroke="none">
           +'<select class="tk-auto tk-ti" data-i="'+i+'">'+optsHtml(v.bean)+'</select></label>'
         +'<label class="sp-field"><span class="sp-flab">Name</span>'
           +'<input type="text" class="tk-ti tk-f" data-k="name" data-i="'+i+'" value="'+esc(v.name)+'" placeholder="e.g. Danche vol.2"></label>'
-        +'<label class="sp-field"><span class="sp-flab">Origin / Process</span>'
-          +'<input type="text" class="tk-ti tk-f" data-k="origin" data-i="'+i+'" value="'+esc(v.origin)+'" placeholder="e.g. Ethiopia, Anaerobic Washed"></label>'
+        +'<label class="sp-field"><span class="sp-flab">Process</span>'
+          +'<input type="text" class="tk-ti tk-f" data-k="origin" data-i="'+i+'" value="'+esc(v.origin)+'" placeholder="e.g. Anaerobic Washed"></label>'
         +'<label class="sp-field"><span class="sp-flab">Flavour</span>'
           +'<input type="text" class="tk-ti tk-f" data-k="flavour" data-i="'+i+'" value="'+esc(v.flavour)+'" placeholder="e.g. Peach, Grapes, Bergamont"></label>'
         +'<div class="sp-hc">'
@@ -3436,10 +3437,10 @@ fill="#6F4A36" stroke="none">
     freshNote:'(Dark Knight V4.0 or Dancer V3.0 only)',
     coldNote:'(Barista choice of the day)',
     pours:[
-      {bean:'',name:'Danche Anaerobic Washed',       origin:'Ethiopia, Anaerobic Washed',  flavour:'Peach, Grapes, Bergamot',        hot:'10', cold:'11', highlight:false, color:''},
-      {bean:'',name:'Gatitu AA',                     origin:'Kenya, Washed',               flavour:'Plum, Blackberry, Toffee',       hot:'10', cold:'11', highlight:false, color:''},
-      {bean:'',name:'Alo Village White Honey',       origin:'Ethiopia, White Honey',       flavour:'Bergamot, Stone Fruit, Longan',  hot:'15', cold:'16', highlight:false, color:''},
-      {bean:'',name:'Alo Village Cold Fermentation', origin:'Ethiopia, Cold Fermentation', flavour:'Winey, Grape Candy, Dried Fruit', hot:'15', cold:'16', highlight:false, color:''}
+      {bean:'',name:'Danche Anaerobic Washed',       origin:'Anaerobic Washed',  flavour:'Peach, Grapes, Bergamot',        hot:'10', cold:'11', highlight:false, color:''},
+      {bean:'',name:'Gatitu AA',                     origin:'Washed',            flavour:'Plum, Blackberry, Toffee',       hot:'10', cold:'11', highlight:false, color:''},
+      {bean:'',name:'Alo Village White Honey',       origin:'White Honey',       flavour:'Bergamot, Stone Fruit, Longan',  hot:'15', cold:'16', highlight:false, color:''},
+      {bean:'',name:'Alo Village Cold Fermentation', origin:'Cold Fermentation', flavour:'Winey, Grape Candy, Dried Fruit', hot:'15', cold:'16', highlight:false, color:''}
     ]
   };
   var DINEIN_TXTKEYS=['dirtySub','dirtyDesc','freshNote','coldNote'];
@@ -3504,9 +3505,14 @@ fill="#6F4A36" stroke="none">
   }
   /* Dine In pour-over picker: only beans that exist in Retail Info (not the full green-bean roastery list) */
   function retailOnlyBeanList(){
-    var seen={},out=[],blendSet={};
-    try{blendNames().forEach(function(n){blendSet[String(n).trim().toLowerCase()]=true;});}catch(e){}
-    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k]||blendSet[k])return;seen[k]=true;out.push(nm);});
+    var seen={},out=[];
+    var src=(RTL_ROWS&&RTL_ROWS.length)?RTL_ROWS:(RETAIL_BEANS||[]);
+    src.forEach(function(s){
+      var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;
+      var isBlend=false;try{isBlend=!!blendDefByName(nm);}catch(e){}
+      if(isBlend)return;
+      seen[k]=true;out.push(nm);
+    });
     return out;
   }
   function renderDinein(){
@@ -3566,8 +3572,8 @@ fill="#6F4A36" stroke="none">
           +'<select class="di-psel tk-ti" data-i="'+i+'">'+pourOptList(pourOpts,v.bean,'\u2014 pick a bean to auto-fill \u2014')+'</select></label>'
         +'<label class="sp-field"><span class="sp-flab">Name</span>'
           +'<input type="text" class="tk-ti di-pf" data-i="'+i+'" data-k="name" value="'+esc(v.name)+'" placeholder="e.g. Danche vol.2"></label>'
-        +'<label class="sp-field"><span class="sp-flab">Origin / Process</span>'
-          +'<input type="text" class="tk-ti di-pf" data-i="'+i+'" data-k="origin" value="'+esc(v.origin)+'" placeholder="e.g. Ethiopia, Anaerobic Washed"></label>'
+        +'<label class="sp-field"><span class="sp-flab">Process</span>'
+          +'<input type="text" class="tk-ti di-pf" data-i="'+i+'" data-k="origin" value="'+esc(v.origin)+'" placeholder="e.g. Anaerobic Washed"></label>'
         +'<label class="sp-field"><span class="sp-flab">Flavour</span>'
           +'<input type="text" class="tk-ti di-pf" data-i="'+i+'" data-k="flavour" value="'+esc(v.flavour)+'" placeholder="e.g. Peach, Grapes, Bergamont"></label>'
         +'<div class="sp-hc">'
