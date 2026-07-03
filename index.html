@@ -3671,63 +3671,79 @@ fill="#6F4A36" stroke="none">
     doc.save('Ratio_DineIn_Menu.pdf');
   }
   function drawDineInMenu(doc,ox,w,h,cfg,logo){
-    var INK=[0,0,0], BERRY=[124,58,68], LINE=[30,26,25];
+    var INK=[0,0,0], BERRY=[124,58,68], LINE=[30,26,25], MUTE=[120,112,108];
     var HOT=[214,0,108], COLD=[42,143,216];
     var padX=26, x0=ox+padX, xEnd=ox+w-padX, innerW=w-padX*2;
     var P=cfg.prices||{};
     function pv(k,d){var s=String(P[k]==null?'':P[k]).trim();return s||d||'';}
-    var y=44;
 
-    /* ---------- title ---------- */
-    doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-    doc.text('DINE IN MENU',ox+w/2,y-16,{align:'center',charSpace:3});
-    doc.setFont('helvetica','bold');doc.setFontSize(18);doc.setTextColor(INK[0],INK[1],INK[2]);
-    doc.text('Ratio Crows Nest',ox+w/2,y+2,{align:'center'});
-    y+=18;
+    /* ---- unified type scale ---- */
+    var FS_TITLE=20, FS_KICKER=8, FS_SECTION=9.5, FS_ITEM=11, FS_PRICE=12, FS_META=8.5, FS_DESC=8.5;
+    /* ---- unified spacing ---- */
+    var ROW=17.5;      /* baseline-to-baseline for a standard priced item */
+    var META_LH=10;    /* line height for a meta/description line under an item */
+    var SEC_TOP=15;    /* space above a section rule */
+    var SEC_GAP=15;    /* space from section rule down to its first item */
+
+    var y=38;
+
+    /* ---------- title block ---------- */
+    doc.setFont('helvetica','bold');doc.setFontSize(FS_KICKER);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+    doc.text('DINE IN MENU',ox+w/2,y,{align:'center',charSpace:3});
+    doc.setFont('helvetica','bold');doc.setFontSize(FS_TITLE);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Ratio Crows Nest',ox+w/2,y+21,{align:'center'});
+    y+=21;
 
     /* ---------- section header ---------- */
     function section(label,sub){
-      y+=15;
-      doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+      y+=SEC_TOP;
+      doc.setFont('helvetica','bold');doc.setFontSize(FS_SECTION);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
       doc.text(label.toUpperCase(),x0,y,{charSpace:1.8});
-      if(sub){doc.setFont('helvetica','italic');doc.setFontSize(8);doc.setTextColor(INK[0],INK[1],INK[2]);
+      if(sub){doc.setFont('helvetica','italic');doc.setFontSize(FS_META);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
         doc.text(mnAsc(sub),xEnd,y,{align:'right'});}
       doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.setLineWidth(0.6);
-      doc.line(x0,y+5,xEnd,y+5);
-      y+=17;
+      doc.line(x0,y+6,xEnd,y+6);
+      y+=SEC_GAP;
     }
     /* ---------- price row (name | size .... price) ---------- */
     function priceRow(name,size,price,note){
-      doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.setFont('helvetica','bold');doc.setFontSize(FS_ITEM);doc.setTextColor(INK[0],INK[1],INK[2]);
       doc.text(mnAsc(name),x0,y);
       var nw=doc.getTextWidth(mnAsc(name));
-      if(size){doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-        doc.text('  |  '+size,x0+nw+2,y);}
-      if(price){doc.setFont('helvetica','bold');doc.setFontSize(11.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-        doc.text(price,xEnd,y,{align:'right'});}
-      if(note){y+=10;doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+      if(size){doc.setFont('helvetica','normal');doc.setFontSize(FS_META);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+        doc.text('  |  '+size,x0+nw+3,y);}
+      if(price){doc.setFont('helvetica','bold');doc.setFontSize(FS_PRICE);doc.setTextColor(INK[0],INK[1],INK[2]);
+        doc.text(price,xEnd,y-(FS_PRICE-FS_ITEM)*0.34,{align:'right'});}
+      if(note){y+=META_LH;doc.setFont('helvetica','normal');doc.setFontSize(FS_META);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
         doc.text(mnAsc(note),x0,y);}
-      y+=18;
+      y+=ROW;
+    }
+    /* ---------- a plain meta line: label left, value right ---------- */
+    function metaRow(label,value){
+      doc.setFont('helvetica','normal');doc.setFontSize(FS_META);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+      doc.text(mnAsc(label),x0,y);
+      if(value)doc.text(mnAsc(value),xEnd,y,{align:'right'});
+      y+=META_LH+2;
     }
 
     /* ---------- two espresso blends ---------- */
-    var bl=cfg.blends||[], colCx=[x0+innerW*0.27, x0+innerW*0.73], by=y+8;
+    var bl=cfg.blends||[], colCx=[x0+innerW*0.27, x0+innerW*0.73], by=y+14;
     [0,1].forEach(function(ci){
       var b=bl[ci]||{}, cx=colCx[ci], hl=!!b.highlight;
-      if(hl){doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-        doc.text('STAFF PICK',cx,by-11,{align:'center',charSpace:1.2});}
-      doc.setFont('helvetica','bold');doc.setFontSize(12.5);
+      if(hl){doc.setFont('helvetica','bold');doc.setFontSize(FS_KICKER-1);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+        doc.text('STAFF PICK',cx,by-12,{align:'center',charSpace:1.2});}
+      doc.setFont('helvetica','bold');doc.setFontSize(13);
       doc.setTextColor(hl?BERRY[0]:INK[0], hl?BERRY[1]:INK[1], hl?BERRY[2]:INK[2]);
       doc.text(mnAsc((b.name||'').toUpperCase()),cx,by,{align:'center'});
-      if(b.sub){doc.setFont('helvetica','italic');doc.setFontSize(8);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-        doc.text(mnAsc(b.sub),cx,by+11,{align:'center'});}
-      if(b.notes){doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-        doc.text(mnAsc(b.notes),cx,by+24,{align:'center'});}
+      if(b.sub){doc.setFont('helvetica','italic');doc.setFontSize(FS_META);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+        doc.text(mnAsc(b.sub),cx,by+12,{align:'center'});}
+      if(b.notes){doc.setFont('helvetica','bold');doc.setFontSize(FS_SECTION);doc.setTextColor(INK[0],INK[1],INK[2]);
+        doc.text(mnAsc(b.notes),cx,by+25,{align:'center'});}
     });
     var midX=x0+innerW*0.5;
     doc.setDrawColor(BERRY[0],BERRY[1],BERRY[2]);doc.setLineWidth(1);
-    doc.line(midX+6,by-10,midX-6,by+26);
-    y=by+34;
+    doc.line(midX+6,by-11,midX-6,by+27);
+    y=by+37;
 
     /* ---------- ESPRESSO BASED ---------- */
     section('Espresso Based');
@@ -3735,22 +3751,22 @@ fill="#6F4A36" stroke="none">
     priceRow('Small','6oz',pv('small'));
     priceRow('Large','10oz',pv('large'));
     priceRow('On Ice','10oz',pv('ice'));
-    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-    doc.text('extra shot \u00b7 alternative milk',x0,y);doc.text(pv('altmilk','50 cents'),xEnd,y,{align:'right'});y+=12;
-    doc.text('decaf',x0,y);doc.text(pv('decaf','1 dollar'),xEnd,y,{align:'right'});y+=6;
+    metaRow('extra shot \u00b7 alternative milk',pv('altmilk','50 cents'));
+    metaRow('decaf',pv('decaf','1 dollar'));
 
     /* ---------- SIGNATURE ---------- */
     section('Signature');
-    doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.setFont('helvetica','bold');doc.setFontSize(FS_ITEM);doc.setTextColor(INK[0],INK[1],INK[2]);
     doc.text('Dirty Ratio',x0,y);
     var dnw=doc.getTextWidth('Dirty Ratio');
-    if(cfg.dirtySub){doc.setFont('helvetica','italic');doc.setFontSize(8);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-      doc.text('  '+mnAsc(cfg.dirtySub),x0+dnw+3,y);}
-    doc.setFont('helvetica','bold');doc.setFontSize(11.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-    doc.text(pv('dirty'),xEnd,y,{align:'right'});y+=12;
-    if(cfg.dirtyDesc){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-      doc.splitTextToSize(mnAsc(cfg.dirtyDesc),innerW).slice(0,2).forEach(function(ln){doc.text(ln,x0,y);y+=10.5;});}
-    y+=2;
+    if(cfg.dirtySub){doc.setFont('helvetica','italic');doc.setFontSize(FS_META);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+      doc.text('  '+mnAsc(cfg.dirtySub),x0+dnw+4,y);}
+    if(pv('dirty')){doc.setFont('helvetica','bold');doc.setFontSize(FS_PRICE);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(pv('dirty'),xEnd,y-(FS_PRICE-FS_ITEM)*0.34,{align:'right'});}
+    y+=META_LH+2;
+    if(cfg.dirtyDesc){doc.setFont('helvetica','normal');doc.setFontSize(FS_DESC);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+      doc.splitTextToSize(mnAsc(cfg.dirtyDesc),innerW).slice(0,2).forEach(function(ln){doc.text(ln,x0,y);y+=META_LH;});}
+    y+=4;
 
     /* ---------- AUTOMATED BREWING ---------- */
     section('Automated Brewing');
@@ -3764,29 +3780,29 @@ fill="#6F4A36" stroke="none">
       var hl=!!it.highlight;
       var beanCol=mnHexRgb(beanColorFor(it.bean||it.name))||null;
       var hot=String(it.hot==null?'':it.hot).trim(), cold=String(it.cold==null?'':it.cold).trim();
-      if(hl){doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-        doc.text('STAFF PICK',x0,y,{charSpace:1.2});y+=9;}
-      /* right-aligned hot (pink) / cold (blue) */
-      doc.setFont('helvetica','bold');doc.setFontSize(11);
-      var rx=xEnd;
-      doc.setTextColor(COLD[0],COLD[1],COLD[2]);doc.text(cold||'-',rx,y,{align:'right'});
+      if(hl){doc.setFont('helvetica','bold');doc.setFontSize(FS_KICKER-1.5);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+        doc.text('STAFF PICK',x0,y,{charSpace:1.2});y+=10;}
+      /* right-aligned hot (pink) / cold (blue), vertically centred to the item name */
+      doc.setFont('helvetica','bold');doc.setFontSize(FS_PRICE);
+      var py=y-(FS_PRICE-FS_ITEM)*0.34, rx=xEnd;
+      doc.setTextColor(COLD[0],COLD[1],COLD[2]);doc.text(cold||'-',rx,py,{align:'right'});
       var cwid=doc.getTextWidth(cold||'-');
-      doc.setTextColor(INK[0],INK[1],INK[2]);doc.text(' / ',rx-cwid,y,{align:'right'});
+      doc.setTextColor(INK[0],INK[1],INK[2]);doc.text(' / ',rx-cwid,py,{align:'right'});
       var swid=doc.getTextWidth(' / ');
-      doc.setTextColor(HOT[0],HOT[1],HOT[2]);doc.text(hot||'-',rx-cwid-swid,y,{align:'right'});
+      doc.setTextColor(HOT[0],HOT[1],HOT[2]);doc.text(hot||'-',rx-cwid-swid,py,{align:'right'});
       var priceW=cwid+swid+doc.getTextWidth(hot||'-');
-      /* name \u2014 bean's own retail colour shown as a small dot marker, not text tint */
-      var dotGap=beanCol?10:0, nameX=x0+dotGap;
+      /* name — bean's own retail colour shown as a small dot marker, not text tint */
+      var dotGap=beanCol?11:0, nameX=x0+dotGap;
       if(beanCol){doc.setFillColor(beanCol[0],beanCol[1],beanCol[2]);doc.circle(x0+3,y-3.5,3,'F');}
-      doc.setFont('helvetica','bold');doc.setFontSize(11);
+      doc.setFont('helvetica','bold');doc.setFontSize(FS_ITEM);
       doc.setTextColor(hl?BERRY[0]:INK[0], hl?BERRY[1]:INK[1], hl?BERRY[2]:INK[2]);
-      mnFit(doc,name,nameX,y,innerW-priceW-12-dotGap,11,8.5);
-      y+=12;
-      if(it.origin){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-        doc.text(mnAsc(it.origin),x0,y);y+=11;}
-      if(it.flavour){doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-        mnFit(doc,it.flavour,x0,y,innerW,9.5,8);y+=8;}
-      y+=9;
+      mnFit(doc,name,nameX,y,innerW-priceW-14-dotGap,FS_ITEM,8.5);
+      y+=META_LH+1.5;
+      if(it.origin){doc.setFont('helvetica','normal');doc.setFontSize(FS_META);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+        doc.text(mnAsc(it.origin),x0,y);y+=META_LH;}
+      if(it.flavour){doc.setFont('helvetica','bold');doc.setFontSize(FS_DESC+0.5);doc.setTextColor(INK[0],INK[1],INK[2]);
+        mnFit(doc,it.flavour,x0,y,innerW,FS_DESC+0.5,8);y+=META_LH;}
+      y+=6;
     });
   }
 
