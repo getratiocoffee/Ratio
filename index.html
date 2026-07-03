@@ -716,6 +716,14 @@
   .ord-step.on{color:#fff;border-color:transparent}
   .ord-actrow{display:flex;gap:8px;justify-content:flex-end;padding-top:2px}
   .ord-actrow .gbtn{width:auto;padding:9px 18px;font-size:13px;margin:0}
+  .ord-actrow.left{justify-content:flex-start}
+  .ord-stock{display:flex;flex-direction:column;gap:4px;border:1px dashed var(--line);border-radius:10px;padding:8px 10px}
+  .ord-shead{display:flex;justify-content:space-between;gap:10px;font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+  .ord-srow{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--ink)}
+  .ord-srow .ord-skg{font-family:'Space Mono',monospace;flex:0 0 auto;color:#7E9B7A}
+  .ord-srow.short .ord-skg{color:#C0392B;font-weight:700}
+  .ord-srow.warn{color:#B08A4F;font-size:12px}
+  .ord-trnote{font-size:12.5px;color:var(--ink);background:rgba(178,94,106,.08);border:1px solid rgba(178,94,106,.35);border-radius:10px;padding:8px 10px;line-height:1.45}
   .ord-itemrow{display:grid;grid-template-columns:minmax(0,1fr) 62px 44px 68px 28px;gap:6px;align-items:center}
   .ord-itemrow input{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 9px;font-size:13px;color:var(--ink);outline:none;font-family:inherit;min-width:0}
   .ord-itemrow input:focus{border-color:var(--accent)}
@@ -4206,8 +4214,11 @@ fill="#6F4A36" stroke="none">
   const ORD_COLORS={new:'#B25E6A',confirmed:'#7C7BA0',roasting:'#B08A4F',ready:'#7E9B7A',dispatched:'#9A8B82'};
   const ORD_CHANNELS=['manual','square','instagram','subscription'];
   const ORD_CUST_TYPES=['shop','home','event','overseas'];
-  let ORDERS=[],ORD_CUSTOMERS=[],ordCustMap={};
-  let ordFilterStatus=null,ordFilterChannel=null,ordFilterType=null,ordOpen={},ordEdit=null,ordObj=null,ordDelConfirm=false;
+  const ORD_LOSS=0.85;          /* roast weight loss — green kg = roasted kg / 0.85 */
+  const ORD_OVERDUE_DAYS=7;     /* bank transfer unpaid after this many days → overdue */
+  const ORD_PAY_LABELS={pending_payment:'Awaiting',overdue:'Overdue',paid:'Paid'};
+  let ORDERS=[],ORD_CUSTOMERS=[],ordCustMap={},ordStockRes={};
+  let ordFilterStatus=null,ordFilterChannel=null,ordFilterType=null,ordFilterPay=null,ordOpen={},ordEdit=null,ordObj=null,ordDelConfirm=false;
   function ordCap(s){s=String(s||'');return s?s.charAt(0).toUpperCase()+s.slice(1):'';}
   function ordDate(ts){if(!ts)return '';var d=new Date(ts);if(isNaN(d))return '';return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+String(d.getFullYear()).slice(-2);}
   function ordMoney(n){var x=Number(n);return isNaN(x)?'—':'$'+x.toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});}
@@ -4240,6 +4251,7 @@ fill="#6F4A36" stroke="none">
     ORDERS=rs[0].data||[];
     ORD_CUSTOMERS=rs[1].error?[]:(rs[1].data||[]);
     ordCustMap={};ORD_CUSTOMERS.forEach(function(c){ordCustMap[c.id]=c;});
+    markOverdueOrders();
     renderOrders();
   }
   function renderOrders(){
@@ -4250,6 +4262,7 @@ fill="#6F4A36" stroke="none">
       if(ordFilterStatus&&o.status!==ordFilterStatus)return false;
       if(ordFilterChannel&&o.channel!==ordFilterChannel)return false;
       if(ordFilterType){var c=ordCust(o);if(!c||c.type!==ordFilterType)return false;}
+      if(ordFilterPay&&o.payment_status!==ordFilterPay)return false;
       return true;
     });
     document.getElementById('order-count').textContent=list.length+(list.length===1?' order':' orders');
@@ -4258,7 +4271,9 @@ fill="#6F4A36" stroke="none">
       +'<div class="ts-filter" style="padding-top:0"><button class="tf-chip'+(!ordFilterChannel?' on':'')+'" data-fc="">All channels</button>'
       +ORD_CHANNELS.map(function(c){return '<button class="tf-chip'+(ordFilterChannel===c?' on':'')+'" data-fc="'+c+'">'+ordCap(c)+'</button>';}).join('')+'</div>'
       +'<div class="ts-filter" style="padding-top:0"><button class="tf-chip'+(!ordFilterType?' on':'')+'" data-ft="">All customers</button>'
-      +ORD_CUST_TYPES.map(function(t){return '<button class="tf-chip'+(ordFilterType===t?' on':'')+'" data-ft="'+t+'">'+ordCap(t)+'</button>';}).join('')+'</div>';
+      +ORD_CUST_TYPES.map(function(t){return '<button class="tf-chip'+(ordFilterType===t?' on':'')+'" data-ft="'+t+'">'+ordCap(t)+'</button>';}).join('')+'</div>'
+      +'<div class="ts-filter" style="padding-top:0"><button class="tf-chip'+(!ordFilterPay?' on':'')+'" data-fp="">All payments</button>'
+      +Object.keys(ORD_PAY_LABELS).map(function(p){return '<button class="tf-chip'+(ordFilterPay===p?' on':'')+'" data-fp="'+p+'">'+ORD_PAY_LABELS[p]+'</button>';}).join('')+'</div>';
     var body;
     if(!list.length){body='<div class="sempty">'+(ORDERS.length?'No orders match these filters':'No orders yet')+'</div>';}
     else{body='<div class="gbeans">'+list.map(ordCardHTML).join('')+'</div>';}
@@ -4266,7 +4281,11 @@ fill="#6F4A36" stroke="none">
     box.querySelectorAll('[data-fs]').forEach(function(b){b.addEventListener('click',function(){ordFilterStatus=b.dataset.fs||null;renderOrders();});});
     box.querySelectorAll('[data-fc]').forEach(function(b){b.addEventListener('click',function(){ordFilterChannel=b.dataset.fc||null;renderOrders();});});
     box.querySelectorAll('[data-ft]').forEach(function(b){b.addEventListener('click',function(){ordFilterType=b.dataset.ft||null;renderOrders();});});
+    box.querySelectorAll('[data-fp]').forEach(function(b){b.addEventListener('click',function(){ordFilterPay=b.dataset.fp||null;renderOrders();});});
     box.querySelectorAll('.ord-head[data-toggle]').forEach(function(el){el.addEventListener('click',function(){var id=el.dataset.toggle;ordOpen[id]=!ordOpen[id];renderOrders();});});
+    box.querySelectorAll('[data-mkpaid]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();markOrderPaid(el.dataset.mkpaid);});});
+    box.querySelectorAll('[data-stock]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();checkOrderStock(el.dataset.stock);});});
+    box.querySelectorAll('[data-tr]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();setTransfer(el.dataset.trid,el.dataset.tr);});});
     box.querySelectorAll('.ord-step[data-st]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();setOrderStatus(el.dataset.id,el.dataset.st);});});
     box.querySelectorAll('[data-editord]').forEach(function(el){el.addEventListener('click',function(e){
       e.stopPropagation();
@@ -4282,6 +4301,9 @@ fill="#6F4A36" stroke="none">
     if(c&&c.type==='overseas')badges+='<span class="ord-badge flag">Overseas</span>';
     if(o.payment_status==='pending_payment')badges+='<span class="ord-badge pay">Awaiting payment</span>';
     if(o.payment_status==='overdue')badges+='<span class="ord-badge" style="background:#C0392B">Overdue</span>';
+    if(o.transfer_state==='requested')badges+='<span class="ord-badge" style="background:#B25E6A">Needs transfer</span>';
+    if(o.transfer_state==='confirmed')badges+='<span class="ord-badge" style="background:#7E9B7A">Transfer OK</span>';
+    if(o.transfer_state==='rejected')badges+='<span class="ord-badge" style="background:#C0392B">Paused</span>';
     var head='<div class="ord-head" data-toggle="'+esc(o.id)+'"><div style="min-width:0">'
       +'<div class="ord-no">#'+String(o.order_no||'').padStart(4,'0')+'</div>'
       +'<div class="ord-sub">'+esc(c?(c.name+(c.type?' · '+ordCap(c.type):'')):'No customer')+'</div>'
@@ -4300,9 +4322,34 @@ fill="#6F4A36" stroke="none">
       lines+='<div class="ord-line"><span class="ol-l">Payment</span><span>'+esc(ordCap((o.payment_method||'').replace('_',' ')))+' · '+esc(ordCap((o.payment_status||'').replace('_',' ')))+(o.payment_note?' · '+esc(o.payment_note):'')+'</span></div>';
       if(o.notes)lines+='<div class="ord-line"><span class="ol-l">Notes</span><span>'+esc(o.notes)+'</span></div>';
       if(o.dispatched_at)lines+='<div class="ord-line"><span class="ol-l">Dispatched</span><span>'+ordDate(o.dispatched_at)+'</span></div>';
+      var payAct='';
+      if(o.payment_status==='pending_payment'||o.payment_status==='overdue'){
+        payAct='<div class="ord-actrow left">'
+          +'<button class="gbtn" data-mkpaid="'+esc(o.id)+'">Mark as received</button>'
+          +'<button class="gbtn ghost" disabled style="opacity:.45" title="Email arrives in Phase 3">Send reminder</button></div>';
+      }
+      var res=ordStockRes[o.id],stock='';
+      if(res){
+        stock='<div class="ord-stock"><div class="ord-shead"><span>Green bean</span><span>need / have kg</span></div>'
+          +res.rows.map(function(r){return '<div class="ord-srow'+(r.ok?'':' short')+'"><span>'+esc(r.name)+'</span><span class="ord-skg">'+r.need.toFixed(2)+' / '+r.have.toFixed(1)+'</span></div>';}).join('')
+          +res.issues.map(function(t){return '<div class="ord-srow warn"><span>'+esc(t)+'</span></div>';}).join('')
+          +'</div>';
+      }
+      var tr='';
+      if(o.transfer_state==='requested'){
+        tr='<div class="ord-trnote">Green stock is short. Transfer roasted stock from the Crows Nest store?</div>'
+          +'<div class="ord-actrow left"><button class="gbtn" data-tr="confirmed" data-trid="'+esc(o.id)+'">Confirm transfer</button>'
+          +'<button class="gbtn ghost" data-tr="rejected" data-trid="'+esc(o.id)+'">Reject</button></div>';
+      }else if(o.transfer_state==='confirmed'){
+        tr='<div class="ord-line"><span class="ol-l">Transfer</span><span>Confirmed — adjust store stock manually.</span></div>';
+      }else if(o.transfer_state==='rejected'){
+        tr='<div class="ord-line"><span class="ol-l">Transfer</span><span>Rejected — item paused. Customer email arrives in Phase 3.</span></div>';
+      }
       body='<div class="ord-body"><div class="ord-items">'+rows+'</div>'
         +'<div class="ord-total"><span>Total</span><span>'+(o.total!=null?ordMoney(o.total):'—')+'</span></div>'
-        +lines+steps
+        +lines+payAct
+        +'<div class="ord-actrow left"><button class="gbtn ghost" data-stock="'+esc(o.id)+'">Check stock</button></div>'
+        +stock+tr+steps
         +'<div class="ord-actrow"><button class="gbtn ghost" data-editord="'+esc(o.id)+'">Edit</button></div></div>';
     }
     return '<div class="ord-card">'+head+body+'</div>';
@@ -4314,6 +4361,93 @@ fill="#6F4A36" stroke="none">
     var r=await sb.from('orders').update(patch).eq('id',id);
     if(r.error){alert('Update failed: '+r.error.message);return;}
     o.status=st;o.dispatched_at=patch.dispatched_at;
+    if(st==='confirmed'){checkOrderStock(id);return;} /* auto stock check when confirming */
+    renderOrders();
+  }
+  /* ---- Payment: mark received / overdue ---- */
+  async function markOrderPaid(id){
+    var o=ORDERS.find(function(x){return String(x.id)===String(id);});
+    if(!o)return;
+    var r=await sb.from('orders').update({payment_status:'paid'}).eq('id',id);
+    if(r.error){alert('Update failed: '+r.error.message);return;}
+    o.payment_status='paid';
+    renderOrders();
+  }
+  function markOverdueOrders(){
+    var cutoff=Date.now()-ORD_OVERDUE_DAYS*86400000;
+    ORDERS.forEach(function(o){
+      if(o.payment_status!=='pending_payment')return;
+      var t=new Date(o.created_at).getTime();
+      if(isNaN(t)||t>=cutoff)return;
+      o.payment_status='overdue';
+      sb.from('orders').update({payment_status:'overdue'}).eq('id',o.id)
+        .then(function(r){if(r&&r.error)console.error('[Ratio] overdue mark:',r.error.message||r.error);});
+    });
+  }
+  /* ---- Stock check: order items → green kg needed vs Green inventory ---- */
+  function ordMatchBlend(name){
+    var n=String(name||'').trim().toLowerCase();if(!n)return null;
+    var defs=loadBlendDefs().filter(blendReady);
+    return defs.find(function(d){return (d.name||'').trim().toLowerCase()===n;})
+      ||defs.find(function(d){var dn=(d.name||'').trim().toLowerCase();return dn&&n.indexOf(dn)===0;})
+      ||null;
+  }
+  function ordMatchBean(name){
+    var n=String(name||'').trim().toLowerCase();if(!n)return null;
+    return BEANS.find(function(b){return (b.name||'').trim().toLowerCase()===n;})
+      ||BEANS.find(function(b){var bn=(b.name||'').trim().toLowerCase();return bn&&n.indexOf(bn)===0;})
+      ||BEANS.find(function(b){return (b.name||'').trim().toLowerCase().indexOf(n)===0;})
+      ||null;
+  }
+  function ordGreenNeeds(o){
+    var needs={},issues=[];
+    function add(b,kg){var k=String(b.id);if(!needs[k])needs[k]={bean:b,kg:0};needs[k].kg+=kg;}
+    ordItems(o).forEach(function(i){
+      var grams=parseFloat(i.grams);
+      if(isNaN(grams)||grams<=0){issues.push(i.name+' — no pack size (g), skipped');return;}
+      var greenKg=(grams*i.qty/1000)/ORD_LOSS;
+      var bl=ordMatchBlend(i.name);
+      if(bl){
+        var tot=blendTotal(bl)||100;
+        bl.parts.forEach(function(p){
+          var nm=(p.bean||'').trim();var pct=parseFloat(p.pct);
+          if(!nm||isNaN(pct))return;
+          var b=beanByNameProcess(nm,p.process||'');
+          if(!b){issues.push(i.name+' → '+nm+' — not found in Green');return;}
+          add(b,greenKg*(pct/tot));
+        });
+        return;
+      }
+      var b=ordMatchBean(i.name);
+      if(!b){issues.push(i.name+' — no match in Green or Blending');return;}
+      add(b,greenKg);
+    });
+    var rows=Object.keys(needs).map(function(k){
+      var n=needs[k];var have=parseFloat(n.bean.quantity)||0;
+      return {name:(n.bean.name||'')+(n.bean.process?' · '+n.bean.process:''),need:n.kg,have:have,ok:have>=n.kg};
+    });
+    return {rows:rows,issues:issues,short:rows.some(function(r){return !r.ok;})};
+  }
+  async function checkOrderStock(id){
+    var o=ORDERS.find(function(x){return String(x.id)===String(id);});
+    if(!o)return;
+    await ensureBeansForInvoice();
+    var res=ordGreenNeeds(o);
+    ordStockRes[o.id]=res;
+    ordOpen[o.id]=true;
+    if(res.short&&!o.transfer_state){
+      o.transfer_state='requested';
+      sb.from('orders').update({transfer_state:'requested'}).eq('id',o.id)
+        .then(function(r){if(r&&r.error)console.error('[Ratio] transfer request:',r.error.message||r.error);});
+    }
+    renderOrders();
+  }
+  async function setTransfer(id,state){
+    var o=ORDERS.find(function(x){return String(x.id)===String(id);});
+    if(!o)return;
+    var r=await sb.from('orders').update({transfer_state:state}).eq('id',id);
+    if(r.error){alert('Update failed: '+r.error.message);return;}
+    o.transfer_state=state;
     renderOrders();
   }
   /* ---- New / edit order form ---- */
