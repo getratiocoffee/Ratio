@@ -3716,9 +3716,8 @@ fill="#6F4A36" stroke="none">
       var name=mnAsc(it.name||'');if(!name)return;
       var hl=!!it.highlight;
       var beanCol=mnHexRgb(it.color)||null;
-      var nameCol=beanCol||(hl?BERRY:INK);
       var hot=String(it.hot==null?'':it.hot).trim(), cold=String(it.cold==null?'':it.cold).trim();
-      if(hl){doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.setTextColor(nameCol[0],nameCol[1],nameCol[2]);
+      if(hl){doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
         doc.text('STAFF PICK',x0,y,{charSpace:1.2});y+=9;}
       /* right-aligned hot (pink) / cold (blue) */
       doc.setFont('helvetica','bold');doc.setFontSize(11);
@@ -3729,10 +3728,12 @@ fill="#6F4A36" stroke="none">
       var swid=doc.getTextWidth(' / ');
       doc.setTextColor(HOT[0],HOT[1],HOT[2]);doc.text(hot||'-',rx-cwid-swid,y,{align:'right'});
       var priceW=cwid+swid+doc.getTextWidth(hot||'-');
-      /* name \u2014 tinted with the bean's own retail colour when assigned */
+      /* name \u2014 bean's own retail colour shown as a small dot marker, not text tint */
+      var dotGap=beanCol?10:0, nameX=x0+dotGap;
+      if(beanCol){doc.setFillColor(beanCol[0],beanCol[1],beanCol[2]);doc.circle(x0+3,y-3.5,3,'F');}
       doc.setFont('helvetica','bold');doc.setFontSize(11);
-      doc.setTextColor(nameCol[0],nameCol[1],nameCol[2]);
-      mnFit(doc,name,x0,y,innerW-priceW-12,11,8.5);
+      doc.setTextColor(hl?BERRY[0]:INK[0], hl?BERRY[1]:INK[1], hl?BERRY[2]:INK[2]);
+      mnFit(doc,name,nameX,y,innerW-priceW-12-dotGap,11,8.5);
       y+=12;
       if(it.origin){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
         doc.text(mnAsc(it.origin),x0,y);y+=11;}
