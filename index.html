@@ -3498,10 +3498,10 @@ fill="#6F4A36" stroke="none">
   }
   function beanProcessFor(name){
     var key=String(name||'').trim().toLowerCase();if(!key)return '';
-    var b=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===key;})[0];
-    if(b&&b.process)return b.process;
     var s=(RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===key;})[0];
     if(s&&s.process)return s.process;
+    var b=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===key;})[0];
+    if(b&&b.process)return b.process;
     return '';
   }
   /* Dine In pour-over picker: only beans that exist in Retail Info (not the full green-bean roastery list) */
@@ -4508,7 +4508,7 @@ fill="#6F4A36" stroke="none">
   function retailCard(s,roastDate,color){
     var FEAT={fragrance:'Fragrance',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
     var id=esc(s.sample_id||s.supplier||'—');
-    var procTag=beanProcessFor(s.sample_id||'');
+    var procTag=s.process||'';
     var procHtml=procTag?('<span class="rtl-head-proc">'+esc(procTag)+'</span>'):'';
     var dotCol=color&&RTL_DOTCOL[color];
     var dotHtml=dotCol?('<div class="rtl-dotwrap"><span class="rtl-dot ro on" style="background:'+dotCol+'" aria-label="status colour"></span></div>'):'';
