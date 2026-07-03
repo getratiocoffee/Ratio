@@ -797,9 +797,6 @@
   .bl-notewrap{display:flex;align-items:center;gap:8px;margin-top:8px}
   .bl-notelab{flex:0 0 auto;font-size:12px;font-weight:600;color:var(--ink)}
   .bl-note{flex:1;min-width:0;font-family:inherit;font-size:13px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
-  .bl-banner{display:flex;align-items:center;gap:8px;margin:7px 0 3px;padding:10px 13px;background:var(--tint);border:1px solid var(--accent);border-left:4px solid var(--accent);border-radius:12px;font-size:13px;font-weight:600;color:var(--accent);line-height:1.4}
-  .bl-banner::before{content:"\2605";font-size:12px;flex:0 0 auto}
-  .bl-banner.hide{display:none}
   .bl-cmt:focus{outline:none;border-color:var(--accent)}
   .bl-tot{margin-top:4px;font-size:12px;color:var(--muted);text-align:right}
   .bl-tot b{font-family:var(--font-mono)}
@@ -2849,7 +2846,8 @@ fill="#6F4A36" stroke="none">
       origin.altitude=(selfB.altitude!=null&&selfB.altitude!=='')?String(selfB.altitude):'';
       origin.region=[selfB.region,selfB.country].filter(Boolean).join(', ');
     }
-    return {name:name, flavour:feats.slice(0,3), recipe:recipe, strength:strength, cupScores:cupScores, ready:ready, net:(g?String(g):''), comment:cmt, color:color, origin:origin};
+    var note=(def&&(def.note||'').trim())||'';
+    return {name:name, flavour:feats.slice(0,3), recipe:recipe, strength:strength, cupScores:cupScores, ready:ready, net:(g?String(g):''), comment:cmt, note:note, color:color, origin:origin};
   }
   var menuView='hub';
   function openMenu(){
@@ -3753,6 +3751,25 @@ fill="#6F4A36" stroke="none">
     while(ns>11&&doc.getTextWidth(mnAsc(info.name))>pw){ns-=0.5;doc.setFontSize(ns);}
     doc.text(mnAsc(info.name),px,y+bandH/2+ns*0.34,{maxWidth:pw});
     var cy=y+bandH+20;
+    /* ===== NOTE — small highlighted title, centred under the name ===== */
+    if(info.note){
+      var nt=mnAsc(String(info.note));
+      doc.setFont('helvetica','bold');
+      var nsz=8.5;doc.setFontSize(nsz);
+      while(nsz>6&&doc.getTextWidth(nt)>pw-16){nsz-=0.3;doc.setFontSize(nsz);}
+      while(doc.getTextWidth(nt)>pw-14&&nt.length>4){nt=nt.slice(0,-2);}
+      if(nt!==mnAsc(String(info.note))){nt=nt.replace(/[\s\u2026.]+$/,'')+'\u2026';}
+      var tw=doc.getTextWidth(nt);
+      var pillH=nsz+7,pillW=Math.min(pw,tw+16);
+      var pillX=x+(w-pillW)/2,pillTop=y+bandH+6;
+      var lt=[Math.round(band[0]+(255-band[0])*0.80),Math.round(band[1]+(255-band[1])*0.80),Math.round(band[2]+(255-band[2])*0.80)];
+      doc.setFillColor(lt[0],lt[1],lt[2]);
+      if(doc.roundedRect)doc.roundedRect(pillX,pillTop,pillW,pillH,pillH/2,pillH/2,'F');else doc.rect(pillX,pillTop,pillW,pillH,'F');
+      var dk=[Math.round(band[0]*0.5),Math.round(band[1]*0.5),Math.round(band[2]*0.5)];
+      doc.setTextColor(dk[0],dk[1],dk[2]);
+      doc.text(nt,x+w/2,pillTop+pillH/2+nsz*0.34,{align:'center'});
+      cy=pillTop+pillH+14;
+    }
     /* ===== FLAVOUR — primary focus (large) ===== */
     if(info.flavour&&info.flavour.length){
       doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
@@ -3869,8 +3886,6 @@ fill="#6F4A36" stroke="none">
       }).join('');
       var open=!!blOpen[bi];
       var chev='<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>';
-      var noteTxt=String(bl.note||'').trim();
-      var banner='<div class="bl-banner'+(noteTxt?'':' hide')+'" data-bnote="'+bi+'"><span class="bl-bannertx">'+esc(noteTxt)+'</span></div>';
       return '<div class="bl-card">'
         +'<div class="bl-head"><button class="bl-toggle'+(open?' open':'')+'" data-bo="'+bi+'">'+chev+'</button><input class="bl-name" data-bi="'+bi+'" value="'+esc(bl.name||'')+'" placeholder="Blend name" />'
         +'<button class="bl-del" data-bi="'+bi+'" aria-label="delete blend">'+trash+'</button></div>'
@@ -3880,7 +3895,7 @@ fill="#6F4A36" stroke="none">
           +'<input class="bl-cmt" data-bi="'+bi+'" value="'+esc(bl.comment||'')+'" placeholder="Special comment \u00b7 e.g. V3.0 Competition Blend" />'
           +'<div class="bl-foot"><div class="bl-cost">'+blendCostHTML(bl)+'</div><div class="bl-tot '+totCls+'">Total <b>'+tot+'%</b>'+(tot===100?'':' \u00b7 should be 100%')+'</div></div>'
           +'</div>'):'')
-        +'</div>'+banner;
+        +'</div>';
     }).join('');
     el.innerHTML='<div class="gsec" style="padding:14px 18px 2px">Blends \u00b7 pick 3 single origins &amp; set %</div>'
       +'<div class="bl-list">'+cards+'</div>'
@@ -3890,7 +3905,7 @@ fill="#6F4A36" stroke="none">
     el.querySelectorAll('.bl-toggle[data-bo]').forEach(function(b){b.addEventListener('click',function(){var bi=+b.dataset.bo;blOpen[bi]=!blOpen[bi];renderBlending();});});
     el.querySelectorAll('.bl-name').forEach(function(inp){inp.addEventListener('input',function(){var d=loadBlendDefs();d[+inp.dataset.bi].name=inp.value;saveBlendDefs(d);markBlendDups(el);});});
     el.querySelectorAll('.bl-bean').forEach(function(s){s.addEventListener('change',function(){var d=loadBlendDefs();d[+s.dataset.bi].parts[+s.dataset.pi].bean=s.value;saveBlendDefs(d);var card=s.closest('.bl-card'),ce=card&&card.querySelector('.bl-cost');if(ce)ce.innerHTML=blendCostHTML(d[+s.dataset.bi]);});});
-    el.querySelectorAll('.bl-note').forEach(function(inp){inp.addEventListener('input',function(){var bi=+inp.dataset.bi;var d=loadBlendDefs();d[bi].note=inp.value;saveBlendDefs(d);var bn=el.querySelector('.bl-banner[data-bnote="'+bi+'"]');if(bn){var t=inp.value.trim();var tx=bn.querySelector('.bl-bannertx');if(tx)tx.textContent=t;bn.classList.toggle('hide',!t);}});});
+    el.querySelectorAll('.bl-note').forEach(function(inp){inp.addEventListener('input',function(){var d=loadBlendDefs();d[+inp.dataset.bi].note=inp.value;saveBlendDefs(d);});});
     el.querySelectorAll('.bl-cmt').forEach(function(inp){inp.addEventListener('input',function(){var d=loadBlendDefs();d[+inp.dataset.bi].comment=inp.value;saveBlendDefs(d);});});
     el.querySelectorAll('.bl-pctin').forEach(function(i){i.addEventListener('input',function(){var d=loadBlendDefs();d[+i.dataset.bi].parts[+i.dataset.pi].pct=i.value;saveBlendDefs(d);
       var card=i.closest('.bl-card'),t=card&&card.querySelector('.bl-tot');if(t){var tt=blendTotal(d[+i.dataset.bi]);t.className='bl-tot '+(tt===100?'ok':(tt>100?'over':''));t.innerHTML='Total <b>'+tt+'%</b>'+(tt===100?'':' \u00b7 should be 100%');}
