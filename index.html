@@ -3124,7 +3124,8 @@ fill="#6F4A36" stroke="none">
       bean.recipe.forEach(function(cpt){
         var pct=cpt.pct?(cpt.pct+'%'):'';
         var ctry=(cpt.country||'').trim();
-        var line=cpt.bean+(ctry?('  \u00b7  '+ctry):'');
+        var proc=(cpt.process||'').trim();
+        var line=cpt.bean+[ctry,proc].filter(Boolean).map(function(v){return '  \u00b7  '+v;}).join('');
         doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
         mnFit(doc,line,lx,cy,lw-30,8.5,6.5);
         if(pct){doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.setFontSize(8.5);doc.text(pct,lx+lw,cy,{align:'right'});}
@@ -3165,36 +3166,38 @@ fill="#6F4A36" stroke="none">
     function money(v){v=String(v==null?'':v).trim().replace(/^\$+/,'');return '$'+(v||'\u2014');}
     function rule(){doc.setDrawColor(30,26,25);doc.setLineWidth(0.8);doc.line(rx0,ry,rEnd,ry);}
     function catTitle(t){doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(178,94,106);doc.text(t.toUpperCase(),rx0,ry,{charSpace:1});ry+=13;}
-    var PSZ=18;   /* one price size for every drink */
-    /* Special of the Week — plain heading, no highlight, top aligned to the banner bottom */
+    var PSZ=17;        /* one price size for every drink */
+    var ITEMSZ=12.5;   /* one item-name size for every drink */
+    var SUBSZ=9;       /* sub-line size (e.g. "Black and White") */
+    var SECGAP=20;     /* gap after a section's rule, before next category title */
+    var TITLEGAP=12;   /* gap after a category title, before its first item */
+    /* Draw one drink row with the item name (left) and price (right) sharing a
+       common baseline. The price is vertically centred to the item cap-height so
+       the two never look mismatched regardless of their differing font sizes. */
+    function drinkRow(label,labelCol,priceVal){
+      doc.setFont('helvetica','bold');doc.setFontSize(ITEMSZ);doc.setTextColor(labelCol[0],labelCol[1],labelCol[2]);
+      mnFit(doc,label,rx0,ry,rw-58,ITEMSZ,9);
+      doc.setFont('helvetica','bold');doc.setFontSize(PSZ);doc.setTextColor(INK[0],INK[1],INK[2]);
+      /* nudge the larger price up so its optical centre matches the item text */
+      doc.text(money(priceVal),rEnd,ry-(PSZ-ITEMSZ)*0.34,{align:'right'});
+    }
+    /* Special of the Week — plain heading, aligned to the banner bottom */
     doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(INK[0],INK[1],INK[2]);
-    doc.text('Special of the Week',rx0,ry);ry+=28;
-    /* Drink 1 · 1+1 Combo (red) */
-    catTitle('Espresso Based');
-    doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(RED[0],RED[1],RED[2]);
-    mnFit(doc,'1+1 Combo',rx0,ry,rw-52,12.5,9);
-    doc.setFontSize(PSZ);
-    doc.text(money(off.combo),rEnd,ry+2,{align:'right'});ry+=14;
-    doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(0,0,0);
-    doc.text('Black and White',rx0,ry);ry+=24;
-    rule();ry+=22;
-    /* Drink 2 · Dirty (blue) */
-    catTitle('Signature');
-    doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(BLUE[0],BLUE[1],BLUE[2]);
-    doc.text('Dirty Ratio',rx0,ry);
-    doc.setFontSize(PSZ);
-    doc.text(money(off.dirty),rEnd,ry+2,{align:'right'});ry+=26;
-    rule();ry+=22;
-    /* Drink 3 · Filter Pour Over (Hot red / Cold blue) */
-    catTitle('Hand Pour - Filter Coffee');
-    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(RED[0],RED[1],RED[2]);
-    doc.text('Hot',rx0,ry);
-    doc.setFontSize(PSZ);
-    doc.text(money(off.hot),rEnd,ry+1,{align:'right'});ry+=24;
-    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(BLUE[0],BLUE[1],BLUE[2]);
-    doc.text('Cold',rx0,ry);
-    doc.setFontSize(PSZ);
-    doc.text(money(off.cold),rEnd,ry+1,{align:'right'});
+    doc.text('Special of the Week',rx0,ry);ry+=30;
+    /* Espresso Based · 1+1 Combo */
+    catTitle('Espresso Based');ry+=TITLEGAP-13;
+    drinkRow('1+1 Combo',RED,off.combo);ry+=15;
+    doc.setFont('helvetica','italic');doc.setFontSize(SUBSZ);doc.setTextColor(0,0,0);
+    doc.text('Black and White',rx0,ry);ry+=18;
+    rule();ry+=SECGAP;
+    /* Signature · Dirty Ratio */
+    catTitle('Signature');ry+=TITLEGAP-13;
+    drinkRow('Dirty Ratio',BLUE,off.dirty);ry+=18;
+    rule();ry+=SECGAP;
+    /* Hand Pour - Filter Coffee · Hot / Cold */
+    catTitle('Hand Pour - Filter Coffee');ry+=TITLEGAP-13;
+    drinkRow('Hot',RED,off.hot);ry+=22;
+    drinkRow('Cold',BLUE,off.cold);
   }
   /* ============ Take Away Menu (More -> Generate Menu -> Take Away) ============
      Reproduces the dine-in cup menu: a fixed Blend Selection block up top (static
