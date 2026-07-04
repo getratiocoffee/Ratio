@@ -5463,9 +5463,10 @@ fill="#6F4A36" stroke="none">
     var W=1200,H=1200,cv=document.createElement('canvas');cv.width=W;cv.height=H;
     var x=cv.getContext('2d');
     var INK='#1E1A19',BROWN='#49423A',BERRY='#B25E6A';
-    /* square card with a 64px white safe margin — Square Online crops edges,
-       so all content sits inside the border and only blank margin gets cut */
-    var CX=64,CY=64,CW=W-128,CH=H-128,CR=28;
+    /* square card with asymmetric safe margins — his Square Online product hero
+       is a portrait frame that crops ~150px off each side of a square image,
+       so sides get 150px white margin and top/bottom get 64px */
+    var CX=150,CY=64,CW=W-300,CH=H-128,CR=28;
     x.fillStyle='#ffffff';x.fillRect(0,0,W,H);
     var band=mnHexRgb(card.color)||[73,66,58];
     var lum=.299*band[0]+.587*band[1]+.114*band[2];
