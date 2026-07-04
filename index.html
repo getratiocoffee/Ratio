@@ -4387,7 +4387,8 @@ fill="#6F4A36" stroke="none">
     }
     var sub=proc?('<span class="bp-sub">'+esc(proc)+'</span>'):'';
     var dateSub=r.roast_date?('<span class="bp-sub">'+esc(fmtDate(r.roast_date))+'</span>'):'';
-    var subBlock=sub+dateSub;'<button class="blend-edit" data-eid="'+esc(r.id)+'" aria-label="Edit roast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>';
+    var subBlock=sub+dateSub;
+    var editBtn='<button class="blend-edit" data-eid="'+esc(r.id)+'" aria-label="Edit roast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>';
     if(!tappable){
       return '<div class="blend-pick done np"><div class="blend-pick-top"><div class="bp-l"><span class="blend-name">'+esc(bk||'—')+'</span>'+subBlock+'</div>'
         +'<span class="blend-rt"><span class="rbadge'+(cupped?' done':'')+'">'+(cupped?'Cupped':'Pending')+'</span></span></div></div>';
