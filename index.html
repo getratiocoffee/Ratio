@@ -2680,14 +2680,13 @@ fill="#6F4A36" stroke="none">
     soForm.name=s.sample_id||soForm.name;
     var feats=(s.features||[]).filter(Boolean);
     soForm.flavour1=feats[0]||'';soForm.flavour2=feats[1]||'';soForm.flavour3=feats[2]||'';
-    var rd=null;(ROASTS||[]).forEach(function(r){if(rd==null&&(r.bean_name||'')===(s.sample_id||''))rd=r.roast_date||null;});
+    var rd=roastDateForSample(s);
     var dm=soReadyDM(rd||s.cupping_date||'');soForm.date_d=dm.d;soForm.date_m=dm.m;
     var g=loadGrams()[s.sample_id||''];soForm.net=g?String(g):'';
     /* Retail Info has no origin details -> source process/variety/altitude/region
-       from the matching green bean (BEANS), else leave blank for manual entry */
+       from the exact green-bean lot (bean_id first, then name+process), else leave blank */
     soForm.process='';soForm.variety='';soForm.altitude='';soForm.region='';
-    var nm=(s.sample_id||'').trim().toLowerCase();
-    var b=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===nm;})[0];
+    var b=beanForSample(s);
     if(b){
       soForm.process=b.process||'';
       soForm.variety=b.variety||'';
@@ -2698,7 +2697,7 @@ fill="#6F4A36" stroke="none">
   function labelBeanOptions(){
     var bset={};loadBlendDefs().forEach(function(b){var n=(b.name||'').trim().toLowerCase();if(n)bset[n]=true;});
     var seen={},opts='';
-    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k]||bset[k])return;seen[k]=true;opts+='<option value="'+esc(nm)+'"></option>';});
+    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var disp=sampleDisp(s);var k=disp.toLowerCase();if(!nm||seen[k]||bset[nm.toLowerCase()])return;seen[k]=true;opts+='<option value="'+esc(disp)+'"></option>';});
     return opts;
   }
   function labelBlendOptions(){
@@ -2711,12 +2710,19 @@ fill="#6F4A36" stroke="none">
     var seen={},out=[],blendSet={};
     loadBlendDefs().forEach(function(b){var n=(b.name||'').trim().toLowerCase();if(n)blendSet[n]=true;});
     var wantBlend=(labelMode!=='single');
-    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;if(wantBlend!==!!blendSet[k])return;seen[k]=true;out.push(nm);});
+    (RETAIL_BEANS||[]).forEach(function(s){
+      var nm=(s.sample_id||'').trim();if(!nm)return;
+      var isBlend=!!blendSet[nm.toLowerCase()];
+      if(wantBlend!==isBlend)return;
+      /* single-origin entries display "Name · Process" so same-farm lots stay pickable; blends keep plain name */
+      var disp=wantBlend?nm:sampleDisp(s);
+      var k=disp.toLowerCase();if(seen[k])return;
+      seen[k]=true;out.push(disp);
+    });
     return out;
   }
   function labelApplyByName(name){
-    var v=(name||'').trim().toLowerCase();
-    var s=(RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===v;})[0];
+    var s=retailByDisp(name);
     if(!s)return;
     if(labelMode==='single'){applyRetailToSO(s);syncSOInputs();}
     else{applyRetailToBlend(s);syncBlendInputs();}
@@ -2728,7 +2734,7 @@ fill="#6F4A36" stroke="none">
     labelForm.name=s.sample_id||labelForm.name;
     var feats=(s.features||[]).filter(Boolean);
     labelForm.flavour1=feats[0]||'';labelForm.flavour2=feats[1]||'';labelForm.flavour3=feats[2]||'';
-    var rd=null;(ROASTS||[]).forEach(function(r){if(rd==null&&(r.bean_name||'')===(s.sample_id||''))rd=r.roast_date||null;});
+    var rd=roastDateForSample(s);
     var dm=soReadyDM(rd||s.cupping_date||'');labelForm.date_d=dm.d;labelForm.date_m=dm.m;
     var g=loadGrams()[s.sample_id||''];labelForm.net=g?String(g):'';
     var def=blendDefByName(s.sample_id||'');
@@ -2887,8 +2893,7 @@ fill="#6F4A36" stroke="none">
   }
   function openTinLabel(){closeFolder();openPage('tinlabel');renderTinLabel();Promise.all([ensureBeansForInvoice(),ensureRetailForLabel()]).then(function(){if(document.getElementById('tinlabel-content'))renderTinLabel();});}
   function tinRetailByName(name){
-    var v=(name||'').trim().toLowerCase();if(!v)return null;
-    return (RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===v;})[0]||null;
+    return retailByDisp(name);
   }
   function tinApplyByName(name){
     /* bean list + process come from Retail Info (samples.process is authoritative).
@@ -2896,11 +2901,12 @@ fill="#6F4A36" stroke="none">
        exact green-bean lot via name+process — process comes from Retail Info, so this hits the
        correct batch (won't mis-resolve same-name, different-process beans). */
     var s=tinRetailByName(name);
-    tinForm.name=name||tinForm.name;
+    /* picker value may be "Name · Process"; the tin prints the plain bean name */
+    tinForm.name=(s?(s.sample_id||name):name)||tinForm.name;
     tinSample=s;
     if(s){
       tinForm.process=s.process||'';
-      var b=beanByNameProcess(s.sample_id||name,s.process||'');
+      var b=beanForSample(s);
       if(b){
         tinForm.country=b.country||'';
         tinForm.variety=b.variety||'';
@@ -2977,7 +2983,7 @@ fill="#6F4A36" stroke="none">
   var TIN_FLAV_OBJ='<text:text><pt:objectStyle x="8pt" y="253pt" width="159.7pt" height="24pt" backColor="#FFFFFF" backPrintColorNumber="0" ropMode="COPYPEN" angle="0" anchor="TOPLEFT" flip="NONE"><pt:pen style="NULL" widthX="0.5pt" widthY="0.5pt" color="#000000" printColorNumber="1"></pt:pen><pt:brush style="NULL" color="#000000" printColorNumber="1" id="0"></pt:brush><pt:expanded objectName="Text9" ID="0" lock="0" templateMergeTarget="LABELLIST" templateMergeType="NONE" templateMergeID="0" allowOutOfBoundsTransfer="false" linkStatus="NONE" linkID="0"></pt:expanded></pt:objectStyle><text:ptFontInfo><text:logFont name="DIN Condensed" width="0" italic="false" weight="700" charSet="0" pitchAndFamily="2"></text:logFont><text:fontExt effect="NOEFFECT" underline="0" strikeout="0" size="10pt" orgSize="28.8pt" textColor="#000000" textPrintColorNumber="1"></text:fontExt></text:ptFontInfo><text:textControl control="LONGTEXTFIXED" clipFrame="false" aspectNormal="true" shrink="true" autoLF="false" avoidImage="false"></text:textControl><text:textAlign horizontalAlignment="CENTER" verticalAlignment="CENTER" inLineAlignment="BASELINE"></text:textAlign><text:textStyle vertical="false" nullBlock="false" charSpace="10" lineSpace="0" orgPoint="10pt" combinedChars="false"></text:textStyle><text:transferSettings editOnPrintFormat="" editOnPrintOrder="0"></text:transferSettings><pt:data>__DATA__</pt:data><text:stringItem charLen="__LEN__"><text:ptFontInfo><text:logFont name="DIN Condensed" width="0" italic="false" weight="700" charSet="0" pitchAndFamily="2"></text:logFont><text:fontExt effect="NOEFFECT" underline="0" strikeout="0" size="10pt" orgSize="28.8pt" textColor="#000000" textPrintColorNumber="1"></text:fontExt></text:ptFontInfo></text:stringItem></text:text>';
   function tinBeanNameList(){
     var seen={},out=[];
-    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;var isB=false;try{isB=!!blendDefByName(nm);}catch(e){}if(isB)return;seen[k]=true;out.push(nm);});
+    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();if(!nm)return;var isB=false;try{isB=!!blendDefByName(nm);}catch(e){}if(isB)return;var disp=sampleDisp(s);var k=disp.toLowerCase();if(seen[k])return;seen[k]=true;out.push(disp);});
     return out;
   }
   function tinBlendNameList(){
@@ -3177,8 +3183,10 @@ fill="#6F4A36" stroke="none">
     name=String(name||'').trim();
     if(!name)return {name:'',flavour:[],recipe:[],strength:[],ready:'',net:'',comment:'',color:''};
     var def=blendDefByName(name);
-    var key=name.toLowerCase();
-    var s=(RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===key;})[0]||null;
+    var s=retailByDisp(name);
+    /* picker value may be "Name · Process"; grams/dot maps are keyed by plain bean name */
+    var plain=(s?(s.sample_id||name):name).trim();
+    var key=plain.toLowerCase();
     var feats=s?(s.features||[]).filter(Boolean):[];
     var parts=def?(def.parts||[]).filter(function(p){return (p.bean||'').trim();}):[];
     var recipe=parts.map(function(p){
@@ -3189,10 +3197,11 @@ fill="#6F4A36" stroke="none">
         process:(p.process||'').trim()||(bb?(bb.process||''):''), variety:bb?(bb.variety||''):'',
         altitude:(bb&&bb.altitude!=null&&bb.altitude!=='')?String(bb.altitude):''};
     });
-    var rd=null;(ROASTS||[]).forEach(function(r){if(rd==null&&(r.bean_name||'')===name)rd=r.roast_date||null;});
+    var rd=s?roastDateForSample(s):null;
+    if(rd==null){(ROASTS||[]).forEach(function(r){if(rd==null&&(r.bean_name||'')===plain)rd=r.roast_date||null;});}
     var dm=soReadyDM(rd||(s&&s.cupping_date)||'');
     var ready=(dm.d&&dm.m)?(dm.d+'/'+dm.m):'';
-    var g=loadGrams()[name];
+    var g=loadGrams()[plain];
     var cmt=(def&&(def.comment||'').trim())||(s&&s.comment)||'';
     var SMAP={fragrance:'Aroma',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
     var strength=[['fragrance',s&&s.fragrance],['acidity',s&&s.acidity],['sweetness',s&&s.sweetness],['body',s&&s.body],['aftertaste',s&&s.aftertaste]]
@@ -3203,9 +3212,9 @@ fill="#6F4A36" stroke="none">
     var cupScores=['fragrance','acidity','sweetness','body','aftertaste'].map(function(k){
       return {key:k,label:SMAP[k],n:(s&&s[k]!=null)?s[k]:null};
     });
-    var dotKey='';try{var dm=loadDots();if(dm[name])dotKey=dm[name];else{var lk=name.trim().toLowerCase();Object.keys(dm).forEach(function(k){if(!dotKey&&String(k).trim().toLowerCase()===lk)dotKey=dm[k];});}}catch(e){}
+    var dotKey='';try{var dm=loadDots();if(dm[plain])dotKey=dm[plain];else{var lk=key;Object.keys(dm).forEach(function(k){if(!dotKey&&String(k).trim().toLowerCase()===lk)dotKey=dm[k];});}}catch(e){}
     var color=(dotKey&&RTL_DOTCOL[dotKey])||'';
-    var selfB=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===key;})[0]||null;
+    var selfB=(s?beanForSample(s):null)||(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===key;})[0]||null;
     var origin={process:'',variety:'',altitude:'',region:''};
     if(selfB){
       origin.process=selfB.process||'';
@@ -3881,15 +3890,54 @@ fill="#6F4A36" stroke="none">
     if(pk){var exact=pool.filter(function(x){return (x.process||'').trim().toLowerCase()===pk;})[0];if(exact)return exact;}
     return pool[0];
   }
+  /* ---- bean identity helpers: bean_id is the single source of truth; names are display-only ---- */
+  function beanById(id){if(!id)return null;return (BEANS||[]).find(function(b){return String(b.id)===String(id);})||null;}
+  /* display string for a Retail Info sample: "Name · Process" so same-farm different-process lots stay distinct */
+  function sampleDisp(s){if(!s)return '';var n=(s.sample_id||'').trim();var p=(s.process||'').trim();return p?(n+' \u00b7 '+p):n;}
+  /* resolve the exact green-bean lot behind a sample: bean_id first, then name+process, never name-only across processes */
+  function beanForSample(s){
+    if(!s)return null;
+    var b=s.bean_id?beanById(s.bean_id):null;
+    if(b)return b;
+    return beanByNameProcess((s.sample_id||''),(s.process||''))||null;
+  }
+  /* find a Retail Info sample from a picker value: exact "Name · Process" first, plain name as fallback */
+  function retailByDisp(v){
+    v=String(v||'').trim().toLowerCase();if(!v)return null;
+    var hit=(RETAIL_BEANS||[]).filter(function(x){return sampleDisp(x).trim().toLowerCase()===v;})[0];
+    if(hit)return hit;
+    return (RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===v;})[0]||null;
+  }
+  /* latest roast date for a sample: match by bean_id when both sides have one, else by name (legacy) */
+  function roastDateForSample(s){
+    if(!s)return null;
+    var rd=null;
+    if(s.bean_id){
+      (ROASTS||[]).forEach(function(r){if(rd==null&&r.bean_id&&String(r.bean_id)===String(s.bean_id))rd=r.roast_date||null;});
+      if(rd!=null)return rd;
+    }
+    (ROASTS||[]).forEach(function(r){if(rd==null&&(r.bean_name||'')===(s.sample_id||''))rd=r.roast_date||null;});
+    return rd;
+  }
+  /* true if another bean already uses the same name+process combination */
+  function beanDupExists(name,process,excludeId){
+    var n=String(name||'').trim().toLowerCase(),p=String(process||'').trim().toLowerCase();
+    if(!n)return false;
+    return (BEANS||[]).some(function(b){
+      if(excludeId&&String(b.id)===String(excludeId))return false;
+      return String(b.name||'').trim().toLowerCase()===n&&String(b.process||'').trim().toLowerCase()===p;
+    });
+  }
   /* Dine In pour-over picker: only beans that exist in Retail Info (not the full green-bean roastery list) */
   function retailOnlyBeanList(){
     var seen={},out=[];
     var src=(RTL_ROWS&&RTL_ROWS.length)?RTL_ROWS:(RETAIL_BEANS||[]);
     src.forEach(function(s){
-      var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;
+      var nm=(s.sample_id||'').trim();if(!nm)return;
       var isBlend=false;try{isBlend=!!blendDefByName(nm);}catch(e){}
       if(isBlend)return;
-      seen[k]=true;out.push(nm);
+      var disp=sampleDisp(s);var k=disp.toLowerCase();if(seen[k])return;
+      seen[k]=true;out.push(disp);
     });
     return out;
   }
@@ -5036,6 +5084,7 @@ fill="#6F4A36" stroke="none">
       else{rec[f]=v===''?null:v;}
     });
     if(!rec.name){msg.textContent='Name cannot be empty';msg.className='gform-msg err';return;}
+    if(beanDupExists(rec.name,rec.process,null)){msg.textContent='「'+rec.name+'」+「'+(rec.process||'—')+'」已存在，同莊園請用不同處理法名稱區分';msg.className='gform-msg err';return;}
     rec.id='bean_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
     btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
     const {data,error}=await sb.from('beans').insert(rec).select();
@@ -5057,6 +5106,7 @@ fill="#6F4A36" stroke="none">
       else{upd[f]=v===''?null:v;}
     });
     if(!upd.name){msg.textContent='Name cannot be empty';msg.className='gform-msg err';return;}
+    if(beanDupExists(upd.name,upd.process,greenBeanId)){msg.textContent='「'+upd.name+'」+「'+(upd.process||'—')+'」已存在，同莊園請用不同處理法名稱區分';msg.className='gform-msg err';return;}
     var _bi=BEANS.findIndex(function(x){return String(x.id)===String(greenBeanId);});
     var oldName=(_bi>-1?(BEANS[_bi].name||''):'').trim();
     var newName=(upd.name||'').trim();
@@ -5067,14 +5117,19 @@ fill="#6F4A36" stroke="none">
     /* rename cascade: keep cupping (samples) + roasts in sync with Green info */
     if(renamed){
       msg.textContent='Saving\u2026 relinking cupping records';
-      var e1=(await sb.from('samples').update({sample_id:newName}).eq('sample_id',oldName)).error;
-      var e2=(await sb.from('roasts').update({bean_name:newName}).eq('bean_name',oldName)).error;
-      if(e1||e2){btn.disabled=false;msg.textContent='Renamed the bean, but relinking failed: '+((e1||e2).message)+' \u2014 please retry';msg.className='gform-msg err';return;}
+      /* relink by bean_id first (exact lot), then legacy rows that have no bean_id by old name */
+      var e1=(await sb.from('samples').update({sample_id:newName}).eq('bean_id',greenBeanId)).error;
+      var e1b=(await sb.from('samples').update({sample_id:newName}).is('bean_id',null).eq('sample_id',oldName)).error;
+      var e2=(await sb.from('roasts').update({bean_name:newName}).eq('bean_id',greenBeanId)).error;
+      var e2b=(await sb.from('roasts').update({bean_name:newName}).is('bean_id',null).eq('bean_name',oldName)).error;
+      var eAny=e1||e1b||e2||e2b;
+      if(eAny){btn.disabled=false;msg.textContent='Renamed the bean, but relinking failed: '+(eAny.message)+' \u2014 please retry';msg.className='gform-msg err';return;}
       /* sync in-memory arrays so the UI shows the new name immediately */
-      (SAMPLES||[]).forEach(function(s){if((s.sample_id||'')===oldName)s.sample_id=newName;});
-      (RETAIL_BEANS||[]).forEach(function(s){if((s.sample_id||'')===oldName)s.sample_id=newName;});
-      (RTL_ROWS||[]).forEach(function(s){if((s.sample_id||'')===oldName)s.sample_id=newName;});
-      (ROASTS||[]).forEach(function(r){if((r.bean_name||'')===oldName)r.bean_name=newName;});
+      var _sm=function(s){if(String(s.bean_id||'')===String(greenBeanId)||(!s.bean_id&&(s.sample_id||'')===oldName))s.sample_id=newName;};
+      (SAMPLES||[]).forEach(_sm);
+      (RETAIL_BEANS||[]).forEach(_sm);
+      (RTL_ROWS||[]).forEach(_sm);
+      (ROASTS||[]).forEach(function(r){if(String(r.bean_id||'')===String(greenBeanId)||(!r.bean_id&&(r.bean_name||'')===oldName))r.bean_name=newName;});
     }
     btn.disabled=false;
     if(_bi>-1)BEANS[_bi]=Object.assign({},BEANS[_bi],upd);
@@ -5181,7 +5236,8 @@ fill="#6F4A36" stroke="none">
         +ROAST_CART.map(function(r,i){
           var bean=BEANS.find(function(b){return String(b.id)===String(r.id);});
           var rem=bean?gnum(bean.quantity!=null?bean.quantity:0):'?';
-          return '<div class="ro-row"><div class="ro-rh"><span class="ro-nm">'+esc(r.name)+'</span><button class="ro-x" data-i="'+i+'" aria-label="remove">✕</button></div>'
+          var rproc=(r.process||(bean&&bean.process)||'').trim();
+          return '<div class="ro-row"><div class="ro-rh"><span class="ro-nm">'+esc(r.name)+(rproc?' <span class="gb-proc">'+esc(rproc)+'</span>':'')+'</span><button class="ro-x" data-i="'+i+'" aria-label="remove">✕</button></div>'
             +'<div class="ro-rem">'+esc(r.country||'')+' · stock '+rem+' kg</div>'
             +'<div class="ro-qty"><button class="ro-step" data-d="-1" data-i="'+i+'">−</button>'
             +'<input class="ro-in" data-i="'+i+'" type="text" inputmode="decimal" value="'+esc(r.kg)+'" />'
@@ -5190,7 +5246,7 @@ fill="#6F4A36" stroke="none">
         }).join('')+'</div>';
     }
     var addable=BEANS.filter(function(b){return !inCart[b.id];}).sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
-    function aitem(b){return '<button class="ro-aitem" data-id="'+esc(b.id)+'"><div class="ro-am"><div class="ro-an">'+esc(b.name)+'</div><div class="ro-as">'+gnum(b.quantity!=null?b.quantity:0)+' kg left</div></div><span class="ro-plus">＋</span></button>';}
+    function aitem(b){var ap=(b.process||'').trim();return '<button class="ro-aitem" data-id="'+esc(b.id)+'"><div class="ro-am"><div class="ro-an">'+esc(b.name)+'</div><div class="ro-as">'+(ap?esc(ap)+' · ':'')+gnum(b.quantity!=null?b.quantity:0)+' kg left</div></div><span class="ro-plus">＋</span></button>';}
     var add='<div class="gsec">Add green</div><div class="ro-add">';
     if(!addable.length){add+='<div class="sempty" style="padding:18px">No beans to add</div>';}
     else{
@@ -5211,7 +5267,7 @@ fill="#6F4A36" stroke="none">
     box.querySelectorAll('.ro-chead').forEach(function(el){el.addEventListener('click',function(){var c=el.dataset.c;roastAddOpen[c]=!roastAddOpen[c];renderRoast();});});
     box.querySelectorAll('.ro-aitem').forEach(function(el){el.addEventListener('click',function(){
       var id=el.dataset.id;var b=BEANS.find(function(x){return String(x.id)===String(id);});
-      if(b){ROAST_CART.push({id:b.id,name:b.name,country:b.country,kg:10});renderRoast();}
+      if(b){ROAST_CART.push({id:b.id,name:b.name,country:b.country,process:b.process||'',kg:10});renderRoast();}
     });});
     box.querySelectorAll('.ro-x').forEach(function(el){el.addEventListener('click',function(){ROAST_CART.splice(+el.dataset.i,1);renderRoast();});});
     box.querySelectorAll('.ro-step').forEach(function(el){el.addEventListener('click',function(){
@@ -5280,9 +5336,10 @@ fill="#6F4A36" stroke="none">
     if(res.error){box.innerHTML='<div class="sempty">Load failed: '+esc(res.error.message)+'</div>';return;}
     var rows=res.data||[];
     var seenR={},uniq=[];
-    rows.forEach(function(s){var k=(s.sample_id||'').trim().toLowerCase();if(k){if(seenR[k])return;seenR[k]=true;}uniq.push(s);});
+    /* keep one card per exact lot: dedupe by bean_id when present, else by name+process */
+    rows.forEach(function(s){var k=s.bean_id?('id:'+String(s.bean_id)):sampleDisp(s).trim().toLowerCase();if(k){if(seenR[k])return;seenR[k]=true;}uniq.push(s);});
     RTL_ROWS=uniq;
-    RTL_RDBY={};ROASTS.forEach(function(r){var k=r.bean_name||'';if(k&&!(k in RTL_RDBY))RTL_RDBY[k]=r.roast_date||null;});
+    RTL_RDBY={};ROASTS.forEach(function(r){var k=r.bean_name||'';if(k&&!(k in RTL_RDBY))RTL_RDBY[k]=r.roast_date||null;if(r.bean_id&&!(('id:'+String(r.bean_id)) in RTL_RDBY))RTL_RDBY['id:'+String(r.bean_id)]=r.roast_date||null;});
     await loadProdSync();
     paintRetail();
   }
@@ -5293,7 +5350,7 @@ fill="#6F4A36" stroke="none">
     if(cnt)cnt.textContent=rows.length?(rows.length+(rows.length===1?' bean':' beans')):'';
     if(!rows.length){box.innerHTML='<div class="sempty">No cupped beans yet<br>Cup a bean from Pending</div>';return;}
     var dotMap=loadDots();
-    box.innerHTML='<div class="rtl-list">'+rows.map(function(s){return retailCard(s,RTL_RDBY[s.sample_id||''],dotMap[s.sample_id||'']||'');}).join('')+'</div>';
+    box.innerHTML='<div class="rtl-list">'+rows.map(function(s){var rdk=(s.bean_id&&(('id:'+String(s.bean_id)) in RTL_RDBY))?RTL_RDBY['id:'+String(s.bean_id)]:RTL_RDBY[s.sample_id||''];return retailCard(s,rdk,dotMap[s.sample_id||'']||'');}).join('')+'</div>';
     box.querySelectorAll('.rtl-head[data-toggle]').forEach(function(el){el.addEventListener('click',function(){
       var k=el.dataset.toggle;rtlOpen[k]=!rtlOpen[k];paintRetail();
     });});
@@ -5553,8 +5610,13 @@ fill="#6F4A36" stroke="none">
     var kind=(acDraft.kind==='blend')?'blend':'single';
     if(!name){if(msg){msg.textContent='Enter a coffee name';msg.className='gform-msg err';}return;}
     /* duplicate guard: same coffee name + same roast date already logged → warn once, confirm on 2nd click */
-    var dupSig=name.toLowerCase()+'|'+date;
-    var isDup=(ROASTS||[]).some(function(r){return String(r.bean_name||'').trim().toLowerCase()===name.toLowerCase()&&(r.roast_date||'')===date;});
+    var sBid=(kind==='single'&&beanId)?beanId:null;
+    var dupSig=(sBid||name.toLowerCase())+'|'+date;
+    var isDup=(ROASTS||[]).some(function(r){
+      if((r.roast_date||'')!==date)return false;
+      if(sBid&&r.bean_id)return String(r.bean_id)===String(sBid);
+      return String(r.bean_name||'').trim().toLowerCase()===name.toLowerCase();
+    });
     if(isDup&&acDupSig!==dupSig){
       acDupSig=dupSig;
       if(msg){msg.innerHTML='\u26a0\ufe0f A roast with this coffee on '+esc(fmtDate(date))+' already exists.<br>Press Add again to add it anyway.';msg.className='gform-msg err';}
@@ -5562,7 +5624,7 @@ fill="#6F4A36" stroke="none">
       return;
     }
     var bean=BEANS.find(function(b){return String(b.id)===String(beanId);});
-    var rec={bean_id:null,bean_name:name,country:(bean?bean.country:null),green_kg:null,status:'pending_cupping',roast_date:date,kind:kind};
+    var rec={bean_id:sBid,bean_name:name,country:(bean?bean.country:null),green_kg:null,status:'pending_cupping',roast_date:date,kind:kind};
     if(btn)btn.disabled=true;if(msg){msg.textContent='Adding…';msg.className='gform-msg';}
     var ins=await sb.from('roasts').insert(rec).select();
     if(ins.error&&rec.kind!==undefined){var r2=Object.assign({},rec);delete r2.kind;ins=await sb.from('roasts').insert(r2).select();}
@@ -6136,7 +6198,9 @@ fill="#6F4A36" stroke="none">
     SAMPLES=res.error?[]:(res.data||[]);
     smpEdit=null;smpEditObj=null;smpDelConfirm=false;
     smpCuppingRoast=r.id;
-    var prev=SAMPLES.find(function(x){return x.supplier==='Ratio Coffee'&&String(x.sample_id||'')===String(r.bean_name||'');});
+    var prev=null;
+    if(r.bean_id)prev=SAMPLES.find(function(x){return x.supplier==='Ratio Coffee'&&x.bean_id&&String(x.bean_id)===String(r.bean_id);});
+    if(!prev)prev=SAMPLES.find(function(x){return x.supplier==='Ratio Coffee'&&!x.bean_id&&String(x.sample_id||'')===String(r.bean_name||'');});
     var page=Object.assign(blankSmp(),{supplier:'Ratio Coffee',sample_id:r.bean_name||'',process:proc,_bean_id:r.bean_id||null});
     if(prev){
       page.fragrance=prev.fragrance;page.acidity=prev.acidity;page.sweetness=prev.sweetness;page.body=prev.body;page.aftertaste=prev.aftertaste;
@@ -6186,18 +6250,31 @@ fill="#6F4A36" stroke="none">
         if(upp&&upp.error){if(btn)btn.disabled=false;if(msg){msg.textContent='Update failed: '+upp.error.message;msg.className='gform-msg err';}return;}
         if(lp)lp.status='pending_cupping';
         if(bn){
-          try{await sb.from('samples').delete().eq('supplier','Ratio Coffee').eq('sample_id',bn);}catch(e){}
-          SAMPLES=SAMPLES.filter(function(x){return !(x.supplier==='Ratio Coffee'&&x.sample_id===bn);});
+          var lpBid=lp?(lp.bean_id||null):null;
+          try{
+            if(lpBid){
+              await sb.from('samples').delete().eq('supplier','Ratio Coffee').eq('bean_id',lpBid);
+              await sb.from('samples').delete().eq('supplier','Ratio Coffee').is('bean_id',null).eq('sample_id',bn);
+            }else{
+              await sb.from('samples').delete().eq('supplier','Ratio Coffee').eq('sample_id',bn);
+            }
+          }catch(e){}
+          SAMPLES=SAMPLES.filter(function(x){
+            if(x.supplier!=='Ratio Coffee')return true;
+            if(lpBid)return !(String(x.bean_id||'')===String(lpBid)||(!x.bean_id&&x.sample_id===bn));
+            return x.sample_id!==bn;
+          });
         }
       }
       smpCuppingRoast=null;blendCupping=null;blendSamplesLoaded=false;smpPages=[blankSmp()];smpIdx=0;
       roastedTitle='Pending';beansView='production';openPage('beans');renderRoasted();return;
     }
-    var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||'Ratio Coffee',sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:null,cupper:(window.CURRENT_USER||null)};
+    var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||'Ratio Coffee',sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,bean_id:(p._bean_id||null),fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:null,cupper:(window.CURRENT_USER||null)};
     if(!rec.sample_id){if(btn)btn.disabled=false;if(msg){msg.textContent='Missing coffee name (ID)';msg.className='gform-msg err';}return;}
     let ins=await sb.from('samples').insert(rec).select();
     if(ins.error&&rec.features!==undefined){var r2=Object.assign({},rec);delete r2.features;ins=await sb.from('samples').insert(r2).select();}
     if(ins.error&&rec.cupper!==undefined){var r3=Object.assign({},rec);delete r3.cupper;delete r3.features;ins=await sb.from('samples').insert(r3).select();}
+    if(ins.error&&rec.bean_id!==undefined){var r4=Object.assign({},rec);delete r4.bean_id;delete r4.cupper;delete r4.features;ins=await sb.from('samples').insert(r4).select();}
     if(ins.error){if(btn)btn.disabled=false;if(msg){msg.textContent='Save failed: '+ins.error.message;msg.className='gform-msg err';}return;}
     if(ins.data&&ins.data[0])SAMPLES.unshift(ins.data[0]);
     if(rid){
