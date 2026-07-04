@@ -5957,6 +5957,29 @@ fill="#6F4A36" stroke="none">
     }catch(e){}
     if(roastedTitle==='Pending'&&document.getElementById('beans-content'))renderRoasted();
   }
+  /* card for a Ratio Coffee cupping record shown inside a date drawer / cupping list */
+  function rtSampleCard(s){
+    var nm=(s.sample_id||'').trim();
+    var bd=null;try{bd=blendDefByName(nm);}catch(e){}
+    var subParts=[];
+    if(bd){var rec=(bd.parts||[]).filter(function(p){return p&&String(p.bean||'').trim();}).map(function(p){return esc(p.bean.trim())+' '+esc(String(p.pct))+'%';}).join(' \u00b7 ');if(rec)subParts.push(rec);}
+    else if(s.process)subParts.push(esc(s.process));
+    if(s.roast_date)subParts.push('Roasted '+esc(fmtDate(s.roast_date)));
+    var sub=subParts.length?'<span class="bp-sub">'+subParts.join(' \u00b7 ')+'</span>':'';
+    return '<div class="blend-pick done np">'
+      +'<div class="blend-pick-top"><div class="bp-l"><span class="blend-name">'+esc(nm||'\u2014')+'</span>'+sub+'</div>'
+      +'<span class="blend-rt"><span class="rbadge done">Cupped</span>'
+      +'<button class="blend-go redo cv-rego" data-sname="'+esc(nm)+'">Re-analyse</button></span></div>'
+      +(nm?retailSetHTML(nm):'')
+      +'</div>';
+  }
+  function wireRtSampleCards(box){
+    box.querySelectorAll('.cv-rego[data-sname]').forEach(function(el){el.addEventListener('click',function(e){
+      e.stopPropagation();var nm=el.dataset.sname;
+      var r=(ROASTS||[]).find(function(x){return (x.kind||'single')!=='blend'&&String(x.bean_name||'').trim().toLowerCase()===nm.toLowerCase();});
+      if(r){openCupping(r.id);}else{openBlendCupping(nm);}
+    });});
+  }
   function pendingBlendSectionHTML(){
     var defs=[];try{defs=readyBlendDefs();}catch(e){}
     if(!defs.length){
@@ -5982,9 +6005,10 @@ fill="#6F4A36" stroke="none">
         +'<span class="blend-rt"><button class="blend-go bl-cupgo" data-bname="'+esc(nm)+'">Start Analyse</button></span>'
         +'</div>';
     }
-    /* blends that already have a roast entry live in their date folder, not here */
+    /* blends that already have a roast entry — or a cupping record carrying a roast date — live in their date folder, not here */
     var roasted={};
     (ROASTS||[]).forEach(function(r){if((r.kind||'single')==='blend'){var k=String(r.bean_name||'').trim().toLowerCase();if(k)roasted[k]=true;}});
+    (SAMPLES||[]).forEach(function(s){if(s&&s.supplier==='Ratio Coffee'&&s.roast_date){var k=String(s.sample_id||'').trim().toLowerCase();if(k)roasted[k]=true;}});
     var show=defs.filter(function(b){return !roasted[(b.name||'').trim().toLowerCase()];});
     if(!show.length){
       return '';
@@ -6026,20 +6050,7 @@ fill="#6F4A36" stroke="none">
       /* ===== Cupping-date drawers: Ratio Coffee cupping records grouped by cupping_date ===== */
       var rt=(SAMPLES||[]).filter(function(s){return s&&s.supplier==='Ratio Coffee';});
       document.getElementById('beans-count').textContent=rt.length+' cupped';
-      function cupCard(s){
-        var nm=(s.sample_id||'').trim();
-        var bd=null;try{bd=blendDefByName(nm);}catch(e){}
-        var subParts=[];
-        if(bd){var rec=(bd.parts||[]).filter(function(p){return p&&String(p.bean||'').trim();}).map(function(p){return esc(p.bean.trim())+' '+esc(String(p.pct))+'%';}).join(' \u00b7 ');if(rec)subParts.push(rec);}
-        else if(s.process)subParts.push(esc(s.process));
-        if(s.roast_date)subParts.push('Roasted '+esc(fmtDate(s.roast_date)));
-        var sub=subParts.length?'<span class="bp-sub">'+subParts.join(' \u00b7 ')+'</span>':'';
-        return '<div class="blend-pick done np">'
-          +'<div class="blend-pick-top"><div class="bp-l"><span class="blend-name">'+esc(nm||'\u2014')+'</span>'+sub+'</div>'
-          +'<span class="blend-rt"><button class="blend-go redo cv-rego" data-sname="'+esc(nm)+'">Re-analyse</button></span></div>'
-          +(nm?retailSetHTML(nm):'')
-          +'</div>';
-      }
+      var cupCard=rtSampleCard;
       var cOrd=[],cSeen={};
       rt.forEach(function(s){var d=s.cupping_date||'\u2014';if(!cSeen[d]){cSeen[d]=true;cOrd.push(d);}});
       var cBody=cOrd.length?cOrd.map(function(d){
@@ -6054,45 +6065,54 @@ fill="#6F4A36" stroke="none">
       box.innerHTML=pvSeg+cBody;
       wirePvSeg();
       box.querySelectorAll('.rdate[data-cd]').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.cd;cupDateOpen[d]=!cupDateOpen[d];renderRoasted();});});
-      box.querySelectorAll('.cv-rego[data-sname]').forEach(function(el){el.addEventListener('click',function(e){
-        e.stopPropagation();var nm=el.dataset.sname;
-        var r=(ROASTS||[]).find(function(x){return (x.kind||'single')!=='blend'&&String(x.bean_name||'').trim().toLowerCase()===nm.toLowerCase();});
-        if(r){openCupping(r.id);}else{openBlendCupping(nm);}
-      });});
+      wireRtSampleCards(box);
       bindRetailControls(box);
       return;
     }
     var blSec=pendingBlendSectionHTML();
+    /* cupping records that carry a roast_date but have no matching roast row — they live in that date's drawer */
+    var rtExtra=(SAMPLES||[]).filter(function(s){
+      if(!s||s.supplier!=='Ratio Coffee'||!s.roast_date)return false;
+      var nm=String(s.sample_id||'').trim().toLowerCase();
+      return !(ROASTS||[]).some(function(r){return (r.roast_date||'')===s.roast_date&&String(r.bean_name||'').trim().toLowerCase()===nm;});
+    });
+    function isBlendName(nm){try{return !!blendDefByName(nm);}catch(e){return false;}}
     var order=[],seen={};
     ROASTS.forEach(function(r){var d=r.roast_date||'\u2014';if(!seen[d]){seen[d]=true;order.push(d);}});
-    document.getElementById('beans-count').textContent=ROASTS.length+' roasts';
+    rtExtra.forEach(function(s){var d=s.roast_date;if(!seen[d]){seen[d]=true;order.push(d);}});
+    order.sort(function(a,b){if(a==='\u2014')return 1;if(b==='\u2014')return -1;return a<b?1:-1;});
+    document.getElementById('beans-count').textContent=(ROASTS.length+rtExtra.length)+' roasts';
     if(!order.length){box.innerHTML=pvSeg+acBar+blSec+'<div class="sempty">No roasts yet<br>Log one in Roast, or use + Add Coffee</div>';wirePvSeg();wireAcOpen();wirePendingBlend(box);bindRetailControls(box);return;}
     var body=order.map(function(d){
       var open=!!roastedOpen[d];
-      var kind=(dateKind[d]==='blend')?'blend':'single';
       var dayRoasts=ROASTS.filter(function(r){return (r.roast_date||'\u2014')===d;});
+      var daySmp=rtExtra.filter(function(s){return s.roast_date===d;});
+      var hasSingle=dayRoasts.some(function(r){return (r.kind||'single')!=='blend';})||daySmp.some(function(s){return !isBlendName((s.sample_id||'').trim());});
+      var kind=dateKind[d]?((dateKind[d]==='blend')?'blend':'single'):(hasSingle?'single':'blend');
       var pending=dayRoasts.filter(function(r){return !roastCupped(r);}).length;
+      var total=dayRoasts.length+daySmp.length;
       var head='<button class="rdate'+(open?' open':'')+'" data-d="'+esc(d)+'">'
         +'<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
         +'<span class="rd-date">'+esc(fmtDate(d))+'</span>'
-        +'<span class="rd-meta">'+dayRoasts.length+' roasts'+(pending?' \u00b7 <b>'+pending+' Pending</b>':'')+'</span></button>';
+        +'<span class="rd-meta">'+total+' roasts'+(pending?' \u00b7 <b>'+pending+' Pending</b>':'')+'</span></button>';
       var inner='';
       if(open){
         var seg='<div class="lbl-seg date-seg">'
           +'<button class="lbl-tab'+(kind!=='blend'?' on':'')+'" data-dk="single" data-dd="'+esc(d)+'">Single Origin</button>'
           +'<button class="lbl-tab'+(kind==='blend'?' on':'')+'" data-dk="blend" data-dd="'+esc(d)+'">Blend</button></div>';
         var list='';
-        function buildRoastList(arr,ckey,emptyMsg){
+        function buildRoastList(arr,smps,ckey,emptyMsg){
           var pend=arr.filter(function(r){return !roastCupped(r);});
           var cup=arr.filter(function(r){return roastCupped(r);});
           var out=pend.map(function(r){return roastCard(r,true);}).join('')
-            +cup.map(function(r){return roastCard(r,true);}).join('');
+            +cup.map(function(r){return roastCard(r,true);}).join('')
+            +smps.map(rtSampleCard).join('');
           return out||('<div class="sempty sm">'+emptyMsg+'</div>');
         }
         if(kind!=='blend'){
-          list=buildRoastList(dayRoasts.filter(function(r){return r.kind!=='blend';}),d+':single','No single-origin roasts this day');
+          list=buildRoastList(dayRoasts.filter(function(r){return r.kind!=='blend';}),daySmp.filter(function(s){return !isBlendName((s.sample_id||'').trim());}),d+':single','No single-origin roasts this day');
         }else{
-          list=buildRoastList(dayRoasts.filter(function(r){return r.kind==='blend';}),d+':blend','No blends yet<br>Use + Add Coffee to add one');
+          list=buildRoastList(dayRoasts.filter(function(r){return r.kind==='blend';}),daySmp.filter(function(s){return isBlendName((s.sample_id||'').trim());}),d+':blend','No blends yet<br>Use + Add Coffee to add one');
         }
         inner='<div class="rd-body">'+seg+list+'</div>';
       }
@@ -6107,6 +6127,7 @@ fill="#6F4A36" stroke="none">
     box.querySelectorAll('.cup-toggle[data-ck]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();var k=el.dataset.ck;cuppedOpen[k]=!cuppedOpen[k];renderRoasted();});});
     box.querySelectorAll('.blend-edit[data-eid]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();roastEdit=el.dataset.eid;roastDelConfirm=false;var r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});roastEditStatus=r?r.status:'pending_cupping';renderRoasted();document.getElementById('beans-content').scrollTop=0;});});
     box.querySelectorAll('.blend-go[data-aid]').forEach(function(el){el.addEventListener('click',function(e){e.stopPropagation();openCupping(el.dataset.aid);});});
+    wireRtSampleCards(box);
     bindRetailControls(box);
   }
   function renderRoastEdit(){
