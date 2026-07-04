@@ -33,7 +33,7 @@
   .logout-door:hover,.logout-door:active{opacity:1;background:rgba(244,236,234,.14)}
   .logout-door svg{width:23px;height:23px;display:block}
   .bhead .logout-door svg path,.bhead .logout-door svg polyline,.bhead .logout-door svg line{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .feed{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}
+  .feed{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .ctitle{display:none;padding:11px 16px 10px;font-size:15px;font-weight:700;color:var(--ink);border-bottom:1px solid var(--line);font-family:var(--font-display)}
   .ctitle .ct-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .ctitle .ct-week{font-size:15px;font-weight:700;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -54,7 +54,7 @@
   .plan-done .gbtn{width:100%;max-width:280px}
   .plan-done .gbtn.ghost{margin-top:10px}
   .cpanel{display:none}
-  .cpanel.show{display:block;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--bg);overscroll-behavior-y:contain}
+  .cpanel.show{display:block;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--bg)}
   .msg{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--line)}
   .msg:last-child{border-bottom:none}
   .msg.read .mtitle{font-weight:500;color:#6B5E50}
@@ -126,9 +126,8 @@
   .shead .hkey:empty{display:none}
   .stitle{padding:11px 18px;font-size:15px;font-weight:700;color:var(--ink);background:var(--surface);border-bottom:1px solid var(--line);flex:0 0 auto;font-family:var(--font-display)}
   .stitle:empty{display:none}
-  .sbody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px;overscroll-behavior-y:contain}
+  .sbody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
   .sbody.ro-mode{overflow:hidden;padding-bottom:0}
-  .feed{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}
   .dayhd{position:sticky;top:0;background:var(--bg);padding:15px 18px 7px;z-index:1;display:flex;align-items:baseline;gap:9px}
   .dayhd .dh-dow{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:.07em}
   .dayhd .dh-date{font-size:12px;font-weight:600;color:var(--muted)}
@@ -624,7 +623,7 @@
   /* Production split-pane: top section locked, add-green section scrolls */
   .ro-wrap{display:flex;flex-direction:column;height:100%}
   .ro-fixed{flex:0 0 auto}
-  .ro-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}
+  .ro-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .ro-cgroup{border-bottom:1px solid var(--line)}
   .ro-chead{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;padding:13px 2px;cursor:pointer;font-family:inherit}
   .ro-chead .rd-chev{color:var(--muted);display:flex;transition:transform .15s ease}
