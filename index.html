@@ -2815,13 +2815,44 @@ fill="#6F4A36" stroke="none">
     tinSample=s;
     if(s){tinForm.process=s.process||'';}
     syncTinInputs();
-    renderTinRadar();
   }
-  function tinRadarHtml(){
-    if(tinSample){var r=sampleRadarSVG(tinSample);if(r)return '<div class="smp-live-radar"><div class="smp-sec-h" style="margin-bottom:6px">Cupping profile</div>'+r+'</div>';}
-    return '';
+  /* ---- radar chart -> monochrome BMP, embedded into the .lbx and printed on the tin ---- */
+  function tinCanvasToBmp(cv){
+    var w=cv.width,h=cv.height;
+    var data=cv.getContext('2d').getImageData(0,0,w,h).data;
+    var rowSize=w*4,dataSize=rowSize*h,fileSize=54+dataSize;
+    var buf=new ArrayBuffer(fileSize),dv=new DataView(buf),u=new Uint8Array(buf);
+    u[0]=0x42;u[1]=0x4D;/* 'BM' */
+    dv.setUint32(2,fileSize,true);dv.setUint32(6,0,true);dv.setUint32(10,54,true);
+    dv.setUint32(14,40,true);dv.setInt32(18,w,true);dv.setInt32(22,h,true);/* +h => bottom-up */
+    dv.setUint16(26,1,true);dv.setUint16(28,32,true);dv.setUint32(30,0,true);/* 32bpp BI_RGB */
+    dv.setUint32(34,dataSize,true);dv.setInt32(38,2835,true);dv.setInt32(42,2835,true);
+    dv.setUint32(46,0,true);dv.setUint32(50,0,true);
+    var o=54;
+    for(var y=h-1;y>=0;y--){var r=y*w*4;for(var x=0;x<w;x++){var i=r+x*4;u[o++]=data[i+2];u[o++]=data[i+1];u[o++]=data[i];u[o++]=255;}}
+    return u;
   }
-  function renderTinRadar(){var el=document.getElementById('tin-radar');if(el)el.innerHTML=tinRadarHtml();}
+  function tinRadarBmp(s){
+    var axes=['fragrance','acidity','sweetness','body','aftertaste'];
+    var labels=['Fragrance','Acidity','Sweetness','Body','Aftertaste'];
+    if(!s||!axes.some(function(a){return s[a]!=null;}))return null;
+    var W=580,H=440;
+    var cv=document.createElement('canvas');cv.width=W;cv.height=H;
+    var ctx=cv.getContext('2d');if(!ctx)return null;
+    ctx.fillStyle='#FFFFFF';ctx.fillRect(0,0,W,H);
+    var cx=W/2,cy=H/2+8,R=118,n=5;
+    function pt(i,r){var a=i*2*Math.PI/n;return [cx+r*Math.sin(a),cy-r*Math.cos(a)];}
+    ctx.strokeStyle='#000000';ctx.lineJoin='round';
+    ctx.lineWidth=1.4;[1,2,3].forEach(function(l){ctx.beginPath();for(var i=0;i<n;i++){var p=pt(i,R*l/3);if(i===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1]);}ctx.closePath();ctx.stroke();});
+    ctx.lineWidth=1.1;for(var i=0;i<n;i++){var p=pt(i,R);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(p[0],p[1]);ctx.stroke();}
+    var dp=axes.map(function(a,i){var v=(s[a]==null?0:s[a]);return pt(i,R*(v/3));});
+    ctx.lineWidth=3;ctx.beginPath();dp.forEach(function(p,i){if(i===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1]);});ctx.closePath();ctx.stroke();
+    ctx.fillStyle='#000000';dp.forEach(function(p){ctx.beginPath();ctx.arc(p[0],p[1],4,0,2*Math.PI);ctx.fill();});
+    ctx.font='700 22px Arial, sans-serif';ctx.textBaseline='middle';
+    labels.forEach(function(t,i){var lp=pt(i,R+30);ctx.textAlign=(lp[0]<cx-4?'right':(lp[0]>cx+4?'left':'center'));ctx.fillText(t,lp[0],lp[1]);});
+    return tinCanvasToBmp(cv);
+  }
+  var TIN_RADAR_OBJ='<image:image><pt:objectStyle x="27.85pt" y="150pt" width="120pt" height="91pt" backColor="#FFFFFF" backPrintColorNumber="0" ropMode="COPYPEN" angle="0" anchor="TOPLEFT" flip="NONE"><pt:pen style="NULL" widthX="0.5pt" widthY="0.5pt" color="#000000" printColorNumber="1"></pt:pen><pt:brush style="NULL" color="#000000" printColorNumber="1" id="0"></pt:brush><pt:expanded objectName="Bitmap13" ID="0" lock="0" templateMergeTarget="LABELLIST" templateMergeType="NONE" templateMergeID="0" allowOutOfBoundsTransfer="false" linkStatus="NONE" linkID="0"></pt:expanded></pt:objectStyle><image:imageStyle originalName="radar.bmp" alignInText="NONE" firstMerge="true" IpName="" fileName="Object1.bmp"><image:transparent flag="false" color="#FFFFFF"></image:transparent><image:trimming flag="false" shape="RECTANGLE" trimOrgX="0pt" trimOrgY="0pt" trimOrgWidth="0pt" trimOrgHeight="0pt"></image:trimming><image:orgPos x="27.85pt" y="150pt" width="120pt" height="91pt"></image:orgPos><image:effect effect="MONO" brightness="50" contrast="50" photoIndex="4"></image:effect><image:mono operationKind="ERRORDIFFUSION" reverse="0" ditherKind="MESH" threshold="128" gamma="100" ditherEdge="0" rgbconvProportionRed="30" rgbconvProportionGreen="59" rgbconvProportionBlue="11" rgbconvProportionReversed="0"></image:mono></image:imageStyle></image:image>';
   function tinBeanNameList(){
     var seen={},out=[];
     (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;seen[k]=true;out.push(nm);});
@@ -2846,7 +2877,6 @@ fill="#6F4A36" stroke="none">
       +'<div class="smp-sec-h" style="margin:2px 0 10px">Fill in &amp; generate</div>'
       +'<div class="smp-fields">'+rows+'</div>'
       +'<datalist id="tin-beans">'+tinBeanNameList().map(function(nm){return '<option value="'+esc(nm)+'"></option>';}).join('')+'</datalist>'
-      +'<div id="tin-radar">'+tinRadarHtml()+'</div>'
       +'<div class="gform-msg'+(msg&&msg.err?' err':(msg&&msg.ok?' ok':''))+'" id="tinlbx-msg" style="margin-top:12px">'+(msg?esc(msg.text):'')+'</div>'
       +'<button class="gbtn" id="tinlbx-gen" style="margin-top:6px">Generate .lbx</button>'
       +'</div>';
@@ -2857,7 +2887,6 @@ fill="#6F4A36" stroke="none">
       var s=tinRetailByName(v);
       if(s){tinSample=s;tinForm.process=s.process||'';var pi=document.getElementById('tf-process');if(pi)pi.value=tinForm.process;}
       else{tinSample=null;}
-      renderTinRadar();
     });
     var pickBtn=document.getElementById('tf-name-pick');
     var nameMenu=document.getElementById('tf-name-menu');
@@ -2896,6 +2925,14 @@ fill="#6F4A36" stroke="none">
       });
       var srcName=(tinForm.name||tinForm.country||'tin');
       var nm=srcName.replace(/[^A-Za-z0-9 _\-]/g,'').trim().replace(/\s+/g,'_')||'tin';
+      /* embed the cupping radar as a monochrome BMP image object printed on the tin */
+      try{
+        var rbmp=tinRadarBmp(tinSample);
+        if(rbmp&&xml.indexOf('Object1.bmp')<0){
+          zip.file('Object1.bmp',rbmp);
+          xml=xml.replace('</pt:objects>',TIN_RADAR_OBJ+'</pt:objects>');
+        }
+      }catch(e){}
       zip.file('label.xml',xml);
       var blob=await zip.generateAsync({type:'blob',mimeType:'application/octet-stream',compression:'DEFLATE'});
       var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download=nm+'.lbx';document.body.appendChild(a);a.click();
