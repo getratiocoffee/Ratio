@@ -5433,6 +5433,118 @@ fill="#6F4A36" stroke="none">
     renderBeansRetail();
   }
   /* ---- Phase 2: push a retail bean to Square ---- */
+  /* branded product card (1200x1200 PNG) — mirrors the printed menus:
+     blends use the Blend Menu cell layout, singles use the Special Menu left column */
+  function _rrPath(x,X,Y,W,H,R){x.beginPath();x.moveTo(X+R,Y);x.arcTo(X+W,Y,X+W,Y+H,R);x.arcTo(X+W,Y+H,X,Y+H,R);x.arcTo(X,Y+H,X,Y,R);x.arcTo(X,Y,X+W,Y,R);x.closePath();}
+  function _cardFit(x,text,weight,start,min,maxW,fam){var s=start;x.font=weight+' '+s+'px '+fam;while(s>min&&x.measureText(text).width>maxW){s-=2;x.font=weight+' '+s+'px '+fam;}return s;}
+  async function makeSquareCard(card){
+    try{await document.fonts.ready;}catch(e){}
+    var W=1200,H=1200,cv=document.createElement('canvas');cv.width=W;cv.height=H;
+    var x=cv.getContext('2d');
+    var INK='#1E1A19',BROWN='#49423A',BERRY='#B25E6A';
+    x.fillStyle='#F4ECEA';x.fillRect(0,0,W,H);
+    var CX=70,CY=70,CW=W-140,CH=H-140,CR=34;
+    _rrPath(x,CX,CY,CW,CH,CR);x.fillStyle='#ffffff';x.fill();
+    var band=mnHexRgb(card.color)||[73,66,58];
+    var lum=.299*band[0]+.587*band[1]+.114*band[2];
+    var bandCss='rgb('+band.join(',')+')';
+    var tc=lum>165?'#282220':'#ffffff';
+    x.save();_rrPath(x,CX,CY,CW,CH,CR);x.clip();
+    x.textBaseline='alphabetic';x.textAlign='left';
+    if(card.kind==='blend'){
+      /* ===== Blend Menu cell ===== */
+      var bandH=132;
+      x.fillStyle=bandCss;x.fillRect(CX,CY,CW,bandH);
+      var ns=_cardFit(x,card.name,'700',68,36,CW-88,'Inter, sans-serif');
+      x.fillStyle=tc;x.fillText(card.name,CX+44,CY+bandH/2+ns*.36);
+      var cy=CY+bandH;
+      if(card.note){
+        var lt='rgb('+band.map(function(v){return Math.round(v+(255-v)*.8);}).join(',')+')';
+        var dk='rgb('+band.map(function(v){return Math.round(v*.5);}).join(',')+')';
+        var barH=64;x.fillStyle=lt;x.fillRect(CX,cy,CW,barH);
+        var nsz=_cardFit(x,card.note,'700',34,22,CW-80,'Inter, sans-serif');
+        x.textAlign='center';x.fillStyle=dk;x.fillText(card.note,CX+CW/2,cy+barH/2+nsz*.36);
+        x.textAlign='left';cy+=barH;
+      }
+      cy+=84;
+      if(card.flavour&&card.flavour.length){
+        x.fillStyle=BERRY;x.font='700 26px Inter, sans-serif';
+        try{x.letterSpacing='6px';}catch(e){}
+        x.fillText('FLAVOUR',CX+44,cy);
+        try{x.letterSpacing='0px';}catch(e){}
+        cy+=64;
+        var fl=card.flavour.join('  \u00b7  ');
+        var fs=_cardFit(x,fl,'700',52,26,CW-88,'Inter, sans-serif');
+        x.fillStyle=INK;x.fillText(fl,CX+44,cy);cy+=40;
+      }
+      cy+=56;
+      if(card.recipe&&card.recipe.length){
+        x.fillStyle=BERRY;x.font='700 26px Inter, sans-serif';
+        try{x.letterSpacing='6px';}catch(e){}
+        x.fillText('RECIPE',CX+44,cy);
+        try{x.letterSpacing='0px';}catch(e){}
+        cy+=76;
+        var footY=CY+CH-96;
+        var n=card.recipe.length,avail=footY-cy,rowGap=Math.max(66,Math.min(120,avail/n));
+        card.recipe.forEach(function(p){
+          var pct=(p.pct||p.pct===0)?String(p.pct)+'%':'';
+          if(pct){x.fillStyle=BERRY;x.font='700 48px Inter, sans-serif';x.fillText(pct,CX+44,cy);}
+          x.fillStyle=BROWN;
+          var bs=_cardFit(x,p.bean,'700',48,28,CW-88-(pct?150:0),'Inter, sans-serif');
+          x.fillText(p.bean,CX+44+(pct?150:0),cy);
+          cy+=rowGap;
+        });
+      }
+      x.textAlign='center';x.fillStyle=BROWN;x.font='700 30px Inter, sans-serif';
+      x.fillText('Ratio Crows Nest',CX+CW/2,CY+CH-44);
+      x.textAlign='left';
+    }else{
+      /* ===== Special Menu left column ===== */
+      var tabW=Math.round(CW*.56),tabH=112;
+      x.fillStyle=bandCss;
+      _rrPath(x,CX,CY,tabW,tabH+CR,CR);x.save();x.beginPath();x.rect(CX,CY,tabW,tabH);x.clip();_rrPath(x,CX,CY,tabW,tabH+CR,CR);x.fill();x.restore();
+      var nm=String(card.name||'').toUpperCase();
+      var ns2=_cardFit(x,nm,'700',54,26,tabW-72,'Inter, sans-serif');
+      x.fillStyle=tc;x.fillText(nm,CX+38,CY+tabH/2+ns2*.36);
+      x.textAlign='right';x.fillStyle=BROWN;x.font='700 34px Inter, sans-serif';
+      x.fillText('Ratio Crows Nest',CX+CW-44,CY+72);
+      x.textAlign='left';
+      var cy2=CY+tabH+112;
+      var o=card.origin||{},rows=[];
+      if(o.process)rows.push(['Process',o.process]);
+      if(o.variety)rows.push(['Variety',o.variety]);
+      if(o.altitude)rows.push(['Altitude',o.altitude+' MASL']);
+      if(o.region)rows.push(['Region',o.region]);
+      if(rows.length){
+        x.fillStyle='#000';x.font='700 26px Inter, sans-serif';
+        try{x.letterSpacing='6px';}catch(e){}
+        x.fillText('ORIGIN',CX+44,cy2);
+        try{x.letterSpacing='0px';}catch(e){}
+        cy2+=78;
+        rows.forEach(function(r){
+          x.fillStyle='#000';x.font='700 38px Inter, sans-serif';
+          x.fillText(r[0],CX+44,cy2);
+          x.textAlign='right';x.fillStyle='#322B2A';
+          var vs=_cardFit(x,String(r[1]),'400',38,24,CW-320,'Inter, sans-serif');
+          x.fillText(String(r[1]),CX+CW-44,cy2);
+          x.textAlign='left';cy2+=80;
+        });
+      }
+      if(card.flavour&&card.flavour.length){
+        var fl2=card.flavour.join('  \u00b7  ');
+        var baseY=CY+CH-72;
+        x.fillStyle='#000';x.font='700 26px Inter, sans-serif';
+        try{x.letterSpacing='6px';}catch(e){}
+        x.fillText('FLAVOUR',CX+44,baseY-96);
+        try{x.letterSpacing='0px';}catch(e){}
+        var fs2=_cardFit(x,fl2,'700',60,26,CW-88,'Inter, sans-serif');
+        x.fillStyle=INK;x.fillText(fl2,CX+44,baseY);
+      }
+    }
+    x.restore();
+    _rrPath(x,CX,CY,CW,CH,CR);x.lineWidth=4;x.strokeStyle=INK;x.stroke();
+    return cv.toDataURL('image/png').split(',')[1];
+  }
   async function pushToSquare(sqKey,sid){
     var row=RTL_ROWS.filter(function(x){return (x.sample_id||('id:'+String(x.id||'')))===sqKey||String(x.sample_id||'')===sid;})[0];
     if(!row){alert('Bean not found.');return;}
@@ -5448,8 +5560,19 @@ fill="#6F4A36" stroke="none">
     rtlSqBusy[sqKey]=true;paintRetail();
     try{
       var desc=[row.process||'',notes].filter(Boolean).join(' \u00b7 ');
+      var blendDef=blendDefByName(row.sample_id||'');
+      var cardData={name:row.sample_id||'',color:beanColorFor(row.sample_id||''),flavour:(row.features||[])};
+      if(blendDef){
+        cardData.kind='blend';cardData.note=blendDef.note||'';
+        cardData.recipe=(blendDef.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}).map(function(p){return {bean:p.bean,pct:parseFloat(p.pct)};});
+      }else{
+        cardData.kind='single';
+        var gb=beanByNameProcess(row.sample_id||'',row.process||'');
+        cardData.origin={process:row.process||'',variety:(gb&&gb.variety)||'',altitude:(gb&&gb.altitude)||'',region:(gb&&gb.region)||''};
+      }
+      var img64=null;try{img64=await makeSquareCard(cardData);}catch(e){console.error('[Ratio] card gen:',e);}
       var res=await callSquareFn({action:'push',sample_id:sqKey,name:row.sample_id||'',
-        description:desc,grams:gv,price:price});
+        description:desc,grams:gv,price:price,image_b64:img64});
       /* refresh sync state from response or reload */
       await loadProdSync();
     }catch(e){
