@@ -5785,8 +5785,12 @@ fill="#6F4A36" stroke="none">
   function blankSmp(){return {cupping_date:todayStr(),supplier:'',sample_id:'',process:'',fragrance:null,acidity:null,sweetness:null,body:null,aftertaste:null,features:[],comment:''};}
   function captureSmp(){
     var p=smpPages[smpIdx];if(!p)return;
-    var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
-    p.cupping_date=g('smp-date')||todayStr();p.supplier=g('smp-supplier');p.sample_id=g('smp-id');p.process=g('smp-process');p.comment=g('smp-comment');
+    var g=function(id,fallback){var e=document.getElementById(id);return e?e.value:fallback;};
+    p.cupping_date=g('smp-date',p.cupping_date)||todayStr();
+    p.supplier=g('smp-supplier',p.supplier);
+    p.sample_id=g('smp-id',p.sample_id);
+    p.process=g('smp-process',p.process);
+    p.comment=g('smp-comment',p.comment);
     captureChars('smp',p);
   }
   async function loadSamples(view){
