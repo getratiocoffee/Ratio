@@ -3928,6 +3928,7 @@ fill="#6F4A36" stroke="none">
   /* latest roast date for a sample: match by bean_id when both sides have one, else by name (legacy) */
   function roastDateForSample(s){
     if(!s)return null;
+    if(s.roast_date)return s.roast_date;
     var rd=null;
     if(s.bean_id){
       (ROASTS||[]).forEach(function(r){if(rd==null&&r.bean_id&&String(r.bean_id)===String(s.bean_id))rd=r.roast_date||null;});
@@ -6149,11 +6150,12 @@ fill="#6F4A36" stroke="none">
   function nextNo(date){var m=0;SAMPLES.forEach(function(x){if(x.cupping_date===date&&typeof x.no==='number'&&x.no>m)m=x.no;});return m+1;}
   const SMP_FIELDS=[['fragrance','Fragrance / Aroma'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
   function todayStr(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
-  function blankSmp(){return {cupping_date:todayStr(),supplier:'',sample_id:'',process:'',fragrance:null,acidity:null,sweetness:null,body:null,aftertaste:null,features:[],comment:''};}
+  function blankSmp(){return {cupping_date:todayStr(),roast_date:null,supplier:'',sample_id:'',process:'',fragrance:null,acidity:null,sweetness:null,body:null,aftertaste:null,features:[],comment:''};}
   function captureSmp(){
     var p=smpPages[smpIdx];if(!p)return;
     var g=function(id,fallback){var e=document.getElementById(id);return e?e.value:fallback;};
     p.cupping_date=g('smp-date',p.cupping_date)||todayStr();
+    p.roast_date=g('smp-rdate',p.roast_date)||null;
     p.supplier=g('smp-supplier',p.supplier);
     p.sample_id=g('smp-id',p.sample_id);
     p.process=g('smp-process',p.process);
@@ -6289,7 +6291,12 @@ fill="#6F4A36" stroke="none">
     var scores=SMP_FIELDS.map(function(f){return scoreRow(p,f);}).join('');
     var form=''
       +'<div class="smp-sec"><div class="smp-sec-h">Sample details</div><div class="smp-fields">'
-      +'<label class="smp-f"><span>Cupping date</span><input id="smp-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" /></label>'
+      +(cupping
+        ?'<div class="smp-f2">'
+          +'<div class="smp-f"><span class="smp-ro-lab">Cupping date · locked</span><div class="smp-ro">'+esc(fmtDate(p.cupping_date||todayStr()))+'</div></div>'
+          +'<label class="smp-f"><span>Roast date</span><input id="smp-rdate" type="date" value="'+esc(p.roast_date||'')+'" /></label>'
+          +'</div>'
+        :'<label class="smp-f"><span>Cupping date</span><input id="smp-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" /></label>')
       +(cupping
         ?(function(){
           var hasId=!!(p._bean_id);
@@ -6355,7 +6362,8 @@ fill="#6F4A36" stroke="none">
     var seg='<div class="re-seg"><button class="re-opt'+(p.decision==='buy'?' on':'')+'" data-s="buy">Buy</button><button class="re-opt'+(p.decision==='maybe'?' on':'')+'" data-s="maybe">Maybe</button><button class="re-opt'+(p.decision==='skip'?' on':'')+'" data-s="skip">Skip</button></div>';
     box.innerHTML=''
       +'<div class="smp-sec" style="margin-top:14px"><div class="smp-sec-h">Sample details</div><div class="smp-fields">'
-      +'<label class="smp-f"><span>Cupping date · locked</span><input id="se-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" readonly /></label>'
+      +'<div class="smp-f2"><label class="smp-f"><span>Cupping date · locked</span><input id="se-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" readonly /></label>'
+      +'<label class="smp-f"><span>Roast date</span><input id="se-rdate" type="date" value="'+esc(p.roast_date||'')+'" /></label></div>'
       +'<div class="smp-f2"><label class="smp-f"><span>Cupping ID</span><input id="se-id" type="text" value="'+esc(p.sample_id||'')+'" /></label>'
       +'<label class="smp-f"><span>Supplier</span><input id="se-supplier" type="text" value="'+esc(p.supplier||'')+'" /></label></div>'
       +'<label class="smp-f"><span>Process</span><input id="se-process" type="text" value="'+esc(p.process||'')+'" /></label>'
@@ -6388,7 +6396,7 @@ fill="#6F4A36" stroke="none">
     const btn=document.getElementById('se-save');
     var p=smpEditObj;var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
     captureChars('se',p);
-    var upd={cupping_date:p.cupping_date||todayStr(),supplier:g('se-supplier').trim()||null,sample_id:g('se-id').trim()||null,process:g('se-process').trim()||null,
+    var upd={cupping_date:p.cupping_date||todayStr(),roast_date:g('se-rdate')||null,supplier:g('se-supplier').trim()||null,sample_id:g('se-id').trim()||null,process:g('se-process').trim()||null,
       fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:g('se-comment').trim()||null,decision:p.decision||null};
     if(!upd.supplier&&!upd.sample_id){msg.textContent='Enter at least Supplier or ID';msg.className='gform-msg err';return;}
     btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
@@ -6506,7 +6514,7 @@ fill="#6F4A36" stroke="none">
     var prev=null;
     if(r.bean_id)prev=SAMPLES.find(function(x){return x.supplier==='Ratio Coffee'&&x.bean_id&&String(x.bean_id)===String(r.bean_id);});
     if(!prev)prev=SAMPLES.find(function(x){return x.supplier==='Ratio Coffee'&&!x.bean_id&&String(x.sample_id||'')===String(r.bean_name||'');});
-    var page=Object.assign(blankSmp(),{supplier:'Ratio Coffee',sample_id:r.bean_name||'',process:proc,_bean_id:r.bean_id||null});
+    var page=Object.assign(blankSmp(),{supplier:'Ratio Coffee',sample_id:r.bean_name||'',process:proc,_bean_id:r.bean_id||null,roast_date:r.roast_date||null});
     if(prev){
       page.fragrance=prev.fragrance;page.acidity=prev.acidity;page.sweetness=prev.sweetness;page.body=prev.body;page.aftertaste=prev.aftertaste;
       page.features=(prev.features||[]).slice();
@@ -6528,7 +6536,8 @@ fill="#6F4A36" stroke="none">
     smpEdit=null;smpEditObj=null;smpDelConfirm=false;
     smpCuppingRoast=null;blendCupping={name:name};
     var prev=SAMPLES.find(function(x){return x.supplier==='Ratio Coffee'&&String(x.sample_id||'')===name;});
-    var page=Object.assign(blankSmp(),{supplier:'Ratio Coffee',sample_id:name,process:''});
+    var brd=null;(ROASTS||[]).forEach(function(r){if((r.bean_name||'')===name&&r.roast_date&&(!brd||r.roast_date>brd))brd=r.roast_date;});
+    var page=Object.assign(blankSmp(),{supplier:'Ratio Coffee',sample_id:name,process:'',roast_date:brd});
     if(prev){
       page.fragrance=prev.fragrance;page.acidity=prev.acidity;page.sweetness=prev.sweetness;page.body=prev.body;page.aftertaste=prev.aftertaste;
       page.features=(prev.features||[]).slice();
@@ -6574,7 +6583,7 @@ fill="#6F4A36" stroke="none">
       smpCuppingRoast=null;blendCupping=null;blendSamplesLoaded=false;smpPages=[blankSmp()];smpIdx=0;
       roastedTitle='Pending';beansView='production';openPage('beans');renderRoasted();return;
     }
-    var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),supplier:(p.supplier||'').trim()||'Ratio Coffee',sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,bean_id:(p._bean_id||null),fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:null,cupper:(window.CURRENT_USER||null)};
+    var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),roast_date:(p.roast_date||null),supplier:(p.supplier||'').trim()||'Ratio Coffee',sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,bean_id:(p._bean_id||null),fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:null,cupper:(window.CURRENT_USER||null)};
     if(!rec.sample_id){if(btn)btn.disabled=false;if(msg){msg.textContent='Missing coffee name (ID)';msg.className='gform-msg err';}return;}
     let ins=await sb.from('samples').insert(rec).select();
     if(ins.error&&rec.features!==undefined){var r2=Object.assign({},rec);delete r2.features;ins=await sb.from('samples').insert(r2).select();}
