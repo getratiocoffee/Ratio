@@ -5741,7 +5741,7 @@ fill="#6F4A36" stroke="none">
       +'</div>'):'';
     return '<div class="rtl-card">'+header+body+'</div>';
   }
-  let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending', addCoffeeOpen=false, acDraft={beanId:'',name:'',date:'',kind:'single'}, dateKind={}, cuppedOpen={}, acDupSig='';
+  let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending', addCoffeeOpen=false, acDraft={beanId:'',name:'',date:'',kind:'single'}, dateKind={}, cuppedOpen={}, acDupSig='', pendingView='roast', cupDateOpen={};
   function fmtDate(d){if(!d||d==='—')return 'No date';var p=String(d).split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0].slice(-2)):d;}
   function beansBack(){
     if(roastEdit){roastEdit=null;roastDelConfirm=false;renderRoasted();return;}
@@ -6017,11 +6017,56 @@ fill="#6F4A36" stroke="none">
     }
     var acBar='<div class="ac-bar"><button class="ac-open-btn" id="ac-open">+ Add Coffee</button></div>';
     ensureBlendSamples();
+    var _chev='<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>';
+    var pvSeg='<div class="lbl-seg pv-seg" style="margin:12px 16px 6px">'
+      +'<button class="lbl-tab'+(pendingView!=='cup'?' on':'')+'" data-pv="roast">Roasted date</button>'
+      +'<button class="lbl-tab'+(pendingView==='cup'?' on':'')+'" data-pv="cup">Cupping date</button></div>';
+    function wirePvSeg(){box.querySelectorAll('.pv-seg .lbl-tab[data-pv]').forEach(function(t){t.addEventListener('click',function(){var k=t.getAttribute('data-pv');if(k!==pendingView){pendingView=k;renderRoasted();}});});}
+    if(pendingView==='cup'){
+      /* ===== Cupping-date drawers: Ratio Coffee cupping records grouped by cupping_date ===== */
+      var rt=(SAMPLES||[]).filter(function(s){return s&&s.supplier==='Ratio Coffee';});
+      document.getElementById('beans-count').textContent=rt.length+' cupped';
+      function cupCard(s){
+        var nm=(s.sample_id||'').trim();
+        var bd=null;try{bd=blendDefByName(nm);}catch(e){}
+        var subParts=[];
+        if(bd){var rec=(bd.parts||[]).filter(function(p){return p&&String(p.bean||'').trim();}).map(function(p){return esc(p.bean.trim())+' '+esc(String(p.pct))+'%';}).join(' \u00b7 ');if(rec)subParts.push(rec);}
+        else if(s.process)subParts.push(esc(s.process));
+        if(s.roast_date)subParts.push('Roasted '+esc(fmtDate(s.roast_date)));
+        var sub=subParts.length?'<span class="bp-sub">'+subParts.join(' \u00b7 ')+'</span>':'';
+        return '<div class="blend-pick done np">'
+          +'<div class="blend-pick-top"><div class="bp-l"><span class="blend-name">'+esc(nm||'\u2014')+'</span>'+sub+'</div>'
+          +'<span class="blend-rt"><button class="blend-go redo cv-rego" data-sname="'+esc(nm)+'">Re-analyse</button></span></div>'
+          +(nm?retailSetHTML(nm):'')
+          +'</div>';
+      }
+      var cOrd=[],cSeen={};
+      rt.forEach(function(s){var d=s.cupping_date||'\u2014';if(!cSeen[d]){cSeen[d]=true;cOrd.push(d);}});
+      var cBody=cOrd.length?cOrd.map(function(d){
+        var open=!!cupDateOpen[d];
+        var day=rt.filter(function(s){return (s.cupping_date||'\u2014')===d;});
+        var head='<button class="rdate'+(open?' open':'')+'" data-cd="'+esc(d)+'">'+_chev
+          +'<span class="rd-date">'+esc(fmtDate(d))+'</span>'
+          +'<span class="rd-meta">'+day.length+' cupped</span></button>';
+        var inner=open?'<div class="rd-body"><div class="bl-cuplist">'+day.map(cupCard).join('')+'</div></div>':'';
+        return '<div class="rgroup">'+head+inner+'</div>';
+      }).join(''):'<div class="sempty">No cupping records yet</div>';
+      box.innerHTML=pvSeg+cBody;
+      wirePvSeg();
+      box.querySelectorAll('.rdate[data-cd]').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.cd;cupDateOpen[d]=!cupDateOpen[d];renderRoasted();});});
+      box.querySelectorAll('.cv-rego[data-sname]').forEach(function(el){el.addEventListener('click',function(e){
+        e.stopPropagation();var nm=el.dataset.sname;
+        var r=(ROASTS||[]).find(function(x){return (x.kind||'single')!=='blend'&&String(x.bean_name||'').trim().toLowerCase()===nm.toLowerCase();});
+        if(r){openCupping(r.id);}else{openBlendCupping(nm);}
+      });});
+      bindRetailControls(box);
+      return;
+    }
     var blSec=pendingBlendSectionHTML();
     var order=[],seen={};
     ROASTS.forEach(function(r){var d=r.roast_date||'\u2014';if(!seen[d]){seen[d]=true;order.push(d);}});
     document.getElementById('beans-count').textContent=ROASTS.length+' roasts';
-    if(!order.length){box.innerHTML=acBar+blSec+'<div class="sempty">No roasts yet<br>Log one in Roast, or use + Add Coffee</div>';wireAcOpen();wirePendingBlend(box);return;}
+    if(!order.length){box.innerHTML=pvSeg+acBar+blSec+'<div class="sempty">No roasts yet<br>Log one in Roast, or use + Add Coffee</div>';wirePvSeg();wireAcOpen();wirePendingBlend(box);bindRetailControls(box);return;}
     var body=order.map(function(d){
       var open=!!roastedOpen[d];
       var kind=(dateKind[d]==='blend')?'blend':'single';
@@ -6053,7 +6098,8 @@ fill="#6F4A36" stroke="none">
       }
       return '<div class="rgroup">'+head+inner+'</div>';
     }).join('');
-    box.innerHTML=acBar+blSec+body;
+    box.innerHTML=pvSeg+acBar+blSec+body;
+    wirePvSeg();
     wireAcOpen();
     wirePendingBlend(box);
     box.querySelectorAll('.rdate[data-d]').forEach(function(el){el.addEventListener('click',function(){var d=el.dataset.d;roastedOpen[d]=!roastedOpen[d];renderRoasted();});});
