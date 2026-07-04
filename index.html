@@ -127,7 +127,8 @@
   .stitle{padding:11px 18px;font-size:15px;font-weight:700;color:var(--ink);background:var(--surface);border-bottom:1px solid var(--line);flex:0 0 auto;font-family:var(--font-display)}
   .stitle:empty{display:none}
   .sbody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
-  .sbody.ro-mode{overflow:hidden;padding-bottom:0}
+  .sbody.ro-mode{overflow:hidden;padding-bottom:0;display:flex;flex-direction:column}
+  .sbody.ro-mode > #green-content{flex:1;min-height:0;display:flex;flex-direction:column}
   .dayhd{position:sticky;top:0;background:var(--bg);padding:15px 18px 7px;z-index:1;display:flex;align-items:baseline;gap:9px}
   .dayhd .dh-dow{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:.07em}
   .dayhd .dh-date{font-size:12px;font-weight:600;color:var(--muted)}
@@ -621,7 +622,7 @@
   .ro-plus{width:32px;height:32px;border-radius:50%;background:#F4E4E0;color:var(--accent);font-size:19px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
   .ro-save-wrap{position:sticky;bottom:0;padding:12px 16px 14px;background:linear-gradient(to top,var(--bg) 72%,rgba(244,236,234,0))}
   /* Production split-pane: top section locked, add-green section scrolls */
-  .ro-wrap{display:flex;flex-direction:column;height:100%}
+  .ro-wrap{flex:1;min-height:0;display:flex;flex-direction:column}
   .ro-fixed{flex:0 0 auto}
   .ro-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .ro-cgroup{border-bottom:1px solid var(--line)}
