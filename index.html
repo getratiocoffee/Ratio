@@ -2774,6 +2774,7 @@ fill="#6F4A36" stroke="none">
     {k:'altitude',label:'Altitude',ph:'2110 masl'}
   ];
   var tinForm={country:'',name:'',process:'',variety:'',region:'',altitude:''};
+  var tinSample=null;/* the picked Retail Info sample, drives the cupping radar */
   /* map the form to the template's editable blocks (orig = original text in Tin_temp.lbx) */
   function tinCompileEntries(){
     var alt=(tinForm.altitude||'').trim();
@@ -2802,21 +2803,25 @@ fill="#6F4A36" stroke="none">
     return runs.map(function(len){return '<text:stringItem charLen="'+len+'">'+inner+'</text:stringItem>';}).join('');
   }
   function openTinLabel(){closeFolder();openPage('tinlabel');renderTinLabel();Promise.all([ensureBeansForInvoice(),ensureRetailForLabel()]).then(function(){if(document.getElementById('tinlabel-content'))renderTinLabel();});}
-  function tinApplyByName(name){
-    var v=(name||'').trim().toLowerCase();
-    var s=(RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===v;})[0];
-    tinForm.name=name||tinForm.name;
-    /* origin details come from the matching green bean (BEANS) */
-    var b=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===v;})[0];
-    if(b){
-      tinForm.country=b.country||'';
-      tinForm.process=b.process||'';
-      tinForm.variety=b.variety||'';
-      tinForm.region=b.region||'';
-      tinForm.altitude=(b.altitude!=null&&b.altitude!=='')?String(b.altitude):'';
-    }
-    syncTinInputs();
+  function tinRetailByName(name){
+    var v=(name||'').trim().toLowerCase();if(!v)return null;
+    return (RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===v;})[0]||null;
   }
+  function tinApplyByName(name){
+    /* beans come only from Retail Info: fill name + process (authoritative samples.process);
+       Country/Variety/Region/Altitude aren't in Retail Info -> left for manual entry */
+    var s=tinRetailByName(name);
+    tinForm.name=name||tinForm.name;
+    tinSample=s;
+    if(s){tinForm.process=s.process||'';}
+    syncTinInputs();
+    renderTinRadar();
+  }
+  function tinRadarHtml(){
+    if(tinSample){var r=sampleRadarSVG(tinSample);if(r)return '<div class="smp-live-radar"><div class="smp-sec-h" style="margin-bottom:6px">Cupping profile</div>'+r+'</div>';}
+    return '';
+  }
+  function renderTinRadar(){var el=document.getElementById('tin-radar');if(el)el.innerHTML=tinRadarHtml();}
   function tinBeanNameList(){
     var seen={},out=[];
     (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;seen[k]=true;out.push(nm);});
@@ -2825,6 +2830,7 @@ fill="#6F4A36" stroke="none">
   function syncTinInputs(){TIN_FORM.forEach(function(f){var i=document.getElementById('tf-'+f.k);if(i)i.value=tinForm[f.k]||'';});}
   function renderTinLabel(msg){
     var el=document.getElementById('tinlabel-content');if(!el)return;
+    if(tinForm.name&&(!tinSample||(tinSample.sample_id||'').trim().toLowerCase()!==tinForm.name.trim().toLowerCase()))tinSample=tinRetailByName(tinForm.name);
     var rows=TIN_FORM.map(function(f){
       if(f.k==='name'){
         return '<div class="smp-f"><span>'+esc(f.label)+'</span>'
@@ -2840,12 +2846,19 @@ fill="#6F4A36" stroke="none">
       +'<div class="smp-sec-h" style="margin:2px 0 10px">Fill in &amp; generate</div>'
       +'<div class="smp-fields">'+rows+'</div>'
       +'<datalist id="tin-beans">'+tinBeanNameList().map(function(nm){return '<option value="'+esc(nm)+'"></option>';}).join('')+'</datalist>'
+      +'<div id="tin-radar">'+tinRadarHtml()+'</div>'
       +'<div class="gform-msg'+(msg&&msg.err?' err':(msg&&msg.ok?' ok':''))+'" id="tinlbx-msg" style="margin-top:12px">'+(msg?esc(msg.text):'')+'</div>'
       +'<button class="gbtn" id="tinlbx-gen" style="margin-top:6px">Generate .lbx</button>'
       +'</div>';
     TIN_FORM.forEach(function(f){var inp=document.getElementById('tf-'+f.k);if(inp&&f.k!=='name')inp.addEventListener('input',function(){tinForm[f.k]=inp.value;});});
     var nameInp=document.getElementById('tf-name');
-    if(nameInp)nameInp.addEventListener('input',function(){tinForm.name=nameInp.value;});
+    if(nameInp)nameInp.addEventListener('input',function(){
+      var v=nameInp.value;tinForm.name=v;
+      var s=tinRetailByName(v);
+      if(s){tinSample=s;tinForm.process=s.process||'';var pi=document.getElementById('tf-process');if(pi)pi.value=tinForm.process;}
+      else{tinSample=null;}
+      renderTinRadar();
+    });
     var pickBtn=document.getElementById('tf-name-pick');
     var nameMenu=document.getElementById('tf-name-menu');
     if(nameMenu){
