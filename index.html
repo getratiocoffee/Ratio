@@ -5397,7 +5397,7 @@ fill="#6F4A36" stroke="none">
     try{var m=loadSold();if(sid&&m[sid]!=null){delete m[sid];saveSold(m);}}catch(e){}
     /* if this bean was live on Square, mark it sold out there too */
     var sqKey=sid||('id:'+String(id||''));
-    if(PROD_SYNC[sqKey]&&PROD_SYNC[sqKey].status==='live'){syncSquareAvailability(sqKey,true,true);}
+    if(PROD_SYNC[sqKey]&&PROD_SYNC[sqKey].status==='synced'){syncSquareAvailability(sqKey,true,true);}
     paintRetail();
     renderBeansRetail();
   }
@@ -5416,8 +5416,9 @@ fill="#6F4A36" stroke="none">
     var notes=(row.features&&row.features.length)?row.features.map(function(k){return k;}).join(', '):'';
     rtlSqBusy[sqKey]=true;paintRetail();
     try{
-      var res=await callSquareFn({action:'push',bean_id:sqKey,name:row.sample_id||'',process:row.process||'',
-        flavour_notes:notes,grams:gv,price:price});
+      var desc=[row.process||'',notes].filter(Boolean).join(' \u00b7 ');
+      var res=await callSquareFn({action:'push',sample_id:sqKey,name:row.sample_id||'',
+        description:desc,grams:gv,price:price});
       /* refresh sync state from response or reload */
       await loadProdSync();
     }catch(e){
@@ -5426,8 +5427,8 @@ fill="#6F4A36" stroke="none">
     rtlSqBusy[sqKey]=false;paintRetail();
   }
   async function syncSquareAvailability(sqKey,soldOut,silent){
-    var sync=PROD_SYNC[sqKey];if(!sync||sync.status!=='live')return;   /* only if listed */
-    try{await callSquareFn({action:'availability',bean_id:sqKey,sold_out:!!soldOut});}
+    var sync=PROD_SYNC[sqKey];if(!sync||sync.status!=='synced')return;   /* only if listed */
+    try{await callSquareFn({action:'availability',sample_id:sqKey,sold_out:!!soldOut});}
     catch(e){if(!silent)alert('Square update failed: '+((e&&e.message)||e));}
   }
   var RTL_DOTCOL={y:'#E0B341',b:'#3D7DBF',d:'#22386B',r:'#C0392B'};
@@ -5487,7 +5488,7 @@ fill="#6F4A36" stroke="none">
     var priced=loadRtlPrice()[stkSid||''];
     var busy=!!rtlSqBusy[sqKey];
     var sqStat,sqBtnLabel,sqStatCls='';
-    if(sync&&sync.status==='live'){
+    if(sync&&sync.status==='synced'){
       sqStatCls='synced';
       sqStat='Square: <b>Live</b>'+(sync.price?(' \u00b7 $'+Number(sync.price).toFixed(2)):'')+(sync.last_synced_at?(' \u00b7 synced '+fmtDate((sync.last_synced_at||'').slice(0,10))):'');
       sqBtnLabel='Re-sync';
@@ -5500,7 +5501,7 @@ fill="#6F4A36" stroke="none">
       sqBtnLabel='Push to Square';
     }
     var sqHtml='<div class="rtl-sqrow"><div class="rtl-sqstat '+sqStatCls+'">'+sqStat+'</div>'
-      +'<button class="rtl-sqbtn'+(sync&&sync.status==='live'?' ghost':'')+'" data-sqpush="'+esc(sqKey)+'" data-sqsid="'+esc(stkSid)+'"'+(busy?' disabled':'')+'>'+(busy?'Working\u2026':sqBtnLabel)+'</button></div>';
+      +'<button class="rtl-sqbtn'+(sync&&sync.status==='synced'?' ghost':'')+'" data-sqpush="'+esc(sqKey)+'" data-sqsid="'+esc(stkSid)+'"'+(busy?' disabled':'')+'>'+(busy?'Working\u2026':sqBtnLabel)+'</button></div>';
     var chev='<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>';
     var header='<button class="rtl-head'+(open?' open':'')+'" data-toggle="'+esc(delKey)+'">'+chev+dotInline
       +'<span class="rtl-head-name">'+id+procHtml+'</span>'
