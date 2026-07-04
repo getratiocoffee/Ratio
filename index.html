@@ -5437,6 +5437,27 @@ fill="#6F4A36" stroke="none">
      blends use the Blend Menu cell layout, singles use the Special Menu left column */
   function _rrPath(x,X,Y,W,H,R){x.beginPath();x.moveTo(X+R,Y);x.arcTo(X+W,Y,X+W,Y+H,R);x.arcTo(X+W,Y+H,X,Y+H,R);x.arcTo(X,Y+H,X,Y,R);x.arcTo(X,Y,X+W,Y,R);x.closePath();}
   function _cardFit(x,text,weight,start,min,maxW,fam){var s=start;x.font=weight+' '+s+'px '+fam;while(s>min&&x.measureText(text).width>maxW){s-=2;x.font=weight+' '+s+'px '+fam;}return s;}
+  /* canvas port of drawCuppingRadar — rings, spokes, band-coloured polygon, labels */
+  function _cardRadar(x,cx,cy,R,scores,band){
+    var n=scores.length;if(!n)return;
+    function pt(i,r){var a=i*2*Math.PI/n;return [cx+r*Math.sin(a),cy-r*Math.cos(a)];}
+    x.lineWidth=1.6;x.strokeStyle='#1E1A19';
+    [1,2,3].forEach(function(l){x.beginPath();for(var i=0;i<=n;i++){var p=pt(i%n,R*l/3);if(i)x.lineTo(p[0],p[1]);else x.moveTo(p[0],p[1]);}x.stroke();});
+    for(var i=0;i<n;i++){var sp=pt(i,R);x.beginPath();x.moveTo(cx,cy);x.lineTo(sp[0],sp[1]);x.stroke();}
+    var dpts=scores.map(function(o,i){return pt(i,R*((o.n==null?0:o.n)/3));});
+    x.beginPath();dpts.forEach(function(p,i){if(i)x.lineTo(p[0],p[1]);else x.moveTo(p[0],p[1]);});x.closePath();
+    x.fillStyle='rgb('+band.map(function(v){return Math.round(255-(255-v)*0.20);}).join(',')+')';x.fill();
+    x.strokeStyle='rgb('+band.join(',')+')';x.lineWidth=4;x.stroke();
+    x.fillStyle='rgb('+band.join(',')+')';
+    dpts.forEach(function(p){x.beginPath();x.arc(p[0],p[1],5,0,6.3);x.fill();});
+    x.fillStyle='#7C3A44';x.font='700 22px Inter, sans-serif';
+    scores.forEach(function(o,i){
+      var lp=pt(i,R+24);
+      x.textAlign=lp[0]<cx-4?'right':(lp[0]>cx+4?'left':'center');
+      x.fillText(o.label,lp[0],lp[1]+8);
+    });
+    x.textAlign='left';
+  }
   async function makeSquareCard(card){
     try{await document.fonts.ready;}catch(e){}
     var W=1200,H=1200,cv=document.createElement('canvas');cv.width=W;cv.height=H;
@@ -5478,22 +5499,33 @@ fill="#6F4A36" stroke="none">
         x.fillStyle=INK;x.fillText(fl,CX+44,cy);cy+=40;
       }
       cy+=56;
+      var hasCup=!!(card.cupScores&&card.cupScores.some(function(o){return o.n!=null;}));
+      var colW=Math.round(CW/2);
       if(card.recipe&&card.recipe.length){
         x.fillStyle=BERRY;x.font='700 26px Inter, sans-serif';
         try{x.letterSpacing='6px';}catch(e){}
         x.fillText('RECIPE',CX+44,cy);
         try{x.letterSpacing='0px';}catch(e){}
-        cy+=76;
+        var ry=cy+76;
         var footY=CY+CH-96;
-        var n=card.recipe.length,avail=footY-cy,rowGap=Math.max(66,Math.min(120,avail/n));
+        var n=card.recipe.length,availR=footY-ry,rowGap=Math.max(66,Math.min(110,availR/n));
+        var recipeMaxW=(hasCup?colW:CW)-88;
         card.recipe.forEach(function(p){
           var pct=(p.pct||p.pct===0)?String(p.pct)+'%':'';
-          if(pct){x.fillStyle=BERRY;x.font='700 48px Inter, sans-serif';x.fillText(pct,CX+44,cy);}
+          if(pct){x.fillStyle=BERRY;x.font='700 44px Inter, sans-serif';x.fillText(pct,CX+44,ry);}
           x.fillStyle=BROWN;
-          var bs=_cardFit(x,p.bean,'700',48,28,CW-88-(pct?150:0),'Inter, sans-serif');
-          x.fillText(p.bean,CX+44+(pct?150:0),cy);
-          cy+=rowGap;
+          _cardFit(x,p.bean,'700',44,24,recipeMaxW-(pct?140:0),'Inter, sans-serif');
+          x.fillText(p.bean,CX+44+(pct?140:0),ry);
+          ry+=rowGap;
         });
+      }
+      if(hasCup){
+        var rcx=CX+colW+colW/2,R2=118;
+        x.fillStyle=BERRY;x.font='700 26px Inter, sans-serif';
+        try{x.letterSpacing='6px';}catch(e){}
+        x.textAlign='center';x.fillText('CUPPING STRENGTH',rcx,cy);x.textAlign='left';
+        try{x.letterSpacing='0px';}catch(e){}
+        _cardRadar(x,rcx,cy+90+R2,R2,card.cupScores,band);
       }
       x.textAlign='center';x.fillStyle=BROWN;x.font='700 30px Inter, sans-serif';
       x.fillText('Ratio Crows Nest',CX+CW/2,CY+CH-44);
@@ -5510,6 +5542,8 @@ fill="#6F4A36" stroke="none">
       x.fillText('Ratio Crows Nest',CX+CW-44,CY+72);
       x.textAlign='left';
       var cy2=CY+tabH+112;
+      var hasCup2=!!(card.cupScores&&card.cupScores.some(function(o){return o.n!=null;}));
+      var colW2=Math.round(CW/2);
       var o=card.origin||{},rows=[];
       if(o.process)rows.push(['Process',o.process]);
       if(o.variety)rows.push(['Variety',o.variety]);
@@ -5520,15 +5554,24 @@ fill="#6F4A36" stroke="none">
         try{x.letterSpacing='6px';}catch(e){}
         x.fillText('ORIGIN',CX+44,cy2);
         try{x.letterSpacing='0px';}catch(e){}
-        cy2+=78;
+        var oy=cy2+78;
+        var valRight=hasCup2?(CX+colW2-30):(CX+CW-44);
         rows.forEach(function(r){
-          x.fillStyle='#000';x.font='700 38px Inter, sans-serif';
-          x.fillText(r[0],CX+44,cy2);
+          x.fillStyle='#000';x.font='700 34px Inter, sans-serif';
+          x.fillText(r[0],CX+44,oy);
           x.textAlign='right';x.fillStyle='#322B2A';
-          var vs=_cardFit(x,String(r[1]),'400',38,24,CW-320,'Inter, sans-serif');
-          x.fillText(String(r[1]),CX+CW-44,cy2);
-          x.textAlign='left';cy2+=80;
+          _cardFit(x,String(r[1]),'400',34,20,(hasCup2?colW2:CW)-260,'Inter, sans-serif');
+          x.fillText(String(r[1]),valRight,oy);
+          x.textAlign='left';oy+=76;
         });
+      }
+      if(hasCup2){
+        var rcx2=CX+colW2+colW2/2,R3=118;
+        x.fillStyle='#000';x.font='700 26px Inter, sans-serif';
+        try{x.letterSpacing='6px';}catch(e){}
+        x.textAlign='center';x.fillText('CUPPING STRENGTH',rcx2,cy2);x.textAlign='left';
+        try{x.letterSpacing='0px';}catch(e){}
+        _cardRadar(x,rcx2,cy2+90+R3,R3,card.cupScores,band);
       }
       if(card.flavour&&card.flavour.length){
         var fl2=card.flavour.join('  \u00b7  ');
@@ -5561,14 +5604,20 @@ fill="#6F4A36" stroke="none">
     try{
       var desc=[row.process||'',notes].filter(Boolean).join(' \u00b7 ');
       var blendDef=blendDefByName(row.sample_id||'');
-      var cardData={name:row.sample_id||'',color:beanColorFor(row.sample_id||''),flavour:(row.features||[])};
+      /* same data assembly the printed menus use — includes cupScores for the radar */
+      var mi=null;try{mi=menuInfoFor(row.sample_id||'');}catch(e){}
+      var cardData={name:row.sample_id||'',
+        color:(mi&&mi.color)||beanColorFor(row.sample_id||''),
+        flavour:(mi&&mi.flavour&&mi.flavour.length)?mi.flavour:(row.features||[]),
+        cupScores:(mi&&mi.cupScores)||[]};
       if(blendDef){
-        cardData.kind='blend';cardData.note=blendDef.note||'';
+        cardData.kind='blend';cardData.note=(mi&&mi.note)||blendDef.note||'';
         cardData.recipe=(blendDef.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}).map(function(p){return {bean:p.bean,pct:parseFloat(p.pct)};});
       }else{
         cardData.kind='single';
         var gb=beanByNameProcess(row.sample_id||'',row.process||'');
-        cardData.origin={process:row.process||'',variety:(gb&&gb.variety)||'',altitude:(gb&&gb.altitude)||'',region:(gb&&gb.region)||''};
+        cardData.origin=(mi&&mi.origin&&(mi.origin.process||mi.origin.region))?mi.origin:
+          {process:row.process||'',variety:(gb&&gb.variety)||'',altitude:(gb&&gb.altitude)||'',region:(gb&&gb.region)||''};
       }
       var img64=null;try{img64=await makeSquareCard(cardData);}catch(e){console.error('[Ratio] card gen:',e);}
       var res=await callSquareFn({action:'push',sample_id:sqKey,name:row.sample_id||'',
