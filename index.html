@@ -415,6 +415,8 @@
   .flav-bubble{font-size:12px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:999px;padding:5px 13px}
   .smp-dec-h{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:9px;text-align:center}
   .smp-f input[readonly]{opacity:.55;cursor:default;pointer-events:none}
+  .smp-ro-lab{font-size:12px;color:var(--muted);padding-left:2px}
+  .smp-ro{font-size:15px;color:var(--ink);padding:10px 12px;background:var(--line);border-radius:10px;opacity:.7;user-select:none;}
   .smp-pick{flex:0 0 auto;width:22px;height:22px;border-radius:7px;border:1.7px solid #D6C8C1;background:transparent;cursor:pointer;padding:0;position:relative;transition:background .12s ease,border-color .12s ease}
   .smp-pick.on{background:var(--accent);border-color:var(--accent)}
   .smp-pick.on::after{content:"";position:absolute;left:6px;top:3px;width:6px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
@@ -5402,9 +5404,21 @@ fill="#6F4A36" stroke="none">
     var form=''
       +'<div class="smp-sec"><div class="smp-sec-h">Sample details</div><div class="smp-fields">'
       +'<label class="smp-f"><span>Cupping date</span><input id="smp-date" type="date" value="'+esc(p.cupping_date||todayStr())+'" /></label>'
-      +'<div class="smp-f2"><label class="smp-f"><span>Cupping ID</span><input id="smp-id" type="text" value="'+esc(p.sample_id||'')+'" /></label>'
-      +'<label class="smp-f"><span>Supplier</span><input id="smp-supplier" type="text" value="'+esc(p.supplier||'')+'" /></label></div>'
-      +(blendCupping?'':'<label class="smp-f"><span>Process</span><input id="smp-process" type="text" value="'+esc(p.process||'')+'" /></label>')
+      +(cupping
+        ?(function(){
+          var hasId=!!(p._bean_id);
+          return '<div class="smp-f2">'
+            +'<div class="smp-f"><span class="smp-ro-lab">Cupping ID</span><div class="smp-ro">'+esc(p.sample_id||'—')+'</div></div>'
+            +'<div class="smp-f"><span class="smp-ro-lab">Supplier</span><div class="smp-ro">'+esc(p.supplier||'Ratio Coffee')+'</div></div>'
+            +'</div>'
+            +(blendCupping?''
+              :(hasId
+                ?'<div class="smp-f"><span class="smp-ro-lab">Process</span><div class="smp-ro">'+esc(p.process||'—')+'</div></div>'
+                :'<label class="smp-f"><span>Process</span><input id="smp-process" type="text" value="'+esc(p.process||'')+'" placeholder="e.g. Washed" /></label>'));
+        })()
+        :('<div class="smp-f2"><label class="smp-f"><span>Cupping ID</span><input id="smp-id" type="text" value="'+esc(p.sample_id||'')+'" /></label>'
+          +'<label class="smp-f"><span>Supplier</span><input id="smp-supplier" type="text" value="'+esc(p.supplier||'')+'" /></label></div>'
+          +(blendCupping?'':'<label class="smp-f"><span>Process</span><input id="smp-process" type="text" value="'+esc(p.process||'')+'" /></label>')))
       +'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Flavour characters · up to 3</div>'+charFields('smp',p)+'</div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Cupping Strength</div><div class="smp-scores">'+scores+'</div>'
@@ -5604,7 +5618,7 @@ fill="#6F4A36" stroke="none">
     smpEdit=null;smpEditObj=null;smpDelConfirm=false;
     smpCuppingRoast=r.id;
     var prev=SAMPLES.find(function(x){return x.supplier==='Ratio Coffee'&&String(x.sample_id||'')===String(r.bean_name||'');});
-    var page=Object.assign(blankSmp(),{supplier:'Ratio Coffee',sample_id:r.bean_name||'',process:proc});
+    var page=Object.assign(blankSmp(),{supplier:'Ratio Coffee',sample_id:r.bean_name||'',process:proc,_bean_id:r.bean_id||null});
     if(prev){
       page.fragrance=prev.fragrance;page.acidity=prev.acidity;page.sweetness=prev.sweetness;page.body=prev.body;page.aftertaste=prev.aftertaste;
       page.features=(prev.features||[]).slice();
