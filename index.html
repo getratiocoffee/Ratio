@@ -5543,16 +5543,17 @@ fill="#6F4A36" stroke="none">
   /* ===== blends: Supabase `blends` table is source of truth; localStorage is the
      synchronous read path + offline cache. Snapshot design: roasts copy the recipe
      into roasts.recipe at log time, so editing a blend never rewrites history. ===== */
-  let _blendsReady=false,_blendsDirty=false,_blendsPushTimer=null,_blendsPullTimer=null,_blendsKnownIds={};
+  let _blendsReady=false,_blendsDirty=false,_blendsRev=0,_blendsPushTimer=null,_blendsPullTimer=null,_blendsKnownIds={};
   function saveBlendDefs(a){
     (a||[]).forEach(function(b,i){if(!b.id)b.id=blendUid();b.pos=i;});
     try{localStorage.setItem('ratio_blends',JSON.stringify(a));}catch(e){}
-    _blendsDirty=true;
+    _blendsDirty=true;_blendsRev++;
     clearTimeout(_blendsPushTimer);
     _blendsPushTimer=setTimeout(blendsPushNow,600);
   }
   async function blendsPushNow(){
     if(!sb||!_blendsReady)return; /* pre-pull → stay local; dirty flag re-pushes after pull */
+    var rev=_blendsRev;
     var defs=loadBlendDefs();
     var now=new Date().toISOString();
     var rows=defs.map(function(b,i){
@@ -5568,7 +5569,7 @@ fill="#6F4A36" stroke="none">
       var gone=Object.keys(_blendsKnownIds).filter(function(id){return !keep[id];});
       if(gone.length){var d=await sb.from('blends').delete().in('id',gone);if(d&&d.error)console.error('[Ratio] blends delete:',d.error.message||d.error);}
       _blendsKnownIds=keep;
-      _blendsDirty=false;
+      if(_blendsRev===rev)_blendsDirty=false; /* only clear if nothing changed while pushing */
     }catch(e){console.error('[Ratio] blends push',e);}
   }
   async function blendsPull(){
@@ -5592,6 +5593,11 @@ fill="#6F4A36" stroke="none">
       var known={};rows.forEach(function(x){known[x.id]=1;});_blendsKnownIds=known;
       if(_blendsDirty)return; /* local edits in flight — don't clobber, push wins */
       var defs=rows.map(function(x){return {id:x.id,name:x.name||'',parts:Array.isArray(x.parts)?x.parts:[],note:x.note||'',comment:x.comment||''};});
+      defs.forEach(function(b,i){b.pos=i;});
+      /* canonical compare (jsonb reorders keys, so raw JSON strings never match) */
+      var canon=function(a){return JSON.stringify((a||[]).map(function(b){return [b.id,b.name||'',b.note||'',b.comment||'',(b.parts||[]).map(function(p){return [p.bean||'',p.process||'',String(p.pct==null?'':p.pct)];})];}));};
+      var cur=null;try{cur=JSON.parse(localStorage.getItem('ratio_blends')||'null');}catch(e){}
+      if(Array.isArray(cur)&&canon(cur)===canon(defs))return; /* echo of our own push — skip rewrite + re-render */
       try{localStorage.setItem('ratio_blends',JSON.stringify(defs));}catch(e){}
       appStateRefreshOpenScreens();
     }catch(e){}
