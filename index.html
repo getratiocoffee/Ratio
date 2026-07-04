@@ -2775,8 +2775,21 @@ fill="#6F4A36" stroke="none">
   ];
   var tinForm={country:'',name:'',process:'',variety:'',region:'',altitude:''};
   var tinSample=null;/* the picked Retail Info sample, drives the cupping radar */
+  var tinMode='single';/* 'single' | 'blend' */
+  var tinBlend={name:'',parts:[]};/* blend recipe pulled from Blending (F(x)) */
   /* map the form to the template's editable blocks (orig = original text in Tin_temp.lbx) */
   function tinCompileEntries(){
+    if(tinMode==='blend'){
+      var parts=(tinBlend.parts||[]).filter(function(p){return (p.bean||'').trim();});
+      var pcts=parts.map(function(p){return (p.pct||p.pct===0)?(String(p.pct)+'%'):'';}).join('\n');
+      var beans=parts.map(function(p){return (p.bean||'').trim().toUpperCase();}).join('\n');
+      return [
+        {orig:'ETHIOPIA',value:(tinBlend.name||'').trim().toUpperCase()},
+        {orig:'DANCHE vol.2',value:'BLEND'},
+        {orig:'PROCESS:\nVARIETY:\nREGION:\nALTITUDE:',value:pcts},
+        {orig:'ANAEROBIC WASHED\nHEIRLOOM\nSIDAMA\n2110 MASL',value:beans}
+      ];
+    }
     var alt=(tinForm.altitude||'').trim();
     if(alt&&/^[\d.,\s]+$/.test(alt))alt=alt+' MASL';else alt=alt.toUpperCase();
     var values=[(tinForm.process||'').trim().toUpperCase(),
@@ -2827,6 +2840,12 @@ fill="#6F4A36" stroke="none">
     }
     syncTinInputs();
   }
+  function tinApplyBlend(name){
+    tinBlend.name=name||'';
+    var def=null;try{def=blendDefByName(name);}catch(e){}
+    tinBlend.parts=def?(def.parts||[]).filter(function(p){return (p.bean||'').trim();}):[];
+    tinSample=tinRetailByName(name);/* blend's own cupping sample -> radar + flavour */
+  }
   /* ---- radar chart -> monochrome BMP, embedded into the .lbx and printed on the tin ---- */
   function tinCanvasToBmp(cv){
     var w=cv.width,h=cv.height;
@@ -2842,6 +2861,26 @@ fill="#6F4A36" stroke="none">
     var o=54;
     for(var y=h-1;y>=0;y--){var r=y*w*4;for(var x=0;x<w;x++){var i=r+x*4;u[o++]=data[i+2];u[o++]=data[i+1];u[o++]=data[i];u[o++]=255;}}
     return u;
+  }
+  /* clean brand logo (logo.png, brown mark on white) -> BMP, replacing the template's
+     black-background badge so the tin prints a clean mark instead of a solid black square */
+  function tinLogoBmp(){
+    return new Promise(function(resolve){
+      try{
+        var img=new Image();
+        img.onload=function(){
+          try{
+            var sz=320;var cv=document.createElement('canvas');cv.width=sz;cv.height=sz;
+            var ctx=cv.getContext('2d');if(!ctx){resolve(null);return;}
+            ctx.fillStyle='#FFFFFF';ctx.fillRect(0,0,sz,sz);
+            ctx.drawImage(img,0,0,sz,sz);
+            resolve(tinCanvasToBmp(cv));
+          }catch(e){resolve(null);}
+        };
+        img.onerror=function(){resolve(null);};
+        img.src='logo.png';
+      }catch(e){resolve(null);}
+    });
   }
   function tinRadarBmp(s){
     var axes=['fragrance','acidity','sweetness','body','aftertaste'];
@@ -2868,12 +2907,31 @@ fill="#6F4A36" stroke="none">
   var TIN_FLAV_OBJ='<text:text><pt:objectStyle x="8pt" y="253pt" width="159.7pt" height="24pt" backColor="#FFFFFF" backPrintColorNumber="0" ropMode="COPYPEN" angle="0" anchor="TOPLEFT" flip="NONE"><pt:pen style="NULL" widthX="0.5pt" widthY="0.5pt" color="#000000" printColorNumber="1"></pt:pen><pt:brush style="NULL" color="#000000" printColorNumber="1" id="0"></pt:brush><pt:expanded objectName="Text9" ID="0" lock="0" templateMergeTarget="LABELLIST" templateMergeType="NONE" templateMergeID="0" allowOutOfBoundsTransfer="false" linkStatus="NONE" linkID="0"></pt:expanded></pt:objectStyle><text:ptFontInfo><text:logFont name="DIN Condensed" width="0" italic="false" weight="700" charSet="0" pitchAndFamily="2"></text:logFont><text:fontExt effect="NOEFFECT" underline="0" strikeout="0" size="10pt" orgSize="28.8pt" textColor="#000000" textPrintColorNumber="1"></text:fontExt></text:ptFontInfo><text:textControl control="LONGTEXTFIXED" clipFrame="false" aspectNormal="true" shrink="true" autoLF="false" avoidImage="false"></text:textControl><text:textAlign horizontalAlignment="CENTER" verticalAlignment="CENTER" inLineAlignment="BASELINE"></text:textAlign><text:textStyle vertical="false" nullBlock="false" charSpace="10" lineSpace="0" orgPoint="10pt" combinedChars="false"></text:textStyle><text:transferSettings editOnPrintFormat="" editOnPrintOrder="0"></text:transferSettings><pt:data>__DATA__</pt:data><text:stringItem charLen="__LEN__"><text:ptFontInfo><text:logFont name="DIN Condensed" width="0" italic="false" weight="700" charSet="0" pitchAndFamily="2"></text:logFont><text:fontExt effect="NOEFFECT" underline="0" strikeout="0" size="10pt" orgSize="28.8pt" textColor="#000000" textPrintColorNumber="1"></text:fontExt></text:ptFontInfo></text:stringItem></text:text>';
   function tinBeanNameList(){
     var seen={},out=[];
-    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;seen[k]=true;out.push(nm);});
+    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;var isB=false;try{isB=!!blendDefByName(nm);}catch(e){}if(isB)return;seen[k]=true;out.push(nm);});
+    return out;
+  }
+  function tinBlendNameList(){
+    var seen={},out=[];
+    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;var isB=false;try{isB=!!blendDefByName(nm);}catch(e){}if(!isB)return;seen[k]=true;out.push(nm);});
     return out;
   }
   function syncTinInputs(){TIN_FORM.forEach(function(f){var i=document.getElementById('tf-'+f.k);if(i)i.value=tinForm[f.k]||'';});}
+  function tinWireNameMenu(pickBtn,nameMenu){
+    if(!(pickBtn&&nameMenu))return;
+    pickBtn.addEventListener('click',function(e){e.stopPropagation();var open=nameMenu.classList.toggle('open');pickBtn.classList.toggle('on',open);});
+    if(window._tinDocClose)document.removeEventListener('click',window._tinDocClose);
+    window._tinDocClose=function(ev){if(!nameMenu.classList.contains('open'))return;var wrap=nameMenu.closest('.lbl-namewrap');if(wrap&&!wrap.contains(ev.target)){nameMenu.classList.remove('open');if(pickBtn)pickBtn.classList.remove('on');}};
+    document.addEventListener('click',window._tinDocClose);
+  }
   function renderTinLabel(msg){
     var el=document.getElementById('tinlabel-content');if(!el)return;
+    var tabBar='<div class="lbl-seg"><button class="lbl-tab'+(tinMode==='single'?' on':'')+'" data-tmode="single">Single Origin</button><button class="lbl-tab'+(tinMode==='blend'?' on':'')+'" data-tmode="blend">Blend</button></div>';
+    el.innerHTML='<div class="lbl-wrap">'+tabBar+(tinMode==='blend'?tinBlendFormHtml(msg):tinSingleFormHtml(msg))+'</div>';
+    el.querySelectorAll('.lbl-tab').forEach(function(t){t.addEventListener('click',function(){var m=t.getAttribute('data-tmode');if(m&&m!==tinMode){tinMode=m;renderTinLabel();}});});
+    if(tinMode==='blend')tinWireBlend();else tinWireSingle();
+    var g=document.getElementById('tinlbx-gen');if(g)g.addEventListener('click',generateTinLbx);
+  }
+  function tinSingleFormHtml(msg){
     if(tinForm.name&&(!tinSample||(tinSample.sample_id||'').trim().toLowerCase()!==tinForm.name.trim().toLowerCase()))tinSample=tinRetailByName(tinForm.name);
     var rows=TIN_FORM.map(function(f){
       if(f.k==='name'){
@@ -2886,34 +2944,49 @@ fill="#6F4A36" stroke="none">
       }
       return '<label class="smp-f"><span>'+esc(f.label)+'</span><input type="text" id="tf-'+f.k+'" value="'+esc(tinForm[f.k]||'')+'" placeholder="'+esc(f.ph)+'" /></label>';
     }).join('');
-    el.innerHTML='<div class="lbl-wrap">'
-      +'<div class="smp-sec-h" style="margin:2px 0 10px">Fill in &amp; generate</div>'
+    return '<div class="smp-sec-h" style="margin:10px 0 10px">Fill in &amp; generate</div>'
       +'<div class="smp-fields">'+rows+'</div>'
       +'<datalist id="tin-beans">'+tinBeanNameList().map(function(nm){return '<option value="'+esc(nm)+'"></option>';}).join('')+'</datalist>'
       +'<div class="gform-msg'+(msg&&msg.err?' err':(msg&&msg.ok?' ok':''))+'" id="tinlbx-msg" style="margin-top:12px">'+(msg?esc(msg.text):'')+'</div>'
-      +'<button class="gbtn" id="tinlbx-gen" style="margin-top:6px">Generate .lbx</button>'
-      +'</div>';
+      +'<button class="gbtn" id="tinlbx-gen" style="margin-top:6px">Generate .lbx</button>';
+  }
+  function tinWireSingle(){
     TIN_FORM.forEach(function(f){var inp=document.getElementById('tf-'+f.k);if(inp&&f.k!=='name')inp.addEventListener('input',function(){tinForm[f.k]=inp.value;});});
     var nameInp=document.getElementById('tf-name');
-    if(nameInp)nameInp.addEventListener('input',function(){
-      var v=nameInp.value;
-      if(tinRetailByName(v)){tinApplyByName(v);}
-      else{tinForm.name=v;tinSample=null;}
-    });
-    var pickBtn=document.getElementById('tf-name-pick');
-    var nameMenu=document.getElementById('tf-name-menu');
-    if(nameMenu){
-      var names=tinBeanNameList();
-      nameMenu.innerHTML=names.length?names.map(function(nm){return '<button type="button" class="lbl-nameopt" data-nm="'+esc(nm)+'">'+esc(nm)+'</button>';}).join(''):'<div class="sempty">No beans yet</div>';
-      nameMenu.querySelectorAll('.lbl-nameopt').forEach(function(o){o.addEventListener('click',function(){var nm=o.getAttribute('data-nm');if(nameInp)nameInp.value=nm;tinApplyByName(nm);nameMenu.classList.remove('open');if(pickBtn)pickBtn.classList.remove('on');});});
-    }
-    if(pickBtn&&nameMenu){
-      pickBtn.addEventListener('click',function(e){e.stopPropagation();var open=nameMenu.classList.toggle('open');pickBtn.classList.toggle('on',open);});
-      if(window._tinDocClose)document.removeEventListener('click',window._tinDocClose);
-      window._tinDocClose=function(ev){if(!nameMenu.classList.contains('open'))return;var wrap=nameMenu.closest('.lbl-namewrap');if(wrap&&!wrap.contains(ev.target)){nameMenu.classList.remove('open');if(pickBtn)pickBtn.classList.remove('on');}};
-      document.addEventListener('click',window._tinDocClose);
-    }
-    var g=document.getElementById('tinlbx-gen');if(g)g.addEventListener('click',generateTinLbx);
+    if(nameInp)nameInp.addEventListener('input',function(){var v=nameInp.value;if(tinRetailByName(v)){tinApplyByName(v);}else{tinForm.name=v;tinSample=null;}});
+    var pickBtn=document.getElementById('tf-name-pick'),nameMenu=document.getElementById('tf-name-menu');
+    if(nameMenu){var names=tinBeanNameList();nameMenu.innerHTML=names.length?names.map(function(nm){return '<button type="button" class="lbl-nameopt" data-nm="'+esc(nm)+'">'+esc(nm)+'</button>';}).join(''):'<div class="sempty">No beans yet</div>';nameMenu.querySelectorAll('.lbl-nameopt').forEach(function(o){o.addEventListener('click',function(){var nm=o.getAttribute('data-nm');if(nameInp)nameInp.value=nm;tinApplyByName(nm);nameMenu.classList.remove('open');if(pickBtn)pickBtn.classList.remove('on');});});}
+    tinWireNameMenu(pickBtn,nameMenu);
+  }
+  function tinRecipeHtml(){
+    var parts=(tinBlend.parts||[]).filter(function(p){return (p.bean||'').trim();});
+    if(parts.length)return '<div class="smp-sec-h" style="margin:14px 0 6px">Recipe</div><div class="rtl-recipe">'+parts.map(function(p){var pct=(p.pct||p.pct===0)?('<b>'+esc(String(p.pct))+'%</b> '):'';return '<span class="rtl-rchip">'+pct+esc(p.bean)+'</span>';}).join('')+'</div>';
+    if((tinBlend.name||'').trim())return '<div class="rtl-noflav" style="margin-top:10px">No recipe set \u00b7 add it in F(x) \u2192 Blending</div>';
+    return '';
+  }
+  function renderTinRecipe(){var el=document.getElementById('tin-recipe');if(el)el.innerHTML=tinRecipeHtml();}
+  function tinBlendFormHtml(msg){
+    if(tinBlend.name&&(!tinSample||(tinSample.sample_id||'').trim().toLowerCase()!==tinBlend.name.trim().toLowerCase()))tinSample=tinRetailByName(tinBlend.name);
+    if(tinBlend.name&&(!tinBlend.parts||!tinBlend.parts.length)){try{var d=blendDefByName(tinBlend.name);tinBlend.parts=d?(d.parts||[]).filter(function(p){return (p.bean||'').trim();}):[];}catch(e){}}
+    var nameField='<div class="smp-f"><span>Blend name</span>'
+      +'<div class="lbl-namewrap">'
+      +'<input type="text" id="tf-bname" list="tin-blends" autocomplete="off" value="'+esc(tinBlend.name||'')+'" placeholder="e.g. House Blend" />'
+      +'<button type="button" class="lbl-namebtn" id="tf-bname-pick" aria-label="Choose blend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>'
+      +'<div class="lbl-namemenu" id="tf-bname-menu"></div>'
+      +'</div></div>';
+    return '<div class="smp-sec-h" style="margin:10px 0 10px">Pick a blend &amp; generate</div>'
+      +'<div class="smp-fields">'+nameField+'</div>'
+      +'<datalist id="tin-blends">'+tinBlendNameList().map(function(nm){return '<option value="'+esc(nm)+'"></option>';}).join('')+'</datalist>'
+      +'<div id="tin-recipe">'+tinRecipeHtml()+'</div>'
+      +'<div class="gform-msg'+(msg&&msg.err?' err':(msg&&msg.ok?' ok':''))+'" id="tinlbx-msg" style="margin-top:12px">'+(msg?esc(msg.text):'')+'</div>'
+      +'<button class="gbtn" id="tinlbx-gen" style="margin-top:6px">Generate .lbx</button>';
+  }
+  function tinWireBlend(){
+    var nameInp=document.getElementById('tf-bname');
+    if(nameInp)nameInp.addEventListener('input',function(){tinApplyBlend(nameInp.value);renderTinRecipe();});
+    var pickBtn=document.getElementById('tf-bname-pick'),nameMenu=document.getElementById('tf-bname-menu');
+    if(nameMenu){var names=tinBlendNameList();nameMenu.innerHTML=names.length?names.map(function(nm){return '<button type="button" class="lbl-nameopt" data-nm="'+esc(nm)+'">'+esc(nm)+'</button>';}).join(''):'<div class="sempty">No blends yet</div>';nameMenu.querySelectorAll('.lbl-nameopt').forEach(function(o){o.addEventListener('click',function(){var nm=o.getAttribute('data-nm');if(nameInp)nameInp.value=nm;tinApplyBlend(nm);renderTinRecipe();nameMenu.classList.remove('open');if(pickBtn)pickBtn.classList.remove('on');});});}
+    tinWireNameMenu(pickBtn,nameMenu);
   }
   async function generateTinLbx(){
     var msg=document.getElementById('tinlbx-msg');var btn=document.getElementById('tinlbx-gen');
@@ -2935,8 +3008,10 @@ fill="#6F4A36" stroke="none">
         }
         if(nb!==block){xml=xml.slice(0,bStart)+nb+xml.slice(bEnd);}
       });
-      var srcName=(tinForm.name||tinForm.country||'tin');
+      var srcName=(tinMode==='blend'?tinBlend.name:(tinForm.name||tinForm.country))||'tin';
       var nm=srcName.replace(/[^A-Za-z0-9 _\-]/g,'').trim().replace(/\s+/g,'_')||'tin';
+      /* swap the template's black-background badge for the clean brand logo on white */
+      try{var logoBmp=await tinLogoBmp();if(logoBmp)zip.file('Object0.bmp',logoBmp);}catch(e){}
       /* embed the cupping radar as a monochrome BMP image object printed on the tin */
       try{
         var rbmp=tinRadarBmp(tinSample);
@@ -4761,25 +4836,17 @@ fill="#6F4A36" stroke="none">
     });});
     box.querySelectorAll('.rtl-stk').forEach(function(el){
       var sx=null,handled=false;
-      function setState(out){
-        var sid=el.dataset.sid,m=loadSold();
-        if(out)m[sid]=1;else delete m[sid];
-        saveSold(m);
-        el.classList.toggle('out',out);
-        el.setAttribute('aria-checked',String(!out));
-        var lab=el.querySelector('.rtl-stk-label');if(lab)lab.textContent=out?'Sold Out':'Available';
-      }
-      function toggle(){setState(!el.classList.contains('out'));}
+      /* marking Sold Out removes the bean from Retail Info (confirm first) */
+      function askRemove(){var k=el.dataset.delkey;if(k){rtlDelConfirm=k;paintRetail();}}
       el.addEventListener('touchstart',function(e){sx=e.touches[0].clientX;},{passive:true});
       el.addEventListener('touchend',function(e){
         if(sx==null)return;var dx=e.changedTouches[0].clientX-sx;sx=null;handled=true;
-        var out=el.classList.contains('out');
-        if(dx>28){if(!out)setState(true);}          /* swipe right -> Sold Out */
-        else if(dx<-28){if(out)setState(false);}    /* swipe left -> Available */
-        else toggle();                              /* tap */
+        if(dx>28)askRemove();               /* swipe right -> Sold Out => remove */
+        else if(dx<-28){}                   /* swipe left -> stays Available */
+        else askRemove();                   /* tap => mark Sold Out => remove */
         setTimeout(function(){handled=false;},400);
       },{passive:true});
-      el.addEventListener('click',function(){if(handled)return;toggle();});
+      el.addEventListener('click',function(){if(handled)return;askRemove();});
     });
     box.querySelectorAll('.rtl-del').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();rtlDelConfirm=b.dataset.key;paintRetail();});});
     box.querySelectorAll('.rtl-del-cancel').forEach(function(b){b.addEventListener('click',function(){rtlDelConfirm=null;paintRetail();});});
@@ -4842,10 +4909,10 @@ fill="#6F4A36" stroke="none">
     var delKey=stkSid||('id:'+String(s.id||''));
     var confirming=(rtlDelConfirm!=null&&String(rtlDelConfirm)===delKey);
     var trashSvg='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/><path d="M9 7V4h6v3"/></svg>';
-    var stkMain='<div class="rtl-stk'+(stkOut?' out':'')+(confirming?' confirming':'')+'" data-sid="'+esc(stkSid)+'" role="switch" aria-checked="'+(!stkOut)+'" aria-label="stock status"><span class="rtl-stk-track"><span class="rtl-stk-knob"></span></span><span class="rtl-stk-label">'+(stkOut?'Sold Out':'Available')+'</span></div>';
+    var stkMain='<div class="rtl-stk'+(stkOut?' out':'')+(confirming?' confirming':'')+'" data-sid="'+esc(stkSid)+'" data-delkey="'+esc(delKey)+'" role="switch" aria-checked="'+(!stkOut)+'" aria-label="stock status"><span class="rtl-stk-track"><span class="rtl-stk-knob"></span></span><span class="rtl-stk-label">'+(stkOut?'Sold Out':'Available')+'</span></div>';
     var trashBtn=confirming?'':('<button class="rtl-del" data-key="'+esc(delKey)+'" aria-label="delete bean">'+trashSvg+'</button>');
     var soldHtml='<div class="rtl-stkwrap">'+stkMain+trashBtn+'</div>'
-      +(confirming?('<div class="rtl-del-confirm"><div class="rtl-del-msg">Delete this bean permanently?<br>This can\u2019t be undone.</div><div class="rtl-del-actions"><button class="rtl-del-cancel">Cancel</button><button class="rtl-del-yes" data-id="'+esc(String(s.id||''))+'" data-sid="'+esc(stkSid)+'">Delete</button></div></div>'):'');
+      +(confirming?('<div class="rtl-del-confirm"><div class="rtl-del-msg">Sold out \u2014 remove this bean from Retail Info?<br>This can\u2019t be undone.</div><div class="rtl-del-actions"><button class="rtl-del-cancel">Cancel</button><button class="rtl-del-yes" data-id="'+esc(String(s.id||''))+'" data-sid="'+esc(stkSid)+'">Remove</button></div></div>'):'');
     var open=!!rtlOpen[delKey]||confirming;
     var chev='<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>';
     var header='<button class="rtl-head'+(open?' open':'')+'" data-toggle="'+esc(delKey)+'">'+chev+dotInline
