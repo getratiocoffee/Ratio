@@ -2808,12 +2808,23 @@ fill="#6F4A36" stroke="none">
     return (RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===v;})[0]||null;
   }
   function tinApplyByName(name){
-    /* beans come only from Retail Info: fill name + process (authoritative samples.process);
-       Country/Variety/Region/Altitude aren't in Retail Info -> left for manual entry */
+    /* bean list + process come from Retail Info (samples.process is authoritative).
+       Country/Variety/Region/Altitude aren't stored in Retail Info, so resolve them from the
+       exact green-bean lot via name+process — process comes from Retail Info, so this hits the
+       correct batch (won't mis-resolve same-name, different-process beans). */
     var s=tinRetailByName(name);
     tinForm.name=name||tinForm.name;
     tinSample=s;
-    if(s){tinForm.process=s.process||'';}
+    if(s){
+      tinForm.process=s.process||'';
+      var b=beanByNameProcess(s.sample_id||name,s.process||'');
+      if(b){
+        tinForm.country=b.country||'';
+        tinForm.variety=b.variety||'';
+        tinForm.region=b.region||'';
+        tinForm.altitude=(b.altitude!=null&&b.altitude!=='')?String(b.altitude):'';
+      }
+    }
     syncTinInputs();
   }
   /* ---- radar chart -> monochrome BMP, embedded into the .lbx and printed on the tin ---- */
@@ -2883,10 +2894,9 @@ fill="#6F4A36" stroke="none">
     TIN_FORM.forEach(function(f){var inp=document.getElementById('tf-'+f.k);if(inp&&f.k!=='name')inp.addEventListener('input',function(){tinForm[f.k]=inp.value;});});
     var nameInp=document.getElementById('tf-name');
     if(nameInp)nameInp.addEventListener('input',function(){
-      var v=nameInp.value;tinForm.name=v;
-      var s=tinRetailByName(v);
-      if(s){tinSample=s;tinForm.process=s.process||'';var pi=document.getElementById('tf-process');if(pi)pi.value=tinForm.process;}
-      else{tinSample=null;}
+      var v=nameInp.value;
+      if(tinRetailByName(v)){tinApplyByName(v);}
+      else{tinForm.name=v;tinSample=null;}
     });
     var pickBtn=document.getElementById('tf-name-pick');
     var nameMenu=document.getElementById('tf-name-menu');
