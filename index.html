@@ -1455,7 +1455,6 @@ fill="#6F4A36" stroke="none">
     'ratio_rtl_g':'rtl_g',
     'ratio_rtl_sold':'rtl_sold',
     'ratio_rtl_price':'rtl_price',
-    'ratio_blends':'blends',
     'ratio_inv_seq':'inv_seq'
   };
   let _appStateReady=false;          /* true once the boot pull succeeds (table exists) */
@@ -2263,6 +2262,10 @@ fill="#6F4A36" stroke="none">
       var row=p.new||p.old;if(!row||!row.key)return;
       if(p.eventType==='DELETE')return;
       appStateApply(row.key,row.value);appStateRefreshOpenScreens();
+    }).subscribe();}catch(e){}
+    blendsPull();
+    try{sb.channel('blends-feed').on('postgres_changes',{event:'*',schema:'public',table:'blends'},function(){
+      clearTimeout(_blendsPullTimer);_blendsPullTimer=setTimeout(blendsPull,400);
     }).subscribe();}catch(e){}
   }
   function staticWeek(ws){return TIMESHEET_WEEKS.find(function(w){return w.weekStart===ws;})||null;}
@@ -5529,12 +5532,70 @@ fill="#6F4A36" stroke="none">
   }
   let pendTab='single', blendOpen={}, blendCupping=null, blendSamplesLoaded=false;
   var BLEND_SEED=['Dark Knight','Dancer','Dreamer','Sugar Daddy','April Project','May Project','June Project'];
-  function blankBlend(name){return {name:name||'',parts:[{bean:'',process:'',pct:''},{bean:'',process:'',pct:''},{bean:'',process:'',pct:''}],note:'',comment:''};}
+  function blendUid(){try{return crypto.randomUUID();}catch(e){return null;}}
+  function blankBlend(name){return {id:blendUid(),name:name||'',parts:[{bean:'',process:'',pct:''},{bean:'',process:'',pct:''},{bean:'',process:'',pct:''}],note:'',comment:''};}
   function loadBlendDefs(){
     try{var a=JSON.parse(localStorage.getItem('ratio_blends')||'null');if(Array.isArray(a))return a;}catch(e){}
-    var seed=BLEND_SEED.map(function(n){return blankBlend(n);});saveBlendDefs(seed);return seed;
+    var seed=BLEND_SEED.map(function(n){return blankBlend(n);});
+    try{localStorage.setItem('ratio_blends',JSON.stringify(seed));}catch(e){}
+    return seed;
   }
-  function saveBlendDefs(a){try{localStorage.setItem('ratio_blends',JSON.stringify(a));}catch(e){}appStatePush('ratio_blends');}
+  /* ===== blends: Supabase `blends` table is source of truth; localStorage is the
+     synchronous read path + offline cache. Snapshot design: roasts copy the recipe
+     into roasts.recipe at log time, so editing a blend never rewrites history. ===== */
+  let _blendsReady=false,_blendsDirty=false,_blendsPushTimer=null,_blendsPullTimer=null,_blendsKnownIds={};
+  function saveBlendDefs(a){
+    (a||[]).forEach(function(b,i){if(!b.id)b.id=blendUid();b.pos=i;});
+    try{localStorage.setItem('ratio_blends',JSON.stringify(a));}catch(e){}
+    _blendsDirty=true;
+    clearTimeout(_blendsPushTimer);
+    _blendsPushTimer=setTimeout(blendsPushNow,600);
+  }
+  async function blendsPushNow(){
+    if(!sb||!_blendsReady)return; /* pre-pull → stay local; dirty flag re-pushes after pull */
+    var defs=loadBlendDefs();
+    var now=new Date().toISOString();
+    var rows=defs.map(function(b,i){
+      if(!b.id)b.id=blendUid();
+      return {id:b.id,name:b.name||'',parts:Array.isArray(b.parts)?b.parts:[],note:b.note||null,comment:b.comment||null,pos:i,updated_at:now};
+    }).filter(function(r){return !!r.id;});
+    try{
+      if(rows.length){
+        var r=await sb.from('blends').upsert(rows,{onConflict:'id'});
+        if(r&&r.error){console.error('[Ratio] blends push:',r.error.message||r.error);return;}
+      }
+      var keep={};rows.forEach(function(x){keep[x.id]=1;});
+      var gone=Object.keys(_blendsKnownIds).filter(function(id){return !keep[id];});
+      if(gone.length){var d=await sb.from('blends').delete().in('id',gone);if(d&&d.error)console.error('[Ratio] blends delete:',d.error.message||d.error);}
+      _blendsKnownIds=keep;
+      _blendsDirty=false;
+    }catch(e){console.error('[Ratio] blends push',e);}
+  }
+  async function blendsPull(){
+    if(!sb)return;
+    try{
+      var r=await sb.from('blends').select('*').order('pos',{ascending:true});
+      if(r&&r.error)return; /* table missing / offline → stay local */
+      var rows=(r&&r.data)||[];
+      _blendsReady=true;
+      if(!rows.length){
+        /* server empty → one-time migration: upload this device's local defs */
+        _blendsKnownIds={};
+        var local=null;try{local=JSON.parse(localStorage.getItem('ratio_blends')||'null');}catch(e){}
+        if(Array.isArray(local)&&local.length){
+          local.forEach(function(b,i){if(!b.id)b.id=blendUid();b.pos=i;});
+          try{localStorage.setItem('ratio_blends',JSON.stringify(local));}catch(e){}
+          blendsPushNow();
+        }
+        return;
+      }
+      var known={};rows.forEach(function(x){known[x.id]=1;});_blendsKnownIds=known;
+      if(_blendsDirty)return; /* local edits in flight — don't clobber, push wins */
+      var defs=rows.map(function(x){return {id:x.id,name:x.name||'',parts:Array.isArray(x.parts)?x.parts:[],note:x.note||'',comment:x.comment||''};});
+      try{localStorage.setItem('ratio_blends',JSON.stringify(defs));}catch(e){}
+      appStateRefreshOpenScreens();
+    }catch(e){}
+  }
   function blendNames(){return loadBlendDefs().map(function(b){return (b.name||'').trim();}).filter(Boolean);}
   function blendReady(def){
     if(!def||!(def.name||'').trim())return false;
@@ -5633,9 +5694,14 @@ fill="#6F4A36" stroke="none">
     }
     var bean=BEANS.find(function(b){return String(b.id)===String(beanId);});
     var rec={bean_id:sBid,bean_name:name,country:(bean?bean.country:null),green_kg:null,status:'pending_cupping',roast_date:date,kind:kind};
+    if(kind==='blend'){
+      /* snapshot the recipe as it is right now — later blend edits won't rewrite history */
+      var bd=blendDefByName(name);
+      if(bd){rec.recipe={blend_id:bd.id||null,parts:(bd.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}).map(function(p){return {bean:p.bean,process:p.process||'',pct:parseFloat(p.pct)};})};}
+    }
     if(btn)btn.disabled=true;if(msg){msg.textContent='Adding…';msg.className='gform-msg';}
     var ins=await sb.from('roasts').insert(rec).select();
-    if(ins.error&&rec.kind!==undefined){var r2=Object.assign({},rec);delete r2.kind;ins=await sb.from('roasts').insert(r2).select();}
+    if(ins.error&&(rec.kind!==undefined||rec.recipe!==undefined)){var r2=Object.assign({},rec);delete r2.kind;delete r2.recipe;ins=await sb.from('roasts').insert(r2).select();}
     if(ins.error){if(btn)btn.disabled=false;if(msg){msg.textContent='Failed: '+ins.error.message;msg.className='gform-msg err';}return;}
     if(ins.data&&ins.data[0])ROASTS.unshift(ins.data[0]);
     addCoffeeOpen=false;acDupSig='';
