@@ -2267,6 +2267,9 @@ fill="#6F4A36" stroke="none">
     try{sb.channel('blends-feed').on('postgres_changes',{event:'*',schema:'public',table:'blends'},function(){
       clearTimeout(_blendsPullTimer);_blendsPullTimer=setTimeout(blendsPull,400);
     }).subscribe();}catch(e){}
+    try{document.addEventListener('visibilitychange',function(){
+      if(document.visibilityState==='visible'){clearTimeout(_blendsPullTimer);_blendsPullTimer=setTimeout(blendsPull,300);}
+    });}catch(e){}
   }
   function staticWeek(ws){return TIMESHEET_WEEKS.find(function(w){return w.weekStart===ws;})||null;}
   function weekFromShifts(ws,shifts){
@@ -4792,7 +4795,7 @@ fill="#6F4A36" stroke="none">
   function openBlending(){
     closeFolder();openPage('blend');
     document.getElementById('blend-content').innerHTML='<div class="sempty">Loading\u2026</div>';
-    ensureBeansForInvoice().then(function(){if(document.querySelector('#screen-blend.open'))renderBlending();});
+    Promise.all([ensureBeansForInvoice(),blendsPull().catch(function(){})]).then(function(){if(document.querySelector('#screen-blend.open'))renderBlending();});
   }
   var blOpen={};
   function blendDupNames(){
