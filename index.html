@@ -5463,9 +5463,9 @@ fill="#6F4A36" stroke="none">
     var W=1200,H=1200,cv=document.createElement('canvas');cv.width=W;cv.height=H;
     var x=cv.getContext('2d');
     var INK='#1E1A19',BROWN='#49423A',BERRY='#B25E6A';
-    x.fillStyle='#F4ECEA';x.fillRect(0,0,W,H);
-    var CX=70,CY=70,CW=W-140,CH=H-140,CR=34;
-    _rrPath(x,CX,CY,CW,CH,CR);x.fillStyle='#ffffff';x.fill();
+    /* full-bleed square card (no outer margin) */
+    var CX=0,CY=0,CW=W,CH=H,CR=0;
+    x.fillStyle='#ffffff';x.fillRect(0,0,W,H);
     var band=mnHexRgb(card.color)||[73,66,58];
     var lum=.299*band[0]+.587*band[1]+.114*band[2];
     var bandCss='rgb('+band.join(',')+')';
@@ -5585,7 +5585,7 @@ fill="#6F4A36" stroke="none">
       }
     }
     x.restore();
-    _rrPath(x,CX,CY,CW,CH,CR);x.lineWidth=4;x.strokeStyle=INK;x.stroke();
+    x.lineWidth=8;x.strokeStyle=INK;x.strokeRect(4,4,W-8,H-8);
     return cv.toDataURL('image/png').split(',')[1];
   }
   async function pushToSquare(sqKey,sid){
