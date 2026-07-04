@@ -4558,7 +4558,7 @@ fill="#6F4A36" stroke="none">
     b+='<div class="ord-line"><span class="ol-l">Payment</span><span>'+(ORD_PAY_LABELS[o.payment_status]||'—')+(o.payment_method?(' · '+esc(o.payment_method)):'')+'</span></div>';
     if(o.payment_status!=='paid'){
       b+='<div class="ord-actrow left"><button class="gbtn" data-ordpaid="'+esc(o.id)+'">Mark as received</button>';
-      b+='<button class="gbtn ghost" disabled title="Coming in a later phase">Send reminder</button></div>';
+      b+='<button class="gbtn ghost" data-ordremind="'+esc(o.id)+'">Send reminder</button></div>';
     }
     /* stock check */
     b+='<div class="ord-actrow left"><button class="gbtn ghost" data-ordstock="'+esc(o.id)+'">Check stock</button></div>';
@@ -4592,6 +4592,14 @@ fill="#6F4A36" stroke="none">
     });
     box.querySelectorAll('[data-ordpaid]').forEach(function(el){
       el.addEventListener('click',function(e){e.stopPropagation();markOrderPaid(el.dataset.ordpaid);});
+    });
+    box.querySelectorAll('[data-ordremind]').forEach(function(el){
+      el.addEventListener('click',async function(e){
+        e.stopPropagation();el.disabled=true;el.textContent='Sending\u2026';
+        try{var rr=await callEmailFn({action:'payment_reminder',order_id:el.dataset.ordremind});el.textContent='Sent \u2713';}
+        catch(err){el.textContent='Failed';alert('Reminder failed: '+((err&&err.message)||err));}
+        setTimeout(function(){el.disabled=false;el.textContent='Send reminder';},2500);
+      });
     });
     box.querySelectorAll('[data-ordstock]').forEach(function(el){
       el.addEventListener('click',function(e){e.stopPropagation();checkOrderStock(el.dataset.ordstock);});
@@ -4686,7 +4694,7 @@ fill="#6F4A36" stroke="none">
   /* ---- new order form ---- */
   function ordBlankItem(){return {name:'',grams:'',qty:1,price:''};}
   function startOrderDraft(){
-    ordDraft={channel:'manual',cust:{name:'',type:'shop',phone:'',line1:'',suburb:'',postcode:''},
+    ordDraft={channel:'manual',cust:{name:'',type:'shop',phone:'',email:'',line1:'',suburb:'',postcode:''},
       items:[ordBlankItem()],payment_method:'',notes:''};
     document.getElementById('order-title').textContent='New Order';
     renderOrderForm();
@@ -4703,6 +4711,7 @@ fill="#6F4A36" stroke="none">
     h+='<div class="ord-field"><label class="ord-flab">Customer type</label><select id="of-ctype">'+
        ORD_CUST_TYPES.map(function(t){return '<option value="'+t+'"'+(d.cust.type===t?' selected':'')+'>'+ORD_CUST_LABEL[t]+'</option>';}).join('')+'</select></div>';
     h+='<div class="ord-field"><label class="ord-flab">Phone</label><input id="of-phone" value="'+esc(d.cust.phone)+'" placeholder="optional" /></div>';
+    h+='<div class="ord-field"><label class="ord-flab">Email</label><input id="of-email" type="email" value="'+esc(d.cust.email||'')+'" placeholder="for order confirmation (optional)" /></div>';
     h+='<div class="ord-field"><label class="ord-flab">Shipping address</label><input id="of-line1" value="'+esc(d.cust.line1)+'" placeholder="Street (optional)" style="margin-bottom:6px" />'+
        '<div style="display:flex;gap:6px"><input id="of-suburb" value="'+esc(d.cust.suburb)+'" placeholder="Suburb" /><input id="of-postcode" value="'+esc(d.cust.postcode)+'" placeholder="Postcode" style="max-width:110px" /></div></div>';
     h+='<div class="ord-field"><label class="ord-flab">Items</label>';
@@ -4738,6 +4747,7 @@ fill="#6F4A36" stroke="none">
     d.cust.name=g('of-cname').trim();
     d.cust.type=g('of-ctype')||'shop';
     d.cust.phone=g('of-phone').trim();
+    d.cust.email=g('of-email').trim();
     d.cust.line1=g('of-line1').trim();
     d.cust.suburb=g('of-suburb').trim();
     d.cust.postcode=g('of-postcode').trim();
@@ -4773,7 +4783,7 @@ fill="#6F4A36" stroke="none">
     if(d.cust.name){
       try{
         var addr={line1:d.cust.line1,suburb:d.cust.suburb,postcode:d.cust.postcode};
-        var cr=await sb.from('customers').insert({name:d.cust.name,type:d.cust.type,phone:d.cust.phone||null,address:addr}).select().single();
+        var cr=await sb.from('customers').insert({name:d.cust.name,type:d.cust.type,phone:d.cust.phone||null,email:d.cust.email||null,address:addr}).select().single();
         if(cr&&cr.data){custId=cr.data.id;ORD_CUST.unshift(cr.data);}
       }catch(e){}
     }
@@ -4784,7 +4794,10 @@ fill="#6F4A36" stroke="none">
       payment_status:'pending_payment',notes:d.notes||null};
     try{
       var r=await sb.from('orders').insert(row).select().single();
-      if(r&&r.data){ORDERS.unshift(r.data);ordExpanded[r.data.id]=true;}
+      if(r&&r.data){
+        ORDERS.unshift(r.data);ordExpanded[r.data.id]=true;
+        if(d.cust.email){callEmailFn({action:'order_confirmation',order_id:r.data.id}).catch(function(e){console.error('[Ratio] confirmation email:',e&&e.message||e);});}
+      }
     }catch(e){alert('Save failed: '+(e&&e.message?e.message:e));return;}
     ordDraft=null;
     document.getElementById('order-title').textContent='Orders';
@@ -5333,6 +5346,18 @@ fill="#6F4A36" stroke="none">
     }catch(e){}
   }
   /* Edge Function call: needs a signed-in session token */
+  async function callEmailFn(payload){
+    var sess=null;try{var g=await sb.auth.getSession();sess=g&&g.data&&g.data.session;}catch(e){}
+    if(!sess||!sess.access_token)throw new Error('Please sign in first');
+    var res=await fetch(SUPABASE_URL+'/functions/v1/send-email',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+sess.access_token,'apikey':SUPABASE_KEY},
+      body:JSON.stringify(payload)
+    });
+    var txt=await res.text();var data;try{data=JSON.parse(txt);}catch(e){data={raw:txt};}
+    if(!res.ok)throw new Error((data&&(data.error||data.message))||('HTTP '+res.status));
+    return data;
+  }
   async function callSquareFn(payload){
     var sess=null;try{var g=await sb.auth.getSession();sess=g&&g.data&&g.data.session;}catch(e){}
     if(!sess||!sess.access_token)throw new Error('Please sign in first');
