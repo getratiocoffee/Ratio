@@ -5490,6 +5490,8 @@ fill="#6F4A36" stroke="none">
     /* square card with asymmetric safe margins — Square Online portrait hero
        crops ~150px off each side, so sides get 150px margin, top/bottom 64px */
     var CX=150,CY=64,CW=W-300,CH=H-128,CR=28;
+    /* text-safe zone: mobile portrait hero crops ~200px+ per side, so all text lives in the centre 760px */
+    var TSX=220,TEX=W-220,TW2=TEX-TSX;
     x.fillStyle='#ffffff';x.fillRect(0,0,W,H);
     var band=mnHexRgb(card.color)||[73,66,58];
     var lum=.299*band[0]+.587*band[1]+.114*band[2];
@@ -5504,18 +5506,18 @@ fill="#6F4A36" stroke="none">
     x.fillStyle=bandCss;x.fillRect(CX,CY,CW,headH);
     x.font='600 26px Inter, sans-serif';
     var hrW=card.roasted?Math.max(x.measureText('Roasted').width,x.measureText(card.roasted).width):0;
-    var nameX=CX+44;
+    var nameX=TSX;
     if(icons&&icons.bean){
       var bs=55,bw=bs*(icons.bean.width/icons.bean.height);
       x.drawImage(_tintIcon(icons.bean,tc,600),nameX,CY+(headH-bs)/2,bw,bs);
       nameX+=bw+30;
     }
-    var ns=_cardFit(x,card.name,'700',72,36,CX+CW-nameX-44-(hrW?hrW+40:0),'Inter, sans-serif');
+    var ns=_cardFit(x,card.name,'700',72,36,TEX-nameX-(hrW?hrW+40:0),'Inter, sans-serif');
     x.fillStyle=tc;x.fillText(card.name,nameX,CY+headH/2+ns*.36);
     if(card.roasted){
       x.globalAlpha=.85;x.font='600 26px Inter, sans-serif';x.textAlign='right';
-      x.fillText('Roasted',CX+CW-40,CY+headH/2-8);
-      x.fillText(card.roasted,CX+CW-40,CY+headH/2+28);
+      x.fillText('Roasted',TEX,CY+headH/2-8);
+      x.fillText(card.roasted,TEX,CY+headH/2+28);
       x.textAlign='left';x.globalAlpha=1;
     }
     var cy=CY+headH;
@@ -5523,7 +5525,7 @@ fill="#6F4A36" stroke="none">
     if(card.comment){
       var subH=76;
       x.fillStyle=lt;x.fillRect(CX,cy,CW,subH);
-      var cs=_cardFit(x,card.comment,'600',32,20,CW-88,'Inter, sans-serif');
+      var cs=_cardFit(x,card.comment,'600',32,20,TW2,'Inter, sans-serif');
       x.textAlign='center';x.fillStyle=dk;x.fillText(card.comment,CX+CW/2,cy+subH/2+cs*.36);
       x.textAlign='left';
       cy+=subH;
@@ -5535,10 +5537,10 @@ fill="#6F4A36" stroke="none">
       var fl=card.flavour.join('  \u00b7  ');
       var dw=0,ds=53,gap=26;
       if(icons&&icons.drop){dw=ds*(icons.drop.width/icons.drop.height);}
-      var fsz=_cardFit(x,fl,'700',56,28,CW-88-(dw?dw+gap:0),'Inter, sans-serif');
+      var fsz=_cardFit(x,fl,'700',56,28,TW2-(dw?dw+gap:0),'Inter, sans-serif');
       var tw=x.measureText(fl).width;
       var total=(dw?dw+gap:0)+tw;
-      var sx=CX+(CW-total)/2;
+      var sx=(W-total)/2;
       if(icons&&icons.drop){
         x.drawImage(_tintIcon(icons.drop,tc,600),sx,footY+(footH-ds)/2,dw,ds);
         sx+=dw+gap;
@@ -5547,19 +5549,19 @@ fill="#6F4A36" stroke="none">
     }
     /* ===== content: full-width rows, radar on its own centred row ===== */
     var zoneTop=cy,zoneBot=footY;
-    var Lx=CX+44,Rv=CX+CW-44;
+    var Lx=TSX,Rv=TEX;
     var ry=zoneTop+72;
     if(card.kind==='blend'){
       (card.recipe||[]).forEach(function(p){
         var pct=(p.pct||p.pct===0)?String(p.pct)+'%':'';
         if(pct){x.fillStyle=BERRY;x.font='700 36px Inter, sans-serif';x.fillText(pct,Lx,ry);}
         x.fillStyle=INK;
-        _cardFit(x,p.bean,'700',36,24,CW*0.5-(pct?130:0),'Inter, sans-serif');
+        _cardFit(x,p.bean,'700',36,24,TW2*0.55-(pct?130:0),'Inter, sans-serif');
         x.fillText(p.bean,Lx+(pct?130:0),ry);
         var meta=p.process||'';
         if(meta){
           x.textAlign='right';x.fillStyle='#322B2A';
-          _cardFit(x,meta,'400',36,20,CW*0.4,'Inter, sans-serif');
+          _cardFit(x,meta,'400',36,20,TW2*0.42,'Inter, sans-serif');
           x.fillText(meta,Rv,ry);x.textAlign='left';
         }
         ry+=70;
@@ -5573,7 +5575,7 @@ fill="#6F4A36" stroke="none">
       rows.forEach(function(r){
         x.fillStyle=INK;x.font='700 36px Inter, sans-serif';x.fillText(r[0],Lx,ry);
         x.textAlign='right';x.fillStyle='#322B2A';
-        _cardFit(x,String(r[1]),'400',36,20,CW-330,'Inter, sans-serif');
+        _cardFit(x,String(r[1]),'400',36,20,TW2-290,'Inter, sans-serif');
         x.fillText(String(r[1]),Rv,ry);
         x.textAlign='left';ry+=70;
       });
@@ -5583,7 +5585,7 @@ fill="#6F4A36" stroke="none">
     if(hasCup){
       var radarTop=ry+26,avail=zoneBot-radarTop-16;
       var R=Math.min(150,Math.floor(avail/2-36));
-      _cardRadar(x,CX+CW/2,radarTop+avail/2+4,R,card.cupScores,band);
+      _cardRadar(x,W/2,radarTop+avail/2+4,R,card.cupScores,band);
     }
     x.restore();
     _rrPath(x,CX,CY,CW,CH,CR);x.lineWidth=5;x.strokeStyle=INK;x.stroke();
