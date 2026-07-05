@@ -30,6 +30,13 @@
   - **blend 消耗批次**：Add Coffee 加「Roasted kg」欄（單品=純記錄；blend=照配方快照比例 **FIFO 扣成分批次**，不夠扣會 alert 短缺清單）
   - 編輯視窗改產出 kg → remaining 連動（扣掉已消耗量再算）；清空產出 = 退出批次庫存
   - 驗證：preview 假資料實測分頁切換、FIFO 排序、>30d 標色、扣量表單、blend 表單欄位，全過；**FIFO 實際扣帳需登入後測**（DB 寫入路徑）
+- **Beans 2.0 G4 QC 完成**（index.html + DB）：
+  - roasts 加 `qc`（pass/reroast/downgrade）、samples 加 `flavour_locked` boolean（migration `g4_qc_and_flavour_lock`）
+  - **杯測卡（rtSampleCard）加 QC 列**：Pass / Re-roast / Downgrade 三鍵打在對應烘豆批次上（`qcRoastForSample`：bean_id 優先→豆名，同烘焙日優先→最新；再點一次=取消）
+  - **Re-roast 退 G2**：Production 頁新「QC re-roast queue」區，一鍵帶回購物車（kg 預設帶原批 green_kg）
+  - **風味鎖定**：杯測卡「Lock flavour」鍵；出貨信卡片管線（ordUploadCards）與 Print Centre 卡片下載改為 `.order('flavour_locked',desc)` **鎖定紀錄優先上卡**；下載未鎖定的會提示 ⚠ flavour not locked yet
+  - 熟豆倉批次掛 QC 徽章（QC ✓ / re-roast / downgraded）
+  - 驗證：preview 假資料實測配對邏輯、三鍵狀態、鎖定切換、重烘佇列、批次徽章，全過
 - **「全部」總覽分頁已上線**：ORD_TABS 加 `['all','全部']`、ordTabCount 回 ORDERS.length、renderOrders 加不篩選分支（commit 2270d97，已部署驗證）
 - **測試單 #0001 + 客戶 Dan 已刪**（orders 表清空、customers 剩 2 位真實客戶）
 - **sync-to-square 升 v13**：新增 `payment_link_delete` action（body.link_id → Square DELETE /v2/online-checkout/payment-links）；測試連結 iQjObl89 已刪、回 404
@@ -103,7 +110,7 @@
 - ~~G1 生豆帳：庫存扣除、盤點、低庫存警戒、採購紀錄鏈（樣品杯測結論→採購單→到貨入庫）~~ ✅ 完成（見〇補記）
 - ~~G2 烘焙站：烘焙扣生豆（×1.15）、開烘前庫存檢查（接 Orders 烘豆需求頁）、產出寫熟豆批次~~ ✅ 完成（見〇補記）
 - ~~G3 熟豆倉+拼配：批次表（烘焙日/克數/狀態）、賞味期 >30 天標色、FIFO、blend 消耗批次~~ ✅ 完成（見〇補記）
-- G4 QC：杯測結果狀態 Pass / Re-roast（退 G2）/ Downgrade；風味描述鎖定後才進資訊卡
+- ~~G4 QC：杯測結果狀態 Pass / Re-roast（退 G2）/ Downgrade；風味描述鎖定後才進資訊卡~~ ✅ 完成（見〇補記）
 - G5 上架：僅 QC Pass 可上架；Retail+Square push 集中；新豆通知信群發；下家 wholesale
 - ~~G6 印製中心：資訊卡/.lbx 貼紙/選單/PDF 集中一頁（純重組，可隨時插隊）~~ ✅ 完成（見〇補記）
 - G7 客戶回饋：出貨信回饋連結（QR 可印）→ feedback 表 → app 回覆 → 摘要回 QC

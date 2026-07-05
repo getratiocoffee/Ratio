@@ -314,6 +314,14 @@
   .po-sub{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5}
   .po-actions{display:flex;gap:8px;margin-top:10px}
   .po-actions .gbtn{margin:0;padding:9px;font-size:13px}
+  .qc-row{display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .qc-lab{font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--muted);text-transform:uppercase;width:34px;flex:0 0 auto}
+  .qc-btn{border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-family:inherit;font-size:11.5px;font-weight:600;border-radius:999px;padding:5px 11px;cursor:pointer}
+  .qc-btn.pass.on{background:var(--success);border-color:var(--success);color:#fff}
+  .qc-btn.reroast.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .qc-btn.downgrade.on{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+  .qc-btn.lock.on{background:var(--success-tint);border-color:var(--success);color:var(--success-ink)}
+  .qc-note{font-size:10.5px;color:var(--muted)}
   .bat-hint{font-size:11.5px;color:var(--muted);line-height:1.5;margin:10px 18px 0}
   .bat-group{margin:6px 16px}
   .bat-name{font-weight:600;font-size:14px;margin:14px 2px 6px;color:var(--ink)}
@@ -2579,7 +2587,7 @@ fill="#6F4A36" stroke="none">
     if(!name){msg.textContent='Pick a coffee first';msg.className='gform-msg err';return;}
     btn.disabled=true;msg.textContent='Rendering card…';msg.className='gform-msg';
     try{
-      var r=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',name).order('cupping_date',{ascending:false}).limit(1);
+      var r=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',name).order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1); /* G4: 鎖定的風味優先上卡 */
       var s=r&&r.data&&r.data[0];
       if(!s)throw new Error('no retail record for '+name);
       var b64=await makeSquareCard(squareCardDataFor(s));
@@ -2587,7 +2595,7 @@ fill="#6F4A36" stroke="none">
       var url=URL.createObjectURL(_b64ToBlob(b64,'image/png'));
       var a=document.createElement('a');a.href=url;a.download='card-'+ordCardSlug(name)+'.png';document.body.appendChild(a);a.click();a.remove();
       setTimeout(function(){URL.revokeObjectURL(url);},4000);
-      msg.textContent='Downloaded — card-'+ordCardSlug(name)+'.png';msg.className='gform-msg ok';
+      msg.textContent='Downloaded — card-'+ordCardSlug(name)+'.png'+(s.flavour_locked?'':' · ⚠ flavour not locked yet');msg.className='gform-msg ok';
     }catch(e){msg.textContent='Failed: '+String(e&&e.message||e);msg.className='gform-msg err';}
     btn.disabled=false;
   }
@@ -5949,6 +5957,18 @@ fill="#6F4A36" stroke="none">
     add+='</div>';
     /* G2: 訂單需求區 — 一鍵把要烘的豆帶進購物車（生豆量已 ×1.15）*/
     var dem='';
+    /* G4: QC 打了 Re-roast 的批次排進重烘佇列 */
+    var rrs=(ROASTS||[]).filter(function(r){return r.qc==='reroast';});
+    if(rrs.length){
+      dem+='<div class="gsec">QC re-roast queue</div><div class="ro-add">'
+        +rrs.map(function(r){
+          var b=r.bean_id?BEANS.find(function(x){return String(x.id)===String(r.bean_id);}):BEANS.find(function(x){return String(x.name||'').trim().toLowerCase()===String(r.bean_name||'').trim().toLowerCase();});
+          var canAdd=b&&!inCart[b.id];
+          var sub=(r.roast_date?'Roasted '+fmtDate(r.roast_date)+' · ':'')+'flagged for re-roast'+(b?' · stock '+gnum(b.quantity!=null?b.quantity:0)+' kg':' · no green lot');
+          if(canAdd)return '<button class="ro-aitem" data-demid="'+esc(b.id)+'" data-demkg="'+(Number(r.green_kg)||10)+'"><div class="ro-am"><div class="ro-an">'+esc(r.bean_name||'')+'</div><div class="ro-as">'+sub+'</div></div><span class="ro-plus">＋</span></button>';
+          return '<div class="ro-aitem" style="cursor:default"><div class="ro-am"><div class="ro-an">'+esc(r.bean_name||'')+'</div><div class="ro-as">'+sub+(b?' · in cart':'')+'</div></div></div>';
+        }).join('')+'</div>';
+    }
     var demKeys=Object.keys(ROAST_DEMAND);
     if(demKeys.length){
       demKeys.sort(function(a,b){return ROAST_DEMAND[b].g-ROAST_DEMAND[a].g;});
@@ -6487,7 +6507,7 @@ fill="#6F4A36" stroke="none">
       var key=name.toLowerCase();if(seen[key])continue;seen[key]=true;
       try{
         var r=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',name)
-          .order('cupping_date',{ascending:false}).limit(1);
+          .order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1); /* G4: 鎖定的風味優先上卡 */
         var s=r&&r.data&&r.data[0];if(!s)continue;
         var b64=await makeSquareCard(squareCardDataFor(s));
         if(!b64)continue;
@@ -6836,6 +6856,19 @@ fill="#6F4A36" stroke="none">
     if(roastedTitle==='Pending'&&document.getElementById('beans-content'))renderRoasted();
   }
   /* card for a Ratio Coffee cupping record shown inside a date drawer / cupping list */
+  /* G4 QC: \u676f\u6e2c\u5361\u5c0d\u56de\u5b83\u7684\u70d8\u8c46\u6279\u6b21\uff08bean_id \u512a\u5148\uff0c\u518d\u8c46\u540d\uff1b\u540c\u65e5\u70d8\u7119\u512a\u5148\uff0c\u5426\u5247\u53d6\u6700\u65b0\uff09 */
+  function qcRoastForSample(s){
+    var nm=String(s.sample_id||'').trim().toLowerCase();
+    if(!nm)return null;
+    var cands=(ROASTS||[]).filter(function(r){
+      if(s.bean_id&&r.bean_id)return String(r.bean_id)===String(s.bean_id);
+      return String(r.bean_name||'').trim().toLowerCase()===nm;
+    });
+    if(!cands.length)return null;
+    if(s.roast_date){var exact=cands.find(function(r){return (r.roast_date||'')===s.roast_date;});if(exact)return exact;}
+    cands.sort(function(a,b){return String(a.roast_date||'')<String(b.roast_date||'')?1:-1;});
+    return cands[0];
+  }
   function rtSampleCard(s){
     var nm=(s.sample_id||'').trim();
     var bd=null;try{bd=blendDefByName(nm);}catch(e){}
@@ -6844,10 +6877,23 @@ fill="#6F4A36" stroke="none">
     else if(s.process)subParts.push(esc(s.process));
     if(s.roast_date)subParts.push('Roasted '+esc(fmtDate(s.roast_date)));
     var sub=subParts.length?'<span class="bp-sub">'+subParts.join(' \u00b7 ')+'</span>':'';
+    /* G4: \u6279\u6b21 QC \u4e09\u9375 + \u98a8\u5473\u9396\u5b9a */
+    var qr=null;try{qr=qcRoastForSample(s);}catch(e){}
+    var qcBlock='';
+    if(qr){
+      var QL=[['pass','Pass'],['reroast','Re-roast'],['downgrade','Downgrade']];
+      qcBlock+='<div class="qc-row"><span class="qc-lab">QC</span>'
+        +QL.map(function(q){return '<button class="qc-btn '+q[0]+(qr.qc===q[0]?' on':'')+'" data-qc="'+q[0]+'" data-qcr="'+esc(qr.id)+'">'+q[1]+'</button>';}).join('')
+        +'</div>';
+    }
+    qcBlock+='<div class="qc-row"><span class="qc-lab">Card</span>'
+      +'<button class="qc-btn lock'+(s.flavour_locked?' on':'')+'" data-lock="'+esc(s.id)+'">'+(s.flavour_locked?'Flavour locked \u2713':'Lock flavour')+'</button>'
+      +'<span class="qc-note">'+(s.flavour_locked?'Info cards use this record':'Lock it before it goes on info cards')+'</span></div>';
     return '<div class="blend-pick done np">'
       +'<div class="blend-pick-top"><div class="bp-l"><span class="blend-name">'+esc(nm||'\u2014')+'</span>'+sub+'</div>'
       +'<span class="blend-rt"><span class="rbadge done">Cupped</span>'
       +'<button class="blend-go redo cv-rego" data-sname="'+esc(nm)+'">Re-analyse</button></span></div>'
+      +qcBlock
       +(nm?retailSetHTML(nm):'')
       +'</div>';
   }
@@ -6856,6 +6902,26 @@ fill="#6F4A36" stroke="none">
       e.stopPropagation();var nm=el.dataset.sname;
       var r=(ROASTS||[]).find(function(x){return (x.kind||'single')!=='blend'&&String(x.bean_name||'').trim().toLowerCase()===nm.toLowerCase();});
       if(r){openCupping(r.id);}else{openBlendCupping(nm);}
+    });});
+    box.querySelectorAll('.qc-btn[data-qc]').forEach(function(el){el.addEventListener('click',async function(e){
+      e.stopPropagation();
+      var rid=el.dataset.qcr,v=el.dataset.qc;
+      var r=(ROASTS||[]).find(function(x){return String(x.id)===String(rid);});
+      if(!r)return;
+      var nv=(r.qc===v)?null:v; /* \u518d\u9ede\u4e00\u6b21 = \u53d6\u6d88 */
+      var u=await sb.from('roasts').update({qc:nv}).eq('id',rid);
+      if(u.error){alert('QC update failed: '+u.error.message);return;}
+      r.qc=nv;renderRoasted();
+    });});
+    box.querySelectorAll('.qc-btn[data-lock]').forEach(function(el){el.addEventListener('click',async function(e){
+      e.stopPropagation();
+      var sid=el.dataset.lock;
+      var s=(SAMPLES||[]).find(function(x){return String(x.id)===String(sid);});
+      if(!s)return;
+      var nv=!s.flavour_locked;
+      var u=await sb.from('samples').update({flavour_locked:nv}).eq('id',sid);
+      if(u.error){alert('Lock failed: '+u.error.message);return;}
+      s.flavour_locked=nv;renderRoasted();
     });});
   }
   function pendingBlendSectionHTML(){
@@ -6918,7 +6984,10 @@ fill="#6F4A36" stroke="none">
       g.rows.forEach(function(r,idx){
         var age=r.roast_date?Math.floor((today-new Date(r.roast_date+'T00:00:00'))/86400000):null;
         var old=age!=null&&age>30;
-        var badges=(idx===0&&g.rows.length>1?'<span class="bat-fifo">use first</span>':'')+(old?'<span class="bat-oldb">&gt;30d</span>':'');
+        var badges=(idx===0&&g.rows.length>1?'<span class="bat-fifo">use first</span>':'')+(old?'<span class="bat-oldb">&gt;30d</span>':'')
+          +(r.qc==='pass'?'<span class="bat-fifo">QC ✓</span>':'')
+          +(r.qc==='reroast'?'<span class="bat-oldb">re-roast</span>':'')
+          +(r.qc==='downgrade'?'<span class="bat-oldb" style="background:var(--line);color:var(--muted)">downgraded</span>':'');
         var meta=(age!=null?age+' days old':'no roast date')+(r.roasted_kg!=null?' · roasted '+gnum(r.roasted_kg)+' kg':'')+(r.kind==='blend'?' · blend':'');
         h+='<div class="bat-row'+(old?' old':'')+'" data-bat="'+esc(r.id)+'"><div class="bat-l"><div class="d">'+(r.roast_date?fmtDate(r.roast_date):'—')+badges+'</div><div class="m">'+meta+'</div></div><span class="bat-kg">'+gnum(r.remaining_kg)+' kg</span></div>';
         if(batUse===r.id){
