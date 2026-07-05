@@ -1,6 +1,12 @@
 # Ratio 開發交接 — 2026-07-05 Session（Phase 3 + Orders 2.0）
 
 ## 〇、補記 — 同日晚間 Claude Code session（首次改用 Claude Code）
+- **待辦 2 完成：付款連結自動標 paid**（全在 Supabase 端，index.html 沒動）：
+  - orders 加 `square_order_id` 欄（migration `add_square_order_id_to_orders`）— 付款連結背後其實有一張 Square quick_pay 訂單，這欄存它的 id
+  - **sync-to-square v14**：`payment_link` 建連結時把 `link.order_id` 存進 `square_order_id`；重用舊連結時若缺這欄會自動回 Square 補查
+  - **square-webhook v9**：收到 payment COMPLETED 先比對 `square_order_id` → 命中就標 `payment_status='paid'`（冪等，重複事件不會重寄）+ 客人收 payment_received 信（service-role 呼叫 send-email，模板同手動 Mark as received）+ 老闆收通知信 + app 訊息一則；沒命中才走原本網店訂單匯入
+  - 順便修掉隱藏 bug：以前客人刷付款連結，webhook 會把 quick_pay 訂單誤認成網店新訂單**再插一張重複訂單**
+  - ⚠ 未經真實刷卡驗證 — 下一筆真單付款後到 edge logs（square-webhook）確認 `matched: payment_link`
 - **「全部」總覽分頁已上線**：ORD_TABS 加 `['all','全部']`、ordTabCount 回 ORDERS.length、renderOrders 加不篩選分支（commit 2270d97，已部署驗證）
 - **測試單 #0001 + 客戶 Dan 已刪**（orders 表清空、customers 剩 2 位真實客戶）
 - **sync-to-square 升 v13**：新增 `payment_link_delete` action（body.link_id → Square DELETE /v2/online-checkout/payment-links）；測試連結 iQjObl89 已刪、回 404
@@ -66,7 +72,7 @@
 
 **Orders 2.0 收尾**
 1. ~~「全部」總覽分頁（防找不到單）~~ ✅ 完成（見〇補記）
-2. square-webhook 接 payment_link 付款事件 → 自動標 paid（現在客人刷卡後要手動 Mark as received）
+2. ~~square-webhook 接 payment_link 付款事件 → 自動標 paid~~ ✅ 完成（見〇補記；待首筆真實付款驗證）
 3. ~~測試單 #0001 + 客戶 Dan 刪除（記得清 payment link）~~ ✅ 完成（見〇補記）
 4. ~~訂單品項改下拉選（防打錯字）~~ ✅ 完成（見〇補記）
 
@@ -109,8 +115,8 @@
 - 資料補齊：7 筆杯測 comment、April/May/June Project blend note、4 支上架（Dancer/Dreamer/April/May/June Project）、Dancer 烘焙日 15/06 確認
 
 ## 四、基礎設施速查
-- Supabase kjhudxzvidhynpabnalp（Sydney）；Edge：send-email **v12** / sync-to-square **v13**（+payment_link_delete）/ square-webhook v8
-- orders 欄位新增：tracking_no, dispatch_email_at, confirm_email_at, payment_link, payment_link_id, pack_state
+- Supabase kjhudxzvidhynpabnalp（Sydney）；Edge：send-email **v12** / sync-to-square **v14**（+payment_link_delete、payment_link 存 square_order_id）/ square-webhook **v9**（payment_link 自動標 paid）
+- orders 欄位新增：tracking_no, dispatch_email_at, confirm_email_at, payment_link, payment_link_id, pack_state, square_order_id
 - beans.brew / blends.brew jsonb（method-keyed）；mail-assets bucket
 - Square item ids：Alo Village=CFGKRBQ5EAWGB5UAUV35NOP5、Dark Knight=JZVP5ICULJ7TQJGL7VWW6XE2；ratio_ref 定義=MV5EOCK2W3XXFQPHILKQWKOQ
 - Chrome MCP：Ratio tab id 1489018982
