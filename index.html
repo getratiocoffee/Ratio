@@ -314,6 +314,9 @@
   .po-sub{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5}
   .po-actions{display:flex;gap:8px;margin-top:10px}
   .po-actions .gbtn{margin:0;padding:9px;font-size:13px}
+  .pc-wrap{padding:4px 16px 18px}
+  .pc-wrap select{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:11px;padding:11px 12px;font-size:14px;color:var(--ink);outline:none;font-family:inherit;margin-bottom:10px;-webkit-appearance:none;appearance:none}
+  .pc-sub{font-size:11.5px;color:var(--muted);line-height:1.5;margin:2px 0 10px}
   .gsec{font-size:12px;font-weight:600;color:var(--muted);padding:14px 18px 2px;letter-spacing:.02em}
   /* level 1: country tiles */
   .gcountries{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:8px 16px 16px}
@@ -1090,6 +1093,17 @@
     </div>
   </div>
 
+  <div class="screen" id="screen-print">
+    <header class="shead">
+      <span class="logo"><img src="logo.png" alt="Ratio" /></span>
+      <span class="hkey" id="print-key"></span>
+    </header>
+    <div class="stitle" id="print-title">Print Centre</div>
+    <div class="sbody">
+      <div id="print-content"></div>
+    </div>
+  </div>
+
   <div class="screen" id="screen-label">
     <header class="shead">
       <span class="logo"><img src="logo.png" alt="Ratio" /></span>
@@ -1165,6 +1179,7 @@
   const I={
     admin:`<svg viewBox="0 0 48 48" fill="none" stroke="#49423A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="15" r="7"/><path d="M6 38c0-6.5 5.5-10.5 12-10.5 2.2 0 4.3.5 6 1.4"/><circle cx="34" cy="33" r="5.5"/><path d="M34 25.5v-2M34 42.5v-2M42.5 33h-2M27.5 33h-2M40 27l-1.4 1.4M29.4 37.6L28 39M40 39l-1.4-1.4M29.4 28.4L28 27"/></svg>`,
     label:`<svg viewBox="0 0 48 48" fill="none" stroke="#49423A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M25 8H10a2 2 0 0 0-2 2v15l16 16 17-17z"/><circle cx="16.5" cy="16.5" r="2.6" fill="#49423A" stroke="none"/></svg>`,
+    print:`<svg viewBox="0 0 48 48" fill="none" stroke="#49423A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18v-8h18v8"/><path d="M15 30H9a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h30a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-6"/><rect x="15" y="26" width="18" height="13" rx="1.5"/><path d="M20 32h8"/><circle cx="35" cy="23" r="1.8" fill="#49423A" stroke="none"/></svg>`,
     timesheet:`<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14" fill="none" stroke="#49423A" stroke-width="3.2"/><path d="M24 15 V24 L30.5 28" fill="none" stroke="#49423A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     beans:`<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
  viewBox="0 0 715.000000 704.000000"
@@ -1212,7 +1227,7 @@ fill="#6F4A36" stroke="none">
   };
   const shop=[['timesheet','Timesheet'],['beans','Beans'],['task','Task'],['recipe','Recipe']];
   const roastery=[['roast','Roaster'],['green','Green Buyer'],['order','Order'],['fx','Blender']];
-  const folder=[['label','Generate Label'],['tinlabel','Tin Label'],['menu','Generate Menu'],['news','Generate Invoice'],['post','Post'],['file','File'],['user','Account'],['admin','Admin']];
+  const folder=[['print','Print Centre'],['post','Post'],['file','File'],['user','Account'],['admin','Admin']]; /* G6: label/tinlabel/menu/invoice 併入 Print Centre */
 
   function fill(side,arr){const el=document.querySelector(`.pill[data-side="${side}"]`);el.innerHTML='';
     arr.forEach(([ic,lb])=>{const d=document.createElement('div');d.className='item';d.dataset.id=ic;
@@ -2492,7 +2507,80 @@ fill="#6F4A36" stroke="none">
 
 
 
+  /* ============ G6 Print Centre：資訊卡 / .lbx 貼紙 / 選單 / PDF 集中一頁 ============ */
+  var PRINT_CARDS=null, printCardSel=''; /* null = 名單還在載入，[] = 載完但沒有 retail 咖啡 */
+  function openPrint(){closeFolder();openPage('print');renderPrint();ensurePrintData();}
+  async function ensurePrintData(){
+    try{
+      if(!BEANS||!BEANS.length)await ensureBeansForInvoice();
+      if(!ROASTS||!ROASTS.length)await loadRoasts();
+      try{await blendsPull();}catch(e){}
+      const {data}=await sb.from('samples').select('sample_id').eq('supplier','Ratio Coffee');
+      var seen={},names=[];
+      (data||[]).forEach(function(r){var n=String(r.sample_id||'').trim();var k=n.toLowerCase();if(n&&!seen[k]){seen[k]=true;names.push(n);}});
+      names.sort();
+      PRINT_CARDS=names;
+    }catch(e){PRINT_CARDS=[];}
+    if(document.querySelector('#screen-print.open'))renderPrint();
+  }
+  function renderPrint(){
+    var box=document.getElementById('print-content');if(!box)return;
+    var key=document.getElementById('print-key');if(key)key.textContent='';
+    function row(k,name,sub){return '<div class="gbean" data-print="'+k+'"><div class="gb-main"><div class="gb-name">'+name+'</div><div class="gb-attrs"><div class="gb-attr">'+sub+'</div></div></div><div class="gb-right"><span class="gb-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></div></div>';}
+    var h='<div class="gsec">Labels · Brother .lbx</div><div class="gbeans">'
+      +row('label','Bag Label','Retail bag sticker — blend or single origin')
+      +row('tinlabel','Tin Label','Tin sticker with radar chart')
+      +'</div>'
+      +'<div class="gsec">Menus · A4 PDF (two-up)</div><div class="gbeans">'
+      +row('menu-blend','Blend Menu','4-blend cut sheet')
+      +row('menu-takeaway','Take Away Menu','Blend + pour over cups')
+      +row('menu-dinein','Dine In Menu','A5 full menu with prices')
+      +row('menu-special','Special Menu','Single-origin column')
+      +'</div>'
+      +'<div class="gsec">Documents</div><div class="gbeans">'
+      +row('invoice','Invoice','GST invoice PDF')
+      +'</div>'
+      +'<div class="gsec">Info card · 1200×1200 PNG</div>'
+      +'<div class="pc-wrap"><div class="pc-sub">Same card as Square and dispatch emails — use it for IG posts or print. Pick a retail coffee:</div>'
+      +'<select id="pc-sel"><option value="">— pick a coffee —</option>'
+      +(PRINT_CARDS||[]).map(function(n){return '<option value="'+esc(n)+'"'+(n===printCardSel?' selected':'')+'>'+esc(n)+'</option>';}).join('')
+      +'</select>'
+      +'<button class="gbtn" id="pc-dl">Download card PNG</button>'
+      +'<div class="gform-msg" id="pc-msg">'+(PRINT_CARDS===null?'Loading coffee list…':(PRINT_CARDS.length?'':'No retail coffees found'))+'</div></div>';
+    box.innerHTML=h;
+    box.querySelectorAll('[data-print]').forEach(function(el){el.addEventListener('click',function(){
+      var k=el.dataset.print;
+      if(k==='label')openLabel();
+      else if(k==='tinlabel')openTinLabel();
+      else if(k==='invoice')openInvoice();
+      else if(k==='menu-blend'){openPage('menu');openBlendMenu();}
+      else if(k==='menu-takeaway'){openPage('menu');openTakeawayMenu();}
+      else if(k==='menu-dinein'){openPage('menu');openDineinMenu();}
+      else if(k==='menu-special'){openPage('menu');openSpecialMenu();}
+    });});
+    var sel=document.getElementById('pc-sel');if(sel)sel.addEventListener('change',function(){printCardSel=sel.value;});
+    var dl=document.getElementById('pc-dl');if(dl)dl.addEventListener('click',printCardDownload);
+  }
+  async function printCardDownload(){
+    var sel=document.getElementById('pc-sel'),msg=document.getElementById('pc-msg'),btn=document.getElementById('pc-dl');
+    var name=sel?sel.value:'';
+    if(!name){msg.textContent='Pick a coffee first';msg.className='gform-msg err';return;}
+    btn.disabled=true;msg.textContent='Rendering card…';msg.className='gform-msg';
+    try{
+      var r=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',name).order('cupping_date',{ascending:false}).limit(1);
+      var s=r&&r.data&&r.data[0];
+      if(!s)throw new Error('no retail record for '+name);
+      var b64=await makeSquareCard(squareCardDataFor(s));
+      if(!b64)throw new Error('card render failed');
+      var url=URL.createObjectURL(_b64ToBlob(b64,'image/png'));
+      var a=document.createElement('a');a.href=url;a.download='card-'+ordCardSlug(name)+'.png';document.body.appendChild(a);a.click();a.remove();
+      setTimeout(function(){URL.revokeObjectURL(url);},4000);
+      msg.textContent='Downloaded — card-'+ordCardSlug(name)+'.png';msg.className='gform-msg ok';
+    }catch(e){msg.textContent='Failed: '+String(e&&e.message||e);msg.className='gform-msg err';}
+    btn.disabled=false;
+  }
   function onOpen(id){
+    if(id==='print'){openPrint();return;}
     if(id==='label'){openLabel();return;}
     if(id==='tinlabel'){openTinLabel();return;}
     if(id==='menu'){openMenu();return;}
@@ -3305,7 +3393,7 @@ fill="#6F4A36" stroke="none">
     else renderMenuHub();
   }
   function menuBack(){
-    if(menuView==='hub'){closePage();}
+    if(menuView==='hub'){openPrint();} /* G6: 選單只從 Print Centre 進，返回也回那裡 */
     else{menuView='hub';renderMenuHub();}
   }
   function renderMenuHub(){
@@ -7446,7 +7534,7 @@ fill="#6F4A36" stroke="none">
     renderSample('','Saved — set Skip / Maybe / Buy on the card below');
     document.getElementById('green-content').scrollTop=0;
   }
-  function swapSides(){var pdfS=document.getElementById('screen-pdf');if(pdfS&&pdfS.classList.contains('open')){pdfBack();return;}const pg=document.querySelector('.screen.open');if(pg){if(pg.id==='screen-green'&&typeof greenBack==='function'){greenBack();return;}if(pg.id==='screen-beans'&&typeof beansBack==='function'){beansBack();return;}if(pg.id==='screen-contacts'&&typeof contactsBack==='function'){contactsBack();return;}if(pg.id==='screen-menu'&&typeof menuBack==='function'){menuBack();return;}closePage();return;}if(dockStack.length){dockBack();return;}const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
+  function swapSides(){var pdfS=document.getElementById('screen-pdf');if(pdfS&&pdfS.classList.contains('open')){pdfBack();return;}const pg=document.querySelector('.screen.open');if(pg){if(pg.id==='screen-green'&&typeof greenBack==='function'){greenBack();return;}if(pg.id==='screen-beans'&&typeof beansBack==='function'){beansBack();return;}if(pg.id==='screen-contacts'&&typeof contactsBack==='function'){contactsBack();return;}if(pg.id==='screen-menu'&&typeof menuBack==='function'){menuBack();return;}if(pg.id==='screen-label'||pg.id==='screen-tinlabel'||pg.id==='screen-invoice'){openPrint();return;}closePage();return;}if(dockStack.length){dockBack();return;}const lp=document.querySelector('.pill[data-side="shop"]');const rp=document.querySelector('.pill[data-side="roastery"]');const cl=document.querySelectorAll('.cluster');document.getElementById('swap').classList.toggle('spin');cl.forEach(c=>{c.style.opacity='0';c.style.transform='scale(.94)';});setTimeout(()=>{const t=lp.innerHTML;lp.innerHTML=rp.innerHTML;rp.innerHTML=t;const n=document.querySelectorAll('.cname');if(n.length>=2){const tn=n[0].textContent;n[0].textContent=n[1].textContent;n[1].textContent=tn;}cl.forEach(c=>{c.style.opacity='1';c.style.transform='scale(1)';});},160);}
   function openFolder(){closeFloatingPopups();var ov=document.getElementById('ov');if(ov)ov.classList.add('open');}
   function closeFolder(){document.getElementById('ov').classList.remove('open');}
 
