@@ -8188,7 +8188,7 @@ fill="#6F4A36" stroke="none">
     if(!bean&&r.bean_id){try{var bq=await sb.from('beans').select('process').eq('id',r.bean_id).single();if(bq&&bq.data)proc=bq.data.process||'';}catch(e){}}
     var res=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('no',{ascending:false}).order('created_at',{ascending:false});
     SAMPLES=res.error?[]:(res.data||[]);
-    smpEdit=null;smpEditObj=null;smpDelConfirm=false;
+    smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpDupConfirm=false;
     smpCuppingRoast=r.id;
     var prev=null;
     if(r.bean_id)prev=SAMPLES.find(function(x){return x.supplier==='Ratio Coffee'&&x.bean_id&&String(x.bean_id)===String(r.bean_id);});
@@ -8212,7 +8212,7 @@ fill="#6F4A36" stroke="none">
     document.getElementById('green-content').innerHTML='<div class="sempty">Loading\u2026</div>';
     var res=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('no',{ascending:false}).order('created_at',{ascending:false});
     SAMPLES=res.error?[]:(res.data||[]);
-    smpEdit=null;smpEditObj=null;smpDelConfirm=false;
+    smpEdit=null;smpEditObj=null;smpDelConfirm=false;smpDupConfirm=false;
     smpCuppingRoast=null;blendCupping={name:name};
     var prev=SAMPLES.find(function(x){return x.supplier==='Ratio Coffee'&&String(x.sample_id||'')===name;});
     var brd=null;(ROASTS||[]).forEach(function(r){if((r.bean_name||'')===name&&r.roast_date&&(!brd||r.roast_date>brd))brd=r.roast_date;});
@@ -8264,6 +8264,16 @@ fill="#6F4A36" stroke="none">
     }
     var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),roast_date:(p.roast_date||null),supplier:(p.supplier||'').trim()||'Ratio Coffee',sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,bean_id:(p._bean_id||null),fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:null,cupper:(window.CURRENT_USER||null)};
     if(!rec.sample_id){if(btn)btn.disabled=false;if(msg){msg.textContent='Missing coffee name (ID)';msg.className='gform-msg err';}return;}
+    /* 防呆：同豆同日已有杯測紀錄（Re-analyse 連按會生複本）→ 再按一次才存，跟 saveSample 一致 */
+    var dupKey2=(rec.sample_id||'').trim().toLowerCase();
+    var isDup2=SAMPLES.some(function(x){return x.supplier==='Ratio Coffee'&&x.cupping_date===rec.cupping_date&&(x.sample_id||'').trim().toLowerCase()===dupKey2;});
+    if(isDup2&&!smpDupConfirm){
+      smpDupConfirm=true;
+      if(btn)btn.disabled=false;
+      if(msg){msg.textContent='⚠️ "'+rec.sample_id+'" already has a cupping record today — press Submit again to save another';msg.className='gform-msg err';}
+      return;
+    }
+    smpDupConfirm=false;
     let ins=await sb.from('samples').insert(rec).select();
     if(ins.error&&rec.features!==undefined){var r2=Object.assign({},rec);delete r2.features;ins=await sb.from('samples').insert(r2).select();}
     if(ins.error&&rec.cupper!==undefined){var r3=Object.assign({},rec);delete r3.cupper;delete r3.features;ins=await sb.from('samples').insert(r3).select();}

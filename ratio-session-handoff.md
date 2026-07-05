@@ -8,7 +8,13 @@
 - **等老闆拍板**：分享平台 b/c、staff 角色開放、賣生豆/教學/wholesale
 - **已知限制**：Chrome MCP 網域白名單不含 ratio-theta.vercel.app（無法代測登入後功能）；Claude 記憶檔在 ~/.claude/.../memory/（驗證流程、工作模式都記了）
 
-## 〇、補記 — 同日晚間 Claude Code session（首次改用 Claude Code）
+## 〇、補記 — 2026-07-06 早上 session（QC 帶跑 + 補烘豆紀錄 + Re-analyse 防呆）
+- **QC 按鈕看不到的根因**：6 支 blend（Dreamer/Dancer/Dark Knight/April/May/June Project）只有杯測紀錄、roasts 表沒有批次 → `qcRoastForSample` 找不到對象，QC 列不渲染。**已補 6 筆 roast rows**（照 + Add Coffee 格式：green_kg null、不動庫存、recipe 快照自 blends 表），QC 列全部長出來了
+- **June Project 已 QC Pass + 風味鎖定**（老闆本人按的）；其餘 5 支 QC 還空著等老闆按 → 按完去 Retail Info push
+- **抓到複本 bug**：submitCupping（熟豆 Analyse/Re-analyse）每次 Submit 都 insert 新 sample、無防呆（saveSample 有、這條漏了）→ June Project 曾冒出 3 筆。已刪 2 筆孤兒複本（07-06、roast_date null），並在 submitCupping 加同豆同日警告（再按一次才存）+ openCupping/openBlendCupping 重置 smpDupConfirm。**已 commit 待 push 部署**；部署後驗法：對已有今日紀錄的豆按 Re-analyse → Submit 應先跳 ⚠ 警告不寫入
+- Chrome MCP 網域白名單**現在已含 ratio-theta.vercel.app**（本次成功代跑 app；登入仍請老闆自己按）
+
+## 〇之二、補記 — 同日晚間 Claude Code session（首次改用 Claude Code）
 - **待辦 2 完成：付款連結自動標 paid**（全在 Supabase 端，index.html 沒動）：
   - orders 加 `square_order_id` 欄（migration `add_square_order_id_to_orders`）— 付款連結背後其實有一張 Square quick_pay 訂單，這欄存它的 id
   - **sync-to-square v14**：`payment_link` 建連結時把 `link.order_id` 存進 `square_order_id`；重用舊連結時若缺這欄會自動回 Square 補查
