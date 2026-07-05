@@ -298,6 +298,22 @@
   .green-stat .lab{font-size:11px;color:var(--muted)}
   .green-stat .val{font-family:var(--font-mono);font-size:19px;font-weight:600;color:var(--ink);margin-top:3px;line-height:1.1}
   .green-stat .val small{font-size:11px;font-weight:500;color:var(--muted);margin-left:2px}
+  .gb-stock.low{color:var(--danger);font-weight:700}
+  .green-lowwarn{margin:12px 16px 0;background:var(--tint);border:1px solid var(--accent);border-radius:11px;padding:9px 12px;font-size:12.5px;line-height:1.5;color:var(--accent-ink)}
+  .gmoves{margin-top:6px}
+  .gmove{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:7px 18px;border-bottom:1px solid var(--line);font-size:12.5px}
+  .gmove .mk{color:var(--muted);min-width:0}
+  .gmove .md{font-family:var(--font-mono);white-space:nowrap}
+  .po-card{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:12px 14px;margin:8px 16px}
+  .po-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .po-name{font-weight:600;font-size:14px;min-width:0}
+  .po-name .gb-proc{font-size:11px;color:var(--muted);font-weight:500}
+  .po-badge{flex:0 0 auto;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--tint);color:var(--accent-ink)}
+  .po-badge.received{background:var(--success-tint);color:var(--success-ink)}
+  .po-badge.cancelled{background:var(--line);color:var(--muted)}
+  .po-sub{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5}
+  .po-actions{display:flex;gap:8px;margin-top:10px}
+  .po-actions .gbtn{margin:0;padding:9px;font-size:13px}
   .gsec{font-size:12px;font-weight:600;color:var(--muted);padding:14px 18px 2px;letter-spacing:.02em}
   /* level 1: country tiles */
   .gcountries{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:8px 16px 16px}
@@ -1451,7 +1467,7 @@ fill="#6F4A36" stroke="none">
     else if(act==='beans:prod'){roastedTitle='Pending';openPage('beans');beansView='production';loadRoasted();}
     else if(act==='roast:prod'){openPage('green');loadBeans('roast');}
     else if(act==='roast:hist'){roastedTitle='History';openPage('beans');beansView='production';loadRoasted();}
-    else if(act==='green:buy'){openPage('green');greenSoon='Buy';greenView='soon';renderGreen();}
+    else if(act==='green:buy'){openPage('green');loadPurchases();}
     else if(act==='green:sell'){openPage('green');greenSoon='Sell';greenView='soon';renderGreen();}
     else if(act==='green:analyse'){openPage('green');loadSamples();}
     else if(act==='green:samplehist'){openPage('green');loadSamples('history');}
@@ -5301,10 +5317,13 @@ fill="#6F4A36" stroke="none">
   }
 
   /* ---- Green module: country → bean → detail drill-down ---- */
-  let BEANS=[], ROASTS=[], greenView='home', greenCountry=null, greenBeanId=null, greenEdit=false, greenSoon='', greenDelConfirm=false, greenAddCountry=null;
-  const GFIELDS=[['name','Name','text'],['country','Country','text'],['region','Region','text'],['station','Station','text'],['process','Process','text'],['variety','Variety','text'],['harvest','Harvest','text'],['altitude','Altitude','text'],['quantity','Quantity (kg)','number'],['cost_per_kg','Cost per kg','number'],['supplier','Supplier','text']];
+  let BEANS=[], ROASTS=[], greenView='home', greenCountry=null, greenBeanId=null, greenEdit=false, greenSoon='', greenDelConfirm=false, greenAddCountry=null, greenStocktake=false;
+  const GFIELDS=[['name','Name','text'],['country','Country','text'],['region','Region','text'],['station','Station','text'],['process','Process','text'],['variety','Variety','text'],['harvest','Harvest','text'],['altitude','Altitude','text'],['quantity','Quantity (kg)','number'],['cost_per_kg','Cost per kg','number'],['low_stock_kg','Low stock alert (kg)','number'],['supplier','Supplier','text']];
   const gnum=n=>{const x=Number(n);return isNaN(x)?n:(x%1===0?x:Math.round(x*10)/10);};
   const gmoney=n=>'$'+Math.round(Number(n)||0).toLocaleString('en-US');
+  const GREEN_LOW_KG=5; /* 預設低庫存警戒線 kg；beans.low_stock_kg 可逐豆覆蓋 */
+  function beanLowTh(b){var t=Number(b.low_stock_kg);return (b.low_stock_kg!=null&&!isNaN(t))?t:GREEN_LOW_KG;}
+  function beanIsLow(b){var t=beanLowTh(b);if(t<=0)return false;/* 設 0 = 這支不警示 */return (Number(b.quantity)||0)<=t;}
 
   async function loadBeans(view){
     const box=document.getElementById('green-content');
@@ -5320,12 +5339,13 @@ fill="#6F4A36" stroke="none">
   function countryList(){const m={};BEANS.forEach(b=>{const c=b.country||'—';m[c]=(m[c]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]);}
 
   function greenBack(){
-    if(greenView==='detail'){greenView='beans';greenBeanId=null;greenEdit=false;greenDelConfirm=false;renderGreen();}
+    if(greenView==='detail'){greenView='beans';greenBeanId=null;greenEdit=false;greenDelConfirm=false;greenStocktake=false;renderGreen();}
     else if(greenView==='beans'){greenView='countries';greenCountry=null;renderGreen();}
     else if(greenView==='roast'){closePage();}
     else if(greenView==='sample'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderSample();}else if(smpCuppingRoast||blendCupping){smpCuppingRoast=null;blendCupping=null;smpPages=[blankSmp()];smpIdx=0;roastedTitle='Pending';beansView='production';openPage('beans');renderRoasted();}else{closePage();}}
     else if(greenView==='history'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderHistory();}else{closePage();}}
     else if(greenView==='add'){greenView=greenAddCountry?'beans':'countries';if(greenAddCountry)greenCountry=greenAddCountry;greenAddCountry=null;renderGreen();}
+    else if(greenView==='buy'){if(buyNew||buyRecv){buyNew=null;buyRecv=null;renderGreen();}else{closePage();}}
     else if(greenView==='countries'||greenView==='soon'){closePage();}
     else{closePage();}
   }
@@ -5338,6 +5358,7 @@ fill="#6F4A36" stroke="none">
     if(greenView==='roast'){renderRoast();}
     else if(greenView==='sample'){renderSample();}
     else if(greenView==='history'){renderHistory();}
+    else if(greenView==='buy'){renderBuy();}
     else if(greenView==='soon'){
       title.textContent=greenSoon;count.textContent='';
       box.innerHTML='<div class="sempty">"'+esc(greenSoon)+'" — coming later</div>';
@@ -5349,8 +5370,10 @@ fill="#6F4A36" stroke="none">
       const origins=new Set(BEANS.map(b=>b.country).filter(Boolean)).size;
       const tiles=[['Beans',BEANS.length,''],['Green weight',gnum(t.kg),' kg'],['Value',gmoney(t.val),''],['Origins',origins,'']];
       const summary='<div class="green-summary">'+tiles.map(function(x){return '<div class="green-stat"><div class="lab">'+x[0]+'</div><div class="val">'+esc(x[1])+(x[2]?'<small>'+x[2]+'</small>':'')+'</div></div>';}).join('')+'</div>';
+      const lows=BEANS.filter(beanIsLow);
+      const lowWarn=lows.length?'<div class="green-lowwarn">⚠ Low stock: '+lows.map(function(b){return esc(b.name)+' ('+gnum(Number(b.quantity)||0)+' kg)';}).join(', ')+'</div>':'';
       const grid='<div class="gcountries">'+countryList().map(function(e){var c=e[0],n=e[1];var ct=totals(BEANS.filter(function(b){return (b.country||'—')===c;}));return '<div class="gcard" data-c="'+esc(c)+'"><div class="gc-name">'+esc(c)+'</div><div class="gc-sub"><span class="gc-n">'+n+' beans</span><br>'+gnum(ct.kg)+' kg · '+gmoney(ct.val)+'</div></div>';}).join('')+'</div>';
-      box.innerHTML=summary+'<div class="gsec">Choose origin</div>'+grid+'<button class="gbtn" id="green-add" style="margin-top:16px">+ Add Bean</button>';
+      box.innerHTML=summary+lowWarn+'<div class="gsec">Choose origin</div>'+grid+'<button class="gbtn" id="green-add" style="margin-top:16px">+ Add Bean</button>';
       box.querySelectorAll('.gcard').forEach(function(el){el.addEventListener('click',function(){greenCountry=el.dataset.c;greenView='beans';renderGreen();box.scrollTop=0;});});
       var gAdd=document.getElementById('green-add');if(gAdd)gAdd.addEventListener('click',function(){greenAddCountry=null;greenView='add';renderGreen();box.scrollTop=0;});
     }
@@ -5360,9 +5383,9 @@ fill="#6F4A36" stroke="none">
       title.textContent=greenCountry;
       count.textContent=items.length+' beans';
       const head='<div class="gsec">'+esc(greenCountry)+' · '+gnum(t.kg)+' kg · '+gmoney(t.val)+'</div>';
-      const list='<div class="gbeans">'+items.map(function(b){var pc=(b.process||'').trim();var vr=(b.variety||'').trim();var nm=esc(b.name)+(pc?' <span class="gb-proc">'+esc(pc)+'</span>':'');var attrs=vr?'<div class="gb-attrs"><div class="gb-attr"><span class="gb-lab">Variety</span>'+esc(vr)+'</div></div>':'';return '<div class="gbean" data-id="'+esc(b.id)+'"><div class="gb-main"><div class="gb-name">'+nm+'</div>'+attrs+'</div><div class="gb-right"><span class="gb-stock">'+gnum(Number(b.quantity)||0)+' kg</span><span class="gb-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></div></div>';}).join('')+'</div>';
+      const list='<div class="gbeans">'+items.map(function(b){var pc=(b.process||'').trim();var vr=(b.variety||'').trim();var nm=esc(b.name)+(pc?' <span class="gb-proc">'+esc(pc)+'</span>':'');var attrs=vr?'<div class="gb-attrs"><div class="gb-attr"><span class="gb-lab">Variety</span>'+esc(vr)+'</div></div>':'';return '<div class="gbean" data-id="'+esc(b.id)+'"><div class="gb-main"><div class="gb-name">'+nm+'</div>'+attrs+'</div><div class="gb-right"><span class="gb-stock'+(beanIsLow(b)?' low':'')+'">'+gnum(Number(b.quantity)||0)+' kg</span><span class="gb-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></div></div>';}).join('')+'</div>';
       box.innerHTML=head+list+'<button class="gbtn" id="green-add" style="margin-top:16px">+ Add Bean</button>';
-      box.querySelectorAll('.gbean').forEach(function(el){el.addEventListener('click',function(){greenBeanId=el.dataset.id;greenView='detail';greenEdit=false;renderGreen();box.scrollTop=0;});});
+      box.querySelectorAll('.gbean').forEach(function(el){el.addEventListener('click',function(){greenBeanId=el.dataset.id;greenView='detail';greenEdit=false;greenStocktake=false;renderGreen();box.scrollTop=0;});});
       var gAdd2=document.getElementById('green-add');if(gAdd2)gAdd2.addEventListener('click',function(){greenAddCountry=greenCountry;greenView='add';renderGreen();box.scrollTop=0;});
     }
     else if(greenView==='detail'){
@@ -5371,10 +5394,22 @@ fill="#6F4A36" stroke="none">
       if(!greenEdit){
         title.textContent=b.name;count.textContent=b.country||'';
         const val=(Number(b.quantity)||0)*(Number(b.cost_per_kg)||0);
-        const rows=[['Country',b.country],['Region',b.region],['Station',b.station],['Process',b.process],['Variety',b.variety],['Harvest',b.harvest],['Altitude',b.altitude?b.altitude+' m':''],['Quantity',b.quantity!=null?gnum(b.quantity)+' kg':'',true],['Cost',b.cost_per_kg!=null?'$'+b.cost_per_kg+' /kg':'',true],['Value',val?gmoney(val):'',true],['Supplier',b.supplier]].filter(function(r){return r[1];});
+        const rows=[['Country',b.country],['Region',b.region],['Station',b.station],['Process',b.process],['Variety',b.variety],['Harvest',b.harvest],['Altitude',b.altitude?b.altitude+' m':''],['Quantity',b.quantity!=null?gnum(b.quantity)+' kg':'',true],['Cost',b.cost_per_kg!=null?'$'+b.cost_per_kg+' /kg':'',true],['Value',val?gmoney(val):'',true],['Low stock alert',b.low_stock_kg!=null?gnum(b.low_stock_kg)+' kg':'',true],['Supplier',b.supplier]].filter(function(r){return r[1];});
         const list='<div class="gd-list">'+rows.map(function(r){return '<div class="grow"><span class="gk">'+r[0]+'</span><span class="gv'+(r[2]?' mono':'')+'">'+esc(r[1])+'</span></div>';}).join('')+'</div>';
-        box.innerHTML='<div class="gdetail"><button class="gbtn ghost" id="green-edit" style="margin-top:14px">Edit</button>'+list+'</div>';
-        document.getElementById('green-edit').addEventListener('click',function(){greenEdit=true;greenDelConfirm=false;renderGreen();box.scrollTop=0;});
+        const lowNote=beanIsLow(b)?'<div class="green-lowwarn" style="margin:12px 0 0">⚠ Below the low stock line ('+gnum(beanLowTh(b))+' kg) — time to reorder</div>':'';
+        const stForm=greenStocktake
+          ?'<div class="gform" style="margin-top:12px">'
+           +'<label class="gfield"><span class="gl">Counted stock (kg) — book says '+gnum(Number(b.quantity)||0)+' kg</span><input id="gst-kg" type="text" inputmode="decimal" value="" /></label>'
+           +'<label class="gfield"><span class="gl">Note (optional)</span><input id="gst-note" type="text" value="" /></label>'
+           +'<div class="gform-msg" id="gst-msg"></div>'
+           +'<div class="gform-actions"><button class="gbtn ghost" id="gst-cancel">Cancel</button><button class="gbtn" id="gst-save">Save count</button></div></div>'
+          :'';
+        box.innerHTML='<div class="gdetail"><div class="gform-actions" style="margin-top:14px"><button class="gbtn ghost" id="green-edit">Edit</button><button class="gbtn ghost" id="green-stocktake">Stocktake</button></div>'+lowNote+stForm+list+'<div class="gmoves" id="gmoves"></div></div>';
+        document.getElementById('green-edit').addEventListener('click',function(){greenEdit=true;greenDelConfirm=false;greenStocktake=false;renderGreen();box.scrollTop=0;});
+        document.getElementById('green-stocktake').addEventListener('click',function(){greenStocktake=!greenStocktake;renderGreen();});
+        var gstC=document.getElementById('gst-cancel');if(gstC)gstC.addEventListener('click',function(){greenStocktake=false;renderGreen();});
+        var gstS=document.getElementById('gst-save');if(gstS)gstS.addEventListener('click',saveStocktake);
+        loadBeanMoves(b.id);
       }else{
         const form='<div class="gform">'+GFIELDS.map(function(f){
           var v=b[f[0]]==null?'':String(b[f[0]]);
@@ -5417,7 +5452,7 @@ fill="#6F4A36" stroke="none">
     const rec={};
     document.querySelectorAll('#green-content [data-f]').forEach(function(inp){
       const f=inp.dataset.f; let v=inp.value.trim();
-      if(f==='quantity'||f==='cost_per_kg'){rec[f]=(v===''||isNaN(parseFloat(v)))?null:parseFloat(v);}
+      if(f==='quantity'||f==='cost_per_kg'||f==='low_stock_kg'){rec[f]=(v===''||isNaN(parseFloat(v)))?null:parseFloat(v);}
       else{rec[f]=v===''?null:v;}
     });
     if(!rec.name){msg.textContent='Name cannot be empty';msg.className='gform-msg err';return;}
@@ -5439,7 +5474,7 @@ fill="#6F4A36" stroke="none">
     const upd={};
     document.querySelectorAll('#green-content [data-f]').forEach(function(inp){
       const f=inp.dataset.f; let v=inp.value.trim();
-      if(f==='quantity'||f==='cost_per_kg'){upd[f]=(v===''||isNaN(parseFloat(v)))?null:parseFloat(v);}
+      if(f==='quantity'||f==='cost_per_kg'||f==='low_stock_kg'){upd[f]=(v===''||isNaN(parseFloat(v)))?null:parseFloat(v);}
       else{upd[f]=v===''?null:v;}
     });
     if(!upd.name){msg.textContent='Name cannot be empty';msg.className='gform-msg err';return;}
@@ -5485,6 +5520,192 @@ fill="#6F4A36" stroke="none">
   async function loadRoasts(){
     const {data,error}=await sb.from('roasts').select('*').order('roast_date',{ascending:false}).order('created_at',{ascending:false});
     if(!error)ROASTS=data||[];
+  }
+  /* ---- G1 生豆帳：盤點 + 流水帳 ---- */
+  async function saveStocktake(){
+    const b=BEANS.find(function(x){return String(x.id)===String(greenBeanId);});
+    const msg=document.getElementById('gst-msg');
+    const btn=document.getElementById('gst-save');
+    if(!b||!msg||!btn)return;
+    var v=parseFloat((document.getElementById('gst-kg').value||'').trim());
+    if(isNaN(v)||v<0){msg.textContent='Enter the counted kg';msg.className='gform-msg err';return;}
+    var note=(document.getElementById('gst-note').value||'').trim();
+    var cur=Number(b.quantity)||0;
+    var delta=Math.round((v-cur)*1000)/1000;
+    btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
+    const {error}=await sb.from('beans').update({quantity:v}).eq('id',b.id);
+    if(error){btn.disabled=false;msg.textContent='Save failed: '+error.message;msg.className='gform-msg err';return;}
+    try{await sb.from('stock_moves').insert({bean_id:b.id,kind:'stocktake',delta_kg:delta,after_kg:v,note:note||null});}catch(e){}
+    b.quantity=v;
+    greenStocktake=false;
+    renderGreen();
+  }
+  async function loadBeanMoves(beanId){
+    const el=document.getElementById('gmoves');
+    if(!el)return;
+    const {data,error}=await sb.from('stock_moves').select('kind,delta_kg,after_kg,note,created_at').eq('bean_id',beanId).order('created_at',{ascending:false}).limit(8);
+    /* element may have been re-rendered away while we were fetching */
+    const el2=document.getElementById('gmoves');
+    if(!el2)return;
+    if(error||!data||!data.length){el2.innerHTML='';return;}
+    const KIND_LABELS={roast:'Roast',stocktake:'Stocktake',receive:'Received',adjust:'Adjusted'};
+    el2.innerHTML='<div class="gsec" style="padding-left:0">Stock history</div>'+data.map(function(m){
+      var d=String(m.created_at||'').slice(0,10).split('-');
+      var ds=d.length===3?(d[2]+'/'+d[1]):'';
+      var dk=Number(m.delta_kg)||0;
+      var sign=dk>0?'+':'';
+      return '<div class="gmove"><span class="mk">'+ds+' · '+(KIND_LABELS[m.kind]||esc(m.kind))+(m.note?' · '+esc(m.note):'')+'</span><span class="md">'+sign+gnum(dk)+' kg → '+(m.after_kg!=null?gnum(m.after_kg):'?')+' kg</span></div>';
+    }).join('');
+  }
+  /* ---- G1 採購鏈：杯測 Buy 清單 → 採購單 → 到貨入庫 ---- */
+  var PURCHASES=[], BUY_SHORTLIST=[], buyNew=null, buyRecv=null;
+  const PO_FIELDS=[['supplier','Supplier','text'],['name','Bean name','text'],['process','Process','text'],['country','Country','text'],['kg','Quantity (kg)','number'],['cost_per_kg','Cost per kg','number'],['note','Note','text']];
+  async function loadPurchases(){
+    const box=document.getElementById('green-content');
+    box.innerHTML='<div class="sempty">Loading…</div>';
+    greenView='buy';buyNew=null;buyRecv=null;
+    const pr=await sb.from('purchases').select('*').order('created_at',{ascending:false});
+    if(pr.error){box.innerHTML='<div class="sempty">Load failed: '+esc(pr.error.message)+'</div>';return;}
+    PURCHASES=pr.data||[];
+    if(!BEANS.length){const bd=await sb.from('beans').select('*').order('name');if(!bd.error)BEANS=bd.data||[];}
+    const sm=await sb.from('samples').select('id,sample_id,process,supplier').eq('decision','buy').order('cupping_date',{ascending:false});
+    var used={};PURCHASES.forEach(function(p){if(p.sample_ref)used[p.sample_ref]=1;});
+    BUY_SHORTLIST=(sm.data||[]).filter(function(s){return !used[s.id];});
+    renderGreen();
+  }
+  function poCard(p){
+    var badge=p.status==='received'?'<span class="po-badge received">Received</span>':(p.status==='cancelled'?'<span class="po-badge cancelled">Cancelled</span>':'<span class="po-badge">Ordered</span>');
+    var kg=Number(p.kg)||0, cost=p.cost_per_kg!=null?Number(p.cost_per_kg):null;
+    var sub=[];
+    if(p.supplier)sub.push(esc(p.supplier));
+    if(kg)sub.push(gnum(kg)+' kg'+(cost!=null?' × $'+cost+'/kg = '+gmoney(kg*cost):''));
+    if(p.ordered_at)sub.push('Ordered '+esc(String(p.ordered_at).slice(0,10)));
+    if(p.received_at)sub.push('Received '+esc(String(p.received_at).slice(0,10)));
+    if(p.note)sub.push(esc(p.note));
+    var h='<div class="po-card"><div class="po-top"><div class="po-name">'+esc(p.name)+(p.process?' <span class="gb-proc">'+esc(p.process)+'</span>':'')+'</div>'+badge+'</div>';
+    if(sub.length)h+='<div class="po-sub">'+sub.join(' · ')+'</div>';
+    if(p.status==='ordered'){
+      if(buyRecv===p.id){
+        h+='<div class="gform" style="margin-top:10px">'
+          +'<label class="gfield"><span class="gl">Received quantity (kg)</span><input id="po-recv-kg" type="text" inputmode="decimal" value="'+esc(kg?gnum(kg):'')+'" /></label>'
+          +'<div class="gform-msg" id="po-recv-msg"></div>'
+          +'<div class="gform-actions"><button class="gbtn ghost" id="po-recv-cancel">Back</button><button class="gbtn" id="po-recv-save">Add to stock</button></div></div>';
+      }else{
+        h+='<div class="po-actions"><button class="gbtn ghost" data-pocancel="'+esc(p.id)+'">Cancel order</button><button class="gbtn" data-porecv="'+esc(p.id)+'">Received</button></div>';
+      }
+    }
+    return h+'</div>';
+  }
+  function renderBuy(){
+    const box=document.getElementById('green-content');
+    const title=document.getElementById('green-title');
+    const count=document.getElementById('green-count');
+    var onOrder=PURCHASES.filter(function(p){return p.status==='ordered';});
+    var hist=PURCHASES.filter(function(p){return p.status!=='ordered';}).slice(0,10);
+    title.textContent='Purchasing';
+    count.textContent=onOrder.length?(onOrder.length+' on order'):'';
+    var h='';
+    if(buyNew){
+      h+='<div class="gsec">New purchase order</div><div class="gdetail" style="padding-top:4px"><div class="gform">'
+        +PO_FIELDS.map(function(f){
+          var v=buyNew[f[0]]==null?'':String(buyNew[f[0]]);
+          var im=f[2]==='number'?' inputmode="decimal"':'';
+          return '<label class="gfield"><span class="gl">'+f[1]+'</span><input data-pf="'+f[0]+'" type="text"'+im+' value="'+esc(v)+'" /></label>';
+        }).join('')
+        +'<div class="gform-msg" id="po-msg"></div>'
+        +'<div class="gform-actions"><button class="gbtn ghost" id="po-cancel">Cancel</button><button class="gbtn savegate" id="po-save">Save order</button></div>'
+        +'</div></div>';
+    }else{
+      if(BUY_SHORTLIST.length){
+        h+='<div class="gsec">Cupping shortlist — marked Buy</div><div class="gbeans">'+BUY_SHORTLIST.map(function(s){
+          return '<div class="gbean" data-sm="'+esc(s.id)+'"><div class="gb-main"><div class="gb-name">'+esc(s.sample_id||'—')+(s.process?' <span class="gb-proc">'+esc(s.process)+'</span>':'')+'</div>'+(s.supplier?'<div class="gb-attrs"><div class="gb-attr"><span class="gb-lab">Supplier</span>'+esc(s.supplier)+'</div></div>':'')+'</div><div class="gb-right"><span class="gb-stock">Order</span><span class="gb-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></div></div>';
+        }).join('')+'</div>';
+      }
+      h+='<div style="padding:0 16px"><button class="gbtn" id="buy-new" style="margin-top:14px">+ New purchase order</button></div>';
+    }
+    if(onOrder.length)h+='<div class="gsec">On order</div>'+onOrder.map(poCard).join('');
+    if(hist.length)h+='<div class="gsec">History</div>'+hist.map(poCard).join('');
+    if(!onOrder.length&&!hist.length&&!buyNew&&!BUY_SHORTLIST.length)h+='<div class="sempty">No purchases yet — mark a cupping sample as Buy, or add an order</div>';
+    box.innerHTML=h;
+    box.querySelectorAll('[data-sm]').forEach(function(el){el.addEventListener('click',function(){
+      var s=BUY_SHORTLIST.find(function(x){return String(x.id)===String(el.dataset.sm);});
+      if(!s)return;
+      buyNew={sample_ref:s.id,name:s.sample_id||'',process:s.process||'',supplier:s.supplier||''};
+      renderGreen();box.scrollTop=0;
+    });});
+    var bn=document.getElementById('buy-new');if(bn)bn.addEventListener('click',function(){buyNew={};renderGreen();box.scrollTop=0;});
+    var pc=document.getElementById('po-cancel');if(pc)pc.addEventListener('click',function(){buyNew=null;renderGreen();});
+    var ps=document.getElementById('po-save');if(ps)ps.addEventListener('click',savePurchase);
+    box.querySelectorAll('[data-porecv]').forEach(function(el){el.addEventListener('click',function(){buyRecv=el.dataset.porecv;renderGreen();});});
+    box.querySelectorAll('[data-pocancel]').forEach(function(el){el.addEventListener('click',function(){cancelPurchase(el.dataset.pocancel);});});
+    var prc=document.getElementById('po-recv-cancel');if(prc)prc.addEventListener('click',function(){buyRecv=null;renderGreen();});
+    var prs=document.getElementById('po-recv-save');if(prs)prs.addEventListener('click',receivePurchase);
+  }
+  async function savePurchase(){
+    const msg=document.getElementById('po-msg');
+    const btn=document.getElementById('po-save');
+    var rec={status:'ordered',sample_ref:(buyNew&&buyNew.sample_ref)||null};
+    document.querySelectorAll('#green-content [data-pf]').forEach(function(inp){
+      var f=inp.dataset.pf, v=inp.value.trim();
+      if(f==='kg'||f==='cost_per_kg'){rec[f]=(v===''||isNaN(parseFloat(v)))?null:parseFloat(v);}
+      else{rec[f]=v===''?null:v;}
+    });
+    if(!rec.name){msg.textContent='Bean name cannot be empty';msg.className='gform-msg err';return;}
+    if(!(rec.kg>0)){msg.textContent='Enter the ordered quantity in kg';msg.className='gform-msg err';return;}
+    btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
+    const {data,error}=await sb.from('purchases').insert(rec).select();
+    btn.disabled=false;
+    if(error){msg.textContent='Save failed: '+error.message;msg.className='gform-msg err';return;}
+    if(data&&data[0])PURCHASES.unshift(data[0]);
+    if(rec.sample_ref)BUY_SHORTLIST=BUY_SHORTLIST.filter(function(s){return String(s.id)!==String(rec.sample_ref);});
+    buyNew=null;
+    renderGreen();
+  }
+  async function cancelPurchase(id){
+    var p=PURCHASES.find(function(x){return String(x.id)===String(id);});
+    if(!p)return;
+    if(!confirm('Cancel this purchase order for "'+p.name+'"?'))return;
+    const {error}=await sb.from('purchases').update({status:'cancelled'}).eq('id',id);
+    if(error){alert('Cancel failed: '+error.message);return;}
+    p.status='cancelled';
+    renderGreen();
+  }
+  async function receivePurchase(){
+    const p=PURCHASES.find(function(x){return String(x.id)===String(buyRecv);});
+    const msg=document.getElementById('po-recv-msg');
+    const btn=document.getElementById('po-recv-save');
+    if(!p||!msg||!btn)return;
+    var kg=parseFloat((document.getElementById('po-recv-kg').value||'').trim());
+    if(isNaN(kg)||kg<=0){msg.textContent='Enter the received kg';msg.className='gform-msg err';return;}
+    btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
+    /* merge into the matching green-bean lot (name+process), or create a new lot */
+    var n=String(p.name||'').trim().toLowerCase(), pr=String(p.process||'').trim().toLowerCase();
+    var bean=BEANS.find(function(b){return String(b.name||'').trim().toLowerCase()===n&&String(b.process||'').trim().toLowerCase()===pr;});
+    var beanId, after;
+    if(bean){
+      var nq=(Number(bean.quantity)||0)+kg;
+      var upd={quantity:nq};
+      if(p.cost_per_kg!=null)upd.cost_per_kg=p.cost_per_kg;
+      if(p.supplier)upd.supplier=p.supplier;
+      const u=await sb.from('beans').update(upd).eq('id',bean.id);
+      if(u.error){btn.disabled=false;msg.textContent='Stock update failed: '+u.error.message;msg.className='gform-msg err';return;}
+      Object.assign(bean,upd);
+      beanId=bean.id;after=nq;
+    }else{
+      var rec={id:'bean_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8),name:p.name,process:p.process||null,country:p.country||null,quantity:kg,cost_per_kg:p.cost_per_kg,supplier:p.supplier||null};
+      const ins=await sb.from('beans').insert(rec).select();
+      if(ins.error){btn.disabled=false;msg.textContent='Could not create the bean: '+ins.error.message;msg.className='gform-msg err';return;}
+      BEANS.push((ins.data&&ins.data[0])||rec);
+      beanId=rec.id;after=kg;
+    }
+    try{await sb.from('stock_moves').insert({bean_id:beanId,kind:'receive',delta_kg:kg,after_kg:after,note:'PO received'+(p.supplier?' — '+p.supplier:'')});}catch(e){}
+    var today=new Date().toISOString().slice(0,10);
+    const pu=await sb.from('purchases').update({status:'received',received_at:today,bean_id:beanId,kg:kg}).eq('id',p.id);
+    btn.disabled=false;
+    if(pu.error){msg.textContent='Stock added, but the order status update failed: '+pu.error.message;msg.className='gform-msg err';return;}
+    p.status='received';p.received_at=today;p.bean_id=beanId;p.kg=kg;
+    buyRecv=null;
+    renderGreen();
   }
   function retailSetHTML(bk){
     if(!bk)return '';
@@ -5632,6 +5853,7 @@ fill="#6F4A36" stroke="none">
       var newQty=Math.max(0,(Number(bean&&bean.quantity)||0)-kg);
       await sb.from('beans').update({quantity:newQty}).eq('id',r.id);
       if(bean)bean.quantity=newQty;
+      try{await sb.from('stock_moves').insert({bean_id:r.id,kind:'roast',delta_kg:-kg,after_kg:newQty,note:'Roast'+(roastDate?' '+roastDate:'')});}catch(e){}
       if(ins.data&&ins.data[0])ROASTS.unshift(ins.data[0]);
       ok++;
     }
@@ -6602,12 +6824,13 @@ fill="#6F4A36" stroke="none">
     var rdc=document.getElementById('re-del-cancel');if(rdc)rdc.addEventListener('click',function(){roastDelConfirm=false;renderRoastEdit();});
     var rdy=document.getElementById('re-del-yes');if(rdy)rdy.addEventListener('click',deleteRoast);
   }
-  async function adjustStock(beanId,deltaKg){
+  async function adjustStock(beanId,deltaKg,note){
     if(!beanId||!deltaKg)return;
     const {data}=await sb.from('beans').select('quantity').eq('id',beanId).single();
     if(!data)return;
     var nq=Math.max(0,(Number(data.quantity)||0)+deltaKg);
     await sb.from('beans').update({quantity:nq}).eq('id',beanId);
+    try{await sb.from('stock_moves').insert({bean_id:beanId,kind:'adjust',delta_kg:deltaKg,after_kg:nq,note:note||null});}catch(e){}
     var lb=BEANS.find(function(x){return String(x.id)===String(beanId);});
     if(lb)lb.quantity=nq;
   }
@@ -6627,7 +6850,7 @@ fill="#6F4A36" stroke="none">
     btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
     var oldKg=Number(r.green_kg)||0;
     var delta=newKg-oldKg; // extra amount → deduct from stock
-    if(delta!==0 && r.kind!=='single' && r.kind!=='blend' && r.green_kg!=null)await adjustStock(r.bean_id, -delta);
+    if(delta!==0 && r.kind!=='single' && r.kind!=='blend' && r.green_kg!=null)await adjustStock(r.bean_id, -delta, 'Roast edit');
     var upd={green_kg:newKg};
     if(newDate)upd.roast_date=newDate;
     if(renamed)upd.bean_name=newName;
@@ -6655,7 +6878,7 @@ fill="#6F4A36" stroke="none">
   async function deleteRoast(){
     const r=ROASTS.find(function(x){return String(x.id)===String(roastEdit);});
     if(!r)return;
-    if(r.kind!=='single'&&r.kind!=='blend'&&r.green_kg!=null)await adjustStock(r.bean_id, Number(r.green_kg)||0); // add back to stock (skip added coffees)
+    if(r.kind!=='single'&&r.kind!=='blend'&&r.green_kg!=null)await adjustStock(r.bean_id, Number(r.green_kg)||0, 'Roast deleted'); // add back to stock (skip added coffees)
     const {error}=await sb.from('roasts').delete().eq('id',r.id);
     if(error){var m=document.getElementById('re-msg');if(m){m.textContent='Delete failed: '+error.message;m.className='gform-msg err';}roastDelConfirm=false;renderRoastEdit();return;}
     ROASTS=ROASTS.filter(function(x){return String(x.id)!==String(r.id);});
