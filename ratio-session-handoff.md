@@ -91,6 +91,12 @@
   - feedback 匿名寫入加長度限制（comment≤2000/name≤120/email≤200/order_ref≤100）→ 實測正常寫入 201、超長 401
   - **留給老闆的**：① Auth 後台開「Leaked password protection」（dashboard 設定，SQL 動不了）② mail-assets bucket 可被列目錄（只有卡片 PNG，低風險）③ app_state/contacts/rosters 的 always-true 政策是現行「員工共用」信任模型，未動
   - Chrome MCP 網域仍未開，Square Re-sync 實測續掛（同上一條）
+- **效能掃描 + 加固**（migrations `performance_hardening_advisors` / `profiles_merge_policies`）：
+  - profiles 政策 `auth.uid()` 包 `(select …)` 防逐列重算；own/staff 兩對政策合併成單一 or 條件（行為等價）
+  - 六張表（beans/roasts/samples/stock_moves/purchases/dialins）移除多餘的「staff read」政策——FOR ALL 寫入政策本就涵蓋 SELECT，同動作跑兩條純浪費
+  - roasts.bean_id 外鍵補索引
+  - 結果：performance advisor **WARN 全清零**（剩 4 條 INFO 是新索引未用過，正常）；匿名讀 beans/purchases/dialins/profiles 實測仍為空（沒開洞）
+  - ⚠ 老闆下次登入若一切正常（能看到自己名字/角色）= profiles 合併政策實證通過；異常立刻回報
 - **「全部」總覽分頁已上線**：ORD_TABS 加 `['all','全部']`、ordTabCount 回 ORDERS.length、renderOrders 加不篩選分支（commit 2270d97，已部署驗證）
 - **測試單 #0001 + 客戶 Dan 已刪**（orders 表清空、customers 剩 2 位真實客戶）
 - **sync-to-square 升 v13**：新增 `payment_link_delete` action（body.link_id → Square DELETE /v2/online-checkout/payment-links）；測試連結 iQjObl89 已刪、回 404
