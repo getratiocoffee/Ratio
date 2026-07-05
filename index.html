@@ -349,6 +349,13 @@
   .gs-act.hot{border-color:var(--accent);color:var(--accent)}
   .gs-wide{width:100%;margin-top:8px;border:1px solid var(--accent);background:var(--surface);color:var(--accent);font-family:inherit;font-size:12px;font-weight:600;border-radius:999px;padding:7px 0;cursor:pointer}
   .gs-foot{font-size:10.5px;color:var(--muted);text-align:center;margin:12px 0 14px}
+  /* ===== 模組 dock 格狀迷你按鈕（一站直達，Green Buyer 先用）===== */
+  .bar.module .pill.gridpill{display:grid;grid-template-columns:repeat(2,1fr);gap:2px 6px;padding:10px 12px;background:var(--surface);border:.5px solid var(--line);align-content:center}
+  .gridpill .dm-head{grid-column:1/-1;font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);text-align:center;margin-bottom:2px}
+  .dock-btn.dock-mini{border:none;background:transparent;border-radius:14px;gap:3px;width:auto;height:auto;padding:4px 2px}
+  .dock-btn.dock-mini .db-ic{width:32px;height:32px}
+  .dock-btn.dock-mini .db-ic svg{width:17px;height:17px}
+  .dock-btn.dock-mini .db-lab{font-size:9.5px;font-weight:600}
   .bat-hint{font-size:11.5px;color:var(--muted);line-height:1.5;margin:10px 18px 0}
   .bat-group{margin:6px 16px}
   .bat-name{font-weight:600;font-size:14px;margin:14px 2px 6px;color:var(--ink)}
@@ -1389,8 +1396,15 @@ fill="#6F4A36" stroke="none">
            left:{label:'Production',zh:'',icon:'factory',act:'roast:prod'},
            right:{label:'History',zh:'',icon:'history',act:'roast:hist'}},
     green:{contentTitle:'Cupping Reminder',
-           left:{label:'Trade',zh:'',icon:'trade',to:'green.trade'},
-           right:{label:'Sample',zh:'',icon:'sample',to:'green.sample'}},
+           /* 生豆站攤平：全部功能一按直達（dock 迷你格） */
+           grid:{left:{name:'Trade',items:[
+                   {label:'C Market',icon:'trade',act:'green:cmarket'},
+                   {label:'Inventory',icon:'factory',act:'green:inv'},
+                   {label:'Buy',icon:'buy',act:'green:buy'},
+                   {label:'Sell',icon:'sell',act:'green:sell'}]},
+                 right:{name:'Sample',items:[
+                   {label:'Analyse',icon:'analyse',act:'green:analyse'},
+                   {label:'History',icon:'history',act:'green:samplehist'}]}}},
     'green.trade':{left:{label:'Buy',zh:'',icon:'buy',act:'green:buy'},
                    right:{label:'Sell',zh:'',icon:'sell',act:'green:sell'}},
     'green.sample':{left:{label:'Analyse',zh:'',icon:'analyse',act:'green:analyse'},
@@ -1413,6 +1427,10 @@ fill="#6F4A36" stroke="none">
   const GRID_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1.4"/><rect x="14" y="4" width="6" height="6" rx="1.4"/><rect x="4" y="14" width="6" height="6" rx="1.4"/><rect x="14" y="14" width="6" height="6" rx="1.4"/></svg>';
   const BACK_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>';
   function dockBtnHTML(b){var main=b.label,sub=b.zh||'',cls='';if(b.dateKey){try{main=weekRangeOf(planWeeksFromToday()[b.dateKey]);sub=b.label;cls=' db-timebtn';}catch(e){main=b.label;}}return `<button class="dock-btn${cls}" ${b.to?`data-to="${b.to}"`:`data-act="${b.act}"`}><span class="db-ic">${DOCK_ICONS[b.icon]||''}</span><span class="db-lab">${main}</span>${sub?`<span class="db-zh">${sub}</span>`:''}</button>`;}
+  function dockGridHTML(side){
+    return '<span class="dm-head">'+esc(side.name||'')+'</span>'
+      +side.items.map(function(it){return '<button class="dock-btn dock-mini" data-act="'+it.act+'"><span class="db-ic">'+(DOCK_ICONS[it.icon]||'')+'</span><span class="db-lab">'+esc(it.label)+'</span></button>';}).join('');
+  }
   /* transition the dock to a given stack ([] = the app grid). Pill sizes are measured once
      (apps→module) and stay locked to the dashboard size through every nested level. */
   function dockTo(stack){
@@ -1428,6 +1446,7 @@ fill="#6F4A36" stroke="none">
       const bar=document.querySelector('.bar'),sw=document.getElementById('swap');
       if(willApps){
         bar.classList.remove('module');
+        lp.classList.remove('gridpill');rp.classList.remove('gridpill');
         lp.style.width='';lp.style.height='';rp.style.width='';rp.style.height='';
         if(_savedDock){lp.innerHTML=_savedDock.l;rp.innerHTML=_savedDock.r;}
         sw.classList.remove('back');sw.innerHTML=I.swap;
@@ -1438,9 +1457,13 @@ fill="#6F4A36" stroke="none">
         const node=DOCK_NODES[dockStack[dockStack.length-1]];
         const root=DOCK_NODES[dockStack[0]];
         bar.classList.add('module');
+        lp.classList.toggle('gridpill',!!node.grid);rp.classList.toggle('gridpill',!!node.grid);
         if(node.soon){
           lp.innerHTML='<div class="dock-soon">Coming soon</div>';
           rp.innerHTML='<div class="dock-soon">Coming soon</div>';
+        }else if(node.grid){
+          lp.innerHTML=dockGridHTML(node.grid.left);
+          rp.innerHTML=dockGridHTML(node.grid.right);
         }else{
           lp.innerHTML=(node.left&&node.left.soon)?'<div class="dock-soon">Coming soon</div>':dockBtnHTML(node.left);
           rp.innerHTML=(node.right&&node.right.soon)?'<div class="dock-soon">Coming soon</div>':dockBtnHTML(node.right);
@@ -1669,6 +1692,8 @@ fill="#6F4A36" stroke="none">
     else if(act==='beans:prod'){roastedTitle='QC';openPage('beans');beansView='production';loadRoasted();}
     else if(act==='roast:prod'){openPage('green');loadBeans('roast');}
     else if(act==='roast:hist'){roastedTitle='History';openPage('beans');beansView='production';loadRoasted();}
+    else if(act==='green:cmarket'){if(typeof closePage==='function')closePage();renderCMarket();}
+    else if(act==='green:inv'){openPage('green');loadBeans('countries');}
     else if(act==='green:buy'){openPage('green');loadPurchases();}
     else if(act==='green:sell'){openPage('green');greenSoon='Sell';greenView='soon';renderGreen();}
     else if(act==='green:analyse'){openPage('green');loadSamples();}
