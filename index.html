@@ -4517,25 +4517,133 @@ fill="#6F4A36" stroke="none">
     }).join('')+'</div>';
   }
 
+  /* ---- Orders 2.0: role tabs ---- */
+  var ordTab='accept';
+  var ORD_TABS=[['accept','\u63a5\u55ae'],['roast','\u70d8\u8c46'],['pack','\u5099\u8ca8'],['ship','\u51fa\u8ca8'],['pay','\u6536\u6b3e'],['history','\u6b77\u53f2']];
+  function ordTabCount(t){
+    var n=0;
+    ORDERS.forEach(function(o){
+      var s=o.status||'New';
+      if(t==='accept'&&s==='New')n++;
+      else if((t==='roast'||t==='pack')&&(s==='Confirmed'||s==='Roasting'))n++;
+      else if(t==='ship'&&s==='Ready')n++;
+      else if(t==='pay'&&s!=='Cancelled'&&(o.payment_status==='pending_payment'||o.payment_status==='overdue'))n++;
+      else if(t==='history'&&(s==='Dispatched'||s==='Cancelled'))n++;
+    });
+    return n;
+  }
   function renderOrders(){
     var box=document.getElementById('order-content');
     var title=document.getElementById('order-title');
     var count=document.getElementById('order-count');
     if(title)title.textContent='Orders';
-    var list=ORDERS.filter(ordFilterPass);
-    if(count)count.textContent=list.length?list.length+(list.length>1?' orders':' order'):'';
-    var html='';
-    html+=ordChipRow('status',[['all','All'],['New','New'],['Confirmed','Confirmed'],['Roasting','Roasting'],['Ready','Ready'],['Dispatched','Dispatched']]);
-    html+=ordChipRow('channel',[['all','All channels'],['manual','Manual'],['square','Square'],['instagram','Instagram'],['subscription','Subscription']]);
-    html+=ordChipRow('type',[['all','All customers'],['shop','Shop'],['home','Home'],['event','Event'],['overseas','Overseas']]);
-    html+=ordChipRow('pay',[['all','All payments'],['awaiting','Awaiting'],['overdue','Overdue'],['paid','Paid']]);
-    if(!list.length){html+='<div class="sempty">No orders match these filters.</div>';}
-    else{list.forEach(function(o){html+=ordCard(o);});}
+    var html='<div class="ts-filter">'+ORD_TABS.map(function(t){
+      var n=ordTabCount(t[0]);
+      return '<button class="tf-chip'+(ordTab===t[0]?' on':'')+'" data-ordtab="'+t[0]+'">'+t[1]+(n?' '+n:'')+'</button>';
+    }).join('')+'</div>';
+    var list=[];
+    if(ordTab==='accept'){
+      list=ORDERS.filter(function(o){return (o.status||'New')==='New';});
+      if(count)count.textContent=list.length?list.length+' new':'';
+      if(!list.length)html+='<div class="sempty">\u6c92\u6709\u5f85\u63a5\u8a02\u55ae\u3002</div>';
+      else list.forEach(function(o){html+=ordAcceptCard(o);});
+    }else if(ordTab==='roast'||ordTab==='pack'){
+      if(count)count.textContent='';
+      html+='<div class="sempty">\u958b\u767c\u4e2d \u2014 \u4e0b\u4e00\u6279\u4ea4\u4ed8</div>';
+    }else if(ordTab==='ship'){
+      list=ORDERS.filter(function(o){return (o.status||'New')==='Ready';});
+      if(count)count.textContent=list.length?list.length+' ready':'';
+      if(!list.length)html+='<div class="sempty">\u6c92\u6709\u53ef\u51fa\u8ca8\u8a02\u55ae\u3002</div>';
+      else list.forEach(function(o){html+=ordCard(o);});
+    }else if(ordTab==='pay'){
+      html+=ordChipRow('pay',[['all','All'],['awaiting','Awaiting'],['overdue','Overdue'],['paid','Paid']]);
+      list=ORDERS.filter(function(o){
+        if((o.status||'New')==='Cancelled')return false;
+        if(ordFilters.pay==='paid')return o.payment_status==='paid';
+        if(ordFilters.pay==='awaiting')return o.payment_status==='pending_payment';
+        if(ordFilters.pay==='overdue')return o.payment_status==='overdue';
+        return o.payment_status!=='paid';
+      });
+      if(count)count.textContent=list.length?String(list.length):'';
+      if(!list.length)html+='<div class="sempty">\u6c92\u6709\u7b26\u5408\u7684\u8a02\u55ae\u3002</div>';
+      else list.forEach(function(o){html+=ordCard(o);});
+    }else{ /* history */
+      list=ORDERS.filter(function(o){var s=o.status||'New';return s==='Dispatched'||s==='Cancelled';});
+      if(count)count.textContent=list.length?String(list.length):'';
+      if(!list.length)html+='<div class="sempty">\u9084\u6c92\u6709\u6b77\u53f2\u8a02\u55ae\u3002</div>';
+      else list.forEach(function(o){html+=ordCard(o);});
+    }
     box.innerHTML=html;
+    box.querySelectorAll('[data-ordtab]').forEach(function(b){
+      b.addEventListener('click',function(){ordTab=b.dataset.ordtab;renderOrders();});
+    });
     box.querySelectorAll('[data-ordfilter]').forEach(function(b){
       b.addEventListener('click',function(){ordFilters[b.dataset.ordfilter]=b.dataset.ordval;renderOrders();});
     });
+    box.querySelectorAll('[data-ordaccept]').forEach(function(b){
+      b.addEventListener('click',function(e){e.stopPropagation();ordAccept(b.dataset.ordaccept,b);});
+    });
+    box.querySelectorAll('[data-orddecline]').forEach(function(b){
+      b.addEventListener('click',function(e){e.stopPropagation();ordDecline(b.dataset.orddecline,b);});
+    });
     ordBindCards(box);
+  }
+  /* accept-tab card: summary + Accept / Decline */
+  function ordAcceptCard(o){
+    var cust=ordCustById(o.customer_id);
+    var no=o.order_no!=null?('#'+o.order_no):'#\u2014';
+    var itemsArr=Array.isArray(o.items)?o.items:[];
+    var sumLine=itemsArr.map(function(it){return (it.grams?it.grams+'g ':'')+esc(it.name||'')+(it.qty>1?(' \u00d7'+it.qty):'');}).join(', ');
+    var pay=(o.payment_method==='bank_transfer')?'Bank transfer':'Platform';
+    var noEmail=!(cust&&cust.email);
+    var h='<div class="ord-card" data-ordid="'+esc(o.id)+'">';
+    h+='<div class="ord-head"><div>';
+    h+='<div class="ord-no">'+no+'</div>';
+    h+='<div class="ord-sub">'+(cust?esc(cust.name||'\u2014'):'Walk-in')+' \u00b7 '+esc(pay)+' \u00b7 '+ordMoney(o.total)+'</div>';
+    if(sumLine)h+='<div class="ord-sum">'+sumLine+'</div>';
+    if(noEmail)h+='<div class="ord-sum" style="color:var(--accent)">\u26a0 \u5ba2\u6236\u7121 email \u2014 \u78ba\u8a8d\u4fe1\u5bc4\u4e0d\u51fa\u53bb</div>';
+    h+='</div></div>';
+    h+='<div class="ord-actrow left"><button class="gbtn" data-ordaccept="'+esc(o.id)+'">Accept \u63a5\u55ae</button>';
+    h+='<button class="gbtn ghost" data-orddecline="'+esc(o.id)+'">Decline</button></div>';
+    h+='</div>';
+    return h;
+  }
+  /* Accept: payment link -> Confirmed -> confirmation email (with pay button) */
+  async function ordAccept(id,btn){
+    var o=ORDERS.filter(function(x){return x.id===id;})[0];if(!o)return;
+    btn.disabled=true;btn.textContent='Accepting\u2026';
+    try{
+      if(!o.payment_link&&o.payment_status!=='paid'&&Number(o.total)>0){
+        try{
+          var lk=await callSquareFn({action:'payment_link',order_id:id});
+          if(lk&&lk.url)o.payment_link=lk.url;
+        }catch(e){console.error('[Ratio] payment link:',e&&e.message||e);}
+      }
+      o.status='Confirmed';
+      var r=await sb.from('orders').update({status:'Confirmed'}).eq('id',id);
+      if(r&&r.error)throw new Error(r.error.message);
+      try{await checkOrderStock(id,true);}catch(e){}
+      try{
+        await callEmailFn({action:'order_confirmation',order_id:id});
+        o.confirm_email_at=new Date().toISOString();
+      }catch(e){alert('\u5df2\u63a5\u55ae\uff0c\u4f46\u78ba\u8a8d\u4fe1\u5bc4\u9001\u5931\u6557: '+(e&&e.message||e));}
+    }catch(e){alert('Accept failed: '+(e&&e.message||e));btn.disabled=false;btn.textContent='Accept \u63a5\u55ae';return;}
+    renderOrders();
+  }
+  /* Decline: Cancelled + cancellation email */
+  async function ordDecline(id,btn){
+    var o=ORDERS.filter(function(x){return x.id===id;})[0];if(!o)return;
+    var no=o.order_no!=null?('#'+String(o.order_no).padStart(4,'0')):'';
+    if(!confirm('\u62d2\u55ae '+no+' \u4e26\u5bc4\u53d6\u6d88\u901a\u77e5\u7d66\u5ba2\u6236\uff1f'))return;
+    btn.disabled=true;btn.textContent='Declining\u2026';
+    try{
+      o.status='Cancelled';
+      var r=await sb.from('orders').update({status:'Cancelled'}).eq('id',id);
+      if(r&&r.error)throw new Error(r.error.message);
+      try{await callEmailFn({action:'order_cancelled',order_id:id});}
+      catch(e){alert('\u5df2\u53d6\u6d88\uff0c\u4f46\u901a\u77e5\u4fe1\u5bc4\u9001\u5931\u6557: '+(e&&e.message||e));}
+    }catch(e){alert('Decline failed: '+(e&&e.message||e));btn.disabled=false;btn.textContent='Decline';return;}
+    renderOrders();
   }
 
   function ordCard(o){
@@ -4680,6 +4788,7 @@ fill="#6F4A36" stroke="none">
     wrap.id='ord-dispatch';wrap.className='ord-modal';
     wrap.innerHTML='<div class="ord-modal-card">'
       +'<div class="ord-modal-t">Dispatch order '+esc(no)+'</div>'
+      +(o.payment_status!=='paid'?'<div class="ord-modal-msg err">\u26a0 \u6b64\u55ae\u5c1a\u672a\u6536\u6b3e</div>':'')
       +'<label class="ord-modal-l">Tracking number (optional)</label>'
       +'<input class="ord-modal-in" id="ord-track" placeholder="e.g. AusPost tracking" value="'+esc(o.tracking_no||'')+'">'
       +'<div class="ord-modal-msg" id="ord-dmsg"></div>'
