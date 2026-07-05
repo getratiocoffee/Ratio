@@ -880,6 +880,27 @@
   .ord-srow.short .ord-skg{color:var(--danger);font-weight:700}
   .ord-srow.warn{color:#B08A4F;font-size:12px}
   .ord-trnote{font-size:12.5px;color:var(--ink);background:var(--tint);border:1px solid var(--accent);border-radius:10px;padding:8px 10px;line-height:1.45}
+  /* ---- Phase 3: dispatch modal ---- */
+  .ord-modal{position:fixed;inset:0;background:rgba(50,43,42,.42);z-index:80;display:flex;align-items:center;justify-content:center;padding:24px}
+  .ord-modal-card{background:var(--surface);border-radius:18px;padding:20px 18px;width:100%;max-width:360px;display:flex;flex-direction:column;gap:10px;box-shadow:0 18px 44px rgba(50,43,42,.28)}
+  .ord-modal-t{font-family:var(--font-display,inherit);font-size:18px;font-weight:700;color:var(--ink);margin-bottom:2px}
+  .ord-modal-l{font-size:12px;font-weight:600;color:var(--muted)}
+  .ord-modal-in{border:1px solid var(--line);border-radius:11px;padding:11px 12px;font-size:14px;color:var(--ink);background:var(--bg);outline:none;font-family:var(--font-mono);width:100%}
+  .ord-modal-in:focus{border-color:var(--accent)}
+  .ord-modal-msg{font-size:12px;color:var(--muted);min-height:14px}
+  .ord-modal-msg.err{color:var(--accent)}
+  /* ---- Phase 3: retail brew guide ---- */
+  .rtl-brew{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+  .rtl-brew summary{list-style:none;display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--accent);cursor:pointer}
+  .rtl-brew summary::-webkit-details-marker{display:none}
+  .rtl-brew[open] summary .rtl-chev{transform:rotate(180deg)}
+  .rtl-brew-body{display:flex;flex-direction:column;gap:8px;padding-top:10px}
+  .rtl-brew-row{display:grid;grid-template-columns:88px 1fr;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--muted)}
+  .rtl-brew-in{border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px;color:var(--ink);background:var(--bg);outline:none;font-family:inherit;width:100%;resize:none}
+  .rtl-brew-in:focus{border-color:var(--accent)}
+  .rtl-brew-act{display:flex;align-items:center;justify-content:flex-end;gap:10px}
+  .rtl-brew-msg{font-size:12px;color:var(--muted)}
+  .rtl-brew-note{font-size:11px;color:var(--muted);line-height:1.45}
   .ord-itemrow{display:grid;grid-template-columns:minmax(0,1fr) 62px 44px 68px 28px;gap:6px;align-items:center}
   .ord-itemrow input{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 9px;font-size:13px;color:var(--ink);outline:none;font-family:inherit;min-width:0}
   .ord-itemrow input:focus{border-color:var(--accent)}
@@ -4566,6 +4587,16 @@ fill="#6F4A36" stroke="none">
       b+='<div class="ord-actrow left"><button class="gbtn" data-ordpaid="'+esc(o.id)+'">Mark as received</button>';
       b+='<button class="gbtn ghost" data-ordremind="'+esc(o.id)+'">Send reminder</button></div>';
     }
+    /* Phase 3: dispatch email + tracking */
+    if(o.status==='Dispatched'){
+      b+='<div class="ord-line"><span class="ol-l">Dispatch</span><span>'
+        +(o.tracking_no?('Tracking: '+esc(o.tracking_no)+'<br>'):'')
+        +(o.dispatch_email_at?('Email sent \u2713 '+esc(fmtDate((o.dispatch_email_at||'').slice(0,10)))):'Email not sent')
+        +'</span></div>';
+    }
+    b+='<div class="ord-actrow left"><button class="gbtn ghost" data-ordresend="'+esc(o.id)+'">'
+      +(o.status==='Dispatched'?(o.dispatch_email_at?'Resend dispatch email':'Send dispatch email'):'Resend confirmation email')
+      +'</button></div>';
     /* stock check */
     b+='<div class="ord-actrow left"><button class="gbtn ghost" data-ordstock="'+esc(o.id)+'">Check stock</button></div>';
     if(ordStockCache[o.id])b+=ordStockHTML(ordStockCache[o.id]);
@@ -4607,6 +4638,9 @@ fill="#6F4A36" stroke="none">
         setTimeout(function(){el.disabled=false;el.textContent='Send reminder';},2500);
       });
     });
+    box.querySelectorAll('[data-ordresend]').forEach(function(el){
+      el.addEventListener('click',function(e){e.stopPropagation();ordResendEmail(el.dataset.ordresend,el);});
+    });
     box.querySelectorAll('[data-ordstock]').forEach(function(el){
       el.addEventListener('click',function(e){e.stopPropagation();checkOrderStock(el.dataset.ordstock);});
     });
@@ -4618,12 +4652,70 @@ fill="#6F4A36" stroke="none">
   /* ---- status / payment ---- */
   async function setOrderStatus(id,s){
     var o=ORDERS.filter(function(x){return x.id===id;})[0];if(!o)return;
+    if(s==='Dispatched'&&(o.status||'New')!=='Dispatched'){ordDispatchAsk(id);return;}
     o.status=s;
     var patch={status:s};
     if(s==='Dispatched')patch.dispatched_at=new Date().toISOString();
     try{await sb.from('orders').update(patch).eq('id',id);}catch(e){}
     if(s==='Confirmed'){await checkOrderStock(id,true);}
     renderOrders();
+  }
+  /* ---- Phase 3: dispatch modal (tracking no + dispatch email) ---- */
+  function ordCloseDispatch(){var m=document.getElementById('ord-dispatch');if(m)m.remove();}
+  function ordDispatchAsk(id){
+    var o=ORDERS.filter(function(x){return x.id===id;})[0];if(!o)return;
+    ordCloseDispatch();
+    var no=o.order_no!=null?('#'+String(o.order_no).padStart(4,'0')):'';
+    var wrap=document.createElement('div');
+    wrap.id='ord-dispatch';wrap.className='ord-modal';
+    wrap.innerHTML='<div class="ord-modal-card">'
+      +'<div class="ord-modal-t">Dispatch order '+esc(no)+'</div>'
+      +'<label class="ord-modal-l">Tracking number (optional)</label>'
+      +'<input class="ord-modal-in" id="ord-track" placeholder="e.g. AusPost tracking" value="'+esc(o.tracking_no||'')+'">'
+      +'<div class="ord-modal-msg" id="ord-dmsg"></div>'
+      +'<button class="gbtn" id="ord-d-send">Dispatch &amp; send email</button>'
+      +'<button class="gbtn ghost" id="ord-d-silent">Dispatch without email</button>'
+      +'<button class="gbtn ghost" id="ord-d-cancel">Cancel</button>'
+      +'</div>';
+    document.body.appendChild(wrap);
+    wrap.addEventListener('click',function(e){if(e.target===wrap){ordCloseDispatch();renderOrders();}});
+    document.getElementById('ord-d-cancel').addEventListener('click',function(){ordCloseDispatch();renderOrders();});
+    async function doDispatch(sendMail){
+      var track=(document.getElementById('ord-track').value||'').trim();
+      var msg=document.getElementById('ord-dmsg');
+      var b1=document.getElementById('ord-d-send'),b2=document.getElementById('ord-d-silent');
+      b1.disabled=true;b2.disabled=true;msg.textContent=sendMail?'Dispatching \u2014 sending email\u2026':'Dispatching\u2026';msg.className='ord-modal-msg';
+      var patch={status:'Dispatched',dispatched_at:new Date().toISOString(),tracking_no:track||null};
+      try{var r=await sb.from('orders').update(patch).eq('id',id);if(r&&r.error)throw new Error(r.error.message);}
+      catch(e){msg.textContent='Save failed: '+(e&&e.message||e);msg.className='ord-modal-msg err';b1.disabled=false;b2.disabled=false;return;}
+      o.status='Dispatched';o.dispatched_at=patch.dispatched_at;o.tracking_no=patch.tracking_no;
+      if(sendMail){
+        try{
+          await callEmailFn({action:'dispatch_notice',order_id:id});
+          o.dispatch_email_at=new Date().toISOString();
+        }catch(e){
+          msg.textContent='Dispatched, but email failed: '+(e&&e.message||e)+' \u2014 use "Send dispatch email" on the card to retry.';
+          msg.className='ord-modal-msg err';
+          b1.style.display='none';b2.style.display='none';
+          var cb=document.getElementById('ord-d-cancel');if(cb)cb.textContent='Close';
+          return;
+        }
+      }
+      ordCloseDispatch();renderOrders();
+    }
+    document.getElementById('ord-d-send').addEventListener('click',function(){doDispatch(true);});
+    document.getElementById('ord-d-silent').addEventListener('click',function(){doDispatch(false);});
+  }
+  async function ordResendEmail(id,btn){
+    var o=ORDERS.filter(function(x){return x.id===id;})[0];if(!o)return;
+    var action=(o.status==='Dispatched')?'dispatch_notice':'order_confirmation';
+    btn.disabled=true;btn.textContent='Sending\u2026';
+    try{
+      await callEmailFn({action:action,order_id:id});
+      if(action==='dispatch_notice')o.dispatch_email_at=new Date().toISOString();
+      btn.textContent='Sent \u2713';
+    }catch(e){btn.textContent='Failed';alert('Email failed: '+(e&&e.message||e));}
+    setTimeout(function(){renderOrders();},1600);
   }
   async function markOrderPaid(id){
     var o=ORDERS.filter(function(x){return x.id===id;})[0];if(!o)return;
@@ -5383,6 +5475,7 @@ fill="#6F4A36" stroke="none">
     if(title)title.textContent='Retail Info';
     if(!RTL_ROWS.length){document.getElementById('beans-count').textContent='';box.innerHTML='<div class="sempty">Loading…</div>';}
     if(!ROASTS.length){try{await loadRoasts();}catch(e){}}
+    try{await ensureBeansForInvoice();}catch(e){}
     var res=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false});
     if(res.error){box.innerHTML='<div class="sempty">Load failed: '+esc(res.error.message)+'</div>';return;}
     var rows=res.data||[];
@@ -5423,6 +5516,7 @@ fill="#6F4A36" stroke="none">
     box.querySelectorAll('.rtl-del-cancel').forEach(function(b){b.addEventListener('click',function(){rtlDelConfirm=null;paintRetail();});});
     box.querySelectorAll('.rtl-del-yes').forEach(function(b){b.addEventListener('click',function(){retailDelete(b.dataset.id,b.dataset.sid);});});
     box.querySelectorAll('[data-sqpush]').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();pushToSquare(b.dataset.sqpush,b.dataset.sqsid);});});
+    box.querySelectorAll('[data-brewsave]').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();rtlSaveBrew(b.dataset.brewsave,b);});});
   }
   async function retailDelete(id,sid){
     try{
@@ -5660,6 +5754,62 @@ fill="#6F4A36" stroke="none">
   function saveGrams(m){try{localStorage.setItem('ratio_rtl_g',JSON.stringify(m));}catch(e){}appStatePush('ratio_rtl_g');}
   function loadSold(){try{return JSON.parse(localStorage.getItem('ratio_rtl_sold')||'{}');}catch(e){return {};}}
   function saveSold(m){try{localStorage.setItem('ratio_rtl_sold',JSON.stringify(m));}catch(e){}appStatePush('ratio_rtl_sold');}
+  /* ---- Phase 3: brew guide (singles -> beans columns, blends -> blend def brew) ---- */
+  var RTL_BREW_FIELDS=[['method','Method','V60, Espresso\u2026'],['temp','Temp','92\u00b0C'],['ratio','Ratio','1:15'],['grind','Grind','Medium-fine'],['flavour','Flavour notes','One-line description for emails']];
+  function rtlBrewBeanRow(s){
+    if(!s)return null;
+    if(s.bean_id){var b=beanById(s.bean_id);if(b)return b;}
+    return beanByNameProcess(s.sample_id||'',s.process||'');
+  }
+  function rtlBrewGet(s,blendDef){
+    if(blendDef)return (blendDef.brew&&typeof blendDef.brew==='object')?blendDef.brew:{};
+    var b=rtlBrewBeanRow(s);
+    if(!b)return null; /* no bean row -> can't store */
+    return {method:b.brew_method||'',temp:b.brew_temp||'',ratio:b.brew_ratio||'',grind:b.grind_size||'',flavour:b.flavour_desc||''};
+  }
+  function rtlBrewHTML(s,blendDef,delKey){
+    var brew=rtlBrewGet(s,blendDef);
+    if(brew==null)return ''; /* single with no matching beans row */
+    var filled=RTL_BREW_FIELDS.some(function(f){return String(brew[f[0]]||'').trim()!=='';});
+    var rows=RTL_BREW_FIELDS.map(function(f){
+      var tag=f[0]==='flavour'
+        ?('<textarea class="rtl-brew-in" rows="2" data-bf="'+f[0]+'" placeholder="'+esc(f[2])+'">'+esc(brew[f[0]]||'')+'</textarea>')
+        :('<input class="rtl-brew-in" data-bf="'+f[0]+'" placeholder="'+esc(f[2])+'" value="'+esc(brew[f[0]]||'')+'">');
+      return '<label class="rtl-brew-row"><span>'+f[1]+'</span>'+tag+'</label>';
+    }).join('');
+    return '<details class="rtl-brew"'+(filled?'':'')+' data-brewkey="'+esc(delKey)+'">'
+      +'<summary><svg class="rtl-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg><span>Brew guide'+(filled?'':' \u00b7 not set')+'</span></summary>'
+      +'<div class="rtl-brew-body">'+rows
+      +'<div class="rtl-brew-act"><span class="rtl-brew-msg" data-brewmsg="'+esc(delKey)+'"></span><button class="gbtn" data-brewsave="'+esc(delKey)+'">Save</button></div>'
+      +'<div class="rtl-brew-note">Shown in the dispatch email sent to customers.</div>'
+      +'</div></details>';
+  }
+  async function rtlSaveBrew(delKey,btn){
+    var card=btn.closest('.rtl-brew');if(!card)return;
+    var vals={};card.querySelectorAll('[data-bf]').forEach(function(inp){vals[inp.dataset.bf]=(inp.value||'').trim();});
+    var msg=card.querySelector('[data-brewmsg]');
+    var s=RTL_ROWS.filter(function(x){var k=(x.sample_id||'')||('id:'+String(x.id||''));return k===delKey;})[0];
+    if(!s){if(msg)msg.textContent='Not found';return;}
+    btn.disabled=true;if(msg)msg.textContent='Saving\u2026';
+    try{
+      var blendDef=blendDefByName(s.sample_id||'');
+      if(blendDef){
+        var defs=loadBlendDefs();
+        defs.forEach(function(b){if(String(b.id)===String(blendDef.id))b.brew=vals;});
+        saveBlendDefs(defs);
+      }else{
+        var b=rtlBrewBeanRow(s);
+        if(!b)throw new Error('No matching green bean');
+        var patch={brew_method:vals.method||null,brew_temp:vals.temp||null,brew_ratio:vals.ratio||null,grind_size:vals.grind||null,flavour_desc:vals.flavour||null};
+        var r=await sb.from('beans').update(patch).eq('id',b.id);
+        if(r&&r.error)throw new Error(r.error.message);
+        Object.assign(b,patch);
+      }
+      if(msg)msg.textContent='\u2713 Saved';
+    }catch(e){if(msg)msg.textContent='Failed: '+(e&&e.message||e);}
+    btn.disabled=false;
+    setTimeout(function(){if(msg)msg.textContent='';},2200);
+  }
   function retailCard(s,roastDate,color){
     var FEAT={fragrance:'Fragrance',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
     var id=esc(s.sample_id||s.supplier||'—');
@@ -5735,6 +5885,7 @@ fill="#6F4A36" stroke="none">
       +recipeHtml
       +'<div class="rtl-flav-h">Flavour</div>'+flav
       +scHtml
+      +rtlBrewHTML(s,blendDef,delKey)
       +soldHtml
       +sqHtml
       +'</div>'):'';
@@ -5783,7 +5934,7 @@ fill="#6F4A36" stroke="none">
     var now=new Date().toISOString();
     var rows=defs.map(function(b,i){
       if(!b.id)b.id=blendUid();
-      return {id:b.id,name:b.name||'',hname:b.hname||null,parts:Array.isArray(b.parts)?b.parts:[],note:b.note||null,comment:b.comment||null,pos:i,updated_at:now};
+      return {id:b.id,name:b.name||'',hname:b.hname||null,parts:Array.isArray(b.parts)?b.parts:[],note:b.note||null,comment:b.comment||null,brew:(b.brew&&typeof b.brew==='object')?b.brew:null,pos:i,updated_at:now};
     }).filter(function(r){return !!r.id;});
     try{
       if(rows.length){
@@ -5817,10 +5968,10 @@ fill="#6F4A36" stroke="none">
       }
       var known={};rows.forEach(function(x){known[x.id]=1;});_blendsKnownIds=known;
       if(_blendsDirty)return; /* local edits in flight — don't clobber, push wins */
-      var defs=rows.map(function(x){return {id:x.id,name:x.name||'',hname:x.hname||'',parts:Array.isArray(x.parts)?x.parts:[],note:x.note||'',comment:x.comment||''};});
+      var defs=rows.map(function(x){return {id:x.id,name:x.name||'',hname:x.hname||'',parts:Array.isArray(x.parts)?x.parts:[],note:x.note||'',comment:x.comment||'',brew:(x.brew&&typeof x.brew==='object')?x.brew:{}};});
       defs.forEach(function(b,i){b.pos=i;});
       /* canonical compare (jsonb reorders keys, so raw JSON strings never match) */
-      var canon=function(a){return JSON.stringify((a||[]).map(function(b){return [b.id,b.name||'',b.hname||'',b.note||'',b.comment||'',(b.parts||[]).map(function(p){return [p.bean||'',p.process||'',String(p.pct==null?'':p.pct)];})];}));};
+      var canon=function(a){return JSON.stringify((a||[]).map(function(b){var w=(b.brew&&typeof b.brew==='object')?b.brew:{};return [b.id,b.name||'',b.hname||'',b.note||'',b.comment||'',w.method||'',w.temp||'',w.ratio||'',w.grind||'',w.flavour||'',(b.parts||[]).map(function(p){return [p.bean||'',p.process||'',String(p.pct==null?'':p.pct)];})];}));};
       var cur=null;try{cur=JSON.parse(localStorage.getItem('ratio_blends')||'null');}catch(e){}
       if(Array.isArray(cur)&&canon(cur)===canon(defs))return; /* echo of our own push — skip rewrite + re-render */
       try{localStorage.setItem('ratio_blends',JSON.stringify(defs));}catch(e){}
