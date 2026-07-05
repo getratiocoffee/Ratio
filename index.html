@@ -304,6 +304,12 @@
   .gmove{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:7px 18px;border-bottom:1px solid var(--line);font-size:12.5px}
   .gmove .mk{color:var(--muted);min-width:0}
   .gmove .md{font-family:var(--font-mono);white-space:nowrap}
+  .stk-row{display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--line)}
+  .stk-l{flex:1;min-width:0}
+  .stk-n{font-size:13.5px;font-weight:600}
+  .stk-b{font-size:11px;color:var(--muted);margin-top:1px}
+  .stk-in{width:88px;flex:0 0 auto;text-align:center;border:1px solid var(--line);border-radius:11px;padding:9px 8px;font-size:15px;font-weight:600;color:var(--ink);background:var(--surface);outline:none;font-family:var(--font-mono)}
+  .stk-in:focus{border-color:var(--accent)}
   .po-card{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:12px 14px;margin:8px 16px}
   .po-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
   .po-name{font-weight:600;font-size:14px;min-width:0}
@@ -5710,7 +5716,7 @@ fill="#6F4A36" stroke="none">
   }
 
   /* ---- Green module: country → bean → detail drill-down ---- */
-  let BEANS=[], ROASTS=[], greenView='home', greenCountry=null, greenBeanId=null, greenEdit=false, greenSoon='', greenDelConfirm=false, greenAddCountry=null, greenStocktake=false;
+  let BEANS=[], ROASTS=[], greenView='home', greenCountry=null, greenBeanId=null, greenEdit=false, greenSoon='', greenDelConfirm=false, greenAddCountry=null, greenStocktake=false, stkDraft=null;
   const GFIELDS=[['name','Name','text'],['country','Country','text'],['region','Region','text'],['station','Station','text'],['process','Process','text'],['variety','Variety','text'],['harvest','Harvest','text'],['altitude','Altitude','text'],['quantity','Quantity (kg)','number'],['cost_per_kg','Cost per kg','number'],['low_stock_kg','Low stock alert (kg)','number'],['supplier','Supplier','text']];
   const gnum=n=>{const x=Number(n);return isNaN(x)?n:(x%1===0?x:Math.round(x*10)/10);};
   const gmoney=n=>'$'+Math.round(Number(n)||0).toLocaleString('en-US');
@@ -5739,6 +5745,7 @@ fill="#6F4A36" stroke="none">
     else if(greenView==='sample'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderSample();}else if(smpCuppingRoast||blendCupping){smpCuppingRoast=null;blendCupping=null;smpPages=[blankSmp()];smpIdx=0;roastedTitle='Pending';beansView='production';openPage('beans');renderRoasted();}else{closePage();}}
     else if(greenView==='history'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderHistory();}else{closePage();}}
     else if(greenView==='add'){greenView=greenAddCountry?'beans':'countries';if(greenAddCountry)greenCountry=greenAddCountry;greenAddCountry=null;renderGreen();}
+    else if(greenView==='stocktake'){stkDraft=null;greenView='countries';renderGreen();}
     else if(greenView==='buy'){if(buyNew||buyRecv){buyNew=null;buyRecv=null;renderGreen();}else{closePage();}}
     else if(greenView==='countries'||greenView==='soon'){closePage();}
     else{closePage();}
@@ -5767,9 +5774,15 @@ fill="#6F4A36" stroke="none">
       const lows=BEANS.filter(beanIsLow);
       const lowWarn=lows.length?'<div class="green-lowwarn">⚠ Low stock: '+lows.map(function(b){return esc(b.name)+' ('+gnum(Number(b.quantity)||0)+' kg)';}).join(', ')+'</div>':'';
       const grid='<div class="gcountries">'+countryList().map(function(e){var c=e[0],n=e[1];var ct=totals(BEANS.filter(function(b){return (b.country||'—')===c;}));return '<div class="gcard" data-c="'+esc(c)+'"><div class="gc-name">'+esc(c)+'</div><div class="gc-sub"><span class="gc-n">'+n+' beans</span><br>'+gnum(ct.kg)+' kg · '+gmoney(ct.val)+'</div></div>';}).join('')+'</div>';
-      box.innerHTML=summary+lowWarn+'<div class="gsec">Choose origin</div>'+grid+'<button class="gbtn" id="green-add" style="margin-top:16px">+ Add Bean</button>';
+      box.innerHTML=summary+lowWarn+'<div class="gsec">Choose origin</div>'+grid
+        +'<button class="gbtn" id="green-add" style="margin-top:16px">+ Add Bean</button>'
+        +'<button class="gbtn ghost" id="green-stkall" style="margin-top:8px">Stocktake all beans</button>';
       box.querySelectorAll('.gcard').forEach(function(el){el.addEventListener('click',function(){greenCountry=el.dataset.c;greenView='beans';renderGreen();box.scrollTop=0;});});
       var gAdd=document.getElementById('green-add');if(gAdd)gAdd.addEventListener('click',function(){greenAddCountry=null;greenView='add';renderGreen();box.scrollTop=0;});
+      var gStk=document.getElementById('green-stkall');if(gStk)gStk.addEventListener('click',function(){
+        stkDraft={};BEANS.forEach(function(b){stkDraft[b.id]=(b.quantity!=null?String(gnum(b.quantity)):'');});
+        greenView='stocktake';renderGreen();box.scrollTop=0;
+      });
     }
     else if(greenView==='beans'){
       const items=BEANS.filter(function(b){return (b.country||'—')===greenCountry;});
@@ -5824,6 +5837,25 @@ fill="#6F4A36" stroke="none">
         var gdc=document.getElementById('gdel-cancel');if(gdc)gdc.addEventListener('click',function(){greenDelConfirm=false;renderGreen();});
         var gdy=document.getElementById('gdel-yes');if(gdy)gdy.addEventListener('click',deleteBean);
       }
+    }
+    else if(greenView==='stocktake'){
+      /* T8 盤點快錄：一頁盤完全部生豆，只存有改動的，差異記進流水帳 */
+      title.textContent='Stocktake';count.textContent=BEANS.length+' beans';
+      var sgroups={},sorder=[];
+      BEANS.slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));}).forEach(function(b){var c=b.country||'—';if(!sgroups[c]){sgroups[c]=[];sorder.push(c);}sgroups[c].push(b);});
+      sorder.sort();
+      var sh='<div class="bat-hint">Type the counted kg for each bean. Only changed numbers are saved — every difference is logged to stock history.</div>';
+      sorder.forEach(function(c){
+        sh+='<div class="gsec">'+esc(c)+'</div>';
+        sgroups[c].forEach(function(b){
+          var v=(stkDraft&&stkDraft[b.id]!=null)?stkDraft[b.id]:(b.quantity!=null?String(gnum(b.quantity)):'');
+          sh+='<div class="stk-row"><div class="stk-l"><div class="stk-n">'+esc(b.name)+(b.process?' <span class="gb-proc">'+esc(b.process)+'</span>':'')+'</div><div class="stk-b">book '+gnum(b.quantity!=null?b.quantity:0)+' kg</div></div><input class="stk-in" data-stk="'+esc(b.id)+'" type="text" inputmode="decimal" value="'+esc(v)+'" /><span class="ro-unit">kg</span></div>';
+        });
+      });
+      sh+='<div class="gform-msg" id="stk-msg" style="padding:8px 16px 0"></div><div style="padding:8px 16px 20px"><button class="gbtn" id="stk-save">Save stocktake</button></div>';
+      box.innerHTML=sh;
+      box.querySelectorAll('.stk-in').forEach(function(el){el.addEventListener('input',function(){stkDraft[el.dataset.stk]=el.value;});});
+      var stkS=document.getElementById('stk-save');if(stkS)stkS.addEventListener('click',saveStocktakeAll);
     }
     else if(greenView==='add'){
       title.textContent='Add Bean';count.textContent=greenAddCountry||'';
@@ -5934,6 +5966,39 @@ fill="#6F4A36" stroke="none">
     greenStocktake=false;
     renderGreen();
   }
+  /* T8 盤點快錄存檔：只動有差異的豆，逐筆更新 + 記流水帳 */
+  async function saveStocktakeAll(){
+    var msg=document.getElementById('stk-msg'),btn=document.getElementById('stk-save');
+    if(!btn||!msg)return;
+    var changes=[];
+    BEANS.forEach(function(b){
+      var raw=stkDraft?stkDraft[b.id]:null;
+      if(raw==null)return;
+      var s=String(raw).trim();
+      if(s==='')return;
+      var v=parseFloat(s);
+      if(isNaN(v)||v<0)return;
+      var cur=Number(b.quantity)||0;
+      var delta=Math.round((v-cur)*1000)/1000;
+      if(Math.abs(delta)<0.0005)return;
+      changes.push({b:b,v:v,delta:delta});
+    });
+    if(!changes.length){msg.textContent='No changes to save';msg.className='gform-msg';return;}
+    btn.disabled=true;msg.textContent='Saving '+changes.length+' adjustment'+(changes.length>1?'s':'')+'…';msg.className='gform-msg';
+    var ok=0,fail=0,failMsg='';
+    for(var i=0;i<changes.length;i++){
+      var c=changes[i];
+      var u=await sb.from('beans').update({quantity:c.v}).eq('id',c.b.id);
+      if(u.error){fail++;failMsg=u.error.message;continue;}
+      try{await sb.from('stock_moves').insert({bean_id:c.b.id,kind:'stocktake',delta_kg:c.delta,after_kg:c.v,note:'Bulk stocktake'});}catch(e){}
+      c.b.quantity=c.v;ok++;
+    }
+    btn.disabled=false;
+    if(fail){msg.textContent=ok+' saved, '+fail+' failed: '+failMsg;msg.className='gform-msg err';return;}
+    stkDraft=null;
+    greenView='countries';renderGreen();
+    alert('Stocktake saved — '+ok+' bean'+(ok>1?'s':'')+' adjusted.');
+  }
   async function loadBeanMoves(beanId){
     const el=document.getElementById('gmoves');
     if(!el)return;
@@ -5972,6 +6037,7 @@ fill="#6F4A36" stroke="none">
     var kg=Number(p.kg)||0, cost=p.cost_per_kg!=null?Number(p.cost_per_kg):null;
     var sub=[];
     if(p.supplier)sub.push(esc(p.supplier));
+    if(p.lot_no)sub.push('Lot '+esc(p.lot_no));
     if(kg)sub.push(gnum(kg)+' kg'+(cost!=null?' × $'+cost+'/kg = '+gmoney(kg*cost):''));
     if(p.ordered_at)sub.push('Ordered '+esc(String(p.ordered_at).slice(0,10)));
     if(p.received_at)sub.push('Received '+esc(String(p.received_at).slice(0,10)));
@@ -5982,6 +6048,7 @@ fill="#6F4A36" stroke="none">
       if(buyRecv===p.id){
         h+='<div class="gform" style="margin-top:10px">'
           +'<label class="gfield"><span class="gl">Received quantity (kg)</span><input id="po-recv-kg" type="text" inputmode="decimal" value="'+esc(kg?gnum(kg):'')+'" /></label>'
+          +'<label class="gfield"><span class="gl">Lot / batch no (optional)</span><input id="po-recv-lot" type="text" value="'+esc(p.lot_no||'')+'" /></label>'
           +'<div class="gform-msg" id="po-recv-msg"></div>'
           +'<div class="gform-actions"><button class="gbtn ghost" id="po-recv-cancel">Back</button><button class="gbtn" id="po-recv-save">Add to stock</button></div></div>';
       }else{
@@ -6071,6 +6138,8 @@ fill="#6F4A36" stroke="none">
     if(!p||!msg||!btn)return;
     var kg=parseFloat((document.getElementById('po-recv-kg').value||'').trim());
     if(isNaN(kg)||kg<=0){msg.textContent='Enter the received kg';msg.className='gform-msg err';return;}
+    var lotEl=document.getElementById('po-recv-lot');
+    var lot=lotEl?lotEl.value.trim():'';
     btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
     /* merge into the matching green-bean lot (name+process), or create a new lot */
     var n=String(p.name||'').trim().toLowerCase(), pr=String(p.process||'').trim().toLowerCase();
@@ -6092,12 +6161,12 @@ fill="#6F4A36" stroke="none">
       BEANS.push((ins.data&&ins.data[0])||rec);
       beanId=rec.id;after=kg;
     }
-    try{await sb.from('stock_moves').insert({bean_id:beanId,kind:'receive',delta_kg:kg,after_kg:after,note:'PO received'+(p.supplier?' — '+p.supplier:'')});}catch(e){}
+    try{await sb.from('stock_moves').insert({bean_id:beanId,kind:'receive',delta_kg:kg,after_kg:after,note:'PO received'+(p.supplier?' — '+p.supplier:'')+(lot?' · lot '+lot:'')});}catch(e){}
     var today=new Date().toISOString().slice(0,10);
-    const pu=await sb.from('purchases').update({status:'received',received_at:today,bean_id:beanId,kg:kg}).eq('id',p.id);
+    const pu=await sb.from('purchases').update({status:'received',received_at:today,bean_id:beanId,kg:kg,lot_no:lot||null}).eq('id',p.id);
     btn.disabled=false;
     if(pu.error){msg.textContent='Stock added, but the order status update failed: '+pu.error.message;msg.className='gform-msg err';return;}
-    p.status='received';p.received_at=today;p.bean_id=beanId;p.kg=kg;
+    p.status='received';p.received_at=today;p.bean_id=beanId;p.kg=kg;p.lot_no=lot||null;
     buyRecv=null;
     renderGreen();
   }

@@ -57,6 +57,10 @@
   - **T5 多樣品同場快評**：Analyse 多頁模式新增「Submit all N samples」一鍵存整場（空白頁自動跳過、No. 依日期連號、批次 insert 一次寫入）
   - 未做：離線 localStorage 佇列（設計較大，延後）；T2/T4/T6（原計畫就延後）；staff 角色開放與否待老闆決定（現況跟著 dock 權限走：誰看得到 Recipe/Roast dock 誰就能用）
   - 驗證：preview 假資料實測三工具渲染與行為（T3 最新批次判定/單一 Apply 鍵/ratio 計算/歷史模式、T5 按鈕與計數、T1 欄位帶值與佔位移除），全過；部署驗證 Beans 2.0 全上線（615,348 bytes 與本機一致）
+- **小工具第二波 T7+T8 完成**：
+  - **T8 盤點快錄**：Inventory 首頁新「Stocktake all beans」→ 一頁列出全部生豆（按產地分組、帳面數帶入），輸實秤 kg → **只存有改動的**，每筆差異記 stock_moves 'stocktake'（note: Bulk stocktake），存完回總覽 + alert 摘要
+  - **T7 到貨簽收補強**：purchases 加 `lot_no`（migration `t7_lot_no_on_purchases`）；Received 表單加 Lot/batch no 欄，存單上顯示 Lot 標記、stock_moves 備註帶批號；**照片入庫未做**（要開 storage bucket + 相機流程，延後）
+  - 驗證：preview 實測入口/分組/帶值/差異判定（只挑有改的）/返回重置/批號顯示，全過
 - **「全部」總覽分頁已上線**：ORD_TABS 加 `['all','全部']`、ordTabCount 回 ORDERS.length、renderOrders 加不篩選分支（commit 2270d97，已部署驗證）
 - **測試單 #0001 + 客戶 Dan 已刪**（orders 表清空、customers 剩 2 位真實客戶）
 - **sync-to-square 升 v13**：新增 `payment_link_delete` action（body.link_id → Square DELETE /v2/online-checkout/payment-links）；測試連結 iQjObl89 已刪、回 404
@@ -148,7 +152,7 @@
 - 烘焙師：T1 烘焙快錄（生豆投入/出豆 g 自動失重率、入豆溫、一爆、出豆溫/時長 → roasts 擴充）；T2 烘焙 profile 文字筆記（延後）
 - 咖啡師：T3 Dial-in 日誌（研磨/dose/yield/時間/評語 → 新表 dialins；累積後一鍵套用到 Brew guide）；T4 每日出杯品質快記（延後）
 - 杯測師：T5 多樣品同場快評（一場 5-8 杯排排打分、一次存多筆 samples）；T6 風味輪快選（延後）
-- 生豆管理員：T7 到貨簽收（供應商/kg/批號/照片入庫）；T8 盤點快錄（逐豆實際 kg、差異自動記調整）
+- ~~生豆管理員：T7 到貨簽收（供應商/kg/批號）；T8 盤點快錄（逐豆實際 kg、差異自動記調整）~~ ✅ 完成（見〇補記；T7 照片入庫延後）
 - 共同設計：走現有 dock、單手完成、離線 localStorage 先存再同步；~~建議首波 T1+T3+T5~~ ✅ T1+T3+T5 完成（見〇補記；離線佇列延後）
 - 待確認：是否開給 staff 角色（接 is_staff() 權限）
 
