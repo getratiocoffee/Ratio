@@ -2881,6 +2881,7 @@ fill="#6F4A36" stroke="none">
   var printFbQr=false; /* G7 回饋 QR 顯示狀態 */
   var printBeanQr=false; /* 分享平台：豆頁 QR 顯示狀態 */
   var FB_PUBLIC_URL='https://ratio-theta.vercel.app/?fb=store';
+  var GOOGLE_REVIEW_URL=null; /* null = 還在載入，'' = 未設定；設定後出貨信自動帶評論 CTA */
   function openPrint(){closeFolder();openPage('print');renderPrint();ensurePrintData();}
   async function ensurePrintData(){
     try{
@@ -2893,6 +2894,10 @@ fill="#6F4A36" stroke="none">
       names.sort();
       PRINT_CARDS=names;
     }catch(e){PRINT_CARDS=[];}
+    try{
+      var gr=await sb.from('app_state').select('value').eq('key','google_review_url').maybeSingle();
+      GOOGLE_REVIEW_URL=(gr&&gr.data&&gr.data.value&&gr.data.value.url)?String(gr.data.value.url):'';
+    }catch(e){GOOGLE_REVIEW_URL='';}
     if(document.querySelector('#screen-print.open'))renderPrint();
   }
   function renderPrint(){
@@ -2926,9 +2931,19 @@ fill="#6F4A36" stroke="none">
       +(printFbQr
         ?'<img src="https://api.qrserver.com/v1/create-qr-code/?size=520x520&data='+encodeURIComponent(FB_PUBLIC_URL)+'" alt="feedback QR" style="width:100%;max-width:250px;display:block;background:#fff;border-radius:10px;padding:10px;border:1px solid var(--line)" /><div class="pc-sub" style="margin-top:8px">'+esc(FB_PUBLIC_URL)+'<br>Long-press / right-click the QR to save it.</div>'
         :'<button class="gbtn ghost" id="pc-qr" style="background:transparent;color:var(--accent);border:1.5px solid var(--accent)">Show QR</button>')
-      +'</div>';
+      +'</div>'
+      /* 社群曝光第一優先：Google 商家評論連結（設定後出貨信自動帶 CTA，QR 可印） */
+      +'<div class="gsec">Google review</div>'
+      +'<div class="pc-wrap"><div class="pc-sub">Paste your Google review link (Google Business Profile → Ask for reviews). Once saved, every dispatch email carries a review CTA, and you can print the QR below.</div>'
+      +'<input id="pc-greview" type="text" placeholder="https://g.page/r/…/review" value="'+esc(GOOGLE_REVIEW_URL||'')+'" style="width:100%;border:1px solid var(--line);background:var(--surface);border-radius:11px;padding:11px 12px;font-size:13px;color:var(--ink);outline:none;font-family:inherit;margin-bottom:10px" />'
+      +'<button class="gbtn" id="pc-greview-save">Save review link</button>'
+      +(GOOGLE_REVIEW_URL
+        ?'<div style="margin-top:12px"><img src="https://api.qrserver.com/v1/create-qr-code/?size=520x520&data='+encodeURIComponent(GOOGLE_REVIEW_URL)+'" alt="Google review QR" style="width:100%;max-width:250px;display:block;background:#fff;border-radius:10px;padding:10px;border:1px solid var(--line)" /><div class="pc-sub" style="margin-top:8px">Review QR — print for parcel cards or the counter. Dispatch emails already include the link.</div></div>'
+        :'')
+      +'<div class="gform-msg" id="pc-gmsg">'+(GOOGLE_REVIEW_URL===null?'Loading…':'')+'</div></div>';
     box.innerHTML=h;
     var pq=document.getElementById('pc-qr');if(pq)pq.addEventListener('click',function(){printFbQr=true;renderPrint();});
+    var gs=document.getElementById('pc-greview-save');if(gs)gs.addEventListener('click',saveGoogleReviewUrl);
     box.querySelectorAll('[data-print]').forEach(function(el){el.addEventListener('click',function(){
       var k=el.dataset.print;
       if(k==='label')openLabel();
@@ -2946,6 +2961,20 @@ fill="#6F4A36" stroke="none">
       if(s2&&s2.value){printCardSel=s2.value;printBeanQr=true;renderPrint();}
       else{var m=document.getElementById('pc-msg');if(m){m.textContent='Pick a coffee first';m.className='gform-msg err';}}
     });
+  }
+  async function saveGoogleReviewUrl(){
+    var inp=document.getElementById('pc-greview'),msg=document.getElementById('pc-gmsg'),btn=document.getElementById('pc-greview-save');
+    if(!inp||!msg||!btn)return;
+    var url=inp.value.trim();
+    if(url&&!/^https?:\/\//i.test(url)){msg.textContent='That does not look like a link — it should start with https://';msg.className='gform-msg err';return;}
+    btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
+    var r=await sb.from('app_state').upsert({key:'google_review_url',value:{url:url},updated_at:new Date().toISOString()},{onConflict:'key'});
+    btn.disabled=false;
+    if(r.error){msg.textContent='Save failed: '+r.error.message;msg.className='gform-msg err';return;}
+    GOOGLE_REVIEW_URL=url;
+    renderPrint();
+    var m2=document.getElementById('pc-gmsg');
+    if(m2){m2.textContent=url?'Saved — dispatch emails now include the review link':'Cleared — no review link in emails';m2.className='gform-msg ok';}
   }
   async function printCardDownload(){
     var sel=document.getElementById('pc-sel'),msg=document.getElementById('pc-msg'),btn=document.getElementById('pc-dl');

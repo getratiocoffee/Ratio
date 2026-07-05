@@ -78,6 +78,10 @@
   - **G7 補強：新回饋自動通知**——`notify_feedback()` security definer trigger：feedback insert → messages 一則「New feedback ★★★★ + 摘要」（匿名寫不了 messages 所以用 trigger 代打；已 E2E 測過並清理）
   - **T2 烘焙 profile 筆記**：roasts 加 `profile_note`；烘豆編輯視窗 Roast log 下加 Profile notes textarea
   - 部署驗證：公開豆頁 + Square 規格已上線（639,243 bytes 與本機一致）
+- **Google 商家評論管線完成**（社群曝光第一優先；send-email **v15**）：
+  - Print Centre 新「Google review」區：貼上 Google 評論連結（Business Profile → Ask for reviews）→ 存 app_state `google_review_url` → **評論 QR 立即可印** + **出貨信自動加「Leave us a Google review ⭐」CTA**（沒設定就整段略過，不影響現有信）
+  - ⚠ **等老闆貼連結**：Google 商家後台複製評論連結貼進去就全線生效；連結未設前一切照舊
+  - 驗證：preview 實測三態（未設定/已設定+QR/壞網址防呆）；實際存檔與信件 CTA 需登入+真實出貨驗證
 - **「全部」總覽分頁已上線**：ORD_TABS 加 `['all','全部']`、ordTabCount 回 ORDERS.length、renderOrders 加不篩選分支（commit 2270d97，已部署驗證）
 - **測試單 #0001 + 客戶 Dan 已刪**（orders 表清空、customers 剩 2 位真實客戶）
 - **sync-to-square 升 v13**：新增 `payment_link_delete` action（body.link_id → Square DELETE /v2/online-checkout/payment-links）；測試連結 iQjObl89 已刪、回 404
@@ -159,7 +163,7 @@
 - 跨線：上架→接單（供貨）、Orders 烘豆需求→烘焙站（唯讀）、出貨→回饋→QC
 
 **社群曝光規劃（已定案）**
-- 優先序：Google 商家檔案（評論 QR 進出貨信/貼紙）> IG（v3 資訊卡 1200×1200 直接當貼文）> 小紅書（中文+北岸華人，高 ROI）> TikTok/Reels（有餘力）
+- 優先序：~~Google 商家檔案（評論 QR 進出貨信/貼紙）~~ ✅ 管線完成，等老闆貼評論連結（見〇補記）> IG（v3 資訊卡 1200×1200 直接當貼文，Print Centre 已可下載）> 小紅書（中文+北岸華人，高 ROI）> TikTok/Reels（有餘力）
 - 四內容支柱：新豆上市 / 過程隨手拍 / 沖煮教學（Brew guide 現成）/ 選豆思路
 - 頻率：IG 週 2 貼+3-4 限動、小紅書週 1-2、Google Post 週 1
 - 在地：包裹小卡 QR、供豆下家立牌、季度市集
