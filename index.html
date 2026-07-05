@@ -4698,7 +4698,8 @@ fill="#6F4A36" stroke="none">
       o.status='Dispatched';o.dispatched_at=patch.dispatched_at;o.tracking_no=patch.tracking_no;
       if(sendMail){
         try{
-          await callEmailFn({action:'dispatch_notice',order_id:id});
+          var cards={};try{cards=await ordUploadCards(o);}catch(e2){}
+          await callEmailFn({action:'dispatch_notice',order_id:id,cards:cards});
           o.dispatch_email_at=new Date().toISOString();
         }catch(e){
           msg.textContent='Dispatched, but email failed: '+(e&&e.message||e)+' \u2014 use "Send dispatch email" on the card to retry.';
@@ -4718,7 +4719,9 @@ fill="#6F4A36" stroke="none">
     var action=(o.status==='Dispatched')?'dispatch_notice':'order_confirmation';
     btn.disabled=true;btn.textContent='Sending\u2026';
     try{
-      await callEmailFn({action:action,order_id:id});
+      var payload={action:action,order_id:id};
+      if(action==='dispatch_notice'){try{payload.cards=await ordUploadCards(o);}catch(e2){}}
+      await callEmailFn(payload);
       if(action==='dispatch_notice')o.dispatch_email_at=new Date().toISOString();
       btn.textContent='Sent \u2713';
     }catch(e){btn.textContent='Failed';alert('Email failed: '+(e&&e.message||e));}
@@ -5719,33 +5722,11 @@ fill="#6F4A36" stroke="none">
     rtlSqBusy[sqKey]=true;paintRetail();
     try{
       var desc=[row.process||'',notes].filter(Boolean).join(' \u00b7 ');
-      var blendDef=blendDefByName(row.sample_id||'');
       /* build card data straight from the sample row + green bean record —
          no dependency on other modules' caches (Label/Menu) being loaded */
       if(!BEANS||!BEANS.length){try{await ensureBeansForInvoice();}catch(e){}}
       if(!ROASTS||!ROASTS.length){try{await loadRoasts();}catch(e){}}
-      var rdate=null;try{rdate=roastDateForSample(row);}catch(e){}
-      var SMAP={fragrance:'Aroma',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
-      var cup=['fragrance','acidity','sweetness','body','aftertaste'].map(function(k){return {key:k,label:SMAP[k],n:(row&&row[k]!=null)?row[k]:null};});
-      var cardData={name:row.sample_id||'',
-        color:beanColorFor(row.sample_id||''),
-        flavour:(row.features||[]).filter(Boolean).slice(0,3),
-        cupScores:cup,
-        comment:(row.comment||'').trim(),
-        roasted:rdate?fmtDate(rdate):''};
-      if(blendDef){
-        cardData.kind='blend';
-        if(!cardData.comment)cardData.comment=(blendDef.note||'').trim();
-        cardData.recipe=(blendDef.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}).map(function(p){return {bean:p.bean,pct:parseFloat(p.pct),process:p.process||''};});
-      }else{
-        cardData.kind='single';
-        var gb=beanByNameProcess(row.sample_id||'',row.process||'');
-        cardData.origin={
-          process:row.process||(gb&&gb.process)||'',
-          variety:(gb&&gb.variety)||'',
-          altitude:(gb&&gb.altitude!=null&&gb.altitude!=='')?String(gb.altitude):'',
-          region:gb?[gb.region,gb.country].filter(Boolean).join(', '):''};
-      }
+      var cardData=squareCardDataFor(row);
       var img64=null;try{img64=await makeSquareCard(cardData);}catch(e){console.error('[Ratio] card gen:',e);}
       var res=await callSquareFn({action:'push',sample_id:sqKey,name:row.sample_id||'',
         description:desc,grams:gv,price:price,image_b64:img64});
@@ -5866,6 +5847,68 @@ fill="#6F4A36" stroke="none">
     }catch(e){if(msg)msg.textContent='Failed: '+(e&&e.message||e);}
     btn.disabled=false;
     setTimeout(function(){if(msg)msg.textContent='';},2200);
+  }
+  /* ---- Phase 3: product info card PNG for dispatch email (canvas -> Storage 'mail-assets') ---- */
+  function ordCardSlug(name){return String(name||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');}
+  /* shared card-data builder — also used by pushToSquare; expects BEANS/ROASTS/blends loaded */
+  function squareCardDataFor(row){
+    var blendDef=blendDefByName(row.sample_id||'');
+    var rdate=null;try{rdate=roastDateForSample(row);}catch(e){}
+    var SMAP={fragrance:'Aroma',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
+    var cup=['fragrance','acidity','sweetness','body','aftertaste'].map(function(k){return {key:k,label:SMAP[k],n:(row&&row[k]!=null)?row[k]:null};});
+    var cardData={name:row.sample_id||'',
+      color:beanColorFor(row.sample_id||''),
+      flavour:(row.features||[]).filter(Boolean).slice(0,3),
+      cupScores:cup,
+      comment:(row.comment||'').trim(),
+      roasted:rdate?fmtDate(rdate):''};
+    if(blendDef){
+      cardData.kind='blend';
+      if(!cardData.comment)cardData.comment=(blendDef.note||'').trim();
+      cardData.recipe=(blendDef.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}).map(function(p){return {bean:p.bean,pct:parseFloat(p.pct),process:p.process||''};});
+    }else{
+      cardData.kind='single';
+      var gb=beanByNameProcess(row.sample_id||'',row.process||'');
+      cardData.origin={
+        process:row.process||(gb&&gb.process)||'',
+        variety:(gb&&gb.variety)||'',
+        altitude:(gb&&gb.altitude!=null&&gb.altitude!=='')?String(gb.altitude):'',
+        region:gb?[gb.region,gb.country].filter(Boolean).join(', '):''};
+    }
+    return cardData;
+  }
+  function _b64ToBlob(b64,type){
+    var bin=atob(b64),len=bin.length,arr=new Uint8Array(len);
+    for(var i=0;i<len;i++)arr[i]=bin.charCodeAt(i);
+    return new Blob([arr],{type:type||'image/png'});
+  }
+  /* renders + uploads a product card per unique order item; returns {lowername: publicUrl} */
+  async function ordUploadCards(o){
+    var out={};
+    var items=Array.isArray(o&&o.items)?o.items:[];
+    if(!items.length)return out;
+    if(!BEANS||!BEANS.length){try{await ensureBeansForInvoice();}catch(e){}}
+    if(!ROASTS||!ROASTS.length){try{await loadRoasts();}catch(e){}}
+    try{await blendsPull();}catch(e){}
+    var seen={};
+    for(var i=0;i<items.length;i++){
+      var name=String(items[i].name||'').trim();if(!name)continue;
+      var key=name.toLowerCase();if(seen[key])continue;seen[key]=true;
+      try{
+        var r=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',name)
+          .order('cupping_date',{ascending:false}).limit(1);
+        var s=r&&r.data&&r.data[0];if(!s)continue;
+        var b64=await makeSquareCard(squareCardDataFor(s));
+        if(!b64)continue;
+        var path='card-'+ordCardSlug(name)+'.png';
+        var up=await sb.storage.from('mail-assets').upload(path,_b64ToBlob(b64,'image/png'),{upsert:true,contentType:'image/png'});
+        if(up&&up.error){console.error('[Ratio] card upload:',up.error.message||up.error);continue;}
+        var pub=sb.storage.from('mail-assets').getPublicUrl(path);
+        var url=pub&&pub.data&&pub.data.publicUrl;
+        if(url)out[key]=url+'?v='+Date.now(); /* cache-bust so email always shows the latest card */
+      }catch(e){console.error('[Ratio] card',e);}
+    }
+    return out;
   }
   function retailCard(s,roastDate,color){
     var FEAT={fragrance:'Fragrance',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
