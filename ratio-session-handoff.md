@@ -14,7 +14,9 @@
 - **抓到複本 bug**：submitCupping（熟豆 Analyse/Re-analyse）每次 Submit 都 insert 新 sample、無防呆（saveSample 有、這條漏了）→ June Project 曾冒出 3 筆。已刪 2 筆孤兒複本（07-06、roast_date null），並在 submitCupping 加同豆同日警告（再按一次才存）+ openCupping/openBlendCupping 重置 smpDupConfirm。**已 commit 待 push 部署**；部署後驗法：對已有今日紀錄的豆按 Re-analyse → Submit 應先跳 ⚠ 警告不寫入
 - Chrome MCP 網域白名單**現在已含 ratio-theta.vercel.app**（本次成功代跑 app；登入仍請老闆自己按；mail.google.com 仍不行）
 - **UI 小改**：杯測表單 Comment 欄改「Description · max 30 characters」（maxlength=30，舊長資料不動）；Beans 的 Pending 頁＋dock 按鈕改名「QC」（roastedTitle 旗標值同步改 'QC'）
-- **介面改造方向拍板（未動工）**：以工作崗位分功能——崗位首頁每站一顆泡泡（狀態藥丸＋一行預告），action 直接長在佇列列上，參考資訊收抽屜；QC 站先做白老鼠再複製。細節見 Claude 記憶檔 ui-redesign-station-based.md；老闆看過草圖，等他實際操作現有功能後給回饋再動手
+- **介面改造方向拍板**：以工作崗位分功能——崗位首頁每站一顆泡泡（狀態藥丸＋一行預告），action 直接長在佇列列上，參考資訊收抽屜。細節見 Claude 記憶檔 ui-redesign-station-based.md
+- **Green Station 第一站完成**（index.html，待 push 部署）：點 Green Buyer 不再直接跳 Inventory，改顯示 cpanel 泡泡面板 `renderGreenStation()`（樣式 .gs-*）——①Running out（黃框，quantity≤警戒線且警戒線>0；輪替制所以**不放補訂鍵**，底部一鍵跳杯測找新豆）②Cupping picks（決策 buy/maybe、排除已下單和 Ratio Coffee 自家，顯示供應商供老闆決定要不要聯繫；Order 鍵預填採購單）③On order（Received 鍵跳收貨表單）④Inventory 入口列。空佇列縮成灰字 quiet 卡。驗證：jscheck + 本機假資料實測（滿載/全空/警戒線0排除），⚠ 登入後 Order/Received 實跳採購頁待 boss 部署後點一遍
+- **老闆輪替制豆單重要背景**：豆子賣完就換新豆、不回購同一支 → 低庫存＝「貨架空位」訊號要接到找新豆流程，不是 reorder；警戒線設 0 = 該豆不警示
 - **Announce「沒收到信」破案**：管線沒壞（Resend 兩封都 Delivered）。orders@coffeeratio.com.au 是 getratiocoffee@gmail.com 的 send-as alias → Gmail 視為「自己寄自己」**跳過收件匣**（只在所有郵件/寄件備份）。已把測試客人 email 改成 ratiocoffee2473@gmail.com（另一帳號、正常進收件匣）；真實客人不受影響
 
 ## 〇之二、補記 — 同日晚間 Claude Code session（首次改用 Claude Code）
