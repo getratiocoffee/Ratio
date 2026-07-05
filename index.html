@@ -5491,7 +5491,7 @@ fill="#6F4A36" stroke="none">
        crops ~150px off each side, so sides get 150px margin, top/bottom 64px */
     var CX=217,CY=64,CW=W-434,CH=H-128,CR=28;
     /* text-safe zone: mobile portrait hero crops ~200px+ per side, so all text lives in the centre 760px */
-    var TSX=290,TEX=W-290,TW2=TEX-TSX;
+    var TSX=275,TEX=W-275,TW2=TEX-TSX;
     x.fillStyle='#ffffff';x.fillRect(0,0,W,H);
     var band=mnHexRgb(card.color)||[73,66,58];
     var lum=.299*band[0]+.587*band[1]+.114*band[2];
@@ -5538,9 +5538,7 @@ fill="#6F4A36" stroke="none">
       var dw=0,ds=48,gap=22;
       if(icons&&icons.drop){dw=ds*(icons.drop.width/icons.drop.height);}
       var fsz=_cardFit(x,fl,'700',48,26,TW2-(dw?dw+gap:0),'Inter, sans-serif');
-      var tw=x.measureText(fl).width;
-      var total=(dw?dw+gap:0)+tw;
-      var sx=(W-total)/2;
+      var sx=TSX;
       if(icons&&icons.drop){
         x.drawImage(_tintIcon(icons.drop,tc,600),sx,footY+(footH-ds)/2,dw,ds);
         sx+=dw+gap;
@@ -5552,16 +5550,21 @@ fill="#6F4A36" stroke="none">
     var Lx=TSX,Rv=TEX;
     var ry=zoneTop+64;
     if(card.kind==='blend'){
+      /* one common font size across every content row */
+      var csz=34;
+      (card.recipe||[]).forEach(function(p){
+        var hasPct=(p.pct||p.pct===0);
+        csz=Math.min(csz,_cardFit(x,p.bean,'700',34,24,TW2*0.55-(hasPct?115:0),'Inter, sans-serif'));
+        if(p.process)csz=Math.min(csz,_cardFit(x,p.process,'400',34,20,TW2*0.42,'Inter, sans-serif'));
+      });
       (card.recipe||[]).forEach(function(p){
         var pct=(p.pct||p.pct===0)?String(p.pct)+'%':'';
-        if(pct){x.fillStyle=BERRY;x.font='700 34px Inter, sans-serif';x.fillText(pct,Lx,ry);}
-        x.fillStyle=INK;
-        _cardFit(x,p.bean,'700',34,24,TW2*0.55-(pct?115:0),'Inter, sans-serif');
+        if(pct){x.fillStyle=BERRY;x.font='700 '+csz+'px Inter, sans-serif';x.fillText(pct,Lx,ry);}
+        x.fillStyle=INK;x.font='700 '+csz+'px Inter, sans-serif';
         x.fillText(p.bean,Lx+(pct?115:0),ry);
         var meta=p.process||'';
         if(meta){
-          x.textAlign='right';x.fillStyle='#322B2A';
-          _cardFit(x,meta,'400',34,20,TW2*0.42,'Inter, sans-serif');
+          x.textAlign='right';x.fillStyle='#322B2A';x.font='400 '+csz+'px Inter, sans-serif';
           x.fillText(meta,Rv,ry);x.textAlign='left';
         }
         ry+=66;
@@ -5572,10 +5575,11 @@ fill="#6F4A36" stroke="none">
       if(o.variety)rows.push(['Variety',o.variety]);
       if(o.altitude)rows.push(['Altitude',o.altitude+' MASL']);
       if(o.region)rows.push(['Region',o.region]);
+      var csz2=34;
+      rows.forEach(function(r){csz2=Math.min(csz2,_cardFit(x,String(r[1]),'400',34,20,TW2-290,'Inter, sans-serif'));});
       rows.forEach(function(r){
-        x.fillStyle=INK;x.font='700 34px Inter, sans-serif';x.fillText(r[0],Lx,ry);
-        x.textAlign='right';x.fillStyle='#322B2A';
-        _cardFit(x,String(r[1]),'400',34,20,TW2-290,'Inter, sans-serif');
+        x.fillStyle=INK;x.font='700 '+csz2+'px Inter, sans-serif';x.fillText(r[0],Lx,ry);
+        x.textAlign='right';x.fillStyle='#322B2A';x.font='400 '+csz2+'px Inter, sans-serif';
         x.fillText(String(r[1]),Rv,ry);
         x.textAlign='left';ry+=66;
       });
