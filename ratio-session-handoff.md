@@ -65,7 +65,7 @@
   - **Grind modifier**：共用 MODIFIER_LIST「Grind」（Whole Bean / Filter Grind / Espresso Grind，皆 $0，SINGLE 選擇）——`ensureGrindModifier()` 找不到才建；**created 和 linked 兩種模式都掛**（linked 只加不覆蓋老闆手動設定），不會重複掛
   - **多規格**：push 可帶 `variations:[{grams,price}]`；app 端 push 時多兩個 prompt 問 500g / 1kg 價格（**留空 = 不上架該規格**，價格記在 `ratio_rtl_sizes` localStorage + app_state 跨裝置同步，已註冊 APP_STATE_KEYS）；規格名稱比對保留既有 variation id（銷售紀錄不斷）；product_sync 仍記基本規格（250g）的 variation_id
   - 注意：webhook 匯入網店訂單時 500g/1kg 行沒有 product_sync 映射 → fallback 用 Square 名稱 + variation 名（名稱已同步所以能對上，grams 為 null）——之後有需要再擴 product_sync
-  - ⚠ **Square API 實際呼叫未測**（要 director 登入 + 真實 catalog）：部署後挑一支豆 Re-sync，去 Square 後台確認 Grind modifier 和規格有出現
+  - ⚠ **Square API 實際呼叫未測**（要 director 登入 + 真實 catalog）：挑一支豆（建議 Dark Knight，linked 模式最安全）Re-sync——價格照舊 25、500g/1kg 留空跳過——再去 Square 後台看 Grind modifier 有沒有掛上。**Chrome MCP 幫不上**：擴充功能網域白名單不含 ratio-theta.vercel.app，Claude 開不了 app（想授權的話去 Claude 擴充功能設定加網域）
   - 驗證：preview 實測函式存在、sizes 記憶 roundtrip、同步 key 註冊、variations 組裝邏輯，全過
 - **分享平台 a) 每支豆公開頁完成（MVP）**（新 edge `public-bean` v1 + index.html；b 社群 / c 看板方向仍待老闆拍板）：
   - **edge `public-bean`**（verify_jwt false、CORS 開、快取 5 分鐘）：`?name=<slug>` → **只回風味已鎖定**（samples.flavour_locked，QC 閘門一路貫穿）豆的白名單欄位：名稱/配方或產地/風味 3 個/comment/雷達五項分數/烘焙日（roasts→samples fallback）/四法沖煮參數（blend 用 blends.brew、單品用 beans.brew）
