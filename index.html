@@ -5770,7 +5770,7 @@ fill="#6F4A36" stroke="none">
   function loadSold(){try{return JSON.parse(localStorage.getItem('ratio_rtl_sold')||'{}');}catch(e){return {};}}
   function saveSold(m){try{localStorage.setItem('ratio_rtl_sold',JSON.stringify(m));}catch(e){}appStatePush('ratio_rtl_sold');}
   /* ---- Phase 3: brew guide (per-method tabs; singles -> beans.brew jsonb, blends -> blend def brew) ---- */
-  var RTL_BREW_METHODS=[['espresso','Espresso'],['infusion','Infusion Filter'],['ice','Ice Filter'],['immersion','Immersion Filter (Cupping)']];
+  var RTL_BREW_METHODS=[['espresso','Espresso'],['infusion','Infusion'],['immersion','Immersion'],['ice','Ice Filter']];
   /* field defs: [key,label,placeholder]; visibility per method */
   function rtlBrewFields(m){
     var f=[];
