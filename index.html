@@ -895,6 +895,13 @@
   .rtl-brew summary::-webkit-details-marker{display:none}
   .rtl-brew[open] summary .rtl-chev{transform:rotate(180deg)}
   .rtl-brew-body{display:flex;flex-direction:column;gap:8px;padding-top:10px}
+  .rtl-brew-tabs{display:flex;flex-wrap:wrap;gap:6px}
+  .rtl-brew-tab{border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;font-family:inherit;font-size:11.5px;font-weight:600;padding:6px 10px;cursor:pointer}
+  .rtl-brew-tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .rtl-brew-tab.has:not(.on)::after{content:' \2022';color:var(--accent)}
+  .rtl-brew-pane{display:none;flex-direction:column;gap:8px}
+  .rtl-brew-pane.on{display:flex}
+  .rtl-brew-ratio{font-size:12px;font-weight:600;color:var(--accent);font-family:var(--font-mono);padding-left:2px}
   .rtl-brew-row{display:grid;grid-template-columns:88px 1fr;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--muted)}
   .rtl-brew-in{border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px;color:var(--ink);background:var(--bg);outline:none;font-family:inherit;width:100%;resize:none}
   .rtl-brew-in:focus{border-color:var(--accent)}
@@ -5517,6 +5524,14 @@ fill="#6F4A36" stroke="none">
     box.querySelectorAll('.rtl-del-yes').forEach(function(b){b.addEventListener('click',function(){retailDelete(b.dataset.id,b.dataset.sid);});});
     box.querySelectorAll('[data-sqpush]').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();pushToSquare(b.dataset.sqpush,b.dataset.sqsid);});});
     box.querySelectorAll('[data-brewsave]').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();rtlSaveBrew(b.dataset.brewsave,b);});});
+    box.querySelectorAll('[data-brewtab]').forEach(function(b){b.addEventListener('click',function(e){
+      e.stopPropagation();
+      var m=b.dataset.brewtab,key=b.dataset.brewtabkey;
+      rtlBrewTab[key]=m;
+      var det=b.closest('.rtl-brew');if(!det)return;
+      det.querySelectorAll('.rtl-brew-tab').forEach(function(t){t.classList.toggle('on',t.dataset.brewtab===m);});
+      det.querySelectorAll('.rtl-brew-pane').forEach(function(pn){pn.classList.toggle('on',pn.dataset.brewpane===m);});
+    });});
   }
   async function retailDelete(id,sid){
     try{
@@ -5754,8 +5769,31 @@ fill="#6F4A36" stroke="none">
   function saveGrams(m){try{localStorage.setItem('ratio_rtl_g',JSON.stringify(m));}catch(e){}appStatePush('ratio_rtl_g');}
   function loadSold(){try{return JSON.parse(localStorage.getItem('ratio_rtl_sold')||'{}');}catch(e){return {};}}
   function saveSold(m){try{localStorage.setItem('ratio_rtl_sold',JSON.stringify(m));}catch(e){}appStatePush('ratio_rtl_sold');}
-  /* ---- Phase 3: brew guide (singles -> beans columns, blends -> blend def brew) ---- */
-  var RTL_BREW_FIELDS=[['method','Method','V60, Espresso\u2026'],['temp','Temp','92\u00b0C'],['ratio','Ratio','1:15'],['grind','Grind','Medium-fine'],['flavour','Flavour notes','One-line description for emails']];
+  /* ---- Phase 3: brew guide (per-method tabs; singles -> beans.brew jsonb, blends -> blend def brew) ---- */
+  var RTL_BREW_METHODS=[['espresso','Espresso'],['infusion','Infusion Filter'],['ice','Ice Filter'],['immersion','Immersion Filter (Cupping)']];
+  /* field defs: [key,label,placeholder]; visibility per method */
+  function rtlBrewFields(m){
+    var f=[];
+    f.push(['temp','Water Temperature','92\u00b0C']);
+    if(m!=='espresso')f.push(['ppm','Water PPM','80']);
+    f.push(['grind','Grind',m==='espresso'?'e.g. 2.5 (EK43)':'Medium-fine']);
+    f.push(['dose','Dose (g)',m==='espresso'?'20':'15']);
+    f.push(['yield','Yield (g)',m==='espresso'?'45':'230']);
+    if(m!=='espresso')f.push(['water','Water (g)','240']);
+    if(m==='ice')f.push(['ice_ratio','Ice Ratio','e.g. 6:4 water:ice']);
+    f.push(['time','Extraction Time',m==='espresso'?'28 sec':'2:30']);
+    return f;
+  }
+  function rtlBrewRatioStr(m,v){
+    var dose=parseFloat(v&&v.dose),liq=parseFloat(m==='espresso'?(v&&v.yield):(v&&v.water));
+    if(!dose||!liq||dose<=0)return '';
+    var r=Math.round((liq/dose)*10)/10;
+    return '1:'+(r%1===0?String(Math.round(r)):String(r));
+  }
+  function rtlBrewMethodFilled(v){
+    if(!v||typeof v!=='object')return false;
+    return Object.keys(v).some(function(k){return String(v[k]||'').trim()!=='';});
+  }
   function rtlBrewBeanRow(s){
     if(!s)return null;
     if(s.bean_id){var b=beanById(s.bean_id);if(b)return b;}
@@ -5765,28 +5803,48 @@ fill="#6F4A36" stroke="none">
     if(blendDef)return (blendDef.brew&&typeof blendDef.brew==='object')?blendDef.brew:{};
     var b=rtlBrewBeanRow(s);
     if(!b)return null; /* no bean row -> can't store */
-    return {method:b.brew_method||'',temp:b.brew_temp||'',ratio:b.brew_ratio||'',grind:b.grind_size||'',flavour:b.flavour_desc||''};
+    return (b.brew&&typeof b.brew==='object')?b.brew:{};
   }
+  var rtlBrewTab={}; /* delKey -> active method */
   function rtlBrewHTML(s,blendDef,delKey){
     var brew=rtlBrewGet(s,blendDef);
     if(brew==null)return ''; /* single with no matching beans row */
-    var filled=RTL_BREW_FIELDS.some(function(f){return String(brew[f[0]]||'').trim()!=='';});
-    var rows=RTL_BREW_FIELDS.map(function(f){
-      var tag=f[0]==='flavour'
-        ?('<textarea class="rtl-brew-in" rows="2" data-bf="'+f[0]+'" placeholder="'+esc(f[2])+'">'+esc(brew[f[0]]||'')+'</textarea>')
-        :('<input class="rtl-brew-in" data-bf="'+f[0]+'" placeholder="'+esc(f[2])+'" value="'+esc(brew[f[0]]||'')+'">');
-      return '<label class="rtl-brew-row"><span>'+f[1]+'</span>'+tag+'</label>';
+    var anyFilled=RTL_BREW_METHODS.some(function(mm){return rtlBrewMethodFilled(brew[mm[0]]);});
+    var active=rtlBrewTab[delKey]||RTL_BREW_METHODS[0][0];
+    var tabs='<div class="rtl-brew-tabs">'+RTL_BREW_METHODS.map(function(mm){
+      var filled=rtlBrewMethodFilled(brew[mm[0]]);
+      return '<button class="rtl-brew-tab'+(mm[0]===active?' on':'')+(filled?' has':'')+'" data-brewtab="'+mm[0]+'" data-brewtabkey="'+esc(delKey)+'">'+esc(mm[1])+'</button>';
+    }).join('')+'</div>';
+    var panes=RTL_BREW_METHODS.map(function(mm){
+      var m=mm[0],v=(brew[m]&&typeof brew[m]==='object')?brew[m]:{};
+      var rows=rtlBrewFields(m).map(function(f){
+        return '<label class="rtl-brew-row"><span>'+f[1]+'</span><input class="rtl-brew-in" data-bm="'+m+'" data-bf="'+f[0]+'" placeholder="'+esc(f[2])+'" value="'+esc(v[f[0]]||'')+'"></label>';
+      }).join('');
+      var ratio=rtlBrewRatioStr(m,v);
+      var ratioHtml=ratio?('<div class="rtl-brew-ratio">Ratio '+esc(ratio)+' (auto)</div>'):'';
+      return '<div class="rtl-brew-pane'+(m===active?' on':'')+'" data-brewpane="'+m+'">'+rows+ratioHtml+'</div>';
     }).join('');
-    return '<details class="rtl-brew"'+(filled?'':'')+' data-brewkey="'+esc(delKey)+'">'
-      +'<summary><svg class="rtl-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg><span>Brew guide'+(filled?'':' \u00b7 not set')+'</span></summary>'
-      +'<div class="rtl-brew-body">'+rows
+    return '<details class="rtl-brew" data-brewkey="'+esc(delKey)+'">'
+      +'<summary><svg class="rtl-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg><span>Brew guide'+(anyFilled?'':' \u00b7 not set')+'</span></summary>'
+      +'<div class="rtl-brew-body">'+tabs+panes
       +'<div class="rtl-brew-act"><span class="rtl-brew-msg" data-brewmsg="'+esc(delKey)+'"></span><button class="gbtn" data-brewsave="'+esc(delKey)+'">Save</button></div>'
-      +'<div class="rtl-brew-note">Shown in the dispatch email sent to customers.</div>'
+      +'<div class="rtl-brew-note">Shown in the dispatch email. Flavour comes from the card comment.</div>'
       +'</div></details>';
+  }
+  function rtlBrewReadAll(card){
+    var brew={};
+    card.querySelectorAll('[data-bm]').forEach(function(inp){
+      var m=inp.dataset.bm,f=inp.dataset.bf,val=(inp.value||'').trim();
+      if(!brew[m])brew[m]={};
+      brew[m][f]=val;
+    });
+    /* drop empty methods */
+    Object.keys(brew).forEach(function(m){if(!rtlBrewMethodFilled(brew[m]))delete brew[m];});
+    return brew;
   }
   async function rtlSaveBrew(delKey,btn){
     var card=btn.closest('.rtl-brew');if(!card)return;
-    var vals={};card.querySelectorAll('[data-bf]').forEach(function(inp){vals[inp.dataset.bf]=(inp.value||'').trim();});
+    var brew=rtlBrewReadAll(card);
     var msg=card.querySelector('[data-brewmsg]');
     var s=RTL_ROWS.filter(function(x){var k=(x.sample_id||'')||('id:'+String(x.id||''));return k===delKey;})[0];
     if(!s){if(msg)msg.textContent='Not found';return;}
@@ -5795,15 +5853,14 @@ fill="#6F4A36" stroke="none">
       var blendDef=blendDefByName(s.sample_id||'');
       if(blendDef){
         var defs=loadBlendDefs();
-        defs.forEach(function(b){if(String(b.id)===String(blendDef.id))b.brew=vals;});
+        defs.forEach(function(b){if(String(b.id)===String(blendDef.id))b.brew=brew;});
         saveBlendDefs(defs);
       }else{
         var b=rtlBrewBeanRow(s);
         if(!b)throw new Error('No matching green bean');
-        var patch={brew_method:vals.method||null,brew_temp:vals.temp||null,brew_ratio:vals.ratio||null,grind_size:vals.grind||null,flavour_desc:vals.flavour||null};
-        var r=await sb.from('beans').update(patch).eq('id',b.id);
+        var r=await sb.from('beans').update({brew:brew}).eq('id',b.id);
         if(r&&r.error)throw new Error(r.error.message);
-        Object.assign(b,patch);
+        b.brew=brew;
       }
       if(msg)msg.textContent='\u2713 Saved';
     }catch(e){if(msg)msg.textContent='Failed: '+(e&&e.message||e);}
@@ -5971,7 +6028,8 @@ fill="#6F4A36" stroke="none">
       var defs=rows.map(function(x){return {id:x.id,name:x.name||'',hname:x.hname||'',parts:Array.isArray(x.parts)?x.parts:[],note:x.note||'',comment:x.comment||'',brew:(x.brew&&typeof x.brew==='object')?x.brew:{}};});
       defs.forEach(function(b,i){b.pos=i;});
       /* canonical compare (jsonb reorders keys, so raw JSON strings never match) */
-      var canon=function(a){return JSON.stringify((a||[]).map(function(b){var w=(b.brew&&typeof b.brew==='object')?b.brew:{};return [b.id,b.name||'',b.hname||'',b.note||'',b.comment||'',w.method||'',w.temp||'',w.ratio||'',w.grind||'',w.flavour||'',(b.parts||[]).map(function(p){return [p.bean||'',p.process||'',String(p.pct==null?'':p.pct)];})];}));};
+      var stab=function(o){if(!o||typeof o!=='object')return '';return JSON.stringify(Object.keys(o).sort().map(function(m){var v=o[m]||{};return [m,Object.keys(v).sort().map(function(k){return [k,String(v[k]==null?'':v[k])];})];}));};
+      var canon=function(a){return JSON.stringify((a||[]).map(function(b){return [b.id,b.name||'',b.hname||'',b.note||'',b.comment||'',stab(b.brew),(b.parts||[]).map(function(p){return [p.bean||'',p.process||'',String(p.pct==null?'':p.pct)];})];}));};
       var cur=null;try{cur=JSON.parse(localStorage.getItem('ratio_blends')||'null');}catch(e){}
       if(Array.isArray(cur)&&canon(cur)===canon(defs))return; /* echo of our own push — skip rewrite + re-render */
       try{localStorage.setItem('ratio_blends',JSON.stringify(defs));}catch(e){}
