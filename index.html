@@ -5778,7 +5778,7 @@ fill="#6F4A36" stroke="none">
     if(m!=='espresso')f.push(['ppm','Water PPM','80']);
     f.push(['grind','Grind',m==='espresso'?'e.g. 2.5 (EK43)':'Medium-fine']);
     f.push(['dose','Dose (g)',m==='espresso'?'20':'15']);
-    f.push(['yield','Yield (g)',m==='espresso'?'45':'230']);
+    if(m==='espresso')f.push(['yield','Yield (g)','45']);
     if(m!=='espresso')f.push(['water','Water (g)','240']);
     if(m==='ice')f.push(['ice_ratio','Ice Ratio','e.g. 6:4 water:ice']);
     f.push(['time','Extraction Time',m==='espresso'?'28 sec':'2:30']);
