@@ -85,6 +85,12 @@
 - **全 session 自我代碼審查**（1219 行 diff 重讀高風險區）：
   - **修一個真 bug**：Add Coffee 建的烘豆列（green_kg 本來就是 null）在編輯視窗填 T1/T2 烘焙記錄時，被「Enter a valid quantity」擋住存不了 → 改成 green_kg 原本為 null 的列允許生豆欄留空（只存其他欄位）；**原本有生豆量的列留空仍然擋**（防誤清庫存連動）。preview 兩路徑實測通過
   - 其餘重讀（pushToSquare 多規格、saveRoastEdit 剩餘量連動、consumeBlendComponents FIFO、feedback/print 各處）沒發現新問題
+- **Supabase 安全掃描 + 加固**（migration `security_hardening_advisors`，全部 anon key 實測）：
+  - `notify_feedback()` 收回 RPC 執行權（原本任何人可直呼刷爆訊息中心；trigger 照常運作）→ 匿名直呼現在 404
+  - **messages 表堵洞**：原政策連 anon 都能 insert/update/delete（拿網頁公開金鑰就能清空訊息）→ 改 authenticated only；實測匿名刪除撲空、trigger 訊息存活
+  - feedback 匿名寫入加長度限制（comment≤2000/name≤120/email≤200/order_ref≤100）→ 實測正常寫入 201、超長 401
+  - **留給老闆的**：① Auth 後台開「Leaked password protection」（dashboard 設定，SQL 動不了）② mail-assets bucket 可被列目錄（只有卡片 PNG，低風險）③ app_state/contacts/rosters 的 always-true 政策是現行「員工共用」信任模型，未動
+  - Chrome MCP 網域仍未開，Square Re-sync 實測續掛（同上一條）
 - **「全部」總覽分頁已上線**：ORD_TABS 加 `['all','全部']`、ordTabCount 回 ORDERS.length、renderOrders 加不篩選分支（commit 2270d97，已部署驗證）
 - **測試單 #0001 + 客戶 Dan 已刪**（orders 表清空、customers 剩 2 位真實客戶）
 - **sync-to-square 升 v13**：新增 `payment_link_delete` action（body.link_id → Square DELETE /v2/online-checkout/payment-links）；測試連結 iQjObl89 已刪、回 404
