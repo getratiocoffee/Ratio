@@ -73,6 +73,12 @@
   - **Print Centre**：資訊卡區加「Bean page QR」鍵——選豆 → 產 QR（連 ?bean=<slug>），印貼紙/包裝用
   - 驗證：curl 三態（鎖定=完整 JSON、未鎖=404、缺參數=400）+ preview 實測 Dark Knight 頁完整渲染（截圖確認）+ not-available 畫面 + QR 產生，全過；測試用的鎖定已還原
   - ⚠ 上線後要公開哪支豆：杯測卡按 **Lock flavour** 就會出現在公開頁（同一顆鍵同時管資訊卡）
+- **🔥 重大修復：square-webhook 簽章全掛（可能掛了很久）**：
+  - 營運健康檢查發現 webhook 被 Square 打了**上百發全部 401**（每幾分鐘一波、持續數小時 = 很可能是店裡 POS 刷卡事件在重試）
+  - 診斷（v10/v11 把失敗線索寫進 app_state）揪出病因：**兩個 secret 設反了**——`SQUARE_WEBHOOK_SIGNATURE_KEY` 是空的、簽章金鑰被塞在 `SQUARE_WEBHOOK_URL` 欄位裡 → 驗證永遠失敗 → **付款連結自動確認收款、網店訂單匯入其實一直是斷的**
+  - **v12 自我修復**：偵測到「金鑰欄空 + URL 欄裝著非網址」就自動對調，URL 用寫死的正確函式網址；正確設定的 secret 永遠優先。部署後 Square 投遞**立刻全數 200**、積壓佇列開始消化、診斷區歸零
+  - **v13 加 POS 防洪閘**：沒有配送/自取收件人資訊的 Square 訂單（= 店內 POS 快速結帳）直接跳過不匯入——防止門衛修好後明天營業的每杯咖啡都變成 app 訂單；網店訂單（帶 fulfillment）照常匯入
+  - 建議老闆有空到 Supabase 後台把兩個 secret 正式改對（SIGNATURE_KEY=金鑰、URL=函式網址），改對後自我修復邏輯自動退位
 - **收尾打磨**（migration `feedback_notify_trigger_and_t2_profile_note`）：
   - **修 bug：blends 未登入無限重試**——RLS 把 anon select 過濾成空（不報錯），被誤判成「空表」→ 觸發本機上傳 → 被 RLS 擋 → 洗版重試。blendsPull / blendsPushNow 加 session 檢查，未登入直接 return（preview 實測 guard 後零新增錯誤）
   - **G7 補強：新回饋自動通知**——`notify_feedback()` security definer trigger：feedback insert → messages 一則「New feedback ★★★★ + 摘要」（匿名寫不了 messages 所以用 trigger 代打；已 E2E 測過並清理）
