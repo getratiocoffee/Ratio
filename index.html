@@ -337,6 +337,24 @@
   .pc-wrap{padding:4px 16px 18px}
   .pc-wrap select{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:11px;padding:11px 12px;font-size:14px;color:var(--ink);outline:none;font-family:inherit;margin-bottom:10px;-webkit-appearance:none;appearance:none}
   .pc-sub{font-size:11.5px;color:var(--muted);line-height:1.5;margin:2px 0 10px}
+  /* G7 公開回饋表單 + Feedback 管理頁 */
+  #fb-ov{position:fixed;inset:0;z-index:9999;background:var(--bg);overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:34px 16px}
+  .fb-card{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 22px}
+  .fb-title{font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--brand);margin-bottom:4px}
+  .fb-sub{font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5}
+  .fb-stars{display:flex;gap:8px;margin:4px 0 14px}
+  .fb-star{font-size:30px;background:none;border:none;cursor:pointer;color:var(--line-strong);padding:2px;line-height:1}
+  .fb-star.on{color:#E0B341}
+  .fb-card textarea,.fb-card input{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:11px;padding:11px 12px;font-size:14px;color:var(--ink);outline:none;font-family:inherit;margin-bottom:10px}
+  .fb-card textarea{min-height:90px;resize:vertical}
+  .fb-thanks{text-align:center;padding:30px 0;font-size:15px;line-height:1.7}
+  .fbk-card{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:12px 14px;margin:8px 16px}
+  .fbk-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+  .fbk-stars{color:#E0B341;font-size:14px;letter-spacing:2px}
+  .fbk-meta{font-size:11.5px;color:var(--muted)}
+  .fbk-cmt{font-size:13.5px;line-height:1.55;margin-top:6px}
+  .fbk-coffee{font-size:11.5px;color:var(--accent-ink);margin-top:4px}
+  .fbk-reply{background:var(--tint);border-radius:10px;padding:8px 10px;margin-top:8px;font-size:12.5px;color:var(--accent-ink);line-height:1.5}
   .gsec{font-size:12px;font-weight:600;color:var(--muted);padding:14px 18px 2px;letter-spacing:.02em}
   /* level 1: country tiles */
   .gcountries{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:8px 16px 16px}
@@ -1124,6 +1142,17 @@
     </div>
   </div>
 
+  <div class="screen" id="screen-feedback">
+    <header class="shead">
+      <span class="logo"><img src="logo.png" alt="Ratio" /></span>
+      <span class="hkey" id="feedback-count"></span>
+    </header>
+    <div class="stitle" id="feedback-title">Feedback</div>
+    <div class="sbody">
+      <div id="feedback-content"></div>
+    </div>
+  </div>
+
   <div class="screen" id="screen-label">
     <header class="shead">
       <span class="logo"><img src="logo.png" alt="Ratio" /></span>
@@ -1200,6 +1229,7 @@
     admin:`<svg viewBox="0 0 48 48" fill="none" stroke="#49423A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="15" r="7"/><path d="M6 38c0-6.5 5.5-10.5 12-10.5 2.2 0 4.3.5 6 1.4"/><circle cx="34" cy="33" r="5.5"/><path d="M34 25.5v-2M34 42.5v-2M42.5 33h-2M27.5 33h-2M40 27l-1.4 1.4M29.4 37.6L28 39M40 39l-1.4-1.4M29.4 28.4L28 27"/></svg>`,
     label:`<svg viewBox="0 0 48 48" fill="none" stroke="#49423A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M25 8H10a2 2 0 0 0-2 2v15l16 16 17-17z"/><circle cx="16.5" cy="16.5" r="2.6" fill="#49423A" stroke="none"/></svg>`,
     print:`<svg viewBox="0 0 48 48" fill="none" stroke="#49423A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18v-8h18v8"/><path d="M15 30H9a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h30a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-6"/><rect x="15" y="26" width="18" height="13" rx="1.5"/><path d="M20 32h8"/><circle cx="35" cy="23" r="1.8" fill="#49423A" stroke="none"/></svg>`,
+    feedback:`<svg viewBox="0 0 48 48" fill="none" stroke="#49423A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M40 9H8v23h9v8l9-8h14z"/><path d="M24 14.5l2.3 4.6 5 .7-3.6 3.6.8 5-4.5-2.4-4.5 2.4.8-5-3.6-3.6 5-.7z" fill="#49423A" stroke="none"/></svg>`,
     timesheet:`<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14" fill="none" stroke="#49423A" stroke-width="3.2"/><path d="M24 15 V24 L30.5 28" fill="none" stroke="#49423A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     beans:`<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
  viewBox="0 0 715.000000 704.000000"
@@ -1247,7 +1277,7 @@ fill="#6F4A36" stroke="none">
   };
   const shop=[['timesheet','Timesheet'],['beans','Beans'],['task','Task'],['recipe','Recipe']];
   const roastery=[['roast','Roaster'],['green','Green Buyer'],['order','Order'],['fx','Blender']];
-  const folder=[['print','Print Centre'],['post','Post'],['file','File'],['user','Account'],['admin','Admin']]; /* G6: label/tinlabel/menu/invoice 併入 Print Centre */
+  const folder=[['print','Print Centre'],['feedback','Feedback'],['post','Post'],['file','File'],['user','Account'],['admin','Admin']]; /* G6: label/tinlabel/menu/invoice 併入 Print Centre；G7 加 Feedback */
 
   function fill(side,arr){const el=document.querySelector(`.pill[data-side="${side}"]`);el.innerHTML='';
     arr.forEach(([ic,lb])=>{const d=document.createElement('div');d.className='item';d.dataset.id=ic;
@@ -1700,6 +1730,43 @@ fill="#6F4A36" stroke="none">
     }
     sb.auth.getSession().then(({data})=>onSession(data.session));
     sb.auth.onAuthStateChange((_e,session)=>{setTimeout(()=>onSession(session),0);});
+
+    /* ============ G7 公開回饋表單（?fb=<order id|store>，免登入，蓋在最上層） ============ */
+    (function(){
+      var ref='';
+      try{ref=new URLSearchParams(location.search).get('fb')||'';}catch(e){}
+      if(!ref)return;
+      var rating=0;
+      var ov=document.createElement('div');ov.id='fb-ov';
+      var stars='';for(var i=1;i<=5;i++)stars+='<button class="fb-star" data-star="'+i+'" aria-label="'+i+' stars">★</button>';
+      ov.innerHTML='<div class="fb-card">'
+        +'<div class="fb-title">Ratio Coffee</div>'
+        +'<div class="fb-sub">How was your coffee? Your feedback goes straight to the roaster.</div>'
+        +'<div class="fb-stars">'+stars+'</div>'
+        +'<textarea id="fb-cmt" placeholder="What did you like? What could be better?"></textarea>'
+        +'<input id="fb-name" type="text" placeholder="Your name (optional)" />'
+        +'<input id="fb-email" type="email" placeholder="Email (optional, if you would like a reply)" />'
+        +'<div class="gform-msg" id="fb-msg"></div>'
+        +'<button class="gbtn" id="fb-send">Send feedback</button>'
+        +'</div>';
+      ov.querySelectorAll('.fb-star').forEach(function(b){b.addEventListener('click',function(){
+        rating=+b.dataset.star;
+        ov.querySelectorAll('.fb-star').forEach(function(x){x.classList.toggle('on',+x.dataset.star<=rating);});
+      });});
+      ov.querySelector('#fb-send').addEventListener('click',async function(){
+        var send=ov.querySelector('#fb-send'),msg=ov.querySelector('#fb-msg');
+        var cmt=ov.querySelector('#fb-cmt').value.trim();
+        if(!rating&&!cmt){msg.textContent='Tap a star rating or write a note first';msg.className='gform-msg err';return;}
+        send.disabled=true;msg.textContent='Sending…';msg.className='gform-msg';
+        var rec={order_ref:ref,rating:rating||null,comment:cmt||null,
+          name:ov.querySelector('#fb-name').value.trim()||null,
+          email:ov.querySelector('#fb-email').value.trim()||null};
+        var r=await sb.from('feedback').insert(rec);
+        if(r.error){send.disabled=false;msg.textContent='Could not send: '+r.error.message;msg.className='gform-msg err';return;}
+        ov.innerHTML='<div class="fb-card"><div class="fb-title">Ratio Coffee</div><div class="fb-thanks">Thank you! ☕<br>Your feedback is on its way to the roaster.</div></div>';
+      });
+      document.body.appendChild(ov);
+    })();
 
     async function submit(){
       const email=emailEl.value.trim();
@@ -2527,8 +2594,88 @@ fill="#6F4A36" stroke="none">
 
 
 
+  /* ============ G7 Feedback 管理：看回饋、寄回覆、按豆摘要（QC 用） ============ */
+  var FEEDBACK=[], FBK_ORDERS={}, fbkReply=null;
+  function openFeedback(){closeFolder();openPage('feedback');loadFeedback();}
+  async function loadFeedback(){
+    var box=document.getElementById('feedback-content');
+    box.innerHTML='<div class="sempty">Loading…</div>';
+    var r=await sb.from('feedback').select('*').order('created_at',{ascending:false});
+    if(r.error){box.innerHTML='<div class="sempty">Load failed: '+esc(r.error.message)+'</div>';return;}
+    FEEDBACK=r.data||[];
+    /* 回饋帶著 order id → 撈品項，知道客人在喝哪支豆 */
+    FBK_ORDERS={};
+    var ids=FEEDBACK.map(function(f){return f.order_ref;}).filter(function(x){return x&&x!=='store'&&/^[0-9a-f-]{36}$/i.test(x);});
+    if(ids.length){
+      try{
+        var o=await sb.from('orders').select('id,order_no,items').in('id',ids);
+        (o.data||[]).forEach(function(x){FBK_ORDERS[x.id]=x;});
+      }catch(e){}
+    }
+    renderFeedbackAdmin();
+  }
+  function fbkStars(n){var h='';for(var i=1;i<=5;i++)h+=(i<=n?'★':'☆');return h;}
+  function fbkCoffees(f){
+    var o=f.order_ref&&FBK_ORDERS[f.order_ref];
+    if(!o)return [];
+    return (Array.isArray(o.items)?o.items:[]).map(function(it){return String(it.name||'').trim();}).filter(Boolean);
+  }
+  function renderFeedbackAdmin(){
+    var box=document.getElementById('feedback-content');if(!box)return;
+    var cnt=document.getElementById('feedback-count');if(cnt)cnt.textContent=FEEDBACK.length?(FEEDBACK.length+' received'):'';
+    if(!FEEDBACK.length){box.innerHTML='<div class="sempty">No feedback yet<br>Customers get the link in the dispatch email — or print the QR from Print Centre</div>';return;}
+    /* 摘要回 QC：按豆平均星等 */
+    var agg={},order=[];
+    FEEDBACK.forEach(function(f){
+      if(!f.rating)return;
+      fbkCoffees(f).forEach(function(nm){var k=nm.toLowerCase();if(!agg[k]){agg[k]={name:nm,sum:0,n:0};order.push(k);}agg[k].sum+=f.rating;agg[k].n++;});
+    });
+    var h='';
+    if(order.length){
+      order.sort(function(a,b){return agg[b].n-agg[a].n;});
+      h+='<div class="gsec">Summary by coffee · for QC</div><div class="gd-list" style="margin:0 16px">'
+        +order.map(function(k){var a=agg[k];return '<div class="grow"><span class="gk">'+esc(a.name)+'</span><span class="gv mono">'+(Math.round(a.sum/a.n*10)/10)+' ★ · '+a.n+' reviews</span></div>';}).join('')
+        +'</div>';
+    }
+    h+='<div class="gsec">All feedback</div>';
+    FEEDBACK.forEach(function(f){
+      var o=f.order_ref&&FBK_ORDERS[f.order_ref];
+      var who=[f.name,f.email].filter(Boolean).join(' · ');
+      var when=String(f.created_at||'').slice(0,10);
+      var coffees=fbkCoffees(f);
+      h+='<div class="fbk-card">'
+        +'<div class="fbk-top"><span class="fbk-stars">'+(f.rating?fbkStars(f.rating):'—')+'</span><span class="fbk-meta">'+esc(when)+(o?' · #'+String(o.order_no).padStart(4,'0'):(f.order_ref==='store'?' · QR':''))+'</span></div>'
+        +(f.comment?'<div class="fbk-cmt">'+esc(f.comment)+'</div>':'')
+        +(coffees.length?'<div class="fbk-coffee">'+coffees.map(esc).join(' · ')+'</div>':'')
+        +(who?'<div class="fbk-meta" style="margin-top:4px">'+esc(who)+'</div>':'')
+        +(f.reply?'<div class="fbk-reply">Replied'+(f.replied_at?' '+esc(String(f.replied_at).slice(0,10)):'')+' — '+esc(f.reply)+'</div>':'')
+        +(!f.reply&&f.email?(fbkReply===f.id
+          ?'<div class="gform" style="margin-top:8px"><textarea id="fbk-re" style="width:100%;border:1px solid var(--line);border-radius:10px;padding:9px;font-family:inherit;font-size:13px;min-height:70px;background:var(--bg);color:var(--ink)" placeholder="Write a reply…"></textarea><div class="gform-msg" id="fbk-msg"></div><div class="gform-actions"><button class="gbtn ghost" id="fbk-cancel">Cancel</button><button class="gbtn" id="fbk-send">Send reply</button></div></div>'
+          :'<div class="po-actions"><button class="gbtn ghost" data-fbre="'+esc(f.id)+'">Reply</button></div>'):'')
+        +'</div>';
+    });
+    box.innerHTML=h;
+    box.querySelectorAll('[data-fbre]').forEach(function(b){b.addEventListener('click',function(){fbkReply=b.dataset.fbre;renderFeedbackAdmin();});});
+    var fc=document.getElementById('fbk-cancel');if(fc)fc.addEventListener('click',function(){fbkReply=null;renderFeedbackAdmin();});
+    var fs=document.getElementById('fbk-send');if(fs)fs.addEventListener('click',sendFeedbackReply);
+  }
+  async function sendFeedbackReply(){
+    var f=FEEDBACK.find(function(x){return String(x.id)===String(fbkReply);});
+    var msg=document.getElementById('fbk-msg'),btn=document.getElementById('fbk-send');
+    if(!f||!msg||!btn)return;
+    var txt=(document.getElementById('fbk-re').value||'').trim();
+    if(!txt){msg.textContent='Write a reply first';msg.className='gform-msg err';return;}
+    btn.disabled=true;msg.textContent='Sending…';msg.className='gform-msg';
+    try{
+      await callEmailFn({action:'feedback_reply',feedback_id:f.id,reply:txt});
+      f.reply=txt;f.replied_at=new Date().toISOString();
+      fbkReply=null;renderFeedbackAdmin();
+    }catch(e){btn.disabled=false;msg.textContent='Failed: '+((e&&e.message)||e);msg.className='gform-msg err';}
+  }
   /* ============ G6 Print Centre：資訊卡 / .lbx 貼紙 / 選單 / PDF 集中一頁 ============ */
   var PRINT_CARDS=null, printCardSel=''; /* null = 名單還在載入，[] = 載完但沒有 retail 咖啡 */
+  var printFbQr=false; /* G7 回饋 QR 顯示狀態 */
+  var FB_PUBLIC_URL='https://ratio-theta.vercel.app/?fb=store';
   function openPrint(){closeFolder();openPage('print');renderPrint();ensurePrintData();}
   async function ensurePrintData(){
     try{
@@ -2566,8 +2713,15 @@ fill="#6F4A36" stroke="none">
       +(PRINT_CARDS||[]).map(function(n){return '<option value="'+esc(n)+'"'+(n===printCardSel?' selected':'')+'>'+esc(n)+'</option>';}).join('')
       +'</select>'
       +'<button class="gbtn" id="pc-dl">Download card PNG</button>'
-      +'<div class="gform-msg" id="pc-msg">'+(PRINT_CARDS===null?'Loading coffee list…':(PRINT_CARDS.length?'':'No retail coffees found'))+'</div></div>';
+      +'<div class="gform-msg" id="pc-msg">'+(PRINT_CARDS===null?'Loading coffee list…':(PRINT_CARDS.length?'':'No retail coffees found'))+'</div></div>'
+      +'<div class="gsec">Feedback QR</div>'
+      +'<div class="pc-wrap"><div class="pc-sub">Scan → public feedback form (no login needed). Print it on parcel cards or a counter stand.</div>'
+      +(printFbQr
+        ?'<img src="https://api.qrserver.com/v1/create-qr-code/?size=520x520&data='+encodeURIComponent(FB_PUBLIC_URL)+'" alt="feedback QR" style="width:100%;max-width:250px;display:block;background:#fff;border-radius:10px;padding:10px;border:1px solid var(--line)" /><div class="pc-sub" style="margin-top:8px">'+esc(FB_PUBLIC_URL)+'<br>Long-press / right-click the QR to save it.</div>'
+        :'<button class="gbtn ghost" id="pc-qr" style="background:transparent;color:var(--accent);border:1.5px solid var(--accent)">Show QR</button>')
+      +'</div>';
     box.innerHTML=h;
+    var pq=document.getElementById('pc-qr');if(pq)pq.addEventListener('click',function(){printFbQr=true;renderPrint();});
     box.querySelectorAll('[data-print]').forEach(function(el){el.addEventListener('click',function(){
       var k=el.dataset.print;
       if(k==='label')openLabel();
@@ -2601,6 +2755,7 @@ fill="#6F4A36" stroke="none">
   }
   function onOpen(id){
     if(id==='print'){openPrint();return;}
+    if(id==='feedback'){openFeedback();return;}
     if(id==='label'){openLabel();return;}
     if(id==='tinlabel'){openTinLabel();return;}
     if(id==='menu'){openMenu();return;}

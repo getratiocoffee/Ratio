@@ -43,6 +43,14 @@
   - **新豆通知信群發**：Retail 卡新「Announce」鍵 → 閘門檢查 → 顯示收件人數 confirm → 生成資訊卡上傳 mail-assets → **send-email v13 新 action `announce_coffee`**（撈全部有 email 客戶去重逐一寄，600ms 間隔防 Resend 限流，回 sent/failed/total）
   - send-email v13 順便讓 dispatch_notice 的風味抓取也 flavour_locked 優先
   - 驗證：preview 實測閘門六種情境矩陣 + 卡片狀態列 + Announce 按鈕渲染，全過；**實際群發要登入後測**（目前客戶 2 位，風險低）
+- **Beans 2.0 G7 客戶回饋完成 — G1–G7 全線完工** 🎉（index.html + DB + send-email v14）：
+  - **feedback 表**（migration `g7_feedback_table`）：RLS 匿名**只能寫入**、員工讀/改/刪
+  - **公開回饋表單**：`?fb=<order id|store>` 免登入模式，overlay 蓋在登入牆上（五星 + 評語 + 選填姓名/email）→ 匿名寫進 feedback；**已在 preview 真實 E2E 測過**（送出 → 感謝頁 → DB 有列 → 測試資料已清）
+  - **出貨信帶回饋連結**：send-email v14 dispatch_notice 加「How was your coffee?」按鈕 → `APP_URL/?fb=<order id>`（APP_URL secret 可覆蓋，預設 ratio-theta.vercel.app）
+  - **QR 可印**：Print Centre 新「Feedback QR」區（qrserver API 產圖，`?fb=store`）→ 包裹小卡/櫃檯立牌
+  - **app 回覆**：More 資料夾新 Feedback 圖示 → 回饋列表（星等/評語/客名）；有 email 的可寫回覆 → send-email v14 新 action `feedback_reply`（寄信 + 蓋 reply/replied_at）
+  - **摘要回 QC**：回饋帶 order id → 對回訂單品項 → 頁面頂部「Summary by coffee」按豆平均星等
+  - 驗證：公開表單全流程 E2E（preview_click 有工具派發問題，程式 .click() 全通）+ 管理頁渲染（摘要/星等/單號/QR 標記/已回覆狀態/回覆表單）+ QR 顯示，全過
 - **「全部」總覽分頁已上線**：ORD_TABS 加 `['all','全部']`、ordTabCount 回 ORDERS.length、renderOrders 加不篩選分支（commit 2270d97，已部署驗證）
 - **測試單 #0001 + 客戶 Dan 已刪**（orders 表清空、customers 剩 2 位真實客戶）
 - **sync-to-square 升 v13**：新增 `payment_link_delete` action（body.link_id → Square DELETE /v2/online-checkout/payment-links）；測試連結 iQjObl89 已刪、回 404
@@ -119,7 +127,7 @@
 - ~~G4 QC：杯測結果狀態 Pass / Re-roast（退 G2）/ Downgrade；風味描述鎖定後才進資訊卡~~ ✅ 完成（見〇補記）
 - ~~G5 上架：僅 QC Pass 可上架；Retail+Square push 集中；新豆通知信群發~~ ✅ 完成（見〇補記；下家 wholesale 未做 → 長期方向）
 - ~~G6 印製中心：資訊卡/.lbx 貼紙/選單/PDF 集中一頁（純重組，可隨時插隊）~~ ✅ 完成（見〇補記）
-- G7 客戶回饋：出貨信回饋連結（QR 可印）→ feedback 表 → app 回覆 → 摘要回 QC
+- ~~G7 客戶回饋：出貨信回饋連結（QR 可印）→ feedback 表 → app 回覆 → 摘要回 QC~~ ✅ 完成（見〇補記）— **Beans 2.0 G1–G7 全部完工**
 - **順序：G1 → G2 → G6 → G3 → G4 → G5 → G7**，每 phase 分批交付
 - 跨線：上架→接單（供貨）、Orders 烘豆需求→烘焙站（唯讀）、出貨→回饋→QC
 
