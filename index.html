@@ -912,8 +912,8 @@
   .rtl-brew-msg{font-size:12px;color:var(--muted)}
   .rtl-brew-note{font-size:11px;color:var(--muted);line-height:1.45}
   .ord-itemrow{display:grid;grid-template-columns:minmax(0,1fr) 62px 44px 68px 28px;gap:6px;align-items:center}
-  .ord-itemrow input{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 9px;font-size:13px;color:var(--ink);outline:none;font-family:inherit;min-width:0}
-  .ord-itemrow input:focus{border-color:var(--accent)}
+  .ord-itemrow input,.ord-itemrow select{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 9px;font-size:13px;color:var(--ink);outline:none;font-family:inherit;min-width:0;-webkit-appearance:none;appearance:none}
+  .ord-itemrow input:focus,.ord-itemrow select:focus{border-color:var(--accent)}
   .ord-itemrow .oi-x{border:none;background:none;color:var(--muted);font-size:17px;cursor:pointer;padding:4px;line-height:1}
   .ord-colhead{display:grid;grid-template-columns:minmax(0,1fr) 62px 44px 68px 28px;gap:6px;font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--muted);text-transform:uppercase;padding:0 2px}
   .ord-form{padding:0 16px}
@@ -5005,7 +5005,6 @@ fill="#6F4A36" stroke="none">
     var box=document.getElementById('order-content');
     var count=document.getElementById('order-count');if(count)count.textContent='';
     var d=ordDraft;
-    var beanOpts=ordBeanDatalist();
     var h='<div class="ord-form">';
     h+='<div class="ord-field"><label class="ord-flab">Channel</label><select id="of-channel">'+
        ORD_CHANNELS.map(function(c){return '<option value="'+c+'"'+(d.channel===c?' selected':'')+'>'+ORD_CHANNEL_LABEL[c]+'</option>';}).join('')+'</select></div>';
@@ -5020,7 +5019,6 @@ fill="#6F4A36" stroke="none">
     h+='<div class="ord-colhead"><span>Bean / blend</span><span>Grams</span><span>Qty</span><span>Price</span><span></span></div>';
     h+='<div id="of-items">'+d.items.map(function(it,i){return ordItemRowHTML(it,i);}).join('')+'</div>';
     h+='<button class="ord-additem" id="of-additem" style="margin-top:8px">+ Add item</button></div>';
-    h+='<datalist id="of-beanlist">'+beanOpts+'</datalist>';
     h+='<div class="ord-field"><label class="ord-flab">Payment method</label><input id="of-pay" value="'+esc(d.payment_method)+'" placeholder="e.g. Bank transfer / Cash" /></div>';
     h+='<div class="ord-field"><label class="ord-flab">Notes</label><textarea id="of-notes" rows="2" placeholder="optional">'+esc(d.notes)+'</textarea></div>';
     h+='<div class="ord-actrow" style="padding:4px 0 24px"><button class="gbtn ghost" id="of-cancel" style="width:auto;padding:11px 20px;margin:0">Cancel</button>'+
@@ -5031,17 +5029,22 @@ fill="#6F4A36" stroke="none">
   }
   function ordItemRowHTML(it,i){
     return '<div class="ord-itemrow" data-irow="'+i+'">'+
-      '<input list="of-beanlist" data-if="name" value="'+esc(it.name)+'" placeholder="Bean or blend" />'+
+      '<select data-if="name">'+ordBeanSelectOptions(it.name)+'</select>'+
       '<input data-if="grams" value="'+esc(it.grams)+'" inputmode="numeric" placeholder="250" />'+
       '<input data-if="qty" value="'+esc(it.qty)+'" inputmode="numeric" placeholder="1" />'+
       '<input data-if="price" value="'+esc(it.price)+'" inputmode="decimal" placeholder="0.00" />'+
       '<button class="oi-x" data-irm="'+i+'" title="Remove">&times;</button></div>';
   }
-  function ordBeanDatalist(){
-    var seen={},opts='';
-    (BEANS||[]).forEach(function(b){var nm=(b.name||'').trim();if(nm&&!seen[nm]){seen[nm]=1;opts+='<option value="'+esc(nm)+'"></option>';}});
-    blendNames().forEach(function(nm){if(nm&&!seen[nm]){seen[nm]=1;opts+='<option value="'+esc(nm)+'"></option>';}});
-    return opts;
+  /* dropdown options: every bean + blend name (typos impossible; free text was breaking dispatch-email brew matching) */
+  function ordBeanSelectOptions(sel){
+    var names=[],seen={};
+    (BEANS||[]).forEach(function(b){var nm=(b.name||'').trim();if(nm&&!seen[nm]){seen[nm]=1;names.push(nm);}});
+    blendNames().forEach(function(nm){if(nm&&!seen[nm]){seen[nm]=1;names.push(nm);}});
+    var cur=(sel||'').trim();
+    if(cur&&!seen[cur])names.push(cur); /* keep an unknown value from an older draft visible */
+    var h='<option value="">Select bean / blend…</option>';
+    names.forEach(function(nm){h+='<option value="'+esc(nm)+'"'+(nm===cur?' selected':'')+'>'+esc(nm)+'</option>';});
+    return h;
   }
   function ordReadForm(){
     var d=ordDraft;var g=function(id){var el=document.getElementById(id);return el?el.value:'';};
