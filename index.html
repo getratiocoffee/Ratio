@@ -7993,7 +7993,7 @@ fill="#6F4A36" stroke="none">
       +'<div class="smp-sec"><div class="smp-sec-h">Cupping Strength</div><div class="smp-scores">'+scores+'</div>'
       +'<div class="smp-live-radar" id="smp-live-radar">'+sampleRadarSVG(p,true)+'</div>'
       +'<div class="smp-flav-bubbles" id="smp-flav-bubbles">'+flavBubbles(p.features)+'</div></div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">Comment · what makes it unique</div><textarea id="smp-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Description · max 30 characters</div><textarea id="smp-comment" class="gta" rows="2" maxlength="30" placeholder="Short description for the info card">'+esc(p.comment||'')+'</textarea></div>'
       +'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn buy" id="'+(cupping?'smp-submit':'smp-save')+'">Submit</button>'
       +((!cupping&&smpPages.length>1)?'<button class="gbtn" id="smp-saveall" style="margin-top:8px">Submit all '+smpPages.length+' samples</button>':'')
       +'</div></div>'
@@ -8052,7 +8052,7 @@ fill="#6F4A36" stroke="none">
       +'<div class="smp-live-radar" id="smp-live-radar">'+sampleRadarSVG(p,true)+'</div>'
       +'<div class="smp-flav-bubbles" id="smp-flav-bubbles">'+flavBubbles(p.features)+'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Purchase decision</div>'+seg+'</div>'
-      +'<div class="smp-sec"><div class="smp-sec-h">Comment · what makes it unique</div><textarea id="se-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
+      +'<div class="smp-sec"><div class="smp-sec-h">Description · max 30 characters</div><textarea id="se-comment" class="gta" rows="2" maxlength="30" placeholder="Short description for the info card">'+esc(p.comment||'')+'</textarea></div>'
       +'<div class="smp-msg-wrap"><div class="gform-msg" id="se-msg"></div></div>'
       +'<div class="smp-sec"><div class="gform-actions"><button class="gbtn ghost" id="se-cancel">Back</button><button class="gbtn savegate" id="se-save">Save changes</button></div>'
       +'<div class="gdel">'+(smpDelConfirm
