@@ -7413,6 +7413,7 @@ fill="#6F4A36" stroke="none">
     if(bd){var rec=(bd.parts||[]).filter(function(p){return p&&String(p.bean||'').trim();}).map(function(p){return esc(p.bean.trim())+' '+esc(String(p.pct))+'%';}).join(' \u00b7 ');if(rec)subParts.push(rec);}
     else if(s.process)subParts.push(esc(s.process));
     if(s.roast_date)subParts.push('Roasted '+esc(fmtDate(s.roast_date)));
+    if(s.cupper)subParts.push('Analysed by '+esc(s.cupper));
     var sub=subParts.length?'<span class="bp-sub">'+subParts.join(' \u00b7 ')+'</span>':'';
     /* G4: \u6279\u6b21 QC \u4e09\u9375 + \u98a8\u5473\u9396\u5b9a */
     var qr=null;try{qr=qcRoastForSample(s);}catch(e){}

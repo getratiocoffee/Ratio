@@ -208,7 +208,9 @@
 - 教學：杯測體驗/沖煮課/烘豆課（報名+收款可走現有 Square 付款連結；教材可從 Brew guide / 杯測資料長出來）
 - ~~Square 磨豆 Modifier（Whole Bean/Filter/Espresso）+ 多規格 Variations（250g/500g/1kg）~~ ✅ 完成（見〇補記；待真實 push 驗證）
 - Square token 輪替（曾貼在對話）
-- 資料補齊：7 筆杯測 comment、April/May/June Project blend note、4 支上架（Dancer/Dreamer/April/May/June Project）、Dancer 烘焙日 15/06 確認
+- ~~資料補齊：杯測 comment、blend note、Dancer 烘焙日~~ ✅ 完成（2026-07-06：7 筆 comment 由 Claude 起草＋老闆核准寫入；April/May Project note 補上；重複的 Dreamer 無烘焙日列已刪、留 06/08 那筆；Dancer 15/06 老闆確認無誤）
+- **杯測卡加「Analysed by」**（老闆需求 2026-07-06）：rtSampleCard 副標顯示 `Analysed by <cupper>`（samples.cupper = 登入者名字，沒記錄就不顯示）
+- 剩：4 支上架（Dancer/Dreamer/April/May/June Project — 現在資料齊了，QC Pass + Lock flavour + Push to Square 即可）
 
 ## 四、基礎設施速查
 - Supabase kjhudxzvidhynpabnalp（Sydney）；Edge：send-email **v12** / sync-to-square **v14**（+payment_link_delete、payment_link 存 square_order_id）/ square-webhook **v9**（payment_link 自動標 paid）
