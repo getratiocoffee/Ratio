@@ -630,6 +630,9 @@
   .ro-in{flex:1;min-width:0;text-align:center;border:1px solid var(--line);border-radius:13px;padding:11px;font-size:19px;font-weight:600;color:var(--ink);background:var(--bg);outline:none;font-family:var(--font-mono)}
   .ro-in:focus{border-color:var(--accent)}
   .ro-unit{font-size:13px;color:var(--muted);flex:0 0 auto}
+  .ro-out{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .ro-out-lab{font-size:11px;color:var(--muted);flex:1}
+  .ro-outin{width:86px;flex:0 0 auto;text-align:center;border:1px solid var(--line);border-radius:11px;padding:8px;font-size:15px;font-weight:600;color:var(--ink);background:var(--bg);outline:none;font-family:var(--font-mono)}
   .ro-add{padding:2px 16px 16px;display:flex;flex-direction:column;gap:8px}
   .ro-aitem{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 15px;cursor:pointer;font-family:inherit}
   .ro-aitem:active{background:#FAF2EF}
@@ -5333,6 +5336,7 @@ fill="#6F4A36" stroke="none">
     BEANS=data||[];
     await loadRoasts();
     greenView=view||'home';greenCountry=null;greenBeanId=null;greenEdit=false;
+    if(greenView==='roast')loadRoastDemand(); /* 撈完自己會重畫 */
     renderGreen();
   }
   function totals(arr){let kg=0,val=0;arr.forEach(b=>{const q=Number(b.quantity)||0,c=Number(b.cost_per_kg)||0;kg+=q;val+=q*c;});return {kg,val};}
@@ -5779,6 +5783,25 @@ fill="#6F4A36" stroke="none">
       +'</div>';
   }
   let ROAST_CART=[], roastDate='', roastTime='', roastBanner='', roastBannerErr=false, roastAddOpen={};
+  /* G2: 訂單烘豆需求（Confirmed/Roasting 單的品項加總，生豆 = 熟豆 ×1.15）*/
+  var ROAST_DEMAND={};
+  async function loadRoastDemand(){
+    ROAST_DEMAND={};
+    try{
+      const {data}=await sb.from('orders').select('items,status').in('status',['Confirmed','Roasting']);
+      (data||[]).forEach(function(o){
+        (Array.isArray(o.items)?o.items:[]).forEach(function(it){
+          var name=String(it.name||'').trim();if(!name)return;
+          var g=(Number(it.grams)||0)*(Number(it.qty)||1);
+          if(!g)return;
+          var key=name.toLowerCase();
+          if(!ROAST_DEMAND[key])ROAST_DEMAND[key]={name:name,g:0};
+          ROAST_DEMAND[key].g+=g;
+        });
+      });
+    }catch(e){}
+    if(greenView==='roast')renderRoast();
+  }
   function renderRoast(){
     const box=document.getElementById('green-content');
     document.getElementById('green-title').textContent='Production';
@@ -5795,12 +5818,17 @@ fill="#6F4A36" stroke="none">
           var bean=BEANS.find(function(b){return String(b.id)===String(r.id);});
           var rem=bean?gnum(bean.quantity!=null?bean.quantity:0):'?';
           var rproc=(r.process||(bean&&bean.process)||'').trim();
+          var kgNum=parseFloat(r.kg)||0;
+          var over=bean&&kgNum>((Number(bean.quantity)||0)+0.0001);
+          var dem=ROAST_DEMAND[String(r.name||'').trim().toLowerCase()];
+          var demStr=dem?' · orders need ~'+(Math.round(dem.g*ORDER_GREEN_FACTOR/100)/10)+' kg green':'';
           return '<div class="ro-row"><div class="ro-rh"><span class="ro-nm">'+esc(r.name)+(rproc?' <span class="gb-proc">'+esc(rproc)+'</span>':'')+'</span><button class="ro-x" data-i="'+i+'" aria-label="remove">✕</button></div>'
-            +'<div class="ro-rem">'+esc(r.country||'')+' · stock '+rem+' kg</div>'
+            +'<div class="ro-rem">'+esc(r.country||'')+' · stock '+rem+' kg'+demStr+(over?' · <b style="color:var(--danger)">exceeds stock</b>':'')+'</div>'
             +'<div class="ro-qty"><button class="ro-step" data-d="-1" data-i="'+i+'">−</button>'
             +'<input class="ro-in" data-i="'+i+'" type="text" inputmode="decimal" value="'+esc(r.kg)+'" />'
             +'<span class="ro-unit">kg</span>'
-            +'<button class="ro-step" data-d="1" data-i="'+i+'">＋</button></div></div>';
+            +'<button class="ro-step" data-d="1" data-i="'+i+'">＋</button></div>'
+            +'<div class="ro-out"><span class="ro-out-lab">Roasted out (optional)</span><input class="ro-outin" data-i="'+i+'" type="text" inputmode="decimal" value="'+esc(r.out||'')+'" placeholder="—" /><span class="ro-unit">kg</span></div></div>';
         }).join('')+'</div>';
     }
     var addable=BEANS.filter(function(b){return !inCart[b.id];}).sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
@@ -5819,8 +5847,30 @@ fill="#6F4A36" stroke="none">
       }).join('');
     }
     add+='</div>';
+    /* G2: 訂單需求區 — 一鍵把要烘的豆帶進購物車（生豆量已 ×1.15）*/
+    var dem='';
+    var demKeys=Object.keys(ROAST_DEMAND);
+    if(demKeys.length){
+      demKeys.sort(function(a,b){return ROAST_DEMAND[b].g-ROAST_DEMAND[a].g;});
+      dem='<div class="gsec">Needed for orders · green = roasted ×'+ORDER_GREEN_FACTOR+'</div><div class="ro-add">'
+        +demKeys.map(function(k){
+          var d=ROAST_DEMAND[k];
+          var needKg=Math.round(d.g*ORDER_GREEN_FACTOR/100)/10;
+          var lots=BEANS.filter(function(b){return String(b.name||'').trim().toLowerCase()===k;});
+          var stockTot=0;lots.forEach(function(b){stockTot+=Number(b.quantity)||0;});
+          var lot=lots.find(function(b){return !inCart[b.id];});
+          var short=lots.length&&(stockTot+0.0001)<needKg;
+          var sub='Roasted '+d.g+'g → green ~'+needKg+' kg'
+            +(lots.length?' · stock '+gnum(stockTot)+' kg':' · no green lot (blend?)')
+            +(short?' · <b style="color:var(--danger)">not enough</b>':'');
+          if(lots.length&&lot){
+            return '<button class="ro-aitem" data-demid="'+esc(lot.id)+'" data-demkg="'+needKg+'"><div class="ro-am"><div class="ro-an">'+esc(d.name)+'</div><div class="ro-as">'+sub+'</div></div><span class="ro-plus">＋</span></button>';
+          }
+          return '<div class="ro-aitem" style="cursor:default"><div class="ro-am"><div class="ro-an">'+esc(d.name)+'</div><div class="ro-as">'+sub+(lots.length?' · in cart':'')+'</div></div></div>';
+        }).join('')+'</div>';
+    }
     var saveBtn=ROAST_CART.length?'<div class="ro-save-wrap"><button class="gbtn" id="ro-save">Log '+ROAST_CART.length+' roasts</button></div>':'';
-    box.innerHTML='<div class="ro-wrap"><div class="ro-fixed">'+top+cart+'</div><div class="ro-scroll">'+add+saveBtn+'</div></div>';
+    box.innerHTML='<div class="ro-wrap"><div class="ro-fixed">'+top+cart+'</div><div class="ro-scroll">'+dem+add+saveBtn+'</div></div>';
     var sbody=box.closest('.sbody');if(sbody)sbody.classList.add('ro-mode');
     roastBanner='';
     box.querySelectorAll('.ro-chead').forEach(function(el){el.addEventListener('click',function(){var c=el.dataset.c;roastAddOpen[c]=!roastAddOpen[c];renderRoast();});});
@@ -5834,6 +5884,14 @@ fill="#6F4A36" stroke="none">
       ROAST_CART[i].kg=Math.max(0,Math.round((v+d)*10)/10);renderRoast();
     });});
     box.querySelectorAll('.ro-in').forEach(function(el){el.addEventListener('input',function(){ROAST_CART[+el.dataset.i].kg=el.value;});});
+    box.querySelectorAll('.ro-outin').forEach(function(el){el.addEventListener('input',function(){ROAST_CART[+el.dataset.i].out=el.value;});});
+    box.querySelectorAll('[data-demid]').forEach(function(el){el.addEventListener('click',function(){
+      var b=BEANS.find(function(x){return String(x.id)===String(el.dataset.demid);});
+      if(b&&!ROAST_CART.some(function(r){return String(r.id)===String(b.id);})){
+        ROAST_CART.push({id:b.id,name:b.name,country:b.country,process:b.process||'',kg:parseFloat(el.dataset.demkg)||10});
+        renderRoast();
+      }
+    });});
     var de=document.getElementById('ro-date');if(de)de.addEventListener('change',function(){roastDate=de.value;});
     var sv=document.getElementById('ro-save');if(sv)sv.addEventListener('click',saveRoast);
   }
@@ -5841,12 +5899,26 @@ fill="#6F4A36" stroke="none">
     const btn=document.getElementById('ro-save');
     var rows=ROAST_CART.map(function(r){return {r:r,kg:parseFloat(r.kg)};}).filter(function(x){return x.kg>0;});
     if(!rows.length){roastBanner='Enter a quantity for at least one bean';roastBannerErr=true;renderRoast();return;}
+    /* G2 開烘前庫存檢查：超過帳面庫存要先確認 */
+    var overs=rows.filter(function(x){
+      var b=BEANS.find(function(bb){return String(bb.id)===String(x.r.id);});
+      return b&&x.kg>((Number(b.quantity)||0)+0.0001);
+    });
+    if(overs.length){
+      var lines=overs.map(function(x){
+        var b=BEANS.find(function(bb){return String(bb.id)===String(x.r.id);});
+        return x.r.name+': '+x.kg+' kg entered, '+gnum(b?(Number(b.quantity)||0):0)+' kg in stock';
+      }).join('\n');
+      if(!confirm('Stock check:\n'+lines+'\n\nLog anyway? Stock will stop at 0 — fix the numbers later with Stocktake.'))return;
+    }
     btn.disabled=true;btn.textContent='Logging…';
     var ok=0,fail=0,failMsg='';
     for(var i=0;i<rows.length;i++){
       var r=rows[i].r,kg=rows[i].kg;
       var bean=BEANS.find(function(b){return String(b.id)===String(r.id);});
       var rec={bean_id:r.id,bean_name:r.name,country:r.country,green_kg:kg,status:'pending_cupping'};
+      var outKg=parseFloat(r.out);
+      if(!isNaN(outKg)&&outKg>0)rec.roasted_kg=outKg;
       if(roastDate)rec.roast_date=roastDate;
       var ins=await sb.from('roasts').insert(rec).select();
       if(ins.error){fail++;failMsg=ins.error.message;continue;}
@@ -6812,6 +6884,7 @@ fill="#6F4A36" stroke="none">
       +'<div class="gform">'
       +'<label class="gfield"><span class="gl">Coffee name · syncs Retail &amp; cupping</span><input id="re-name" type="text" value="'+esc(r.bean_name||'')+'" placeholder="Coffee name" /></label>'
       +'<label class="gfield"><span class="gl">Green used (kg) · changing it adjusts stock</span><input id="re-kg" type="text" inputmode="decimal" value="'+esc(r.green_kg!=null?gnum(r.green_kg):'')+'" /></label>'
+      +'<label class="gfield"><span class="gl">Roasted output (kg)'+(function(){var gk=Number(r.green_kg)||0,okg=Number(r.roasted_kg)||0;return (gk>0&&okg>0)?' · loss '+(Math.round((1-okg/gk)*1000)/10)+'%':'';})()+'</span><input id="re-out" type="text" inputmode="decimal" value="'+esc(r.roasted_kg!=null?gnum(r.roasted_kg):'')+'" /></label>'
       +'<label class="gfield"><span class="gl">Roast date</span><input id="re-date" type="date" value="'+esc(r.roast_date||'')+'" /></label>'
       +'<div class="re-soon">Detailed roast info coming soon</div>'
       +'<div class="gform-msg" id="re-msg"></div>'
@@ -6847,11 +6920,15 @@ fill="#6F4A36" stroke="none">
     var newKg=parseFloat(document.getElementById('re-kg').value);
     var newDate=document.getElementById('re-date').value;
     if(isNaN(newKg)||newKg<0){msg.textContent='Enter a valid quantity';msg.className='gform-msg err';return;}
+    var outEl=document.getElementById('re-out');
+    var outRaw=outEl?outEl.value.trim():'';
+    var newOut=outRaw===''?null:parseFloat(outRaw);
+    if(newOut!=null&&(isNaN(newOut)||newOut<0)){msg.textContent='Enter a valid roasted output';msg.className='gform-msg err';return;}
     btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
     var oldKg=Number(r.green_kg)||0;
     var delta=newKg-oldKg; // extra amount → deduct from stock
     if(delta!==0 && r.kind!=='single' && r.kind!=='blend' && r.green_kg!=null)await adjustStock(r.bean_id, -delta, 'Roast edit');
-    var upd={green_kg:newKg};
+    var upd={green_kg:newKg,roasted_kg:newOut};
     if(newDate)upd.roast_date=newDate;
     if(renamed)upd.bean_name=newName;
     const {error}=await sb.from('roasts').update(upd).eq('id',r.id);
@@ -6872,7 +6949,7 @@ fill="#6F4A36" stroke="none">
         try{var m=pair[0]();if(oldName in m){if(!(newName in m))m[newName]=m[oldName];delete m[oldName];pair[1](m);}}catch(e){}
       });
     }
-    r.green_kg=newKg;if(newDate)r.roast_date=newDate;if(renamed)r.bean_name=newName;
+    r.green_kg=newKg;r.roasted_kg=newOut;if(newDate)r.roast_date=newDate;if(renamed)r.bean_name=newName;
     roastEdit=null;roastDelConfirm=false;renderRoasted();
   }
   async function deleteRoast(){
