@@ -328,6 +328,27 @@
   .qc-btn.downgrade.on{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
   .qc-btn.lock.on{background:var(--success-tint);border-color:var(--success);color:var(--success-ink)}
   .qc-note{font-size:10.5px;color:var(--muted)}
+  /* ===== Green Station 泡泡面板（生豆站）===== */
+  .gs-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;margin:10px 14px 0;padding:12px 14px}
+  .gs-card.warn{border:2px solid #E0B341}
+  .gs-card.quiet{opacity:.75;display:flex;align-items:center;justify-content:space-between;padding:10px 14px}
+  .gs-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+  .gs-title{font-size:13px;font-weight:700;color:var(--ink)}
+  .gs-badge{border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700}
+  .gs-badge.warn{background:#E0B341;color:#5C4A10}
+  .gs-badge.buy{background:var(--success-tint);color:var(--success-ink)}
+  .gs-badge.maybe{background:#F6EBCB;color:#5C4A10}
+  .gs-quiet-l{font-size:13px;color:var(--muted)}
+  .gs-quiet-r{font-size:11.5px;color:var(--muted)}
+  .gs-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--bg)}
+  .gs-nm{font-size:12.5px;color:var(--ink);font-weight:600}
+  .gs-proc{font-size:11px;color:var(--muted);font-weight:400}
+  .gs-sub{font-size:11px;color:var(--muted);margin-top:1px}
+  .gs-kg{font-size:11px;font-weight:700;flex:0 0 auto}
+  .gs-act{border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-family:inherit;font-size:11.5px;font-weight:600;border-radius:999px;padding:5px 12px;cursor:pointer;flex:0 0 auto}
+  .gs-act.hot{border-color:var(--accent);color:var(--accent)}
+  .gs-wide{width:100%;margin-top:8px;border:1px solid var(--accent);background:var(--surface);color:var(--accent);font-family:inherit;font-size:12px;font-weight:600;border-radius:999px;padding:7px 0;cursor:pointer}
+  .gs-foot{font-size:10.5px;color:var(--muted);text-align:center;margin:12px 0 14px}
   .bat-hint{font-size:11.5px;color:var(--muted);line-height:1.5;margin:10px 18px 0}
   .bat-group{margin:6px 16px}
   .bat-name{font-weight:600;font-size:14px;margin:14px 2px 6px;color:var(--ink)}
@@ -1464,7 +1485,7 @@ fill="#6F4A36" stroke="none">
   let tsFilter=null;
   function renderModulePanel(rootKey){
     var deep=dockStack[dockStack.length-1];
-    if(deep==='green'){openPage('green');loadBeans('countries');return;}
+    if(deep==='green'){if(typeof closePage==='function')closePage();renderGreenStation();return;}
     if(deep==='green.trade'){if(typeof closePage==='function')closePage();renderCMarket();return;}
     if(deep==='green.sample'){if(typeof closePage==='function')closePage();hideCPanel();setFeedChannel(FEED_CHANNELS['green']||'general');return;}
     if(rootKey==='timesheet'){
@@ -1575,6 +1596,72 @@ fill="#6F4A36" stroke="none">
     if(fxBtn)fxBtn.addEventListener('click',refreshFx);
     calc();
     refreshFx();
+  }
+  /* ===== Green Station：生豆站泡泡面板（輪替流：空位→杯測→下單→收貨）===== */
+  async function renderGreenStation(){
+    var ct=document.getElementById('ctitle');if(ct){ct.textContent='Green Station';ct.classList.add('show');}
+    showCPanel('<div class="sempty" style="padding:34px 20px">Loading…</div>');
+    var bq=await sb.from('beans').select('id,name,process,quantity,low_stock_kg').order('name');
+    var sq=await sb.from('samples').select('id,sample_id,process,supplier,decision,cupping_date').in('decision',['buy','maybe']).order('cupping_date',{ascending:false});
+    var pq=await sb.from('purchases').select('*').order('created_at',{ascending:false});
+    if(dockStack[dockStack.length-1]!=='green')return; /* 載入途中使用者已離開 */
+    if(bq.error||sq.error||pq.error){showCPanel('<div class="sempty">Load failed: '+esc((bq.error||sq.error||pq.error).message)+'</div>');return;}
+    var beans=bq.data||[],smps=sq.data||[],pos=pq.data||[];
+    var low=beans.filter(function(b){var t=beanLowTh(b);return b.quantity!=null&&t>0&&Number(b.quantity)<=t;})
+      .sort(function(a,b){return Number(a.quantity)-Number(b.quantity);});
+    var used={};pos.forEach(function(p){if(p.sample_ref)used[p.sample_ref]=1;});
+    var cands=smps.filter(function(s){return !used[s.id]&&(s.supplier||'')!=='Ratio Coffee';})
+      .sort(function(a,b){return (a.decision==='buy'?0:1)-(b.decision==='buy'?0:1);});
+    var onOrder=pos.filter(function(p){return p.status==='ordered';});
+    var h='';
+    if(low.length){
+      h+='<div class="gs-card warn"><div class="gs-head"><span class="gs-title">Running out — shelf gaps soon</span><span class="gs-badge warn">'+low.length+'</span></div>'
+        +low.map(function(b){
+          var q=Number(b.quantity)||0;
+          var kg=q<=0?'<span class="gs-kg" style="color:var(--danger)">finished</span>':'<span class="gs-kg" style="color:#5C4A10">'+gnum(q)+' kg left</span>';
+          return '<div class="gs-row"><span class="gs-nm">'+esc(b.name)+(b.process?' <span class="gs-proc">'+esc(b.process)+'</span>':'')+'</span>'+kg+'</div>';
+        }).join('')
+        +'<button class="gs-wide" id="gs-source">Source new beans — cup a sample</button></div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">Running out</span><span class="gs-quiet-r">stock is healthy</span></div>';
+    }
+    if(cands.length){
+      h+='<div class="gs-card"><div class="gs-head"><span class="gs-title">Cupping picks — contact the supplier?</span><span class="gs-badge buy">'+cands.length+'</span></div>'
+        +cands.map(function(s){
+          return '<div class="gs-row"><span style="min-width:0"><span class="gs-nm">'+esc(s.sample_id||'—')+(s.process?' <span class="gs-proc">'+esc(s.process)+'</span>':'')+'</span>'
+            +'<span class="gs-sub" style="display:block">'+(s.supplier?esc(s.supplier):'no supplier recorded')+(s.cupping_date?' · cupped '+esc(fmtDate(s.cupping_date)):'')+'</span></span>'
+            +'<span style="display:flex;align-items:center;gap:6px;flex:0 0 auto"><span class="gs-badge '+(s.decision==='buy'?'buy':'maybe')+'">'+(s.decision==='buy'?'Buy':'Maybe')+'</span>'
+            +'<button class="gs-act hot" data-gsorder="'+esc(s.id)+'">Order</button></span></div>';
+        }).join('')+'</div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">Cupping picks</span><span class="gs-quiet-r">no Buy / Maybe yet</span></div>';
+    }
+    if(onOrder.length){
+      h+='<div class="gs-card"><div class="gs-head"><span class="gs-title">On order</span><span class="gs-badge buy">'+onOrder.length+'</span></div>'
+        +onOrder.map(function(p){
+          var sub=[];if(p.supplier)sub.push(esc(p.supplier));if(p.kg)sub.push(gnum(p.kg)+' kg');if(p.ordered_at)sub.push('ordered '+esc(String(p.ordered_at).slice(0,10)));
+          return '<div class="gs-row"><span style="min-width:0"><span class="gs-nm">'+esc(p.name)+'</span>'+(sub.length?'<span class="gs-sub" style="display:block">'+sub.join(' · ')+'</span>':'')+'</span>'
+            +'<button class="gs-act" data-gsrecv="'+esc(p.id)+'">Received</button></div>';
+        }).join('')+'</div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">On order</span><span class="gs-quiet-r">nothing on the way</span></div>';
+    }
+    h+='<div class="gs-card quiet" id="gs-inv" style="cursor:pointer"><span class="gs-quiet-l">Inventory and stocktake</span><span class="gs-quiet-r">'+beans.length+' beans ›</span></div>';
+    h+='<div class="gs-foot">Rotation flow: gap opens → cup samples → order → receive</div>';
+    showCPanel(h);
+    var src=document.getElementById('gs-source');if(src)src.addEventListener('click',function(){openPage('green');loadSamples();});
+    var inv=document.getElementById('gs-inv');if(inv)inv.addEventListener('click',function(){openPage('green');loadBeans('countries');});
+    document.querySelectorAll('#cpanel [data-gsorder]').forEach(function(el){el.addEventListener('click',function(){
+      var s=cands.find(function(x){return String(x.id)===String(el.dataset.gsorder);});
+      if(!s)return;
+      openPage('green');
+      loadPurchases().then(function(){buyNew={sample_ref:s.id,name:s.sample_id||'',process:s.process||'',supplier:s.supplier||''};renderGreen();});
+    });});
+    document.querySelectorAll('#cpanel [data-gsrecv]').forEach(function(el){el.addEventListener('click',function(){
+      var id=el.dataset.gsrecv;
+      openPage('green');
+      loadPurchases().then(function(){buyRecv=id;renderGreen();});
+    });});
   }
   function runModuleAction(act){
     if(typeof act==='string'&&act.indexOf('timesheet:')===0)tsFilter=null;
