@@ -1,5 +1,11 @@
 # Ratio 開發交接 — 2026-07-05 Session（Phase 3 + Orders 2.0）
 
+## 〇、補記 — 同日晚間 Claude Code session（首次改用 Claude Code）
+- **「全部」總覽分頁已上線**：ORD_TABS 加 `['all','全部']`、ordTabCount 回 ORDERS.length、renderOrders 加不篩選分支（commit 2270d97，已部署驗證）
+- **測試單 #0001 + 客戶 Dan 已刪**（orders 表清空、customers 剩 2 位真實客戶）
+- **sync-to-square 升 v13**：新增 `payment_link_delete` action（body.link_id → Square DELETE /v2/online-checkout/payment-links）；測試連結 iQjObl89 已刪、回 404
+- push 流程：終端機無 GitHub 認證，**push 要用 GitHub Desktop**；本機無 Node，JS 語法檢查改用 `osascript -l JavaScript`
+
 ## 一、本次完成
 
 ### 1. Phase 3 信件系統（send-email v12，全上線）
@@ -57,9 +63,9 @@
 ## 三、待辦
 
 **Orders 2.0 收尾**
-1. 「全部」總覽分頁（防找不到單）
+1. ~~「全部」總覽分頁（防找不到單）~~ ✅ 完成（見〇補記）
 2. square-webhook 接 payment_link 付款事件 → 自動標 paid（現在客人刷卡後要手動 Mark as received）
-3. 測試單 #0001 + 客戶 Dan 刪除（記得清 payment link）
+3. ~~測試單 #0001 + 客戶 Dan 刪除（記得清 payment link）~~ ✅ 完成（見〇補記）
 4. 訂單品項改下拉選（防打錯字）
 
 **Beans 2.0（已規劃，未開工）— 職位產線 G1–G7**
@@ -101,7 +107,7 @@
 - 資料補齊：7 筆杯測 comment、April/May/June Project blend note、4 支上架（Dancer/Dreamer/April/May/June Project）、Dancer 烘焙日 15/06 確認
 
 ## 四、基礎設施速查
-- Supabase kjhudxzvidhynpabnalp（Sydney）；Edge：send-email **v12** / sync-to-square **v12** / square-webhook v8
+- Supabase kjhudxzvidhynpabnalp（Sydney）；Edge：send-email **v12** / sync-to-square **v13**（+payment_link_delete）/ square-webhook v8
 - orders 欄位新增：tracking_no, dispatch_email_at, confirm_email_at, payment_link, payment_link_id, pack_state
 - beans.brew / blends.brew jsonb（method-keyed）；mail-assets bucket
 - Square item ids：Alo Village=CFGKRBQ5EAWGB5UAUV35NOP5、Dark Knight=JZVP5ICULJ7TQJGL7VWW6XE2；ratio_ref 定義=MV5EOCK2W3XXFQPHILKQWKOQ
