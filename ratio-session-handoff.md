@@ -1,4 +1,12 @@
-# Ratio 開發交接 — 2026-07-05 Session（Phase 3 + Orders 2.0）
+# Ratio 開發交接 — 2026-07-05/06 Session（Phase 3 + Orders 2.0 + Beans 2.0 全線）
+
+## ⚡ 當前狀態速覽（2026-07-06 收工時，新 session 先讀這段）
+- **全部完工且上線**：Orders 2.0（含付款連結自動確認收款）、Beans 2.0 G1–G7、小工具 T1/T2/T3/T5/T7/T8、Square Grind modifier+多規格、公開豆頁（?bean=）、回饋系統（?fb=）、Google 評論管線（連結已設好）、Print Centre、Retail Info 分頁改版、安全+效能掃描全清
+- **重大修復**：square-webhook secrets 曾設反（金鑰在 URL 欄）→ v12 自我修復 + 老闆已改正 secrets（簽名測試 200 驗證）；v13 加 POS 防洪閘（店內刷卡不匯入）
+- **Edge 版本**：send-email v15 / sync-to-square v15 / square-webhook v13 / public-bean v1
+- **等老闆做**：4 支上架（Dancer/Dreamer/April/May/June Project：QC Pass→Lock flavour→Push to Square，順便驗 Grind/規格）、Leaked password protection（Supabase Auth 後台）、印 QR、工具實戰
+- **等老闆拍板**：分享平台 b/c、staff 角色開放、賣生豆/教學/wholesale
+- **已知限制**：Chrome MCP 網域白名單不含 ratio-theta.vercel.app（無法代測登入後功能）；Claude 記憶檔在 ~/.claude/.../memory/（驗證流程、工作模式都記了）
 
 ## 〇、補記 — 同日晚間 Claude Code session（首次改用 Claude Code）
 - **待辦 2 完成：付款連結自動標 paid**（全在 Supabase 端，index.html 沒動）：
