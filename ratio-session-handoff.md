@@ -24,6 +24,12 @@
   - 新 `screen-print` 頁四區：Labels（Bag/Tin .lbx）、Menus（Blend/Take Away/Dine In/Special 四 PDF）、Documents（Invoice）、**Info card 下載**（新增：挑 retail 咖啡 → makeSquareCard 1200×1200 PNG 直接下載，IG 貼文/印刷用，管線同 Square/出貨信卡片）
   - 返回鍵路由：label/tinlabel/invoice 返回 → Print Centre；menu hub 返回 → Print Centre（這四頁現在只從 Print Centre 進）
   - 驗證：preview 實測資料夾圖示、四區渲染、進出導覽（label→back→print、menu→hub→print）、卡片清單三態訊息，全過
+- **Beans 2.0 G3 熟豆倉+拼配完成**（index.html + DB）：
+  - roasts 加 `remaining_kg`（migration `g3_remaining_kg_on_roasts`）：烘豆記了 Roasted out kg → remaining_kg 同額起跳，成為熟豆批次庫存（舊資料不回填，避免幽靈庫存）
+  - **批次表**：Roast → History 加「All roasts / Batch stock」分頁；批次按豆分組、最舊在上（**FIFO** + use first 徽章）、**烘超過 30 天紅框 + >30d 徽章**；剩 0 的自動隱藏；點批次 → 記「用掉/賣掉 kg」直接扣
+  - **blend 消耗批次**：Add Coffee 加「Roasted kg」欄（單品=純記錄；blend=照配方快照比例 **FIFO 扣成分批次**，不夠扣會 alert 短缺清單）
+  - 編輯視窗改產出 kg → remaining 連動（扣掉已消耗量再算）；清空產出 = 退出批次庫存
+  - 驗證：preview 假資料實測分頁切換、FIFO 排序、>30d 標色、扣量表單、blend 表單欄位，全過；**FIFO 實際扣帳需登入後測**（DB 寫入路徑）
 - **「全部」總覽分頁已上線**：ORD_TABS 加 `['all','全部']`、ordTabCount 回 ORDERS.length、renderOrders 加不篩選分支（commit 2270d97，已部署驗證）
 - **測試單 #0001 + 客戶 Dan 已刪**（orders 表清空、customers 剩 2 位真實客戶）
 - **sync-to-square 升 v13**：新增 `payment_link_delete` action（body.link_id → Square DELETE /v2/online-checkout/payment-links）；測試連結 iQjObl89 已刪、回 404
@@ -96,7 +102,7 @@
 **Beans 2.0（已規劃，未開工）— 職位產線 G1–G7**
 - ~~G1 生豆帳：庫存扣除、盤點、低庫存警戒、採購紀錄鏈（樣品杯測結論→採購單→到貨入庫）~~ ✅ 完成（見〇補記）
 - ~~G2 烘焙站：烘焙扣生豆（×1.15）、開烘前庫存檢查（接 Orders 烘豆需求頁）、產出寫熟豆批次~~ ✅ 完成（見〇補記）
-- G3 熟豆倉+拼配：批次表（烘焙日/克數/狀態）、賞味期 >30 天標色、FIFO、blend 消耗批次
+- ~~G3 熟豆倉+拼配：批次表（烘焙日/克數/狀態）、賞味期 >30 天標色、FIFO、blend 消耗批次~~ ✅ 完成（見〇補記）
 - G4 QC：杯測結果狀態 Pass / Re-roast（退 G2）/ Downgrade；風味描述鎖定後才進資訊卡
 - G5 上架：僅 QC Pass 可上架；Retail+Square push 集中；新豆通知信群發；下家 wholesale
 - ~~G6 印製中心：資訊卡/.lbx 貼紙/選單/PDF 集中一頁（純重組，可隨時插隊）~~ ✅ 完成（見〇補記）

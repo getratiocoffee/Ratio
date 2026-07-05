@@ -314,6 +314,18 @@
   .po-sub{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5}
   .po-actions{display:flex;gap:8px;margin-top:10px}
   .po-actions .gbtn{margin:0;padding:9px;font-size:13px}
+  .bat-hint{font-size:11.5px;color:var(--muted);line-height:1.5;margin:10px 18px 0}
+  .bat-group{margin:6px 16px}
+  .bat-name{font-weight:600;font-size:14px;margin:14px 2px 6px;color:var(--ink)}
+  .bat-name small{color:var(--muted);font-weight:500;font-family:var(--font-mono);font-size:12px}
+  .bat-row{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:6px;cursor:pointer}
+  .bat-row.old{border-color:var(--danger)}
+  .bat-row .d{font-size:13px;font-weight:600}
+  .bat-row .m{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .bat-row.old .d,.bat-row.old .bat-kg{color:var(--danger-ink)}
+  .bat-kg{font-family:var(--font-mono);font-size:14px;font-weight:600;white-space:nowrap}
+  .bat-fifo{font-size:10px;font-weight:700;letter-spacing:.03em;background:var(--success-tint);color:var(--success-ink);border-radius:999px;padding:2px 7px;margin-left:7px;vertical-align:1px}
+  .bat-oldb{font-size:10px;font-weight:700;letter-spacing:.03em;background:var(--tint);color:var(--danger-ink);border-radius:999px;padding:2px 7px;margin-left:7px;vertical-align:1px}
   .pc-wrap{padding:4px 16px 18px}
   .pc-wrap select{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:11px;padding:11px 12px;font-size:14px;color:var(--ink);outline:none;font-family:inherit;margin-bottom:10px;-webkit-appearance:none;appearance:none}
   .pc-sub{font-size:11.5px;color:var(--muted);line-height:1.5;margin:2px 0 10px}
@@ -6006,7 +6018,7 @@ fill="#6F4A36" stroke="none">
       var bean=BEANS.find(function(b){return String(b.id)===String(r.id);});
       var rec={bean_id:r.id,bean_name:r.name,country:r.country,green_kg:kg,status:'pending_cupping'};
       var outKg=parseFloat(r.out);
-      if(!isNaN(outKg)&&outKg>0)rec.roasted_kg=outKg;
+      if(!isNaN(outKg)&&outKg>0){rec.roasted_kg=outKg;rec.remaining_kg=outKg;/* G3: 新批次全額入熟豆倉 */}
       if(roastDate)rec.roast_date=roastDate;
       var ins=await sb.from('roasts').insert(rec).select();
       if(ins.error){fail++;failMsg=ins.error.message;continue;}
@@ -6570,7 +6582,7 @@ fill="#6F4A36" stroke="none">
       +'</div>'):'';
     return '<div class="rtl-card">'+header+body+'</div>';
   }
-  let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending', addCoffeeOpen=false, acDraft={beanId:'',name:'',date:'',kind:'single'}, dateKind={}, cuppedOpen={}, acDupSig='', pendingView='roast', cupDateOpen={};
+  let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending', addCoffeeOpen=false, acDraft={beanId:'',name:'',date:'',kind:'single',kg:''}, dateKind={}, cuppedOpen={}, acDupSig='', pendingView='roast', cupDateOpen={};
   function fmtDate(d){if(!d||d==='—')return 'No date';var p=String(d).split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0].slice(-2)):d;}
   function beansBack(){
     if(roastEdit){roastEdit=null;roastDelConfirm=false;renderRoasted();return;}
@@ -6720,6 +6732,7 @@ fill="#6F4A36" stroke="none">
       +'<label class="gfield"><span class="gl">'+pickLab+'</span><select id="ac-bean">'+opts+'</select></label>'
       +'<label class="gfield"><span class="gl">Coffee name</span><input id="ac-name" type="text" value="'+esc(acDraft.name||'')+'" placeholder="'+(isBlend?'e.g. House Blend':'e.g. Ethiopia Guji')+'" /></label>'
       +'<label class="gfield"><span class="gl">Roast date</span><input id="ac-date" type="date" value="'+esc(acDraft.date||todayStr())+'" /></label>'
+      +'<label class="gfield"><span class="gl">Roasted kg (optional'+(isBlend?' · deducts component batches, oldest first':'')+')</span><input id="ac-kg" type="text" inputmode="decimal" value="'+esc(acDraft.kg||'')+'" /></label>'
       +'<div class="gform-msg" id="ac-msg"></div>'
       +'<div class="gform-actions"><button class="gbtn ghost" id="ac-cancel">Cancel</button><button class="gbtn" id="ac-add">Add</button></div>'
       +'</div></div>';
@@ -6729,7 +6742,8 @@ fill="#6F4A36" stroke="none">
     if(sel)sel.addEventListener('change',function(){var o=sel.options[sel.selectedIndex];acDraft.beanId=sel.value;if(sel.value&&nm){nm.value=o.getAttribute('data-nm')||'';acDraft.name=nm.value;}});
     if(nm)nm.addEventListener('input',function(){acDraft.name=nm.value;});
     var dt=box.querySelector('#ac-date');if(dt)dt.addEventListener('change',function(){acDraft.date=dt.value;});
-    box.querySelectorAll('.ac-kindseg .lbl-tab').forEach(function(t){t.addEventListener('click',function(){var k=t.getAttribute('data-ackind');if(k===acDraft.kind)return;var nmEl=box.querySelector('#ac-name'),dtEl=box.querySelector('#ac-date');if(nmEl)acDraft.name=nmEl.value;if(dtEl)acDraft.date=dtEl.value;acDraft.kind=k;acDraft.beanId='';renderRoasted();});});
+    var kgEl=box.querySelector('#ac-kg');if(kgEl)kgEl.addEventListener('input',function(){acDraft.kg=kgEl.value;});
+    box.querySelectorAll('.ac-kindseg .lbl-tab').forEach(function(t){t.addEventListener('click',function(){var k=t.getAttribute('data-ackind');if(k===acDraft.kind)return;var nmEl=box.querySelector('#ac-name'),dtEl=box.querySelector('#ac-date'),kgEl2=box.querySelector('#ac-kg');if(nmEl)acDraft.name=nmEl.value;if(dtEl)acDraft.date=dtEl.value;if(kgEl2)acDraft.kg=kgEl2.value;acDraft.kind=k;acDraft.beanId='';renderRoasted();});});
     var cn=box.querySelector('#ac-cancel');if(cn)cn.addEventListener('click',function(){addCoffeeOpen=false;renderRoasted();});
     var ad=box.querySelector('#ac-add');if(ad)ad.addEventListener('click',addCoffeeSubmit);
   }
@@ -6756,6 +6770,9 @@ fill="#6F4A36" stroke="none">
     }
     var bean=BEANS.find(function(b){return String(b.id)===String(beanId);});
     var rec={bean_id:sBid,bean_name:name,country:(bean?bean.country:null),green_kg:null,status:'pending_cupping',roast_date:date,kind:kind};
+    var kgEl=document.getElementById('ac-kg');
+    var kgVal=parseFloat(kgEl?kgEl.value:'');
+    if(!isNaN(kgVal)&&kgVal>0){rec.roasted_kg=kgVal;rec.remaining_kg=kgVal;}else{kgVal=0;}
     if(kind==='blend'){
       /* snapshot the recipe as it is right now — later blend edits won't rewrite history */
       var bd=blendDefByName(name);
@@ -6766,9 +6783,40 @@ fill="#6F4A36" stroke="none">
     if(ins.error&&(rec.kind!==undefined||rec.recipe!==undefined)){var r2=Object.assign({},rec);delete r2.kind;delete r2.recipe;ins=await sb.from('roasts').insert(r2).select();}
     if(ins.error){if(btn)btn.disabled=false;if(msg){msg.textContent='Failed: '+ins.error.message;msg.className='gform-msg err';}return;}
     if(ins.data&&ins.data[0])ROASTS.unshift(ins.data[0]);
+    /* G3: blend 有填公斤數 → 按配方比例扣成分熟豆批次（FIFO 最舊先扣）*/
+    if(kind==='blend'&&kgVal>0&&rec.recipe&&rec.recipe.parts&&rec.recipe.parts.length){
+      var short=await consumeBlendComponents(rec.recipe.parts,kgVal);
+      if(short.length)alert('Blend logged, but batch stock came up short:\n'+short.join('\n')+'\n\nFix batch numbers in History → Batch stock.');
+    }
     addCoffeeOpen=false;acDupSig='';
     roastedOpen[date]=true;dateKind[date]=kind;
     renderRoasted();
+  }
+  /* G3: FIFO 消耗成分批次 — 回傳不夠扣的清單 */
+  async function consumeBlendComponents(parts,totalKg){
+    var short=[];
+    for(var i=0;i<parts.length;i++){
+      var p=parts[i];
+      var need=totalKg*(parseFloat(p.pct)||0)/100;
+      if(!(need>0))continue;
+      var key=String(p.bean||'').trim().toLowerCase();
+      var pool=(ROASTS||[]).filter(function(r){
+        return r.kind!=='blend'&&Number(r.remaining_kg)>0&&String(r.bean_name||'').trim().toLowerCase()===key;
+      }).sort(function(a,b){return String(a.roast_date||'9999')<String(b.roast_date||'9999')?-1:1;});
+      var left=need;
+      for(var j=0;j<pool.length&&left>0.0001;j++){
+        var b=pool[j];
+        var take=Math.min(Number(b.remaining_kg)||0,left);
+        var nr=Math.max(0,Math.round(((Number(b.remaining_kg)||0)-take)*1000)/1000);
+        try{
+          var u=await sb.from('roasts').update({remaining_kg:nr}).eq('id',b.id);
+          if(u.error)continue;
+          b.remaining_kg=nr;left-=take;
+        }catch(e){}
+      }
+      if(left>0.0001)short.push(p.bean+': short '+(Math.round(left*100)/100)+' kg (needed '+(Math.round(need*100)/100)+' kg)');
+    }
+    return short;
   }
   /* blend names that already have a Ratio Coffee cupping sample */
   function blendCuppedSet(){
@@ -6853,19 +6901,79 @@ fill="#6F4A36" stroke="none">
       el.addEventListener('click',function(e){e.stopPropagation();openBlendCupping(el.dataset.bname);});
     });
   }
+  var histView='date', batUse=null; /* G3 熟豆倉分頁狀態 */
+  function roastStockHTML(){
+    var batches=(ROASTS||[]).filter(function(r){return Number(r.remaining_kg)>0;});
+    if(!batches.length)return '<div class="sempty">No roasted batches in stock<br>Log "Roasted out kg" when roasting — batches land here</div>';
+    var groups={},order=[];
+    batches.forEach(function(r){var k=String(r.bean_name||'—').trim();var lk=k.toLowerCase();if(!groups[lk]){groups[lk]={name:k,rows:[]};order.push(lk);}groups[lk].rows.push(r);});
+    order.sort(function(a,b){return groups[a].name.localeCompare(groups[b].name);});
+    var today=new Date();today.setHours(0,0,0,0);
+    var h='<div class="bat-hint">Oldest batch first — use it first (FIFO). Tap a batch to log usage. Red = roasted over 30 days ago.</div>';
+    order.forEach(function(k){
+      var g=groups[k];
+      g.rows.sort(function(a,b){return String(a.roast_date||'9999')<String(b.roast_date||'9999')?-1:1;});
+      var tot=0;g.rows.forEach(function(r){tot+=Number(r.remaining_kg)||0;});
+      h+='<div class="bat-group"><div class="bat-name">'+esc(g.name)+' <small>'+gnum(Math.round(tot*100)/100)+' kg</small></div>';
+      g.rows.forEach(function(r,idx){
+        var age=r.roast_date?Math.floor((today-new Date(r.roast_date+'T00:00:00'))/86400000):null;
+        var old=age!=null&&age>30;
+        var badges=(idx===0&&g.rows.length>1?'<span class="bat-fifo">use first</span>':'')+(old?'<span class="bat-oldb">&gt;30d</span>':'');
+        var meta=(age!=null?age+' days old':'no roast date')+(r.roasted_kg!=null?' · roasted '+gnum(r.roasted_kg)+' kg':'')+(r.kind==='blend'?' · blend':'');
+        h+='<div class="bat-row'+(old?' old':'')+'" data-bat="'+esc(r.id)+'"><div class="bat-l"><div class="d">'+(r.roast_date?fmtDate(r.roast_date):'—')+badges+'</div><div class="m">'+meta+'</div></div><span class="bat-kg">'+gnum(r.remaining_kg)+' kg</span></div>';
+        if(batUse===r.id){
+          h+='<div class="gform" style="margin:2px 0 10px">'
+            +'<label class="gfield"><span class="gl">Used / sold (kg) — remaining '+gnum(r.remaining_kg)+' kg</span><input id="bat-kg-in" type="text" inputmode="decimal" /></label>'
+            +'<div class="gform-msg" id="bat-msg"></div>'
+            +'<div class="gform-actions"><button class="gbtn ghost" id="bat-cancel">Cancel</button><button class="gbtn" id="bat-save">Deduct</button></div></div>';
+        }
+      });
+      h+='</div>';
+    });
+    return h;
+  }
+  async function saveBatchUse(){
+    var r=ROASTS.find(function(x){return String(x.id)===String(batUse);});
+    var msg=document.getElementById('bat-msg'),btn=document.getElementById('bat-save');
+    if(!r||!msg||!btn)return;
+    var v=parseFloat((document.getElementById('bat-kg-in').value||'').trim());
+    if(isNaN(v)||v<=0){msg.textContent='Enter the kg used';msg.className='gform-msg err';return;}
+    var nr=Math.max(0,Math.round(((Number(r.remaining_kg)||0)-v)*1000)/1000);
+    btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
+    const {error}=await sb.from('roasts').update({remaining_kg:nr}).eq('id',r.id);
+    if(error){btn.disabled=false;msg.textContent='Failed: '+error.message;msg.className='gform-msg err';return;}
+    r.remaining_kg=nr;batUse=null;renderRoasted();
+  }
   function renderRoasted(){
     const box=document.getElementById('beans-content');
     const title=document.getElementById('beans-title');
     if(roastEdit){renderRoastEdit();return;}
     if(title)title.textContent=roastedTitle;
     var isPending=(roastedTitle==='Pending');
-    function wireAcOpen(){var ao=box.querySelector('#ac-open');if(ao)ao.addEventListener('click',async function(){acDraft={beanId:'',name:'',date:todayStr(),kind:'single'};acDupSig='';if((!BEANS||!BEANS.length)&&typeof loadBeans==='function'){try{await loadBeans();}catch(e){}}addCoffeeOpen=true;renderRoasted();});}
+    function wireAcOpen(){var ao=box.querySelector('#ac-open');if(ao)ao.addEventListener('click',async function(){acDraft={beanId:'',name:'',date:todayStr(),kind:'single',kg:''};acDupSig='';if((!BEANS||!BEANS.length)&&typeof loadBeans==='function'){try{await loadBeans();}catch(e){}}addCoffeeOpen=true;renderRoasted();});}
     if(isPending&&addCoffeeOpen){if(title)title.textContent='Add Coffee';var acc=document.getElementById('beans-count');if(acc)acc.textContent='';box.innerHTML=acFormHTML();bindAcForm(box);return;}
     if(!isPending){
       var allR=ROASTS.slice();
+      /* G3: History 加 Batch stock 分頁（熟豆倉：FIFO、>30 天標色、記用量） */
+      var segH='<div class="lbl-seg pv-seg" style="margin:12px 16px 6px">'
+        +'<button class="lbl-tab'+(histView!=='stock'?' on':'')+'" data-hv="date">All roasts</button>'
+        +'<button class="lbl-tab'+(histView==='stock'?' on':'')+'" data-hv="stock">Batch stock</button></div>';
+      function wireHvSeg(){box.querySelectorAll('.pv-seg .lbl-tab[data-hv]').forEach(function(t){t.addEventListener('click',function(){var k=t.getAttribute('data-hv');if(k!==histView){histView=k;batUse=null;renderRoasted();}});});}
+      if(histView==='stock'){
+        var bats=(ROASTS||[]).filter(function(r){return Number(r.remaining_kg)>0;});
+        var totKg=0;bats.forEach(function(r){totKg+=Number(r.remaining_kg)||0;});
+        document.getElementById('beans-count').textContent=bats.length?(bats.length+' batches · '+gnum(Math.round(totKg*100)/100)+' kg'):'';
+        box.innerHTML=segH+roastStockHTML();
+        wireHvSeg();
+        box.querySelectorAll('[data-bat]').forEach(function(el){el.addEventListener('click',function(){batUse=(batUse===el.dataset.bat)?null:el.dataset.bat;renderRoasted();});});
+        var bc=document.getElementById('bat-cancel');if(bc)bc.addEventListener('click',function(){batUse=null;renderRoasted();});
+        var bs=document.getElementById('bat-save');if(bs)bs.addEventListener('click',saveBatchUse);
+        return;
+      }
       document.getElementById('beans-count').textContent=allR.length+' roasts';
-      if(!allR.length){box.innerHTML='<div class="sempty">No roasts yet</div>';return;}
-      box.innerHTML=groupedRoastListHTML(allR);
+      if(!allR.length){box.innerHTML=segH+'<div class="sempty">No roasts yet</div>';wireHvSeg();return;}
+      box.innerHTML=segH+groupedRoastListHTML(allR);
+      wireHvSeg();
       wireRoastList(box);bindRetailControls(box);
       return;
     }
@@ -7017,6 +7125,13 @@ fill="#6F4A36" stroke="none">
     var delta=newKg-oldKg; // extra amount → deduct from stock
     if(delta!==0 && r.kind!=='single' && r.kind!=='blend' && r.green_kg!=null)await adjustStock(r.bean_id, -delta, 'Roast edit');
     var upd={green_kg:newKg,roasted_kg:newOut};
+    /* G3: 產出改了 → 連動剩餘量（扣掉已消耗的部分）；清空產出就清空剩餘 */
+    if(newOut==null){upd.remaining_kg=null;}
+    else{
+      var _oldOut=(r.roasted_kg!=null)?Number(r.roasted_kg):null;
+      var _consumed=(_oldOut!=null&&r.remaining_kg!=null)?Math.max(0,_oldOut-Number(r.remaining_kg)):0;
+      upd.remaining_kg=Math.max(0,Math.round((newOut-_consumed)*1000)/1000);
+    }
     if(newDate)upd.roast_date=newDate;
     if(renamed)upd.bean_name=newName;
     const {error}=await sb.from('roasts').update(upd).eq('id',r.id);
@@ -7037,7 +7152,7 @@ fill="#6F4A36" stroke="none">
         try{var m=pair[0]();if(oldName in m){if(!(newName in m))m[newName]=m[oldName];delete m[oldName];pair[1](m);}}catch(e){}
       });
     }
-    r.green_kg=newKg;r.roasted_kg=newOut;if(newDate)r.roast_date=newDate;if(renamed)r.bean_name=newName;
+    r.green_kg=newKg;r.roasted_kg=newOut;r.remaining_kg=upd.remaining_kg;if(newDate)r.roast_date=newDate;if(renamed)r.bean_name=newName;
     roastEdit=null;roastDelConfirm=false;renderRoasted();
   }
   async function deleteRoast(){
