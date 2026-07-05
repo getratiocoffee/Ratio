@@ -1591,6 +1591,7 @@ fill="#6F4A36" stroke="none">
     'ratio_rtl_g':'rtl_g',
     'ratio_rtl_sold':'rtl_sold',
     'ratio_rtl_price':'rtl_price',
+    'ratio_rtl_sizes':'rtl_sizes',
     'ratio_inv_seq':'inv_seq'
   };
   let _appStateReady=false;          /* true once the boot pull succeeds (table exists) */
@@ -6726,12 +6727,22 @@ fill="#6F4A36" stroke="none">
     if(gate.warns.length&&!confirm('Heads up: '+gate.warns.join('; ')+'.\nPush to Square anyway?'))return;
     var prices=loadRtlPrice();
     var cur=prices[sid||''];
-    var input=prompt('Retail price for "'+(row.sample_id||'')+'" (AUD):',cur!=null?String(cur):'');
+    var gv=loadGrams()[sid||'']||250;
+    var input=prompt('Retail price for "'+(row.sample_id||'')+'" '+gv+'g (AUD):',cur!=null?String(cur):'');
     if(input==null)return;
     var price=Number(String(input).replace(/[^0-9.]/g,''));
     if(!price||price<=0){alert('Enter a valid price.');return;}
     prices[sid||'']=price;saveRtlPrice(prices);
-    var gv=loadGrams()[sid||'']||250;
+    /* v15 多規格：500g / 1kg 選填（留空 = 不上架該規格）；價格記住下次帶入 */
+    var sizesMap=loadRtlSizes();var sc=sizesMap[sid||'']||{};
+    var variations=[{grams:gv,price:price}];
+    var in500=prompt('Price for 500g (leave blank to skip):',sc.g500!=null?String(sc.g500):'');
+    var p500=in500==null?0:Number(String(in500).replace(/[^0-9.]/g,''));
+    if(p500>0){variations.push({grams:500,price:p500});sc.g500=p500;}else{delete sc.g500;}
+    var in1k=prompt('Price for 1kg (leave blank to skip):',sc.g1000!=null?String(sc.g1000):'');
+    var p1k=in1k==null?0:Number(String(in1k).replace(/[^0-9.]/g,''));
+    if(p1k>0){variations.push({grams:1000,price:p1k});sc.g1000=p1k;}else{delete sc.g1000;}
+    sizesMap[sid||'']=sc;saveRtlSizes(sizesMap);
     var notes=(row.features&&row.features.length)?row.features.map(function(k){return k;}).join(', '):'';
     rtlSqBusy[sqKey]=true;paintRetail();
     try{
@@ -6743,7 +6754,7 @@ fill="#6F4A36" stroke="none">
       var cardData=squareCardDataFor(row);
       var img64=null;try{img64=await makeSquareCard(cardData);}catch(e){console.error('[Ratio] card gen:',e);}
       var res=await callSquareFn({action:'push',sample_id:sqKey,name:row.sample_id||'',
-        description:desc,grams:gv,price:price,image_b64:img64});
+        description:desc,grams:gv,price:price,variations:variations,image_b64:img64});
       /* refresh sync state from response or reload */
       await loadProdSync();
     }catch(e){
@@ -6764,6 +6775,9 @@ fill="#6F4A36" stroke="none">
   function saveGrams(m){try{localStorage.setItem('ratio_rtl_g',JSON.stringify(m));}catch(e){}appStatePush('ratio_rtl_g');}
   function loadSold(){try{return JSON.parse(localStorage.getItem('ratio_rtl_sold')||'{}');}catch(e){return {};}}
   function saveSold(m){try{localStorage.setItem('ratio_rtl_sold',JSON.stringify(m));}catch(e){}appStatePush('ratio_rtl_sold');}
+  /* v15 多規格價格記憶（500g/1kg），跨裝置同步 */
+  function loadRtlSizes(){try{return JSON.parse(localStorage.getItem('ratio_rtl_sizes')||'{}');}catch(e){return {};}}
+  function saveRtlSizes(m){try{localStorage.setItem('ratio_rtl_sizes',JSON.stringify(m));}catch(e){}appStatePush('ratio_rtl_sizes');}
   /* ---- Phase 3: brew guide (per-method tabs; singles -> beans.brew jsonb, blends -> blend def brew) ---- */
   var RTL_BREW_METHODS=[['espresso','Espresso'],['infusion','Infusion'],['immersion','Immersion'],['ice','Ice Filter']];
   /* field defs: [key,label,placeholder]; visibility per method */

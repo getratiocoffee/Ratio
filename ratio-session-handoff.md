@@ -61,6 +61,12 @@
   - **T8 盤點快錄**：Inventory 首頁新「Stocktake all beans」→ 一頁列出全部生豆（按產地分組、帳面數帶入），輸實秤 kg → **只存有改動的**，每筆差異記 stock_moves 'stocktake'（note: Bulk stocktake），存完回總覽 + alert 摘要
   - **T7 到貨簽收補強**：purchases 加 `lot_no`（migration `t7_lot_no_on_purchases`）；Received 表單加 Lot/batch no 欄，存單上顯示 Lot 標記、stock_moves 備註帶批號；**照片入庫未做**（要開 storage bucket + 相機流程，延後）
   - 驗證：preview 實測入口/分組/帶值/差異判定（只挑有改的）/返回重置/批號顯示，全過
+- **Square 磨豆 Modifier + 多規格 Variations 完成**（sync-to-square **v15** + app）：
+  - **Grind modifier**：共用 MODIFIER_LIST「Grind」（Whole Bean / Filter Grind / Espresso Grind，皆 $0，SINGLE 選擇）——`ensureGrindModifier()` 找不到才建；**created 和 linked 兩種模式都掛**（linked 只加不覆蓋老闆手動設定），不會重複掛
+  - **多規格**：push 可帶 `variations:[{grams,price}]`；app 端 push 時多兩個 prompt 問 500g / 1kg 價格（**留空 = 不上架該規格**，價格記在 `ratio_rtl_sizes` localStorage + app_state 跨裝置同步，已註冊 APP_STATE_KEYS）；規格名稱比對保留既有 variation id（銷售紀錄不斷）；product_sync 仍記基本規格（250g）的 variation_id
+  - 注意：webhook 匯入網店訂單時 500g/1kg 行沒有 product_sync 映射 → fallback 用 Square 名稱 + variation 名（名稱已同步所以能對上，grams 為 null）——之後有需要再擴 product_sync
+  - ⚠ **Square API 實際呼叫未測**（要 director 登入 + 真實 catalog）：部署後挑一支豆 Re-sync，去 Square 後台確認 Grind modifier 和規格有出現
+  - 驗證：preview 實測函式存在、sizes 記憶 roundtrip、同步 key 註冊、variations 組裝邏輯，全過
 - **「全部」總覽分頁已上線**：ORD_TABS 加 `['all','全部']`、ordTabCount 回 ORDERS.length、renderOrders 加不篩選分支（commit 2270d97，已部署驗證）
 - **測試單 #0001 + 客戶 Dan 已刪**（orders 表清空、customers 剩 2 位真實客戶）
 - **sync-to-square 升 v13**：新增 `payment_link_delete` action（body.link_id → Square DELETE /v2/online-checkout/payment-links）；測試連結 iQjObl89 已刪、回 404
@@ -164,7 +170,7 @@
 **長期方向（備注，非優先）**
 - 賣生豆：對其他烘豆師/玩家零售生豆（接 G1 生豆帳 + 分享平台 b 社群線；Green Trade 的 Sell 佔位就是為這個留的）
 - 教學：杯測體驗/沖煮課/烘豆課（報名+收款可走現有 Square 付款連結；教材可從 Brew guide / 杯測資料長出來）
-- Square 磨豆 Modifier（Whole Bean/Filter/Espresso）+ 多規格 Variations（250g/500g/1kg）— 動 sync-to-square
+- ~~Square 磨豆 Modifier（Whole Bean/Filter/Espresso）+ 多規格 Variations（250g/500g/1kg）~~ ✅ 完成（見〇補記；待真實 push 驗證）
 - Square token 輪替（曾貼在對話）
 - 資料補齊：7 筆杯測 comment、April/May/June Project blend note、4 支上架（Dancer/Dreamer/April/May/June Project）、Dancer 烘焙日 15/06 確認
 
