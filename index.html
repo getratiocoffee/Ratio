@@ -889,6 +889,9 @@
   .ord-modal-in:focus{border-color:var(--accent)}
   .ord-modal-msg{font-size:12px;color:var(--muted);min-height:14px}
   .ord-modal-msg.err{color:var(--accent)}
+  .ord-pack-row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-top:1px solid var(--line);font-size:14px;color:var(--ink);cursor:pointer}
+  .ord-pack-row input{width:19px;height:19px;accent-color:var(--accent);flex:none}
+  .ord-pack-row.done span{color:var(--muted);text-decoration:line-through}
   /* ---- Phase 3: retail brew guide ---- */
   .rtl-brew{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
   .rtl-brew summary{list-style:none;display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--accent);cursor:pointer}
@@ -4460,6 +4463,7 @@ fill="#6F4A36" stroke="none">
   const ORD_LOSS=0.85;                 /* roasted kg / ORD_LOSS = green kg needed */
   const ORD_OVERDUE_DAYS=7;
   const ORD_STATUSES=['New','Confirmed','Roasting','Ready','Dispatched'];
+  const ORDER_GREEN_FACTOR=1.15; /* 13% roast loss \u2192 green = roasted \u00d7 1/0.87 \u2248 1.15 */
   const ORD_CHANNELS=['manual','square','instagram','subscription'];
   const ORD_CHANNEL_LABEL={manual:'Manual',square:'Square',instagram:'Instagram',subscription:'Subscription'};
   const ORD_CUST_TYPES=['shop','home','event','overseas'];
@@ -4547,9 +4551,15 @@ fill="#6F4A36" stroke="none">
       if(count)count.textContent=list.length?list.length+' new':'';
       if(!list.length)html+='<div class="sempty">\u6c92\u6709\u5f85\u63a5\u8a02\u55ae\u3002</div>';
       else list.forEach(function(o){html+=ordAcceptCard(o);});
-    }else if(ordTab==='roast'||ordTab==='pack'){
-      if(count)count.textContent='';
-      html+='<div class="sempty">\u958b\u767c\u4e2d \u2014 \u4e0b\u4e00\u6279\u4ea4\u4ed8</div>';
+    }else if(ordTab==='roast'){
+      list=ORDERS.filter(function(o){var s=o.status||'New';return s==='Confirmed'||s==='Roasting';});
+      if(count)count.textContent=list.length?list.length+' orders':'';
+      html+=ordRoastView(list);
+    }else if(ordTab==='pack'){
+      list=ORDERS.filter(function(o){var s=o.status||'New';return s==='Confirmed'||s==='Roasting';});
+      if(count)count.textContent=list.length?String(list.length):'';
+      if(!list.length)html+='<div class="sempty">\u6c92\u6709\u5f85\u5099\u8ca8\u8a02\u55ae\u3002</div>';
+      else list.forEach(function(o){html+=ordPackCard(o);});
     }else if(ordTab==='ship'){
       list=ORDERS.filter(function(o){return (o.status||'New')==='Ready';});
       if(count)count.textContent=list.length?list.length+' ready':'';
@@ -4585,6 +4595,12 @@ fill="#6F4A36" stroke="none">
     });
     box.querySelectorAll('[data-orddecline]').forEach(function(b){
       b.addEventListener('click',function(e){e.stopPropagation();ordDecline(b.dataset.orddecline,b);});
+    });
+    box.querySelectorAll('[data-packchk]').forEach(function(cb){
+      cb.addEventListener('change',function(){
+        var row=cb.closest('.ord-pack-row');if(row)row.classList.toggle('done',cb.checked);
+        ordPackToggle(cb.dataset.packchk,cb.dataset.packidx,cb.checked);
+      });
     });
     ordBindCards(box);
   }
@@ -4644,6 +4660,64 @@ fill="#6F4A36" stroke="none">
       catch(e){alert('\u5df2\u53d6\u6d88\uff0c\u4f46\u901a\u77e5\u4fe1\u5bc4\u9001\u5931\u6557: '+(e&&e.message||e));}
     }catch(e){alert('Decline failed: '+(e&&e.message||e));btn.disabled=false;btn.textContent='Decline';return;}
     renderOrders();
+  }
+  /* \u70d8\u8c46 tab: read-only demand roll-up across accepted orders \u2014 never touches status */
+  function ordRoastView(list){
+    var agg={},order=[];
+    list.forEach(function(o){
+      (Array.isArray(o.items)?o.items:[]).forEach(function(it){
+        var name=String(it.name||'').trim();if(!name)return;
+        var key=name.toLowerCase();
+        var g=(Number(it.grams)||0)*(Number(it.qty)||1);
+        if(!agg[key]){agg[key]={name:name,g:0,lines:0};order.push(key);}
+        agg[key].g+=g;agg[key].lines++;
+      });
+    });
+    if(!order.length)return '<div class="sempty">\u6c92\u6709\u5f85\u70d8\u8a02\u55ae\u3002</div>';
+    order.sort(function(a,b){return agg[b].g-agg[a].g;});
+    var totR=0,totG=0;
+    var h='<div class="ord-card"><div class="ord-head"><div><div class="ord-no">\u70d8\u8c46\u9700\u6c42</div><div class="ord-sub">\u5df2\u63a5\u55ae\u672a\u5099\u8ca8 \u00b7 \u552f\u8b80 \u00b7 \u751f\u8c46 = \u719f\u8c46 \u00d71.15</div></div></div>';
+    order.forEach(function(k){
+      var a=agg[k];var green=Math.ceil(a.g*ORDER_GREEN_FACTOR);
+      totR+=a.g;totG+=green;
+      h+='<div class="ord-line"><span class="ol-l">'+esc(a.name)+'</span><span>\u719f\u8c46 <b>'+a.g+'g</b> \u00b7 \u751f\u8c46 <b>'+green+'g</b>'+(a.lines>1?' \u00b7 '+a.lines+' \u7b46':'')+'</span></div>';
+    });
+    h+='<div class="ord-line"><span class="ol-l"><b>\u5408\u8a08</b></span><span><b>'+totR+'g</b> \u00b7 \u751f\u8c46 <b>'+totG+'g</b></span></div>';
+    h+='</div>';
+    return h;
+  }
+  /* \u5099\u8ca8 tab: per-order item checklist; all checked -> Ready */
+  function ordPackCard(o){
+    var cust=ordCustById(o.customer_id);
+    var no=o.order_no!=null?('#'+o.order_no):'#\u2014';
+    var itemsArr=Array.isArray(o.items)?o.items:[];
+    var ps=(o.pack_state&&typeof o.pack_state==='object')?o.pack_state:{};
+    var h='<div class="ord-card" data-ordid="'+esc(o.id)+'">';
+    h+='<div class="ord-head"><div><div class="ord-no">'+no+'</div>';
+    h+='<div class="ord-sub">'+(cust?esc(cust.name||'\u2014'):'Walk-in')+' \u00b7 '+esc(o.status||'')+(o.payment_status!=='paid'?' \u00b7 <span style="color:var(--accent)">\u672a\u6536\u6b3e</span>':'')+'</div>';
+    h+='</div></div>';
+    itemsArr.forEach(function(it,i){
+      var done=!!ps[String(i)];
+      h+='<label class="ord-pack-row'+(done?' done':'')+'"><input type="checkbox" data-packchk="'+esc(o.id)+'" data-packidx="'+i+'"'+(done?' checked':'')+'>';
+      h+='<span>'+(it.grams?it.grams+'g ':'')+esc(it.name||'')+(it.qty>1?(' \u00d7'+it.qty):'')+'</span></label>';
+    });
+    h+='<div class="ord-sum" style="margin-top:8px">\u5168\u90e8\u52fe\u9078\u5f8c\u81ea\u52d5\u8f49 Ready \u2192 \u51fa\u8ca8\u9801</div>';
+    h+='</div>';
+    return h;
+  }
+  async function ordPackToggle(id,idx,checked){
+    var o=ORDERS.filter(function(x){return x.id===id;})[0];if(!o)return;
+    var ps=(o.pack_state&&typeof o.pack_state==='object')?o.pack_state:{};
+    if(checked)ps[String(idx)]=true;else delete ps[String(idx)];
+    o.pack_state=ps;
+    try{await sb.from('orders').update({pack_state:ps}).eq('id',id);}catch(e){}
+    var itemsArr=Array.isArray(o.items)?o.items:[];
+    var all=itemsArr.length>0&&itemsArr.every(function(_,i){return !!ps[String(i)];});
+    if(all){
+      o.status='Ready';
+      try{await sb.from('orders').update({status:'Ready'}).eq('id',id);}catch(e){}
+      renderOrders();
+    }
   }
 
   function ordCard(o){
@@ -5018,7 +5092,7 @@ fill="#6F4A36" stroke="none">
       var r=await sb.from('orders').insert(row).select().single();
       if(r&&r.data){
         ORDERS.unshift(r.data);ordExpanded[r.data.id]=true;
-        if(d.cust.email){callEmailFn({action:'order_confirmation',order_id:r.data.id}).catch(function(e){console.error('[Ratio] confirmation email:',e&&e.message||e);});}
+        /* confirmation email is sent when the order is Accepted (\u63a5\u55ae tab), not on save */
       }
     }catch(e){alert('Save failed: '+(e&&e.message?e.message:e));return;}
     ordDraft=null;
