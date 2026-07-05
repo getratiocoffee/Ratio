@@ -361,6 +361,24 @@
   .fbk-cmt{font-size:13.5px;line-height:1.55;margin-top:6px}
   .fbk-coffee{font-size:11.5px;color:var(--accent-ink);margin-top:4px}
   .fbk-reply{background:var(--tint);border-radius:10px;padding:8px 10px;margin-top:8px;font-size:12.5px;color:var(--accent-ink);line-height:1.5}
+  /* 分享平台 a)：公開豆頁 */
+  #pb-ov{position:fixed;inset:0;z-index:9998;background:var(--bg);overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:30px 16px 50px}
+  .pb-card{width:100%;max-width:460px}
+  .pb-brand{font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--brand);margin-bottom:14px}
+  .pb-name{font-family:var(--font-display);font-size:28px;font-weight:700;color:var(--ink);line-height:1.2}
+  .pb-sub{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.55}
+  .pb-sec{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px}
+  .pb-sec-h{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .pb-flav{display:flex;gap:8px;flex-wrap:wrap}
+  .pb-chip{background:var(--tint);color:var(--accent-ink);border-radius:999px;padding:6px 13px;font-size:13px;font-weight:600}
+  .pb-radar svg{display:block;margin:0 auto;max-width:260px;width:100%;height:auto}
+  .pb-brew-m{margin-top:10px}
+  .pb-brew-m:first-child{margin-top:0}
+  .pb-brew-h{font-weight:700;color:var(--accent);font-size:13px;margin-bottom:3px}
+  .pb-brew-l{font-size:13px;line-height:1.7}
+  .pb-brew-l b{font-family:var(--font-mono);font-weight:600}
+  .pb-foot{text-align:center;font-size:12px;color:var(--muted);margin-top:18px;line-height:1.7}
+  .pb-foot a{color:var(--accent);font-weight:600}
   .gsec{font-size:12px;font-weight:600;color:var(--muted);padding:14px 18px 2px;letter-spacing:.02em}
   /* level 1: country tiles */
   .gcountries{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:8px 16px 16px}
@@ -1790,6 +1808,58 @@ fill="#6F4A36" stroke="none">
       document.body.appendChild(ov);
     })();
 
+    /* ============ 分享平台 a)：公開豆頁（?bean=<slug>，免登入；只給風味已鎖定的豆） ============ */
+    (function(){
+      var q='';try{q=new URLSearchParams(location.search).get('bean')||'';}catch(e){}
+      if(!q)return;
+      var ov=document.createElement('div');ov.id='pb-ov';
+      ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div><div class="sempty">Loading…</div></div>';
+      document.body.appendChild(ov);
+      var FLD=[['temp','Temp'],['ppm','PPM'],['grind','Grind'],['dose','Dose'],['yield','Yield'],['water','Water'],['ice_ratio','Ice'],['time','Time']];
+      var METH=[['espresso','Espresso'],['infusion','Infusion'],['immersion','Immersion'],['ice','Ice Filter']];
+      function pbBrewHTML(brew){
+        if(!brew||typeof brew!=='object')return '';
+        var out='';
+        METH.forEach(function(m){
+          var v=brew[m[0]];if(!v||typeof v!=='object')return;
+          var lines=[];
+          FLD.forEach(function(f){
+            if(f[0]==='yield'&&m[0]!=='espresso')return;
+            var val=String(v[f[0]]||'').trim();if(!val)return;
+            lines.push(f[1]+' <b>'+esc(val)+'</b>');
+          });
+          var dose=parseFloat(v.dose||''),liq=parseFloat(m[0]==='espresso'?(v.yield||''):(v.water||''));
+          if(dose>0&&liq>0){var r=Math.round(liq/dose*10)/10;lines.push('Ratio <b>1:'+(r%1===0?Math.round(r):r)+'</b>');}
+          if(!lines.length)return;
+          out+='<div class="pb-brew-m"><div class="pb-brew-h">'+m[1]+'</div><div class="pb-brew-l">'+lines.join(' · ')+'</div></div>';
+        });
+        return out;
+      }
+      fetch(SUPABASE_URL+'/functions/v1/public-bean?name='+encodeURIComponent(q))
+        .then(function(r){return r.json();})
+        .then(function(d){
+          if(!d||!d.ok){ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div><div class="sempty">This coffee page is not available.</div></div>';return;}
+          var sub=[];
+          if(d.kind==='blend'&&d.recipe&&d.recipe.length)sub.push(d.recipe.map(function(p){return esc(p.bean)+' '+p.pct+'%';}).join(' · '));
+          else if(d.process)sub.push(esc(d.process));
+          if(d.origin&&d.origin.region)sub.push(esc(d.origin.region));
+          if(d.roast_date)sub.push('Roasted '+esc(fmtDate(d.roast_date)));
+          var radar='';
+          try{radar=sampleRadarSVG(d.scores,true);}catch(e){}
+          var brewH=pbBrewHTML(d.brew);
+          ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div>'
+            +'<div class="pb-name">'+esc(d.name)+'</div>'
+            +(sub.length?'<div class="pb-sub">'+sub.join(' · ')+'</div>':'')
+            +((d.flavour&&d.flavour.length)?'<div class="pb-sec"><div class="pb-sec-h">Flavour</div><div class="pb-flav">'+d.flavour.map(function(f){return '<span class="pb-chip">'+esc(f)+'</span>';}).join('')+'</div>'+(d.comment?'<div class="pb-sub" style="margin-top:10px">'+esc(d.comment)+'</div>':'')+'</div>':'')
+            +(radar?'<div class="pb-sec"><div class="pb-sec-h">Cup profile</div><div class="pb-radar">'+radar+'</div></div>':'')
+            +(brewH?'<div class="pb-sec"><div class="pb-sec-h">How to brew it</div>'+brewH+'</div>':'')
+            +(d.origin&&(d.origin.variety||d.origin.altitude)?'<div class="pb-sec"><div class="pb-sec-h">Origin</div><div class="pb-brew-l">'+[d.origin.variety?('Variety <b>'+esc(d.origin.variety)+'</b>'):'',d.origin.altitude?('Altitude <b>'+esc(d.origin.altitude)+' m</b>'):''].filter(Boolean).join(' · ')+'</div></div>':'')
+            +'<div class="pb-foot">Ratio Coffee · Crows Nest, Sydney<br><a href="?fb=store">Tried it? Tell us what you think →</a></div>'
+            +'</div>';
+        })
+        .catch(function(){ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div><div class="sempty">Could not load this page — please try again.</div></div>';});
+    })();
+
     async function submit(){
       const email=emailEl.value.trim();
       const pass=passEl.value;
@@ -2809,6 +2879,7 @@ fill="#6F4A36" stroke="none">
   /* ============ G6 Print Centre：資訊卡 / .lbx 貼紙 / 選單 / PDF 集中一頁 ============ */
   var PRINT_CARDS=null, printCardSel=''; /* null = 名單還在載入，[] = 載完但沒有 retail 咖啡 */
   var printFbQr=false; /* G7 回饋 QR 顯示狀態 */
+  var printBeanQr=false; /* 分享平台：豆頁 QR 顯示狀態 */
   var FB_PUBLIC_URL='https://ratio-theta.vercel.app/?fb=store';
   function openPrint(){closeFolder();openPage('print');renderPrint();ensurePrintData();}
   async function ensurePrintData(){
@@ -2847,6 +2918,8 @@ fill="#6F4A36" stroke="none">
       +(PRINT_CARDS||[]).map(function(n){return '<option value="'+esc(n)+'"'+(n===printCardSel?' selected':'')+'>'+esc(n)+'</option>';}).join('')
       +'</select>'
       +'<button class="gbtn" id="pc-dl">Download card PNG</button>'
+      +'<button class="gbtn" id="pc-beanqr" style="margin-top:8px;background:transparent;color:var(--accent);border:1.5px solid var(--accent)">Bean page QR</button>'
+      +((printBeanQr&&printCardSel)?(function(){var u='https://ratio-theta.vercel.app/?bean='+ordCardSlug(printCardSel);return '<div style="margin-top:10px"><img src="https://api.qrserver.com/v1/create-qr-code/?size=520x520&data='+encodeURIComponent(u)+'" alt="bean page QR" style="width:100%;max-width:250px;display:block;background:#fff;border-radius:10px;padding:10px;border:1px solid var(--line)" /><div class="pc-sub" style="margin-top:8px">'+esc(u)+'<br>Public page shows flavour, cup profile and brew guide — only after the flavour is locked (QC).</div></div>';})():'')
       +'<div class="gform-msg" id="pc-msg">'+(PRINT_CARDS===null?'Loading coffee list…':(PRINT_CARDS.length?'':'No retail coffees found'))+'</div></div>'
       +'<div class="gsec">Feedback QR</div>'
       +'<div class="pc-wrap"><div class="pc-sub">Scan → public feedback form (no login needed). Print it on parcel cards or a counter stand.</div>'
@@ -2866,8 +2939,13 @@ fill="#6F4A36" stroke="none">
       else if(k==='menu-dinein'){openPage('menu');openDineinMenu();}
       else if(k==='menu-special'){openPage('menu');openSpecialMenu();}
     });});
-    var sel=document.getElementById('pc-sel');if(sel)sel.addEventListener('change',function(){printCardSel=sel.value;});
+    var sel=document.getElementById('pc-sel');if(sel)sel.addEventListener('change',function(){printCardSel=sel.value;if(printBeanQr){printBeanQr=false;renderPrint();}});
     var dl=document.getElementById('pc-dl');if(dl)dl.addEventListener('click',printCardDownload);
+    var bq=document.getElementById('pc-beanqr');if(bq)bq.addEventListener('click',function(){
+      var s2=document.getElementById('pc-sel');
+      if(s2&&s2.value){printCardSel=s2.value;printBeanQr=true;renderPrint();}
+      else{var m=document.getElementById('pc-msg');if(m){m.textContent='Pick a coffee first';m.className='gform-msg err';}}
+    });
   }
   async function printCardDownload(){
     var sel=document.getElementById('pc-sel'),msg=document.getElementById('pc-msg'),btn=document.getElementById('pc-dl');

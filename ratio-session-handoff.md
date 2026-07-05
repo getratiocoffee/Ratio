@@ -67,6 +67,12 @@
   - 注意：webhook 匯入網店訂單時 500g/1kg 行沒有 product_sync 映射 → fallback 用 Square 名稱 + variation 名（名稱已同步所以能對上，grams 為 null）——之後有需要再擴 product_sync
   - ⚠ **Square API 實際呼叫未測**（要 director 登入 + 真實 catalog）：部署後挑一支豆 Re-sync，去 Square 後台確認 Grind modifier 和規格有出現
   - 驗證：preview 實測函式存在、sizes 記憶 roundtrip、同步 key 註冊、variations 組裝邏輯，全過
+- **分享平台 a) 每支豆公開頁完成（MVP）**（新 edge `public-bean` v1 + index.html；b 社群 / c 看板方向仍待老闆拍板）：
+  - **edge `public-bean`**（verify_jwt false、CORS 開、快取 5 分鐘）：`?name=<slug>` → **只回風味已鎖定**（samples.flavour_locked，QC 閘門一路貫穿）豆的白名單欄位：名稱/配方或產地/風味 3 個/comment/雷達五項分數/烘焙日（roasts→samples fallback）/四法沖煮參數（blend 用 blends.brew、單品用 beans.brew）
+  - **公開頁**：`ratio-theta.vercel.app/?bean=<slug>` 免登入 overlay——品牌字、配方比例、風味膠囊、雷達圖（重用 sampleRadarSVG）、How to brew it（含 ratio 自動算）、產地資訊，頁尾連到 ?fb=store 回饋表單（兩個公開頁互相導流）；未鎖定/不存在顯示「not available」
+  - **Print Centre**：資訊卡區加「Bean page QR」鍵——選豆 → 產 QR（連 ?bean=<slug>），印貼紙/包裝用
+  - 驗證：curl 三態（鎖定=完整 JSON、未鎖=404、缺參數=400）+ preview 實測 Dark Knight 頁完整渲染（截圖確認）+ not-available 畫面 + QR 產生，全過；測試用的鎖定已還原
+  - ⚠ 上線後要公開哪支豆：杯測卡按 **Lock flavour** 就會出現在公開頁（同一顆鍵同時管資訊卡）
 - **「全部」總覽分頁已上線**：ORD_TABS 加 `['all','全部']`、ordTabCount 回 ORDERS.length、renderOrders 加不篩選分支（commit 2270d97，已部署驗證）
 - **測試單 #0001 + 客戶 Dan 已刪**（orders 表清空、customers 剩 2 位真實客戶）
 - **sync-to-square 升 v13**：新增 `payment_link_delete` action（body.link_id → Square DELETE /v2/online-checkout/payment-links）；測試連結 iQjObl89 已刪、回 404
@@ -164,7 +170,7 @@
 
 **分享平台（新方向，收集的 database 對外輸出）**
 - 概念：上述工具收進來的 roasts / dialins / samples / beans 資料，長出可分享的頁面
-- 可能形態（範圍待定）：a) 每支豆公開頁（雷達圖+風味+沖煮參數，QR 印貼紙）b) 烘豆師社群互通（生豆買賣/交換、杯測紀錄互看）c) 內部跨店/跨職位看板
+- 可能形態：~~a) 每支豆公開頁（雷達圖+風味+沖煮參數，QR 印貼紙）~~ ✅ MVP 完成（見〇補記）；b) 烘豆師社群互通（生豆買賣/交換、杯測紀錄互看）c) 內部跨店/跨職位看板 — b/c 待拍板
 - 依賴：資料工具先行（T1/T3/T5），平台屬 Beans 2.0 之後的新 phase
 
 **長期方向（備注，非優先）**
