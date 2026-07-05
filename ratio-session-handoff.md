@@ -1,61 +1,109 @@
-# Ratio 開發交接 — 2026-07-05 Session
+# Ratio 開發交接 — 2026-07-05 Session（Phase 3 + Orders 2.0）
 
 ## 一、本次完成
 
-### 1. 杯測表單 Roast date
-- `samples` 新欄位 `roast_date`（migration 已套用）
-- Start Analyse：Cupping date 鎖定當天、Roast date 可填（單品自動帶該筆烘焙日、blend 帶同名最新烘焙）
-- Edit 表單也可修 roast date；`roastDateForSample()` 優先讀樣品快照
+### 1. Phase 3 信件系統（send-email v12，全上線）
+- Actions：`notify` / `order_confirmation` / `payment_received` / `payment_reminder` / `order_cancelled` / `dispatch_notice`
+- 寄送蓋章：確認信 → `orders.confirm_email_at`、出貨信 → `orders.dispatch_email_at`（edge 寄成功後自動寫）
+- **確認信**：Accept 觸發（不再存單即寄），含品項表 + 「Pay online by card」按鈕（有 payment_link 且未付時）+ 銀行轉帳資訊（"Or pay by bank transfer"）
+- **收款信**：Mark as received 自動寄（失敗不擋標記，只 console）
+- **催款信**：手動，同樣帶付款按鈕
+- **取消信**：Decline 觸發；已付款的會提「安排退款」
+- **出貨信**：資訊卡（同 Square v3 圖卡）+ 各沖煮法參數 + tracking；卡片存在時取代文字行（Roasted/Flavour 已在卡上）
+- 出貨信資料源：brew jsonb（beans/blends）、烘焙日 roasts → samples.roast_date fallback、風味 blend note||comment / sample comment
+- 資訊卡管線：app 寄信時 `ordUploadCards()` 用 `squareCardDataFor()` + `makeSquareCard` 畫 1200×1200 PNG → 上傳 `mail-assets` bucket（public）`card-<slug>.png` upsert + cache-bust → edge 用 body.cards map，headless fallback 慣例路徑 HEAD-check
 
-### 2. Pending 雙檢視
-- 頂部 tab：Roasted date（預設）/ Cupping date
-- Cupping 檢視：Ratio Coffee 杯測紀錄依 cupping_date 分抽屜（卡片含 Re-analyse + Retail 控制）
-- Roasted 檢視：有 roast_date 的杯測紀錄（無 roasts 列的 blend）也併入對應日期抽屜；抽屜 Single/Blend 分頁自動切到有內容那頁；頂部 blend 區排除已有烘焙日期者
-- 共用 `rtSampleCard()` / `wireRtSampleCards()`
+### 2. Brew guide（Retail Info 卡片內）
+- 4 tabs：**Espresso / Infusion / Immersion / Ice Filter**（此順序、此命名）
+- 欄位：Temp（全）、PPM（除 Espresso）、Grind（全）、Dose g（全）、**Yield g（僅 Espresso）**、Water g（除 Espresso）、Ice Ratio（僅 Ice）、Time（全）
+- Ratio 自動算：Espresso=Dose/Yield、Filter=Dose/Water；出貨信同步顯示
+- 存放：單品 → `beans.brew` jsonb、blend → `blends.brew` jsonb（keyed by method：espresso/infusion/immersion/ice）
+- blends push/pull/canon 已含 brew（canon 用 stable stringify 防 jsonb key 重排誤判）
+- 切 tab 不掉未存輸入（DOM toggle）；Dark Knight 四法已填好
 
-### 3. 資料清理
-- 刪 5 筆殘留：Dancer×2、Dreamer、Dark Knight Testing、Dark Knight 無日期重複（舊版表單日期混淆產物）
-- `product_sync.bean_id`「Dark Knight Testing」→「Dark Knight」（cascade 漏掉這筆，手動修）
-- 目前 samples 乾淨：7 筆，cupping/roast date 都正確
+### 3. Square 付款連結（sync-to-square v12）
+- 新 action `payment_link`：body.order_id → Square Payment Links API（quick_pay、訂單金額、首個 ACTIVE location）→ 存 `orders.payment_link` / `payment_link_id`；重複呼叫回傳既有（body.force 重建）
+- Accept 流程自動建連結；#0001 測試連結 https://square.link/u/iQjObl89
 
-### 4. Square 商品圖卡 v3 定稿（規格在記憶 #14）
-- 卡身 766px（CX=217）、上下 64、圓角 28、外框 3px
-- 文字安全區中央 650px（TSX=275）— 手機直式框裁左右各 ~200px，文字絕不可超出
-- Header/Content/Footer 內容左緣對齊 TSX；Footer 水滴+風味靠左起排
-- Content 整張卡統一字級（先掃全行取最小 fit，全行同級）
-- 豆/水滴 icon base64 內嵌（CARD_ICON_BEAN/CARD_ICON_DROP）canvas source-in 染色
+### 4. Orders 2.0 — 角色分頁（B1+B2 已部署上線）
+六分頁：**接單 / 烘豆 / 備貨 / 出貨 / 收款 / 歷史**（帶數字）
+- **接單**（New）：精簡卡 + Accept（付款連結→Confirmed→確認信→checkOrderStock）/ Decline（confirm→Cancelled→取消信）；無 email 警示
+- **烘豆**（Confirmed+Roasting）：唯讀加總 — 同名合併、熟豆 g + 生豆 g（`ORDER_GREEN_FACTOR=1.15`，本次才真正定義，之前記憶有誤）+ 筆數 + 合計，需求量排序，不碰狀態
+- **備貨**（Confirmed+Roasting）：品項打勾清單存 `orders.pack_state` jsonb（跨裝置）；未收款紅字；**全勾自動 → Ready**
+- **出貨**（Ready）：現有卡 + Dispatched 彈窗（tracking + 寄信/不寄/取消；未收款顯示「⚠ 此單尚未收款」不擋）
+- **收款**：All/Awaiting/Overdue/Paid 子篩選；Mark as received / Send reminder / Resend email
+- **歷史**：Dispatched + Cancelled
+- 訂單卡顯示 Emails 行（Confirmation sent ✓）+ Dispatch 區（tracking + Email sent ✓）+ Resend email 按鈕（依狀態寄確認信或出貨信）
 
-### 5. sync-to-square v11
-- `ratio_ref` STRING custom attribute：每次推送寫入 sample_id；認領商品優先用 ratio_ref 比對（改名不斷鏈）
-- 推送後自動刪舊「… card」圖（手動上傳照片不動）
-- 新增 `delete_object` action（Director 限定，raw catalog object id）
-- Aroma/Acidity 測試定義：Dashboard 手建，API 無權刪 → Daniel 已在 Dashboard 刪除 ✓
+### 5. 修掉的舊 bug
+- **orders_status_check 約束**：DB 原本只收小寫，app 一直寫大寫 → 以前所有狀態變更靜默失敗沒存 DB。已改為大寫六態（New/Confirmed/Roasting/Ready/Dispatched/Cancelled）+ 既有資料正規化 + default 'New'
+- **存單重複寄信**：saveOrder 自動寄確認信已移除（Accept 才寄）
 
-### 6. 已上架狀態
-- Alo Village + Dark Knight 已用 v3 圖卡 Re-sync（linked 模式、ratio_ref 在位）
-- 注意：最後一次推送是「字級統一」版之前 — **部署最新 index.html 後要再 Re-sync 兩支一次**
+### 6. DB / 基礎設施變更
+- orders 新欄位：`tracking_no` `dispatch_email_at` `confirm_email_at` `payment_link` `payment_link_id` `pack_state`（jsonb）
+- beans：舊 5 個 brew 文字欄已 drop，改 `brew` jsonb；blends 加 `brew` jsonb
+- Storage：`mail-assets` bucket（public read、staff insert/update）；出貨信卡片 `card-<slug>.png`
+- Edge 版本：**send-email v12**、**sync-to-square v12**（verify_jwt 皆 true）、square-webhook 不動
+- 客戶 Dan (`cf2fabb6-...`) email 已填 getratiocoffee@gmail.com（測試用）
 
 ## 二、關鍵陷阱（新增）
 
-1. **手機商品頁直式框裁左右各 ~200px**（比桌面 150px 更兇）— 圖卡文字必須在中央 650px 內；色帶滿版出血 OK
-2. **圖卡是靜態 PNG** — 改 makeSquareCard 後必須 Re-sync 才會換圖（v11 會自動清舊圖）
-3. **Dashboard 手建的 custom attribute 定義 API 刪不掉**（權限屬 Square 內部 app）
-4. 從瀏覽器 console 直接推送的 pattern：`window.__pushCard(name, grams, price)` — 組 cardData + makeSquareCard + callSquareFn push（繞過 UI 的 price prompt）；記得先 loadRoasts + ensureBeansForInvoice + blendsPull
-5. Pending 日期抽屜資料源 = roasts.roast_date + samples.roast_date（無對應 roasts 列時）；blend 定義本身無日期 → 留頂部區塊
+1. 訂單品項名是**自由輸入** — 打錯字（例 "Dark Knight v"）配不到 blend/beans，出貨信沖煮段整段消失。之後可改下拉選 Retail 清單
+2. blend 常常 **roasts 表沒有列**，烘焙日只在 `samples.roast_date` — 任何要烘焙日的功能都要做 fallback（出貨信 v7 起已做）
+3. `ORDER_GREEN_FACTOR` 在本次之前**從未定義**（記憶第一次寫錯）— 引用未定義常數 `node --check`/`new Function` 都抓不到（runtime 才炸），驗證管線有盲區
+4. 收款頁預設**不顯示已付款**（要點 Paid）；Confirmed 單只在烘豆/備貨頁 — 使用者找不到單多半是分頁邏輯，考慮加「全部」總覽分頁
+5. 部署驗證直接 fetch `https://ratio-theta.vercel.app/?nocache=<rand>` 搜函式名 + 比 size — 本次抓到「B2 沒上傳、GitHub 還是 B1」
 
-## 三、待辦（記憶 #13，Phase 4 前一波做）
+## 三、待辦
 
-1. beans 沖煮參數欄位 brew_temp/brew_ratio/grind_size/brew_method/flavour_desc + Retail Info UI → 完整商品描述
-2. Square 磨豆選項 Modifier（Whole Bean/Filter/Espresso）— 動 sync-to-square
-3. Square 多規格 Variations（250g/500g/1kg）— 動 sync-to-square，跟 1、2 一波
-4. 出貨通知信（Dispatched 觸發，含沖煮參數+烘焙日期）
-5. 新豆上架通知 + 回購提醒（可延後）
-6. Square token 輪替（曾貼在對話）
+**Orders 2.0 收尾**
+1. 「全部」總覽分頁（防找不到單）
+2. square-webhook 接 payment_link 付款事件 → 自動標 paid（現在客人刷卡後要手動 Mark as received）
+3. 測試單 #0001 + 客戶 Dan 刪除（記得清 payment link）
+4. 訂單品項改下拉選（防打錯字）
 
-**資料補齊（隨時）：** 7 筆杯測 comment、April/May/June Project blend note、4 支上架（Dancer/Dreamer/April/May/June Project）、Dancer 烘焙日 15/06 待確認
+**Beans 2.0（已規劃，未開工）— 職位產線 G1–G7**
+- G1 生豆帳：庫存扣除、盤點、低庫存警戒、採購紀錄鏈（樣品杯測結論→採購單→到貨入庫）
+- G2 烘焙站：烘焙扣生豆（×1.15）、開烘前庫存檢查（接 Orders 烘豆需求頁）、產出寫熟豆批次
+- G3 熟豆倉+拼配：批次表（烘焙日/克數/狀態）、賞味期 >30 天標色、FIFO、blend 消耗批次
+- G4 QC：杯測結果狀態 Pass / Re-roast（退 G2）/ Downgrade；風味描述鎖定後才進資訊卡
+- G5 上架：僅 QC Pass 可上架；Retail+Square push 集中；新豆通知信群發；下家 wholesale
+- G6 印製中心：資訊卡/.lbx 貼紙/選單/PDF 集中一頁（純重組，可隨時插隊）
+- G7 客戶回饋：出貨信回饋連結（QR 可印）→ feedback 表 → app 回覆 → 摘要回 QC
+- **順序：G1 → G2 → G6 → G3 → G4 → G5 → G7**，每 phase 分批交付
+- 跨線：上架→接單（供貨）、Orders 烘豆需求→烘焙站（唯讀）、出貨→回饋→QC
+
+**社群曝光規劃（已定案）**
+- 優先序：Google 商家檔案（評論 QR 進出貨信/貼紙）> IG（v3 資訊卡 1200×1200 直接當貼文）> 小紅書（中文+北岸華人，高 ROI）> TikTok/Reels（有餘力）
+- 四內容支柱：新豆上市 / 過程隨手拍 / 沖煮教學（Brew guide 現成）/ 選豆思路
+- 頻率：IG 週 2 貼+3-4 限動、小紅書週 1-2、Google Post 週 1
+- 在地：包裹小卡 QR、供豆下家立牌、季度市集
+- **Phase 4 新增規格**：上架自動產 IG/小紅書素材（資訊卡+中英文案草稿）、新豆通知一份內容三發、回購提醒附評論連結
+
+**資料收集小工具（Beans 2.0 各站的資料入口，待排期）**
+- 烘焙師：T1 烘焙快錄（生豆投入/出豆 g 自動失重率、入豆溫、一爆、出豆溫/時長 → roasts 擴充）；T2 烘焙 profile 文字筆記（延後）
+- 咖啡師：T3 Dial-in 日誌（研磨/dose/yield/時間/評語 → 新表 dialins；累積後一鍵套用到 Brew guide）；T4 每日出杯品質快記（延後）
+- 杯測師：T5 多樣品同場快評（一場 5-8 杯排排打分、一次存多筆 samples）；T6 風味輪快選（延後）
+- 生豆管理員：T7 到貨簽收（供應商/kg/批號/照片入庫）；T8 盤點快錄（逐豆實際 kg、差異自動記調整）
+- 共同設計：走現有 dock、單手完成、離線 localStorage 先存再同步；建議首波 T1+T3+T5
+- 待確認：是否開給 staff 角色（接 is_staff() 權限）
+
+**分享平台（新方向，收集的 database 對外輸出）**
+- 概念：上述工具收進來的 roasts / dialins / samples / beans 資料，長出可分享的頁面
+- 可能形態（範圍待定）：a) 每支豆公開頁（雷達圖+風味+沖煮參數，QR 印貼紙）b) 烘豆師社群互通（生豆買賣/交換、杯測紀錄互看）c) 內部跨店/跨職位看板
+- 依賴：資料工具先行（T1/T3/T5），平台屬 Beans 2.0 之後的新 phase
+
+**長期方向（備注，非優先）**
+- 賣生豆：對其他烘豆師/玩家零售生豆（接 G1 生豆帳 + 分享平台 b 社群線；Green Trade 的 Sell 佔位就是為這個留的）
+- 教學：杯測體驗/沖煮課/烘豆課（報名+收款可走現有 Square 付款連結；教材可從 Brew guide / 杯測資料長出來）
+- Square 磨豆 Modifier（Whole Bean/Filter/Espresso）+ 多規格 Variations（250g/500g/1kg）— 動 sync-to-square
+- Square token 輪替（曾貼在對話）
+- 資料補齊：7 筆杯測 comment、April/May/June Project blend note、4 支上架（Dancer/Dreamer/April/May/June Project）、Dancer 烘焙日 15/06 確認
 
 ## 四、基礎設施速查
-- Supabase kjhudxzvidhynpabnalp（Sydney）；Edge Functions：sync-to-square **v11** / square-webhook v8 / send-email v2
-- samples 新欄位：roast_date（date）
+- Supabase kjhudxzvidhynpabnalp（Sydney）；Edge：send-email **v12** / sync-to-square **v12** / square-webhook v8
+- orders 欄位新增：tracking_no, dispatch_email_at, confirm_email_at, payment_link, payment_link_id, pack_state
+- beans.brew / blends.brew jsonb（method-keyed）；mail-assets bucket
 - Square item ids：Alo Village=CFGKRBQ5EAWGB5UAUV35NOP5、Dark Knight=JZVP5ICULJ7TQJGL7VWW6XE2；ratio_ref 定義=MV5EOCK2W3XXFQPHILKQWKOQ
+- Chrome MCP：Ratio tab id 1489018982
 - 開場模板：先抓 https://raw.githubusercontent.com/getratiocoffee/Ratio/main/index.html + 讀本檔
