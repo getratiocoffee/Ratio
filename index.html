@@ -4595,6 +4595,9 @@ fill="#6F4A36" stroke="none">
       b+='<button class="gbtn ghost" data-ordremind="'+esc(o.id)+'">Send reminder</button></div>';
     }
     /* Phase 3: dispatch email + tracking */
+    if(o.confirm_email_at){
+      b+='<div class="ord-line"><span class="ol-l">Emails</span><span>Confirmation sent \u2713 '+esc(fmtDate((o.confirm_email_at||'').slice(0,10)))+'</span></div>';
+    }
     if(o.status==='Dispatched'){
       b+='<div class="ord-line"><span class="ol-l">Dispatch</span><span>'
         +(o.tracking_no?('Tracking: '+esc(o.tracking_no)+'<br>'):'')
@@ -4731,6 +4734,8 @@ fill="#6F4A36" stroke="none">
     var o=ORDERS.filter(function(x){return x.id===id;})[0];if(!o)return;
     o.payment_status='paid';
     try{await sb.from('orders').update({payment_status:'paid'}).eq('id',id);}catch(e){}
+    /* Phase 3: notify customer their payment arrived; failure never blocks the paid flag */
+    try{await callEmailFn({action:'payment_received',order_id:id});}catch(e){console.error('[Ratio] payment_received mail:',e&&e.message||e);}
     renderOrders();
   }
   async function setTransfer(id,val){
