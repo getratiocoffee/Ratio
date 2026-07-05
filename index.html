@@ -7726,17 +7726,26 @@ fill="#6F4A36" stroke="none">
     var oldName=(r.bean_name||'').trim();
     var renamed=!!newName&&newName!==oldName;
     if(nmEl&&!newName){msg.textContent='Coffee name cannot be empty';msg.className='gform-msg err';return;}
-    var newKg=parseFloat(document.getElementById('re-kg').value);
+    var kgRaw=document.getElementById('re-kg').value.trim();
+    var newKg;
+    if(kgRaw===''){
+      /* Add Coffee 列本來就沒有生豆量 → 允許留空、只改烘焙記錄等其他欄位；
+         有生豆量的列留空仍擋，防止誤清掉庫存連動 */
+      if(r.green_kg!=null){msg.textContent='Enter a valid quantity';msg.className='gform-msg err';return;}
+      newKg=null;
+    }else{
+      newKg=parseFloat(kgRaw);
+      if(isNaN(newKg)||newKg<0){msg.textContent='Enter a valid quantity';msg.className='gform-msg err';return;}
+    }
     var newDate=document.getElementById('re-date').value;
-    if(isNaN(newKg)||newKg<0){msg.textContent='Enter a valid quantity';msg.className='gform-msg err';return;}
     var outEl=document.getElementById('re-out');
     var outRaw=outEl?outEl.value.trim():'';
     var newOut=outRaw===''?null:parseFloat(outRaw);
     if(newOut!=null&&(isNaN(newOut)||newOut<0)){msg.textContent='Enter a valid roasted output';msg.className='gform-msg err';return;}
     btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
     var oldKg=Number(r.green_kg)||0;
-    var delta=newKg-oldKg; // extra amount → deduct from stock
-    if(delta!==0 && r.kind!=='single' && r.kind!=='blend' && r.green_kg!=null)await adjustStock(r.bean_id, -delta, 'Roast edit');
+    var delta=(newKg!=null?newKg:0)-oldKg; // extra amount → deduct from stock
+    if(delta!==0 && newKg!=null && r.kind!=='single' && r.kind!=='blend' && r.green_kg!=null)await adjustStock(r.bean_id, -delta, 'Roast edit');
     /* T1: 烘焙記錄欄位（全部選填） */
     var _gv=function(id){var el=document.getElementById(id);return el?el.value.trim():'';};
     var _num=function(v){var n=parseFloat(v);return (v===''||isNaN(n))?null:n;};
