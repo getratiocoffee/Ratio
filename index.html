@@ -1363,7 +1363,7 @@ fill="#6F4A36" stroke="none">
            right:{label:'Week after',dateKey:'after',icon:'calendar',act:'timesheet:after'}},
     beans:{contentTitle:'Retail Reminder',
            left:{label:'Retail Info',zh:'',icon:'bag',act:'beans:retail'},
-           right:{label:'Pending',zh:'',icon:'factory',act:'beans:prod'}},
+           right:{label:'QC',zh:'',icon:'factory',act:'beans:prod'}},
     roast:{contentTitle:'Roasting Reminder',
            left:{label:'Production',zh:'',icon:'factory',act:'roast:prod'},
            right:{label:'History',zh:'',icon:'history',act:'roast:hist'}},
@@ -1579,7 +1579,7 @@ fill="#6F4A36" stroke="none">
   function runModuleAction(act){
     if(typeof act==='string'&&act.indexOf('timesheet:')===0)tsFilter=null;
     if(act==='beans:retail'){openPage('beans');beansView='retail';renderBeansRetail();}
-    else if(act==='beans:prod'){roastedTitle='Pending';openPage('beans');beansView='production';loadRoasted();}
+    else if(act==='beans:prod'){roastedTitle='QC';openPage('beans');beansView='production';loadRoasted();}
     else if(act==='roast:prod'){openPage('green');loadBeans('roast');}
     else if(act==='roast:hist'){roastedTitle='History';openPage('beans');beansView='production';loadRoasted();}
     else if(act==='green:buy'){openPage('green');loadPurchases();}
@@ -5860,7 +5860,7 @@ fill="#6F4A36" stroke="none">
     if(greenView==='detail'){greenView='beans';greenBeanId=null;greenEdit=false;greenDelConfirm=false;greenStocktake=false;renderGreen();}
     else if(greenView==='beans'){greenView='countries';greenCountry=null;renderGreen();}
     else if(greenView==='roast'){closePage();}
-    else if(greenView==='sample'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderSample();}else if(smpCuppingRoast||blendCupping){smpCuppingRoast=null;blendCupping=null;smpPages=[blankSmp()];smpIdx=0;roastedTitle='Pending';beansView='production';openPage('beans');renderRoasted();}else{closePage();}}
+    else if(greenView==='sample'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderSample();}else if(smpCuppingRoast||blendCupping){smpCuppingRoast=null;blendCupping=null;smpPages=[blankSmp()];smpIdx=0;roastedTitle='QC';beansView='production';openPage('beans');renderRoasted();}else{closePage();}}
     else if(greenView==='history'){if(smpEdit){smpEdit=null;smpDelConfirm=false;renderHistory();}else{closePage();}}
     else if(greenView==='add'){greenView=greenAddCountry?'beans':'countries';if(greenAddCountry)greenCountry=greenAddCountry;greenAddCountry=null;renderGreen();}
     else if(greenView==='stocktake'){stkDraft=null;greenView='countries';renderGreen();}
@@ -7164,7 +7164,7 @@ fill="#6F4A36" stroke="none">
       +'</div>'):'';
     return '<div class="rtl-card">'+header+body+'</div>';
   }
-  let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='Pending', addCoffeeOpen=false, acDraft={beanId:'',name:'',date:'',kind:'single',kg:''}, dateKind={}, cuppedOpen={}, acDupSig='', pendingView='roast', cupDateOpen={};
+  let roastedOpen={}, roastEdit=null, roastEditStatus='', roastDelConfirm=false, roastedTitle='QC', addCoffeeOpen=false, acDraft={beanId:'',name:'',date:'',kind:'single',kg:''}, dateKind={}, cuppedOpen={}, acDupSig='', pendingView='roast', cupDateOpen={};
   function fmtDate(d){if(!d||d==='—')return 'No date';var p=String(d).split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0].slice(-2)):d;}
   function beansBack(){
     if(roastEdit){roastEdit=null;roastDelConfirm=false;renderRoasted();return;}
@@ -7417,7 +7417,7 @@ fill="#6F4A36" stroke="none">
       var res=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('no',{ascending:false});
       if(!res.error)SAMPLES=res.data||[];
     }catch(e){}
-    if(roastedTitle==='Pending'&&document.getElementById('beans-content'))renderRoasted();
+    if(roastedTitle==='QC'&&document.getElementById('beans-content'))renderRoasted();
   }
   /* card for a Ratio Coffee cupping record shown inside a date drawer / cupping list */
   /* G4 QC: \u676f\u6e2c\u5361\u5c0d\u56de\u5b83\u7684\u70d8\u8c46\u6279\u6b21\uff08bean_id \u512a\u5148\uff0c\u518d\u8c46\u540d\uff1b\u540c\u65e5\u70d8\u7119\u512a\u5148\uff0c\u5426\u5247\u53d6\u6700\u65b0\uff09 */
@@ -7583,7 +7583,7 @@ fill="#6F4A36" stroke="none">
     const title=document.getElementById('beans-title');
     if(roastEdit){renderRoastEdit();return;}
     if(title)title.textContent=roastedTitle;
-    var isPending=(roastedTitle==='Pending');
+    var isPending=(roastedTitle==='QC');
     function wireAcOpen(){var ao=box.querySelector('#ac-open');if(ao)ao.addEventListener('click',async function(){acDraft={beanId:'',name:'',date:todayStr(),kind:'single',kg:''};acDupSig='';if((!BEANS||!BEANS.length)&&typeof loadBeans==='function'){try{await loadBeans();}catch(e){}}addCoffeeOpen=true;renderRoasted();});}
     if(isPending&&addCoffeeOpen){if(title)title.textContent='Add Coffee';var acc=document.getElementById('beans-count');if(acc)acc.textContent='';box.innerHTML=acFormHTML();bindAcForm(box);return;}
     if(!isPending){
@@ -8260,7 +8260,7 @@ fill="#6F4A36" stroke="none">
         }
       }
       smpCuppingRoast=null;blendCupping=null;blendSamplesLoaded=false;smpPages=[blankSmp()];smpIdx=0;
-      roastedTitle='Pending';beansView='production';openPage('beans');renderRoasted();return;
+      roastedTitle='QC';beansView='production';openPage('beans');renderRoasted();return;
     }
     var rec={no:nextNo(p.cupping_date||todayStr()),cupping_date:p.cupping_date||todayStr(),roast_date:(p.roast_date||null),supplier:(p.supplier||'').trim()||'Ratio Coffee',sample_id:(p.sample_id||'').trim()||null,process:(p.process||'').trim()||null,bean_id:(p._bean_id||null),fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:null,cupper:(window.CURRENT_USER||null)};
     if(!rec.sample_id){if(btn)btn.disabled=false;if(msg){msg.textContent='Missing coffee name (ID)';msg.className='gform-msg err';}return;}
@@ -8288,7 +8288,7 @@ fill="#6F4A36" stroke="none">
     }
     smpCuppingRoast=null;blendCupping=null;blendSamplesLoaded=false;
     smpPages=[blankSmp()];smpIdx=0;
-    roastedTitle='Pending';beansView='production';
+    roastedTitle='QC';beansView='production';
     openPage('beans');
     renderRoasted();
   }
