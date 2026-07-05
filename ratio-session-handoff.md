@@ -73,6 +73,11 @@
   - **Print Centre**：資訊卡區加「Bean page QR」鍵——選豆 → 產 QR（連 ?bean=<slug>），印貼紙/包裝用
   - 驗證：curl 三態（鎖定=完整 JSON、未鎖=404、缺參數=400）+ preview 實測 Dark Knight 頁完整渲染（截圖確認）+ not-available 畫面 + QR 產生，全過；測試用的鎖定已還原
   - ⚠ 上線後要公開哪支豆：杯測卡按 **Lock flavour** 就會出現在公開頁（同一顆鍵同時管資訊卡）
+- **收尾打磨**（migration `feedback_notify_trigger_and_t2_profile_note`）：
+  - **修 bug：blends 未登入無限重試**——RLS 把 anon select 過濾成空（不報錯），被誤判成「空表」→ 觸發本機上傳 → 被 RLS 擋 → 洗版重試。blendsPull / blendsPushNow 加 session 檢查，未登入直接 return（preview 實測 guard 後零新增錯誤）
+  - **G7 補強：新回饋自動通知**——`notify_feedback()` security definer trigger：feedback insert → messages 一則「New feedback ★★★★ + 摘要」（匿名寫不了 messages 所以用 trigger 代打；已 E2E 測過並清理）
+  - **T2 烘焙 profile 筆記**：roasts 加 `profile_note`；烘豆編輯視窗 Roast log 下加 Profile notes textarea
+  - 部署驗證：公開豆頁 + Square 規格已上線（639,243 bytes 與本機一致）
 - **「全部」總覽分頁已上線**：ORD_TABS 加 `['all','全部']`、ordTabCount 回 ORDERS.length、renderOrders 加不篩選分支（commit 2270d97，已部署驗證）
 - **測試單 #0001 + 客戶 Dan 已刪**（orders 表清空、customers 剩 2 位真實客戶）
 - **sync-to-square 升 v13**：新增 `payment_link_delete` action（body.link_id → Square DELETE /v2/online-checkout/payment-links）；測試連結 iQjObl89 已刪、回 404
@@ -161,7 +166,7 @@
 - **Phase 4 新增規格**：上架自動產 IG/小紅書素材（資訊卡+中英文案草稿）、新豆通知一份內容三發、回購提醒附評論連結
 
 **資料收集小工具（Beans 2.0 各站的資料入口，待排期）**
-- 烘焙師：T1 烘焙快錄（生豆投入/出豆 g 自動失重率、入豆溫、一爆、出豆溫/時長 → roasts 擴充）；T2 烘焙 profile 文字筆記（延後）
+- ~~烘焙師：T1 烘焙快錄；T2 烘焙 profile 文字筆記~~ ✅ T1、T2 都完成（見〇補記）
 - 咖啡師：T3 Dial-in 日誌（研磨/dose/yield/時間/評語 → 新表 dialins；累積後一鍵套用到 Brew guide）；T4 每日出杯品質快記（延後）
 - 杯測師：T5 多樣品同場快評（一場 5-8 杯排排打分、一次存多筆 samples）；T6 風味輪快選（延後）
 - ~~生豆管理員：T7 到貨簽收（供應商/kg/批號）；T8 盤點快錄（逐豆實際 kg、差異自動記調整）~~ ✅ 完成（見〇補記；T7 照片入庫延後）

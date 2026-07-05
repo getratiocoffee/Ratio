@@ -7146,6 +7146,7 @@ fill="#6F4A36" stroke="none">
   }
   async function blendsPushNow(){
     if(!sb||!_blendsReady)return; /* pre-pull → stay local; dirty flag re-pushes after pull */
+    try{var _g=await sb.auth.getSession();if(!(_g&&_g.data&&_g.data.session))return;}catch(e){return;} /* 未登入不推（RLS 必擋，避免無限重試洗版）*/
     var rev=_blendsRev;
     var defs=loadBlendDefs();
     var now=new Date().toISOString();
@@ -7167,6 +7168,7 @@ fill="#6F4A36" stroke="none">
   }
   async function blendsPull(){
     if(!sb)return;
+    try{var _g=await sb.auth.getSession();if(!(_g&&_g.data&&_g.data.session))return;}catch(e){return;} /* 未登入不拉：RLS 空結果會被誤判成「空表」而觸發本機上傳 */
     try{
       var r=await sb.from('blends').select('*').order('pos',{ascending:true});
       if(r&&r.error)return; /* table missing / offline → stay local */
@@ -7663,6 +7665,8 @@ fill="#6F4A36" stroke="none">
       +'<label class="gfield"><span class="gl">First crack (mm:ss)</span><input id="re-fc" type="text" value="'+esc(r.first_crack||'')+'" placeholder="e.g. 8:30" /></label>'
       +'<label class="gfield"><span class="gl">Drop temp (°C)</span><input id="re-drop" type="text" inputmode="decimal" value="'+esc(r.drop_temp!=null?gnum(r.drop_temp):'')+'" /></label>'
       +'<label class="gfield"><span class="gl">Total time (mm:ss)</span><input id="re-dur" type="text" value="'+esc(r.duration||'')+'" placeholder="e.g. 11:20" /></label>'
+      /* T2: profile 文字筆記 */
+      +'<label class="gfield"><span class="gl">Profile notes</span><textarea id="re-pnote" class="gta" rows="3" placeholder="Curve, adjustments, anything worth remembering…">'+esc(r.profile_note||'')+'</textarea></label>'
       +'<div class="gform-msg" id="re-msg"></div>'
       +(roastDelConfirm
           ?'<div class="gdel"><div class="gdel-msg">Delete this roast?<br>Adds '+esc(gnum(r.green_kg))+' kg back to "'+esc(r.bean_name||'')+'" stock.</div><div class="gform-actions"><button class="gbtn ghost" id="re-del-cancel">Cancel</button><button class="gbtn danger" id="re-del-yes">Delete</button></div></div>'
@@ -7709,7 +7713,8 @@ fill="#6F4A36" stroke="none">
     var _num=function(v){var n=parseFloat(v);return (v===''||isNaN(n))?null:n;};
     var upd={green_kg:newKg,roasted_kg:newOut,
       charge_temp:_num(_gv('re-charge')),first_crack:_gv('re-fc')||null,
-      drop_temp:_num(_gv('re-drop')),duration:_gv('re-dur')||null};
+      drop_temp:_num(_gv('re-drop')),duration:_gv('re-dur')||null,
+      profile_note:_gv('re-pnote')||null};
     /* G3: 產出改了 → 連動剩餘量（扣掉已消耗的部分）；清空產出就清空剩餘 */
     if(newOut==null){upd.remaining_kg=null;}
     else{
@@ -7738,7 +7743,7 @@ fill="#6F4A36" stroke="none">
       });
     }
     r.green_kg=newKg;r.roasted_kg=newOut;r.remaining_kg=upd.remaining_kg;
-    r.charge_temp=upd.charge_temp;r.first_crack=upd.first_crack;r.drop_temp=upd.drop_temp;r.duration=upd.duration;
+    r.charge_temp=upd.charge_temp;r.first_crack=upd.first_crack;r.drop_temp=upd.drop_temp;r.duration=upd.duration;r.profile_note=upd.profile_note;
     if(newDate)r.roast_date=newDate;if(renamed)r.bean_name=newName;
     roastEdit=null;roastDelConfirm=false;renderRoasted();
   }
