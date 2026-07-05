@@ -5504,20 +5504,20 @@ fill="#6F4A36" stroke="none">
     /* ===== header banner: bean icon + name (left), Roasted / date two lines (right) ===== */
     var headH=150;
     x.fillStyle=bandCss;x.fillRect(CX,CY,CW,headH);
-    x.font='600 26px Inter, sans-serif';
+    x.font='600 24px Inter, sans-serif';
     var hrW=card.roasted?Math.max(x.measureText('Roasted').width,x.measureText(card.roasted).width):0;
     var nameX=TSX;
     if(icons&&icons.bean){
-      var bs=55,bw=bs*(icons.bean.width/icons.bean.height);
+      var bs=50,bw=bs*(icons.bean.width/icons.bean.height);
       x.drawImage(_tintIcon(icons.bean,tc,600),nameX,CY+(headH-bs)/2,bw,bs);
-      nameX+=bw+30;
+      nameX+=bw+24;
     }
-    var ns=_cardFit(x,card.name,'700',72,36,TEX-nameX-(hrW?hrW+40:0),'Inter, sans-serif');
+    var ns=_cardFit(x,card.name,'700',62,34,TEX-nameX-(hrW?hrW+40:0),'Inter, sans-serif');
     x.fillStyle=tc;x.fillText(card.name,nameX,CY+headH/2+ns*.36);
     if(card.roasted){
-      x.globalAlpha=.85;x.font='600 26px Inter, sans-serif';x.textAlign='right';
-      x.fillText('Roasted',TEX,CY+headH/2-8);
-      x.fillText(card.roasted,TEX,CY+headH/2+28);
+      x.globalAlpha=.85;x.font='600 24px Inter, sans-serif';x.textAlign='right';
+      x.fillText('Roasted',TEX,CY+headH/2-10);
+      x.fillText(card.roasted,TEX,CY+headH/2+24);
       x.textAlign='left';x.globalAlpha=1;
     }
     var cy=CY+headH;
@@ -5525,7 +5525,7 @@ fill="#6F4A36" stroke="none">
     if(card.comment){
       var subH=76;
       x.fillStyle=lt;x.fillRect(CX,cy,CW,subH);
-      var cs=_cardFit(x,card.comment,'600',32,20,TW2,'Inter, sans-serif');
+      var cs=_cardFit(x,card.comment,'600',30,20,TW2,'Inter, sans-serif');
       x.textAlign='center';x.fillStyle=dk;x.fillText(card.comment,CX+CW/2,cy+subH/2+cs*.36);
       x.textAlign='left';
       cy+=subH;
@@ -5535,9 +5535,9 @@ fill="#6F4A36" stroke="none">
     if(card.flavour&&card.flavour.length){
       x.fillStyle=bandCss;x.fillRect(CX,footY,CW,footH);
       var fl=card.flavour.join('  \u00b7  ');
-      var dw=0,ds=53,gap=26;
+      var dw=0,ds=48,gap=22;
       if(icons&&icons.drop){dw=ds*(icons.drop.width/icons.drop.height);}
-      var fsz=_cardFit(x,fl,'700',56,28,TW2-(dw?dw+gap:0),'Inter, sans-serif');
+      var fsz=_cardFit(x,fl,'700',48,26,TW2-(dw?dw+gap:0),'Inter, sans-serif');
       var tw=x.measureText(fl).width;
       var total=(dw?dw+gap:0)+tw;
       var sx=(W-total)/2;
@@ -5550,21 +5550,21 @@ fill="#6F4A36" stroke="none">
     /* ===== content: full-width rows, radar on its own centred row ===== */
     var zoneTop=cy,zoneBot=footY;
     var Lx=TSX,Rv=TEX;
-    var ry=zoneTop+72;
+    var ry=zoneTop+64;
     if(card.kind==='blend'){
       (card.recipe||[]).forEach(function(p){
         var pct=(p.pct||p.pct===0)?String(p.pct)+'%':'';
-        if(pct){x.fillStyle=BERRY;x.font='700 36px Inter, sans-serif';x.fillText(pct,Lx,ry);}
+        if(pct){x.fillStyle=BERRY;x.font='700 34px Inter, sans-serif';x.fillText(pct,Lx,ry);}
         x.fillStyle=INK;
-        _cardFit(x,p.bean,'700',36,24,TW2*0.55-(pct?130:0),'Inter, sans-serif');
-        x.fillText(p.bean,Lx+(pct?130:0),ry);
+        _cardFit(x,p.bean,'700',34,24,TW2*0.55-(pct?115:0),'Inter, sans-serif');
+        x.fillText(p.bean,Lx+(pct?115:0),ry);
         var meta=p.process||'';
         if(meta){
           x.textAlign='right';x.fillStyle='#322B2A';
-          _cardFit(x,meta,'400',36,20,TW2*0.42,'Inter, sans-serif');
+          _cardFit(x,meta,'400',34,20,TW2*0.42,'Inter, sans-serif');
           x.fillText(meta,Rv,ry);x.textAlign='left';
         }
-        ry+=70;
+        ry+=66;
       });
     }else{
       var o=card.origin||{},rows=[];
@@ -5573,11 +5573,11 @@ fill="#6F4A36" stroke="none">
       if(o.altitude)rows.push(['Altitude',o.altitude+' MASL']);
       if(o.region)rows.push(['Region',o.region]);
       rows.forEach(function(r){
-        x.fillStyle=INK;x.font='700 36px Inter, sans-serif';x.fillText(r[0],Lx,ry);
+        x.fillStyle=INK;x.font='700 34px Inter, sans-serif';x.fillText(r[0],Lx,ry);
         x.textAlign='right';x.fillStyle='#322B2A';
-        _cardFit(x,String(r[1]),'400',36,20,TW2-290,'Inter, sans-serif');
+        _cardFit(x,String(r[1]),'400',34,20,TW2-290,'Inter, sans-serif');
         x.fillText(String(r[1]),Rv,ry);
-        x.textAlign='left';ry+=70;
+        x.textAlign='left';ry+=66;
       });
       ry-=20;
     }
