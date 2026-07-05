@@ -1142,6 +1142,17 @@
     </div>
   </div>
 
+  <div class="screen" id="screen-recipe">
+    <header class="shead">
+      <span class="logo"><img src="logo.png" alt="Ratio" /></span>
+      <span class="hkey" id="recipe-count"></span>
+    </header>
+    <div class="stitle" id="recipe-title">Dial-in</div>
+    <div class="sbody">
+      <div id="recipe-content"></div>
+    </div>
+  </div>
+
   <div class="screen" id="screen-feedback">
     <header class="shead">
       <span class="logo"><img src="logo.png" alt="Ratio" /></span>
@@ -1331,7 +1342,9 @@ fill="#6F4A36" stroke="none">
                     right:{label:'History',zh:'',icon:'history',act:'green:samplehist'}},
     /* not built yet — tapping shows the reminder title + a "Coming soon" placeholder dock */
     task:{soon:true,contentTitle:'Task Reminder'},
-    recipe:{soon:true,contentTitle:'Recipe Reminder'},
+    recipe:{contentTitle:'Recipe Reminder',
+           left:{label:'Dial-in',zh:'',icon:'calc',act:'recipe:dialin'},
+           right:{label:'History',zh:'',icon:'history',act:'recipe:dialinhist'}},
     order:{contentTitle:'Order Reminder',
            left:{label:'Orders',zh:'',icon:'bag',act:'order:list'},
            right:{label:'New Order',zh:'',icon:'plus',act:'order:new'}},
@@ -1546,6 +1559,8 @@ fill="#6F4A36" stroke="none">
     else if(act==='order:list'){openOrders();}
     else if(act==='order:new'){openOrders(true);}
     else if(act==='fx:blend'){openBlending();}
+    else if(act==='recipe:dialin'){openDialin(true);}
+    else if(act==='recipe:dialinhist'){openDialin(false);}
     setActiveDock(act);
   }
 
@@ -2594,6 +2609,118 @@ fill="#6F4A36" stroke="none">
 
 
 
+  /* ============ T3 Dial-in 日誌：濃縮參數快錄 → dialins 表；最新一筆可回寫 Brew guide ============ */
+  var DIALINS=[], dlFormOpen=true, dlDraftCoffee='';
+  function openDialin(formOpen){closeFolder();openPage('recipe');dlFormOpen=!!formOpen;loadDialins();}
+  async function loadDialins(){
+    var box=document.getElementById('recipe-content');
+    box.innerHTML='<div class="sempty">Loading…</div>';
+    if(!BEANS||!BEANS.length){try{await ensureBeansForInvoice();}catch(e){}}
+    var r=await sb.from('dialins').select('*').order('created_at',{ascending:false}).limit(200);
+    if(r.error){box.innerHTML='<div class="sempty">Load failed: '+esc(r.error.message)+'</div>';return;}
+    DIALINS=r.data||[];
+    renderDialin();
+  }
+  function dlCoffeeOptions(sel){
+    var names=[],seen={};
+    (BEANS||[]).forEach(function(b){var nm=(b.name||'').trim();if(nm&&!seen[nm]){seen[nm]=1;names.push(nm);}});
+    blendNames().forEach(function(nm){if(nm&&!seen[nm]){seen[nm]=1;names.push(nm);}});
+    names.sort();
+    var h='<option value="">Select coffee…</option>';
+    names.forEach(function(nm){h+='<option value="'+esc(nm)+'"'+(nm===sel?' selected':'')+'>'+esc(nm)+'</option>';});
+    return h;
+  }
+  function dlRatio(d){var ds=Number(d.dose),y=Number(d.yield);if(!(ds>0&&y>0))return '';var r=Math.round(y/ds*10)/10;return '1:'+(r%1===0?Math.round(r):r);}
+  function dlMeta(d){return [d.grind?('grind '+d.grind):'',d.dose!=null?(gnum(d.dose)+'g'):'',d.yield!=null?('→ '+gnum(d.yield)+'g'):'',d.time_s!=null?(gnum(d.time_s)+'s'):'',dlRatio(d)].filter(Boolean).join(' · ');}
+  function renderDialin(){
+    var box=document.getElementById('recipe-content');if(!box)return;
+    var title=document.getElementById('recipe-title');if(title)title.textContent='Dial-in';
+    var cnt=document.getElementById('recipe-count');if(cnt)cnt.textContent=DIALINS.length?(DIALINS.length+' logged'):'';
+    var h='';
+    if(dlFormOpen){
+      h+='<div class="gsec">New dial-in</div><div class="gdetail" style="padding-top:4px"><div class="gform">'
+        +'<label class="gfield"><span class="gl">Coffee</span><select id="dl-coffee">'+dlCoffeeOptions(dlDraftCoffee)+'</select></label>'
+        +'<label class="gfield"><span class="gl">Grind setting</span><input id="dl-grind" type="text" placeholder="e.g. 2.4" /></label>'
+        +'<label class="gfield"><span class="gl">Dose (g)</span><input id="dl-dose" type="text" inputmode="decimal" placeholder="20" /></label>'
+        +'<label class="gfield"><span class="gl">Yield (g)</span><input id="dl-yield" type="text" inputmode="decimal" placeholder="45" /></label>'
+        +'<label class="gfield"><span class="gl">Time (s)</span><input id="dl-time" type="text" inputmode="decimal" placeholder="28" /></label>'
+        +'<label class="gfield"><span class="gl">Tasting note (optional)</span><input id="dl-note" type="text" placeholder="e.g. balanced, slightly sharp finish" /></label>'
+        +'<div class="gform-msg" id="dl-msg"></div>'
+        +'<div class="gform-actions"><button class="gbtn" id="dl-save">Log dial-in</button></div>'
+        +'</div></div>';
+    }else{
+      h+='<div style="padding:0 16px"><button class="gbtn" id="dl-new" style="margin-top:14px">+ New dial-in</button></div>';
+    }
+    /* 每支豆最新一筆 → 可一鍵套進 Brew guide（espresso 分頁） */
+    var latest={},order=[];
+    DIALINS.forEach(function(d){var k=String(d.coffee||'').trim().toLowerCase();if(!k)return;if(!latest[k]){latest[k]=d;order.push(k);}});
+    if(order.length){
+      h+='<div class="gsec">Latest per coffee · apply to Brew guide</div>';
+      order.forEach(function(k){
+        var d=latest[k];
+        h+='<div class="po-card"><div class="po-top"><div class="po-name">'+esc(d.coffee)+'</div><span class="po-badge">'+esc(String(d.created_at||'').slice(0,10))+'</span></div>'
+          +'<div class="po-sub">'+esc(dlMeta(d))+(d.note?' · '+esc(d.note):'')+(d.barista?' · '+esc(d.barista):'')+'</div>'
+          +'<div class="po-actions"><button class="gbtn" data-dlapply="'+esc(d.id)+'">Apply to Brew guide</button></div></div>';
+      });
+    }
+    if(DIALINS.length){
+      h+='<div class="gsec">Recent</div>';
+      DIALINS.slice(0,20).forEach(function(d){
+        h+='<div class="gmove"><span class="mk">'+esc(String(d.created_at||'').slice(5,10))+' · '+esc(d.coffee||'')+(d.note?' · '+esc(d.note):'')+'</span><span class="md">'+esc(dlMeta(d))+'</span></div>';
+      });
+    }else{
+      h+='<div class="sempty">No dial-ins yet — log the first shot of the day here</div>';
+    }
+    box.innerHTML=h;
+    var dn=document.getElementById('dl-new');if(dn)dn.addEventListener('click',function(){dlFormOpen=true;renderDialin();box.scrollTop=0;});
+    var dc=document.getElementById('dl-coffee');if(dc)dc.addEventListener('change',function(){dlDraftCoffee=dc.value;});
+    var ds=document.getElementById('dl-save');if(ds)ds.addEventListener('click',saveDialin);
+    box.querySelectorAll('[data-dlapply]').forEach(function(b){b.addEventListener('click',function(){applyDialin(b.dataset.dlapply);});});
+  }
+  async function saveDialin(){
+    var msg=document.getElementById('dl-msg'),btn=document.getElementById('dl-save');
+    var g=function(id){var el=document.getElementById(id);return el?el.value.trim():'';};
+    var num=function(v){var n=parseFloat(v);return (v===''||isNaN(n))?null:n;};
+    var coffee=g('dl-coffee');
+    if(!coffee){msg.textContent='Pick a coffee first';msg.className='gform-msg err';return;}
+    var rec={coffee:coffee,grind:g('dl-grind')||null,dose:num(g('dl-dose')),yield:num(g('dl-yield')),time_s:num(g('dl-time')),note:g('dl-note')||null,barista:(window.CURRENT_USER||null)};
+    btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
+    var ins=await sb.from('dialins').insert(rec).select();
+    btn.disabled=false;
+    if(ins.error){msg.textContent='Save failed: '+ins.error.message;msg.className='gform-msg err';return;}
+    if(ins.data&&ins.data[0])DIALINS.unshift(ins.data[0]);
+    dlDraftCoffee=coffee; /* 連續調同支豆不用重選 */
+    renderDialin();
+    var box=document.getElementById('recipe-content');if(box)box.scrollTop=0;
+  }
+  async function applyDialin(id){
+    var d=DIALINS.find(function(x){return String(x.id)===String(id);});
+    if(!d)return;
+    if(!confirm('Write these numbers into the espresso Brew guide for "'+d.coffee+'"?'))return;
+    /* 只覆蓋有填的欄位，Brew guide 其他方法不動 */
+    var esp={};
+    if(d.grind)esp.grind=String(d.grind);
+    if(d.dose!=null)esp.dose=String(gnum(d.dose));
+    if(d.yield!=null)esp.yield=String(gnum(d.yield));
+    if(d.time_s!=null)esp.time=String(gnum(d.time_s))+'s';
+    if(!Object.keys(esp).length){alert('This dial-in has no numbers to apply.');return;}
+    var bd=blendDefByName(d.coffee);
+    if(bd){
+      var defs=loadBlendDefs();
+      defs.forEach(function(b){if(String(b.id)===String(bd.id)){var br=(b.brew&&typeof b.brew==='object')?b.brew:{};br.espresso=Object.assign({},br.espresso||{},esp);b.brew=br;}});
+      saveBlendDefs(defs);
+      alert('Brew guide updated for blend "'+d.coffee+'"');
+      return;
+    }
+    var bean=(BEANS||[]).find(function(b){return String(b.name||'').trim().toLowerCase()===String(d.coffee||'').trim().toLowerCase();});
+    if(!bean){alert('No matching bean for "'+d.coffee+'"');return;}
+    var br=(bean.brew&&typeof bean.brew==='object')?bean.brew:{};
+    br.espresso=Object.assign({},br.espresso||{},esp);
+    var r=await sb.from('beans').update({brew:br}).eq('id',bean.id);
+    if(r.error){alert('Update failed: '+r.error.message);return;}
+    bean.brew=br;
+    alert('Brew guide updated for "'+d.coffee+'"');
+  }
   /* ============ G7 Feedback 管理：看回饋、寄回覆、按豆摘要（QC 用） ============ */
   var FEEDBACK=[], FBK_ORDERS={}, fbkReply=null;
   function openFeedback(){closeFolder();openPage('feedback');loadFeedback();}
@@ -7369,7 +7496,12 @@ fill="#6F4A36" stroke="none">
       +'<label class="gfield"><span class="gl">Green used (kg) · changing it adjusts stock</span><input id="re-kg" type="text" inputmode="decimal" value="'+esc(r.green_kg!=null?gnum(r.green_kg):'')+'" /></label>'
       +'<label class="gfield"><span class="gl">Roasted output (kg)'+(function(){var gk=Number(r.green_kg)||0,okg=Number(r.roasted_kg)||0;return (gk>0&&okg>0)?' · loss '+(Math.round((1-okg/gk)*1000)/10)+'%':'';})()+'</span><input id="re-out" type="text" inputmode="decimal" value="'+esc(r.roasted_kg!=null?gnum(r.roasted_kg):'')+'" /></label>'
       +'<label class="gfield"><span class="gl">Roast date</span><input id="re-date" type="date" value="'+esc(r.roast_date||'')+'" /></label>'
-      +'<div class="re-soon">Detailed roast info coming soon</div>'
+      /* T1 烘焙快錄：入豆溫 / 一爆 / 出豆溫 / 總時長 */
+      +'<div class="re-sub" style="margin-top:6px">Roast log (optional)</div>'
+      +'<label class="gfield"><span class="gl">Charge temp (°C)</span><input id="re-charge" type="text" inputmode="decimal" value="'+esc(r.charge_temp!=null?gnum(r.charge_temp):'')+'" /></label>'
+      +'<label class="gfield"><span class="gl">First crack (mm:ss)</span><input id="re-fc" type="text" value="'+esc(r.first_crack||'')+'" placeholder="e.g. 8:30" /></label>'
+      +'<label class="gfield"><span class="gl">Drop temp (°C)</span><input id="re-drop" type="text" inputmode="decimal" value="'+esc(r.drop_temp!=null?gnum(r.drop_temp):'')+'" /></label>'
+      +'<label class="gfield"><span class="gl">Total time (mm:ss)</span><input id="re-dur" type="text" value="'+esc(r.duration||'')+'" placeholder="e.g. 11:20" /></label>'
       +'<div class="gform-msg" id="re-msg"></div>'
       +(roastDelConfirm
           ?'<div class="gdel"><div class="gdel-msg">Delete this roast?<br>Adds '+esc(gnum(r.green_kg))+' kg back to "'+esc(r.bean_name||'')+'" stock.</div><div class="gform-actions"><button class="gbtn ghost" id="re-del-cancel">Cancel</button><button class="gbtn danger" id="re-del-yes">Delete</button></div></div>'
@@ -7411,7 +7543,12 @@ fill="#6F4A36" stroke="none">
     var oldKg=Number(r.green_kg)||0;
     var delta=newKg-oldKg; // extra amount → deduct from stock
     if(delta!==0 && r.kind!=='single' && r.kind!=='blend' && r.green_kg!=null)await adjustStock(r.bean_id, -delta, 'Roast edit');
-    var upd={green_kg:newKg,roasted_kg:newOut};
+    /* T1: 烘焙記錄欄位（全部選填） */
+    var _gv=function(id){var el=document.getElementById(id);return el?el.value.trim():'';};
+    var _num=function(v){var n=parseFloat(v);return (v===''||isNaN(n))?null:n;};
+    var upd={green_kg:newKg,roasted_kg:newOut,
+      charge_temp:_num(_gv('re-charge')),first_crack:_gv('re-fc')||null,
+      drop_temp:_num(_gv('re-drop')),duration:_gv('re-dur')||null};
     /* G3: 產出改了 → 連動剩餘量（扣掉已消耗的部分）；清空產出就清空剩餘 */
     if(newOut==null){upd.remaining_kg=null;}
     else{
@@ -7439,7 +7576,9 @@ fill="#6F4A36" stroke="none">
         try{var m=pair[0]();if(oldName in m){if(!(newName in m))m[newName]=m[oldName];delete m[oldName];pair[1](m);}}catch(e){}
       });
     }
-    r.green_kg=newKg;r.roasted_kg=newOut;r.remaining_kg=upd.remaining_kg;if(newDate)r.roast_date=newDate;if(renamed)r.bean_name=newName;
+    r.green_kg=newKg;r.roasted_kg=newOut;r.remaining_kg=upd.remaining_kg;
+    r.charge_temp=upd.charge_temp;r.first_crack=upd.first_crack;r.drop_temp=upd.drop_temp;r.duration=upd.duration;
+    if(newDate)r.roast_date=newDate;if(renamed)r.bean_name=newName;
     roastEdit=null;roastDelConfirm=false;renderRoasted();
   }
   async function deleteRoast(){
@@ -7623,7 +7762,9 @@ fill="#6F4A36" stroke="none">
       +'<div class="smp-live-radar" id="smp-live-radar">'+sampleRadarSVG(p,true)+'</div>'
       +'<div class="smp-flav-bubbles" id="smp-flav-bubbles">'+flavBubbles(p.features)+'</div></div>'
       +'<div class="smp-sec"><div class="smp-sec-h">Comment · what makes it unique</div><textarea id="smp-comment" class="gta" rows="3" placeholder="Where does this coffee stand out?">'+esc(p.comment||'')+'</textarea></div>'
-      +'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn buy" id="'+(cupping?'smp-submit':'smp-save')+'">Submit</button></div></div>'
+      +'<div class="smp-decide-wrap"><div class="smp-decide"><button class="gbtn buy" id="'+(cupping?'smp-submit':'smp-save')+'">Submit</button>'
+      +((!cupping&&smpPages.length>1)?'<button class="gbtn" id="smp-saveall" style="margin-top:8px">Submit all '+smpPages.length+' samples</button>':'')
+      +'</div></div>'
       +'<div class="smp-msg-wrap"><div class="gform-msg'+(errMsg?' err':(okMsg?' ok':''))+'" id="smp-msg">'+(errMsg?('Load failed: '+esc(errMsg)+' (run the samples table SQL in Supabase first)'):(okMsg?esc(okMsg):''))+'</div></div>';
     var today=todayStr();
     var todays=SAMPLES.filter(function(x){return x.cupping_date===today;});
@@ -7635,6 +7776,7 @@ fill="#6F4A36" stroke="none">
     var _next=document.getElementById('smp-next');if(_next)_next.addEventListener('click',function(){captureSmp();smpDupConfirm=false;smpIdx=(smpIdx+1)%smpPages.length;renderSample();box.scrollTop=0;});
     var _add=document.getElementById('smp-add');if(_add)_add.addEventListener('click',function(){captureSmp();smpDupConfirm=false;smpPages.push(blankSmp());smpIdx=smpPages.length-1;renderSample();box.scrollTop=0;});
     var _save=document.getElementById('smp-save');if(_save)_save.addEventListener('click',function(){saveSample();});
+    var _saveAll=document.getElementById('smp-saveall');if(_saveAll)_saveAll.addEventListener('click',saveAllSamples);
     var _submit=document.getElementById('smp-submit');if(_submit)_submit.addEventListener('click',submitCupping);
     var _sid=document.getElementById('smp-id');if(_sid)_sid.addEventListener('input',function(){smpDupConfirm=false;});
     var _sdt=document.getElementById('smp-date');if(_sdt)_sdt.addEventListener('input',function(){smpDupConfirm=false;});
@@ -7907,6 +8049,28 @@ fill="#6F4A36" stroke="none">
     roastedTitle='Pending';beansView='production';
     openPage('beans');
     renderRoasted();
+  }
+  /* T5 多樣品同場快評：一鍵存下整場（空白頁自動跳過，No. 依日期連號） */
+  async function saveAllSamples(){
+    captureSmp();
+    const msg=document.getElementById('smp-msg');
+    const btn=document.getElementById('smp-saveall');
+    var perDate={},recs=[],skipped=0;
+    smpPages.forEach(function(p){
+      var sid=(p.sample_id||'').trim(),sup=(p.supplier||'').trim();
+      if(!sid&&!sup){skipped++;return;}
+      var d=p.cupping_date||todayStr();
+      if(perDate[d]==null)perDate[d]=nextNo(d);else perDate[d]++;
+      recs.push({no:perDate[d],cupping_date:d,supplier:sup||null,sample_id:sid||null,process:(p.process||'').trim()||null,fragrance:p.fragrance,acidity:p.acidity,sweetness:p.sweetness,body:p.body,aftertaste:p.aftertaste,features:(p.features||[]),comment:(p.comment||'').trim()||null,decision:p.decision||null,cupper:(window.CURRENT_USER||null)});
+    });
+    if(!recs.length){msg.textContent='No filled samples to save — each needs at least Supplier or ID';msg.className='gform-msg err';return;}
+    if(btn)btn.disabled=true;msg.textContent='Saving '+recs.length+' samples…';msg.className='gform-msg';
+    var ins=await sb.from('samples').insert(recs).select();
+    if(ins.error){if(btn)btn.disabled=false;msg.textContent='Save failed: '+ins.error.message;msg.className='gform-msg err';return;}
+    (ins.data||[]).forEach(function(x){SAMPLES.unshift(x);});
+    smpPages=[blankSmp()];smpIdx=0;smpDupConfirm=false;
+    renderSample('','Saved '+recs.length+' samples'+(skipped?(' · '+skipped+' empty pages skipped'):''));
+    document.getElementById('green-content').scrollTop=0;
   }
   async function saveSample(){
     captureSmp();
