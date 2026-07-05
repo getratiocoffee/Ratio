@@ -1588,11 +1588,11 @@ fill="#6F4A36" stroke="none">
        · 下面這份是「讀不到 Supabase 時」的內建預設，兩邊保持一致。
        dock 模組代號：timesheet, beans, task, recipe, roast, green, order, fx           */
     const DEFAULT_ROLE_PERMS = {
-      director: { label:'董事',     dock:'ALL' },
-      roaster:  { label:'烘豆師',   dock:['roast','green','beans','fx'] },
-      retail:   { label:'零售經理', dock:['timesheet','beans','order','task','fx'] },
-      staff:    { label:'員工',     dock:['timesheet','beans'] },
-      customer: { label:'客戶',     dock:[] }
+      director: { label:'Director', dock:'ALL' },
+      roaster:  { label:'Roaster',  dock:['roast','green','beans','fx'] },
+      retail:   { label:'Retail Manager', dock:['timesheet','beans','order','task','fx'] },
+      staff:    { label:'Staff',    dock:['timesheet','beans'] },
+      customer: { label:'Customer', dock:[] }
     };
 
     function applyDockPermissions(cfg){
@@ -4523,7 +4523,7 @@ fill="#6F4A36" stroke="none">
 
   /* ---- Orders 2.0: role tabs ---- */
   var ordTab='accept';
-  var ORD_TABS=[['accept','\u63a5\u55ae'],['roast','\u70d8\u8c46'],['pack','\u5099\u8ca8'],['ship','\u51fa\u8ca8'],['pay','\u6536\u6b3e'],['history','\u6b77\u53f2'],['all','\u5168\u90e8']];
+  var ORD_TABS=[['accept','New'],['roast','Roast'],['pack','Pack'],['ship','Ship'],['pay','Pay'],['history','History'],['all','All']];
   function ordTabCount(t){
     if(t==='all')return ORDERS.length;
     var n=0;
@@ -4550,7 +4550,7 @@ fill="#6F4A36" stroke="none">
     if(ordTab==='accept'){
       list=ORDERS.filter(function(o){return (o.status||'New')==='New';});
       if(count)count.textContent=list.length?list.length+' new':'';
-      if(!list.length)html+='<div class="sempty">\u6c92\u6709\u5f85\u63a5\u8a02\u55ae\u3002</div>';
+      if(!list.length)html+='<div class="sempty">No new orders.</div>';
       else list.forEach(function(o){html+=ordAcceptCard(o);});
     }else if(ordTab==='roast'){
       list=ORDERS.filter(function(o){var s=o.status||'New';return s==='Confirmed'||s==='Roasting';});
@@ -4559,12 +4559,12 @@ fill="#6F4A36" stroke="none">
     }else if(ordTab==='pack'){
       list=ORDERS.filter(function(o){var s=o.status||'New';return s==='Confirmed'||s==='Roasting';});
       if(count)count.textContent=list.length?String(list.length):'';
-      if(!list.length)html+='<div class="sempty">\u6c92\u6709\u5f85\u5099\u8ca8\u8a02\u55ae\u3002</div>';
+      if(!list.length)html+='<div class="sempty">No orders to pack.</div>';
       else list.forEach(function(o){html+=ordPackCard(o);});
     }else if(ordTab==='ship'){
       list=ORDERS.filter(function(o){return (o.status||'New')==='Ready';});
       if(count)count.textContent=list.length?list.length+' ready':'';
-      if(!list.length)html+='<div class="sempty">\u6c92\u6709\u53ef\u51fa\u8ca8\u8a02\u55ae\u3002</div>';
+      if(!list.length)html+='<div class="sempty">No orders ready to ship.</div>';
       else list.forEach(function(o){html+=ordCard(o);});
     }else if(ordTab==='pay'){
       html+=ordChipRow('pay',[['all','All'],['awaiting','Awaiting'],['overdue','Overdue'],['paid','Paid']]);
@@ -4576,17 +4576,17 @@ fill="#6F4A36" stroke="none">
         return o.payment_status!=='paid';
       });
       if(count)count.textContent=list.length?String(list.length):'';
-      if(!list.length)html+='<div class="sempty">\u6c92\u6709\u7b26\u5408\u7684\u8a02\u55ae\u3002</div>';
+      if(!list.length)html+='<div class="sempty">No matching orders.</div>';
       else list.forEach(function(o){html+=ordCard(o);});
     }else if(ordTab==='all'){ /* overview: every order, no filter */
       list=ORDERS.slice();
       if(count)count.textContent=list.length?String(list.length):'';
-      if(!list.length)html+='<div class="sempty">還沒有訂單。</div>';
+      if(!list.length)html+='<div class="sempty">No orders yet.</div>';
       else list.forEach(function(o){html+=ordCard(o);});
     }else{ /* history */
       list=ORDERS.filter(function(o){var s=o.status||'New';return s==='Dispatched'||s==='Cancelled';});
       if(count)count.textContent=list.length?String(list.length):'';
-      if(!list.length)html+='<div class="sempty">\u9084\u6c92\u6709\u6b77\u53f2\u8a02\u55ae\u3002</div>';
+      if(!list.length)html+='<div class="sempty">No order history yet.</div>';
       else list.forEach(function(o){html+=ordCard(o);});
     }
     box.innerHTML=html;
@@ -4623,9 +4623,9 @@ fill="#6F4A36" stroke="none">
     h+='<div class="ord-no">'+no+'</div>';
     h+='<div class="ord-sub">'+(cust?esc(cust.name||'\u2014'):'Walk-in')+' \u00b7 '+esc(pay)+' \u00b7 '+ordMoney(o.total)+'</div>';
     if(sumLine)h+='<div class="ord-sum">'+sumLine+'</div>';
-    if(noEmail)h+='<div class="ord-sum" style="color:var(--accent)">\u26a0 \u5ba2\u6236\u7121 email \u2014 \u78ba\u8a8d\u4fe1\u5bc4\u4e0d\u51fa\u53bb</div>';
+    if(noEmail)h+='<div class="ord-sum" style="color:var(--accent)">\u26a0 No customer email \u2014 confirmation cannot be sent</div>';
     h+='</div></div>';
-    h+='<div class="ord-actrow left"><button class="gbtn" data-ordaccept="'+esc(o.id)+'">Accept \u63a5\u55ae</button>';
+    h+='<div class="ord-actrow left"><button class="gbtn" data-ordaccept="'+esc(o.id)+'">Accept</button>';
     h+='<button class="gbtn ghost" data-orddecline="'+esc(o.id)+'">Decline</button></div>';
     h+='</div>';
     return h;
@@ -4648,22 +4648,22 @@ fill="#6F4A36" stroke="none">
       try{
         await callEmailFn({action:'order_confirmation',order_id:id});
         o.confirm_email_at=new Date().toISOString();
-      }catch(e){alert('\u5df2\u63a5\u55ae\uff0c\u4f46\u78ba\u8a8d\u4fe1\u5bc4\u9001\u5931\u6557: '+(e&&e.message||e));}
-    }catch(e){alert('Accept failed: '+(e&&e.message||e));btn.disabled=false;btn.textContent='Accept \u63a5\u55ae';return;}
+      }catch(e){alert('Order accepted, but the confirmation email failed: '+(e&&e.message||e));}
+    }catch(e){alert('Accept failed: '+(e&&e.message||e));btn.disabled=false;btn.textContent='Accept';return;}
     renderOrders();
   }
   /* Decline: Cancelled + cancellation email */
   async function ordDecline(id,btn){
     var o=ORDERS.filter(function(x){return x.id===id;})[0];if(!o)return;
     var no=o.order_no!=null?('#'+String(o.order_no).padStart(4,'0')):'';
-    if(!confirm('\u62d2\u55ae '+no+' \u4e26\u5bc4\u53d6\u6d88\u901a\u77e5\u7d66\u5ba2\u6236\uff1f'))return;
+    if(!confirm('Decline '+no+' and email the customer a cancellation notice?'))return;
     btn.disabled=true;btn.textContent='Declining\u2026';
     try{
       o.status='Cancelled';
       var r=await sb.from('orders').update({status:'Cancelled'}).eq('id',id);
       if(r&&r.error)throw new Error(r.error.message);
       try{await callEmailFn({action:'order_cancelled',order_id:id});}
-      catch(e){alert('\u5df2\u53d6\u6d88\uff0c\u4f46\u901a\u77e5\u4fe1\u5bc4\u9001\u5931\u6557: '+(e&&e.message||e));}
+      catch(e){alert('Cancelled, but the notification email failed: '+(e&&e.message||e));}
     }catch(e){alert('Decline failed: '+(e&&e.message||e));btn.disabled=false;btn.textContent='Decline';return;}
     renderOrders();
   }
@@ -4679,16 +4679,16 @@ fill="#6F4A36" stroke="none">
         agg[key].g+=g;agg[key].lines++;
       });
     });
-    if(!order.length)return '<div class="sempty">\u6c92\u6709\u5f85\u70d8\u8a02\u55ae\u3002</div>';
+    if(!order.length)return '<div class="sempty">Nothing to roast.</div>';
     order.sort(function(a,b){return agg[b].g-agg[a].g;});
     var totR=0,totG=0;
-    var h='<div class="ord-card"><div class="ord-head"><div><div class="ord-no">\u70d8\u8c46\u9700\u6c42</div><div class="ord-sub">\u5df2\u63a5\u55ae\u672a\u5099\u8ca8 \u00b7 \u552f\u8b80 \u00b7 \u751f\u8c46 = \u719f\u8c46 \u00d71.15</div></div></div>';
+    var h='<div class="ord-card"><div class="ord-head"><div><div class="ord-no">Roast demand</div><div class="ord-sub">Accepted, not yet packed \u00b7 read-only \u00b7 green = roasted \u00d71.15</div></div></div>';
     order.forEach(function(k){
       var a=agg[k];var green=Math.ceil(a.g*ORDER_GREEN_FACTOR);
       totR+=a.g;totG+=green;
-      h+='<div class="ord-line"><span class="ol-l">'+esc(a.name)+'</span><span>\u719f\u8c46 <b>'+a.g+'g</b> \u00b7 \u751f\u8c46 <b>'+green+'g</b>'+(a.lines>1?' \u00b7 '+a.lines+' \u7b46':'')+'</span></div>';
+      h+='<div class="ord-line"><span class="ol-l">'+esc(a.name)+'</span><span>Roasted <b>'+a.g+'g</b> \u00b7 Green <b>'+green+'g</b>'+(a.lines>1?' \u00b7 '+a.lines+' lines':'')+'</span></div>';
     });
-    h+='<div class="ord-line"><span class="ol-l"><b>\u5408\u8a08</b></span><span><b>'+totR+'g</b> \u00b7 \u751f\u8c46 <b>'+totG+'g</b></span></div>';
+    h+='<div class="ord-line"><span class="ol-l"><b>Total</b></span><span><b>'+totR+'g</b> \u00b7 Green <b>'+totG+'g</b></span></div>';
     h+='</div>';
     return h;
   }
@@ -4700,14 +4700,14 @@ fill="#6F4A36" stroke="none">
     var ps=(o.pack_state&&typeof o.pack_state==='object')?o.pack_state:{};
     var h='<div class="ord-card" data-ordid="'+esc(o.id)+'">';
     h+='<div class="ord-head"><div><div class="ord-no">'+no+'</div>';
-    h+='<div class="ord-sub">'+(cust?esc(cust.name||'\u2014'):'Walk-in')+' \u00b7 '+esc(o.status||'')+(o.payment_status!=='paid'?' \u00b7 <span style="color:var(--accent)">\u672a\u6536\u6b3e</span>':'')+'</div>';
+    h+='<div class="ord-sub">'+(cust?esc(cust.name||'\u2014'):'Walk-in')+' \u00b7 '+esc(o.status||'')+(o.payment_status!=='paid'?' \u00b7 <span style="color:var(--accent)">Unpaid</span>':'')+'</div>';
     h+='</div></div>';
     itemsArr.forEach(function(it,i){
       var done=!!ps[String(i)];
       h+='<label class="ord-pack-row'+(done?' done':'')+'"><input type="checkbox" data-packchk="'+esc(o.id)+'" data-packidx="'+i+'"'+(done?' checked':'')+'>';
       h+='<span>'+(it.grams?it.grams+'g ':'')+esc(it.name||'')+(it.qty>1?(' \u00d7'+it.qty):'')+'</span></label>';
     });
-    h+='<div class="ord-sum" style="margin-top:8px">\u5168\u90e8\u52fe\u9078\u5f8c\u81ea\u52d5\u8f49 Ready \u2192 \u51fa\u8ca8\u9801</div>';
+    h+='<div class="ord-sum" style="margin-top:8px">Check everything and the order moves to Ready \u2192 Ship tab</div>';
     h+='</div>';
     return h;
   }
@@ -4868,7 +4868,7 @@ fill="#6F4A36" stroke="none">
     wrap.id='ord-dispatch';wrap.className='ord-modal';
     wrap.innerHTML='<div class="ord-modal-card">'
       +'<div class="ord-modal-t">Dispatch order '+esc(no)+'</div>'
-      +(o.payment_status!=='paid'?'<div class="ord-modal-msg err">\u26a0 \u6b64\u55ae\u5c1a\u672a\u6536\u6b3e</div>':'')
+      +(o.payment_status!=='paid'?'<div class="ord-modal-msg err">\u26a0 This order is unpaid</div>':'')
       +'<label class="ord-modal-l">Tracking number (optional)</label>'
       +'<input class="ord-modal-in" id="ord-track" placeholder="e.g. AusPost tracking" value="'+esc(o.tracking_no||'')+'">'
       +'<div class="ord-modal-msg" id="ord-dmsg"></div>'
@@ -5421,7 +5421,7 @@ fill="#6F4A36" stroke="none">
       else{rec[f]=v===''?null:v;}
     });
     if(!rec.name){msg.textContent='Name cannot be empty';msg.className='gform-msg err';return;}
-    if(beanDupExists(rec.name,rec.process,null)){msg.textContent='「'+rec.name+'」+「'+(rec.process||'—')+'」已存在，同莊園請用不同處理法名稱區分';msg.className='gform-msg err';return;}
+    if(beanDupExists(rec.name,rec.process,null)){msg.textContent='"'+rec.name+'" + "'+(rec.process||'—')+'" already exists — use a different process name for the same farm';msg.className='gform-msg err';return;}
     rec.id='bean_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
     btn.disabled=true;msg.textContent='Saving…';msg.className='gform-msg';
     const {data,error}=await sb.from('beans').insert(rec).select();
@@ -5443,7 +5443,7 @@ fill="#6F4A36" stroke="none">
       else{upd[f]=v===''?null:v;}
     });
     if(!upd.name){msg.textContent='Name cannot be empty';msg.className='gform-msg err';return;}
-    if(beanDupExists(upd.name,upd.process,greenBeanId)){msg.textContent='「'+upd.name+'」+「'+(upd.process||'—')+'」已存在，同莊園請用不同處理法名稱區分';msg.className='gform-msg err';return;}
+    if(beanDupExists(upd.name,upd.process,greenBeanId)){msg.textContent='"'+upd.name+'" + "'+(upd.process||'—')+'" already exists — use a different process name for the same farm';msg.className='gform-msg err';return;}
     var _bi=BEANS.findIndex(function(x){return String(x.id)===String(greenBeanId);});
     var oldName=(_bi>-1?(BEANS[_bi].name||''):'').trim();
     var newName=(upd.name||'').trim();
@@ -7129,7 +7129,7 @@ fill="#6F4A36" stroke="none">
     var isDup=dupKey&&SAMPLES.some(function(x){return x.cupping_date===rec.cupping_date&&(x.sample_id||'').trim().toLowerCase()===dupKey;});
     if(isDup&&!smpDupConfirm){
       smpDupConfirm=true;
-      msg.textContent='⚠️ 同一天已有「'+rec.sample_id+'」的紀錄，再按一次 Submit 確認新增';
+      msg.textContent='⚠️ "'+rec.sample_id+'" already has a record today — press Submit again to confirm';
       msg.className='gform-msg err';
       return;
     }
