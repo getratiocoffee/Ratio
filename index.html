@@ -6137,6 +6137,7 @@ fill="#6F4A36" stroke="none">
     box.querySelectorAll('.rtl-del-cancel').forEach(function(b){b.addEventListener('click',function(){rtlDelConfirm=null;paintRetail();});});
     box.querySelectorAll('.rtl-del-yes').forEach(function(b){b.addEventListener('click',function(){retailDelete(b.dataset.id,b.dataset.sid);});});
     box.querySelectorAll('[data-sqpush]').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();pushToSquare(b.dataset.sqpush,b.dataset.sqsid);});});
+    box.querySelectorAll('[data-announce]').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();announceCoffee(b.dataset.announce,b.dataset.annsid);});});
     box.querySelectorAll('[data-brewsave]').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();rtlSaveBrew(b.dataset.brewsave,b);});});
     box.querySelectorAll('[data-brewtab]').forEach(function(b){b.addEventListener('click',function(e){
       e.stopPropagation();
@@ -6318,9 +6319,60 @@ fill="#6F4A36" stroke="none">
     _rrPath(x,CX,CY,CW,CH,CR);x.lineWidth=3;x.strokeStyle=INK;x.stroke();
     return cv.toDataURL('image/png').split(',')[1];
   }
+  /* G5 上架閘門：Re-roast/Downgrade 直接擋；沒 QC 或風味未鎖只提醒 */
+  function listingGate(row){
+    var qr=null;try{qr=qcRoastForSample(row);}catch(e){}
+    if(qr&&qr.qc==='reroast')return {block:'QC verdict for the latest batch is Re-roast — fix the batch before listing.'};
+    if(qr&&qr.qc==='downgrade')return {block:'The latest batch is downgraded — not retail grade.'};
+    var warns=[];
+    if(!qr||!qr.qc)warns.push('no QC pass recorded for the latest batch');
+    if(!row.flavour_locked)warns.push('flavour description not locked');
+    return {block:null,warns:warns};
+  }
+  /* 生成資訊卡並上傳 mail-assets，回傳 public URL（新豆通知信用） */
+  async function uploadCardFor(row){
+    try{
+      if(!BEANS||!BEANS.length){try{await ensureBeansForInvoice();}catch(e){}}
+      if(!ROASTS||!ROASTS.length){try{await loadRoasts();}catch(e){}}
+      var b64=await makeSquareCard(squareCardDataFor(row));
+      if(!b64)return '';
+      var path='card-'+ordCardSlug(row.sample_id||'')+'.png';
+      var up=await sb.storage.from('mail-assets').upload(path,_b64ToBlob(b64,'image/png'),{upsert:true,contentType:'image/png'});
+      if(up&&up.error)return '';
+      var pub=sb.storage.from('mail-assets').getPublicUrl(path);
+      var u=pub&&pub.data&&pub.data.publicUrl;
+      return u?(u+'?v='+Date.now()):'';
+    }catch(e){return '';}
+  }
+  /* G5 新豆通知信群發 */
+  async function announceCoffee(sqKey,sid){
+    var row=RTL_ROWS.filter(function(x){return (x.sample_id||('id:'+String(x.id||'')))===sqKey||String(x.sample_id||'')===sid;})[0];
+    if(!row){alert('Bean not found.');return;}
+    if(!ROASTS||!ROASTS.length){try{await loadRoasts();}catch(e){}}
+    var gate=listingGate(row);
+    if(gate.block){alert(gate.block);return;}
+    if(gate.warns.length&&!confirm('Heads up: '+gate.warns.join('; ')+'.\nAnnounce anyway?'))return;
+    var res=null;
+    try{res=await sb.from('customers').select('id,email').not('email','is',null);}catch(e){}
+    var n=(res&&res.data)?res.data.filter(function(c){return c.email;}).length:0;
+    if(!n){alert('No customers with an email address yet.');return;}
+    if(!confirm('Email "New coffee: '+(row.sample_id||'')+'" to '+n+' customer'+(n>1?'s':'')+'?'))return;
+    rtlSqBusy['ann:'+sqKey]=true;paintRetail();
+    try{
+      var cardUrl=await uploadCardFor(row);
+      var flav=(row.features&&row.features.length)?row.features.slice(0,3).join(', '):'';
+      var r=await callEmailFn({action:'announce_coffee',name:row.sample_id||'',card_url:cardUrl,flavour:flav,note:(row.comment||'').trim()});
+      alert('Announcement sent to '+(r.sent||0)+' of '+(r.total||n)+' customers'+(r.failed?(' ('+r.failed+' failed)'):''));
+    }catch(e){alert('Announce failed: '+((e&&e.message)||e));}
+    rtlSqBusy['ann:'+sqKey]=false;paintRetail();
+  }
   async function pushToSquare(sqKey,sid){
     var row=RTL_ROWS.filter(function(x){return (x.sample_id||('id:'+String(x.id||'')))===sqKey||String(x.sample_id||'')===sid;})[0];
     if(!row){alert('Bean not found.');return;}
+    if(!ROASTS||!ROASTS.length){try{await loadRoasts();}catch(e){}}
+    var gate=listingGate(row);
+    if(gate.block){alert(gate.block);return;}
+    if(gate.warns.length&&!confirm('Heads up: '+gate.warns.join('; ')+'.\nPush to Square anyway?'))return;
     var prices=loadRtlPrice();
     var cur=prices[sid||''];
     var input=prompt('Retail price for "'+(row.sample_id||'')+'" (AUD):',cur!=null?String(cur):'');
@@ -6582,8 +6634,19 @@ fill="#6F4A36" stroke="none">
       sqStat='Square: <b>Not listed</b>';
       sqBtnLabel='Push to Square';
     }
+    /* G5: QC / \u98a8\u5473\u9396\u5b9a\u72c0\u614b\u4e00\u8d77\u770b\uff08listing checklist\uff09 */
+    var qr5=null;try{qr5=qcRoastForSample(s);}catch(e){}
+    var qcTxt=qr5&&qr5.qc==='pass'?'QC <b>Pass \u2713</b>'
+      :qr5&&qr5.qc==='reroast'?'QC <b style="color:var(--danger-ink)">Re-roast</b>'
+      :qr5&&qr5.qc==='downgrade'?'QC <b style="color:var(--danger-ink)">Downgraded</b>'
+      :'QC <b>pending</b>';
+    var lockTxt=s.flavour_locked?'flavour <b>locked \u2713</b>':'flavour <b>unlocked</b>';
+    sqStat+='<br>'+qcTxt+' \u00b7 '+lockTxt;
     var sqHtml='<div class="rtl-sqrow"><div class="rtl-sqstat '+sqStatCls+'">'+sqStat+'</div>'
       +'<button class="rtl-sqbtn'+(sync&&sync.status==='synced'?' ghost':'')+'" data-sqpush="'+esc(sqKey)+'" data-sqsid="'+esc(stkSid)+'"'+(busy?' disabled':'')+'>'+(busy?'Working\u2026':sqBtnLabel)+'</button></div>';
+    var annBusy=!!rtlSqBusy['ann:'+sqKey];
+    sqHtml+='<div class="rtl-sqrow"><div class="rtl-sqstat">New coffee email \u00b7 all customers</div>'
+      +'<button class="rtl-sqbtn ghost" data-announce="'+esc(sqKey)+'" data-annsid="'+esc(stkSid)+'"'+(annBusy?' disabled':'')+'>'+(annBusy?'Sending\u2026':'Announce')+'</button></div>';
     var chev='<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>';
     var header='<button class="rtl-head'+(open?' open':'')+'" data-toggle="'+esc(delKey)+'">'+chev+dotInline
       +'<span class="rtl-head-name">'+id+procHtml+'</span>'

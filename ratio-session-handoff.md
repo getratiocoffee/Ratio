@@ -37,6 +37,12 @@
   - **風味鎖定**：杯測卡「Lock flavour」鍵；出貨信卡片管線（ordUploadCards）與 Print Centre 卡片下載改為 `.order('flavour_locked',desc)` **鎖定紀錄優先上卡**；下載未鎖定的會提示 ⚠ flavour not locked yet
   - 熟豆倉批次掛 QC 徽章（QC ✓ / re-roast / downgraded）
   - 驗證：preview 假資料實測配對邏輯、三鍵狀態、鎖定切換、重烘佇列、批次徽章，全過
+- **Beans 2.0 G5 上架完成**（index.html + send-email v13；wholesale 下家未做，留給長期方向）：
+  - **上架閘門 `listingGate()`**：Push to Square / Announce 前檢查——最新批次 QC 是 Re-roast/Downgrade **硬擋**；沒 QC 紀錄或風味未鎖 **confirm 提醒可續行**（遷就舊資料全 null，不然全部被鎖死）
+  - **Listing 狀態集中**：Retail Info 卡的 Square 列加第二行「QC Pass ✓ / pending / Re-roast · flavour locked ✓ / unlocked」，一眼看出能不能上架
+  - **新豆通知信群發**：Retail 卡新「Announce」鍵 → 閘門檢查 → 顯示收件人數 confirm → 生成資訊卡上傳 mail-assets → **send-email v13 新 action `announce_coffee`**（撈全部有 email 客戶去重逐一寄，600ms 間隔防 Resend 限流，回 sent/failed/total）
+  - send-email v13 順便讓 dispatch_notice 的風味抓取也 flavour_locked 優先
+  - 驗證：preview 實測閘門六種情境矩陣 + 卡片狀態列 + Announce 按鈕渲染，全過；**實際群發要登入後測**（目前客戶 2 位，風險低）
 - **「全部」總覽分頁已上線**：ORD_TABS 加 `['all','全部']`、ordTabCount 回 ORDERS.length、renderOrders 加不篩選分支（commit 2270d97，已部署驗證）
 - **測試單 #0001 + 客戶 Dan 已刪**（orders 表清空、customers 剩 2 位真實客戶）
 - **sync-to-square 升 v13**：新增 `payment_link_delete` action（body.link_id → Square DELETE /v2/online-checkout/payment-links）；測試連結 iQjObl89 已刪、回 404
@@ -111,7 +117,7 @@
 - ~~G2 烘焙站：烘焙扣生豆（×1.15）、開烘前庫存檢查（接 Orders 烘豆需求頁）、產出寫熟豆批次~~ ✅ 完成（見〇補記）
 - ~~G3 熟豆倉+拼配：批次表（烘焙日/克數/狀態）、賞味期 >30 天標色、FIFO、blend 消耗批次~~ ✅ 完成（見〇補記）
 - ~~G4 QC：杯測結果狀態 Pass / Re-roast（退 G2）/ Downgrade；風味描述鎖定後才進資訊卡~~ ✅ 完成（見〇補記）
-- G5 上架：僅 QC Pass 可上架；Retail+Square push 集中；新豆通知信群發；下家 wholesale
+- ~~G5 上架：僅 QC Pass 可上架；Retail+Square push 集中；新豆通知信群發~~ ✅ 完成（見〇補記；下家 wholesale 未做 → 長期方向）
 - ~~G6 印製中心：資訊卡/.lbx 貼紙/選單/PDF 集中一頁（純重組，可隨時插隊）~~ ✅ 完成（見〇補記）
 - G7 客戶回饋：出貨信回饋連結（QR 可印）→ feedback 表 → app 回覆 → 摘要回 QC
 - **順序：G1 → G2 → G6 → G3 → G4 → G5 → G7**，每 phase 分批交付
