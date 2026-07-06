@@ -159,7 +159,7 @@ async function loadAll(){
     sb.from('dialins').select('coffee,created_at').order('created_at',{ascending:false}).limit(200),
     sb.from('product_sync').select('bean_id,status').eq('channel','square'),
     sb.from('samples').select('id,sample_id,bean_id,process,roast_date,cupping_date,features,flavour_locked').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
-    sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg').order('roast_date',{ascending:false}),
+    sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg,status').order('roast_date',{ascending:false}),
     sb.from('beans').select('id,name,process,quantity,low_stock_kg,country'),
     sb.from('feedback').select('*').is('reply',null).order('created_at',{ascending:false}),
     sb.from('rosters').select('week_start,shifts,deleted').eq('week_start',mondayStr())
@@ -254,6 +254,14 @@ function buildItems(){
       s:(x.r.roast_date?'roasted '+fmtD(x.r.roast_date)+' · ':'')+esc(f||'no flavour notes'),
       act:'Pass',det:[['Roasted',fmtD(x.r.roast_date)||'—'],['Flavour',f||'—'],['Process',x.s.process||'—'],['Cupped',fmtD(x.s.cupping_date)||'—']],
       det2:'Open QC station',roles:['director','roaster'],kind:'qcpass',ref:x});
+  });
+  /* 杯測快錄卡：烘了還沒杯測的批次（已判定或已在 QC 佇列的排除） */
+  var inQC={};QCQ.forEach(function(x){inQC[String(x.r.id)]=1;});
+  DB.roasts.filter(function(r){return r.status==='pending_cupping'&&!r.qc&&!inQC[String(r.id)];}).forEach(function(r){
+    out.push({id:'cup:'+r.id,st:'QC',hot:daysSince(r.roast_date)>2?1:0,t:'Cup · '+esc(r.bean_name||'—'),
+      s:(r.roast_date?'roasted '+fmtD(r.roast_date):'roast batch')+(r.green_kg?' · '+r.green_kg+' kg green in':'')+' · not cupped yet',
+      act:'Cup…',det:[['Roasted',fmtD(r.roast_date)||'—'],['Green in',(r.green_kg!=null?r.green_kg:'—')+' kg'],['Next','cup it, then it lands in the QC queue']],
+      det2:'Later',roles:['director','roaster'],kind:'cup',ref:r});
   });
   packQ.forEach(function(o){
     var c=custById(o.customer_id);
@@ -385,6 +393,7 @@ async function runAction(id,btn){
     }
     if(i.kind==='dialin'){openDialinForm(i);return;}
     if(i.kind==='roastlog'){openRoastSheet(Array.isArray(i.ref)?i.ref:null);return;}
+    if(i.kind==='cup'){openCupSheet(i);return;}
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent=i.act;}
     alert((i.act||'Action')+' failed: '+(e&&e.message||e));
@@ -869,6 +878,90 @@ function openDialinForm(i){
     closeDrawer();toast('Dial-in logged ✓');dropCard(i.id);
   });
   $('dl-cl').addEventListener('click',closeDrawer);
+}
+/* ===== 杯測快錄（照 classic submitCupping 規則：samples insert＋批次標 cupped → 進 QC 佇列）===== */
+var CUP=null;
+var CUP_FIELDS=[['fragrance','Fragrance / Aroma'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
+function openCupSheet(i){
+  var r=i.ref;
+  /* 帶上一次同豆紀錄的風味（DB.samples 已篩 Ratio Coffee、新→舊） */
+  var prev=null;
+  (DB.samples||[]).forEach(function(s){
+    if(prev)return;
+    if(r.bean_id&&s.bean_id){if(String(s.bean_id)===String(r.bean_id))prev=s;return;}
+    if(String(s.sample_id||'').trim().toLowerCase()===String(r.bean_name||'').trim().toLowerCase())prev=s;
+  });
+  var bean=(DB.beans||[]).find(function(b){return String(b.id)===String(r.bean_id);});
+  CUP={r:r,scores:{fragrance:0,acidity:0,sweetness:0,body:0,aftertaste:0},
+    feats:(prev&&prev.features?prev.features.slice(0,3):[]),comment:'',
+    process:(bean&&bean.process)||(prev&&prev.process)||''};
+  paintCupSheet();
+}
+function paintCupSheet(){
+  var r=CUP.r;
+  openDrawerHTML('<div class="t" style="font-size:19px">Cup · '+esc(r.bean_name||'—')+'</div>'
+    +'<div class="s" style="margin-top:2px">'+(r.roast_date?'roasted '+fmtD(r.roast_date)+' · ':'')+'saves a cupping record and queues it for QC</div>'
+    +CUP_FIELDS.map(function(f){
+      var v=CUP.scores[f[0]];
+      return '<div class="dlab">'+f[1]+'</div><div class="pm-seg">'
+        +[[1,'Light'],[2,'Medium'],[3,'Strong']].map(function(o){
+          return '<button data-sc="'+f[0]+'" data-v="'+o[0]+'"'+(v===o[0]?' class="on"':'')+'>'+o[1]+'</button>';
+        }).join('')+'</div>';
+    }).join('')
+    +'<div class="dlab">Flavours</div>'
+    +[0,1,2].map(function(ix){return '<input class="din" id="cup-f'+ix+'" maxlength="22" placeholder="e.g. Blueberry" value="'+esc(CUP.feats[ix]||'')+'">';}).join('')
+    +'<div class="dlab">Description · max 30 characters</div>'
+    +'<input class="din" id="cup-c" maxlength="30" placeholder="—" value="'+esc(CUP.comment)+'">'
+    +'<button class="act" id="cup-save">Save cupping</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  function grab(){
+    CUP.feats=[0,1,2].map(function(ix){return ($('cup-f'+ix).value||'').trim();});
+    CUP.comment=($('cup-c').value||'').trim();
+  }
+  document.querySelectorAll('#drawer [data-sc]').forEach(function(el){el.addEventListener('click',function(){
+    grab();
+    var k=el.dataset.sc,v=+el.dataset.v;
+    CUP.scores[k]=(CUP.scores[k]===v)?0:v; /* 再點一次＝清除 */
+    paintCupSheet();
+  });});
+  $('cup-save').addEventListener('click',function(){grab();saveCupSheet();});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+async function saveCupSheet(){
+  var r=CUP.r;
+  var name=String(r.bean_name||'').trim();
+  if(!name){toast('This batch has no coffee name');return;}
+  var sc=CUP.scores;
+  var feats=CUP.feats.filter(Boolean);
+  var hasInfo=CUP_FIELDS.some(function(f){return sc[f[0]]>0;})||feats.length||CUP.comment;
+  if(!hasInfo){toast('Add a score, flavour or note first');return;}
+  var today=todayStr();
+  /* 防呆：同豆同日已有紀錄（同 classic submitCupping） */
+  var isDup=(DB.samples||[]).some(function(x){return x.cupping_date===today&&String(x.sample_id||'').trim().toLowerCase()===name.toLowerCase();});
+  if(isDup&&!confirm('"'+name+'" already has a cupping record today. Save another?'))return;
+  var btn=$('cup-save');if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  try{
+    /* No. 依日期連號（同 classic nextNo，改成存檔時現查） */
+    var mx=await sb.from('samples').select('no').eq('cupping_date',today).order('no',{ascending:false}).limit(1);
+    var no=((mx.data&&mx.data[0]&&Number(mx.data[0].no))||0)+1;
+    var rec={no:no,cupping_date:today,roast_date:r.roast_date||null,supplier:'Ratio Coffee',
+      sample_id:name,process:String(CUP.process||'').trim()||null,bean_id:r.bean_id||null,
+      fragrance:sc.fragrance||null,acidity:sc.acidity||null,sweetness:sc.sweetness||null,body:sc.body||null,aftertaste:sc.aftertaste||null,
+      features:feats,comment:CUP.comment||null,decision:null,cupper:WHO||null};
+    /* 同 classic 的容錯鏈：舊欄位缺就逐個拿掉重試 */
+    var ins=await sb.from('samples').insert(rec).select();
+    if(ins.error){var r2=Object.assign({},rec);delete r2.features;ins=await sb.from('samples').insert(r2).select();}
+    if(ins.error){var r3=Object.assign({},rec);delete r3.features;delete r3.cupper;ins=await sb.from('samples').insert(r3).select();}
+    if(ins.error){var r4=Object.assign({},rec);delete r4.features;delete r4.cupper;delete r4.bean_id;ins=await sb.from('samples').insert(r4).select();}
+    if(ins.error)throw new Error(ins.error.message);
+    var u=await sb.from('roasts').update({status:'cupped'}).eq('id',r.id);
+    if(u.error)throw new Error('sample saved but batch status update failed: '+u.error.message);
+    closeDrawer();toast('Cupped ✓ now in the QC queue');
+    await reload();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Save cupping';}
+    alert('Save failed: '+(e&&e.message||e));
+  }
 }
 /* ===== 記烘豆（單批：選豆→生豆 kg→選填產出/快錄；照 classic saveRoast 規則寫 roasts＋扣庫存＋stock_moves）===== */
 var RO=null;

@@ -16,6 +16,9 @@
 - **記烘豆搬進新殼**（new/index.html，待 push）：老闆「繼續」授權自選 → 按建議先搬烘豆記錄。①**Tools → Make 新「Log roast」**（玫瑰框，與 New order 並列）②**烘豆需求卡主鍵改「Log roast…」**（kind:'roastlog'，ref 帶需求清單）→ 開單批記錄抽屜：需求籌碼一鍵帶入（豆名配生豆批＋kg=×1.15 換算；配不到標 no green lot (blend?)）、選豆下拉帶庫存、生豆 kg、選填熟豆產出（同額入 remaining_kg）、日期預設今天、「Roast log (optional)」收合四欄（charge/first crack/drop/duration）③存檔**照抄 classic saveRoast 三筆寫入**：roasts insert（status pending_cupping）→ beans.quantity 扣減 → stock_moves kind:'roast' 流水帳。防呆：沒選豆 toast、超量 Stock check confirm（同 classic 文案）、產出>生豆 confirm。beans 查詢補帶 country 欄
   - 驗證：jscheck ＋ preview 假資料全流程（籌碼換算 0.6kg ✓/三筆寫入 payload 逐欄比對 ✓/庫存 8.5→7.9 ✓/超量擋寫入 ✓/需求卡 575g 接線 ✓）＋手機尺寸截圖夜版樣式一致；⚠ 登入後真烘一鍋待 boss 部署後試
   - 尚未搬：多批連烘（新殼一次一批，關掉再開即可）、blend 扣成分批次（Blending 工作台留 classic）
+- **杯測快錄跟著搬進新殼**（new/index.html，同輪第二件，待 push）：補齊管線斷點——新殼 QC 佇列靠 samples 配批次，沒杯測過的新批次進不了 QC。①**今日流新「Cup」卡**（st:QC）：roasts status='pending_cupping' 且 qc 空 且不在 QC 佇列的批次（＝該豆從沒杯測過；有舊紀錄的豆照 classic 配對規則直接進 QC 佇列，不出 Cup 卡）——線上正好命中老闆 7/6 真烘的 5 批（Alo Bona/Finca Milan/El Vergel/Hakuna Matata/Danche）②**Cup 抽屜**：五感官 Light/Medium/Strong 三段選（再點＝清除）、風味 3 格（自動帶同豆上次紀錄）、描述 30 字 ③存檔照 classic submitCupping：no 依日連號（存檔時現查）、samples insert（supplier Ratio Coffee/decision null/cupper=WHO）＋容錯鏈（features→cupper→bean_id 逐個拿掉重試）→ roasts 標 cupped → toast「now in the QC queue」。防呆：全空擋存、同豆同日 confirm。loadAll roasts 查詢補帶 status 欄
+  - 驗證：jscheck＋preview 假資料（卡片三分流：沒杯測出 Cup 卡/已判定排除/有紀錄走 QC 卡 ✓、風味預填 ✓、三段選切換與清除 ✓、insert payload 逐欄比對含 no=5 連號 ✓、status cupped ✓、同日重複 confirm 擋寫入 ✓）＋手機截圖；⚠ 部署後老闆拿那 5 批真杯一次
+  - **管線現在成一條龍**：/new 記烘豆 → Cup 卡杯測 → QC 佇列判定 → （上架仍回 classic）
 - 開發備忘：launch.json 加了 ratio-static-2（port 8125，8124 被別的 session 佔用時用）；serve 複本路徑不變
 
 ## 〇、補記 — 2026-07-06 下午 session（訂單站泡泡面板）
