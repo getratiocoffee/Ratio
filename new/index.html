@@ -132,11 +132,21 @@ function daysSince(ts){if(!ts)return 0;var d=new Date(ts);return isNaN(d)?0:Math
 function fmtD(s){if(!s)return '';var p=String(s).slice(0,10).split('-');return p.length===3?(p[2]+'/'+p[1]):s;}
 function todayKey(){return new Date().toISOString().slice(0,10);}
 /* 貪睡與晨報收起：存 localStorage，到明天自動失效 */
-function snoozeMap(){try{var m=JSON.parse(localStorage.getItem('r2_snooze')||'{}');return m[todayKey()]||{};}catch(e){return {};}}
+/* 貪睡改存 app_state（key: new_snooze）＝跨裝置同步：手機睡掉的卡，電腦也不再冒出來；到明天自動失效（只認今天的 key）。全店共用——誰睡掉就是大家都先不看 */
+var SNOOZE_ALL={};
+function snoozeMap(){return SNOOZE_ALL[todayKey()]||{};}
 var SNOOZED_SESSION=0;
-function addSnooze(id){var all={};all[todayKey()]=snoozeMap();all[todayKey()][id]=1;try{localStorage.setItem('r2_snooze',JSON.stringify(all));}catch(e){}SNOOZED_SESSION++;}
-function undoSnooze(){clearSnooze();SNOOZED_SESSION=0;buildItems();render();toast('Brought back');}
-function clearSnooze(){try{localStorage.removeItem('r2_snooze');}catch(e){}}
+function snoozePush(){
+  try{sb.from('app_state').upsert({key:'new_snooze',value:SNOOZE_ALL,updated_at:new Date().toISOString()},{onConflict:'key'})
+    .then(function(r){if(r&&r.error)console.error('snooze push:',r.error.message||r.error);});}catch(e){}
+}
+function addSnooze(id){
+  var today=todayKey(),m=snoozeMap();m[id]=1;
+  SNOOZE_ALL={};SNOOZE_ALL[today]=m; /* 只留今天＝順手清掉舊日期 */
+  SNOOZED_SESSION++;
+  snoozePush();
+}
+function undoSnooze(){SNOOZE_ALL={};SNOOZED_SESSION=0;snoozePush();buildItems();render();toast('Brought back');}
 
 async function callFn(name,payload){
   var g=await sb.auth.getSession();var sess=g&&g.data&&g.data.session;
@@ -162,11 +172,15 @@ async function loadAll(){
     sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg,status,kind,remaining_kg,roasted_kg').order('roast_date',{ascending:false}),
     sb.from('beans').select('id,name,process,quantity,low_stock_kg,country,cost_per_kg,supplier'),
     sb.from('feedback').select('*').is('reply',null).order('created_at',{ascending:false}),
-    sb.from('rosters').select('week_start,shifts,deleted').eq('week_start',mondayStr())
+    sb.from('rosters').select('week_start,shifts,deleted').eq('week_start',mondayStr()),
+    sb.from('app_state').select('value').eq('key','new_snooze').maybeSingle()
   ]);
   DB={orders:rs[0].data||[],customers:rs[1].data||[],tasks:rs[2].data||[],dialins:rs[3].data||[],
       syncs:rs[4].data||[],samples:rs[5].data||[],roasts:rs[6].data||[],beans:rs[7].data||[],
       feedback:rs[8].data||[],roster:((rs[9].data||[]).filter(function(r){return !r.deleted;})[0]||null)};
+  var sv=rs[10]&&rs[10].data&&rs[10].data.value;
+  if(typeof sv==='string'){try{sv=JSON.parse(sv);}catch(e){sv=null;}}
+  SNOOZE_ALL=(sv&&typeof sv==='object')?sv:{};
   buildItems();
 }
 function mondayStr(){
