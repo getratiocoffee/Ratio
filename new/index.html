@@ -167,7 +167,7 @@ async function loadAll(){
     sb.from('orders').select('*').neq('status','Cancelled').order('order_no',{ascending:false}),
     sb.from('customers').select('id,name,email,type'),
     sb.from('tasks').select('*').eq('done',false).order('created_at',{ascending:false}),
-    sb.from('dialins').select('coffee,created_at').order('created_at',{ascending:false}).limit(200),
+    sb.from('dialins').select('coffee,created_at,grind,dose,yield,time_s,barista').order('created_at',{ascending:false}).limit(200),
     sb.from('product_sync').select('bean_id,status').eq('channel','square'),
     sb.from('samples').select('id,sample_id,bean_id,process,roast_date,cupping_date,features,flavour_locked').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
     sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg,status,kind,remaining_kg,roasted_kg').order('roast_date',{ascending:false}),
@@ -902,11 +902,25 @@ async function saveNewOrder(){
   }catch(e){b.disabled=false;b.textContent='Create order';alert('Create failed: '+(e&&e.message||e));}
 }
 function openDialinForm(i){
+  /* 帶上次的數字（同支豆、DB.dialins 已照新→舊排）——微調幾格就能存；沒調過才是空表單 */
+  var key=String(i.ref.name||'').trim().toLowerCase();
+  var last=(DB.dialins||[]).find(function(d){return String(d.coffee||'').trim().toLowerCase()===key;})||null;
+  var lastLine='';
+  if(last){
+    var bits=[];
+    if(last.grind)bits.push('grind '+last.grind);
+    if(last.dose!=null)bits.push(last.dose+'g');
+    if(last.yield!=null)bits.push('→ '+last.yield+'g');
+    if(last.time_s!=null)bits.push(last.time_s+'s');
+    lastLine='<div class="s" style="margin-top:2px">last: '+esc(bits.join(' · ')||'—')+' · '+daysSince(last.created_at)+'d ago'+(last.barista?' · '+esc(last.barista):'')+'</div>';
+  }
+  var v=function(x){return x==null?'':esc(String(x));};
   openDrawerHTML('<div class="t" style="font-size:19px">Dial in · '+esc(i.ref.name)+'</div>'
-    +'<div class="dlab">Grind setting</div><input class="din" id="dl-g" inputmode="decimal" placeholder="e.g. 2.4">'
-    +'<div class="dlab">Dose g</div><input class="din" id="dl-d" inputmode="decimal" placeholder="20">'
-    +'<div class="dlab">Yield g</div><input class="din" id="dl-y" inputmode="decimal" placeholder="45">'
-    +'<div class="dlab">Time s</div><input class="din" id="dl-t" inputmode="decimal" placeholder="28">'
+    +lastLine
+    +'<div class="dlab">Grind setting</div><input class="din" id="dl-g" inputmode="decimal" placeholder="e.g. 2.4" value="'+(last?v(last.grind):'')+'">'
+    +'<div class="dlab">Dose g</div><input class="din" id="dl-d" inputmode="decimal" placeholder="20" value="'+(last?v(last.dose):'')+'">'
+    +'<div class="dlab">Yield g</div><input class="din" id="dl-y" inputmode="decimal" placeholder="45" value="'+(last?v(last.yield):'')+'">'
+    +'<div class="dlab">Time s</div><input class="din" id="dl-t" inputmode="decimal" placeholder="28" value="'+(last?v(last.time_s):'')+'">'
     +'<button class="act" id="dl-save">Log dial-in</button>'
     +'<button class="dclose" id="dl-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
   $('dl-save').addEventListener('click',async function(){
