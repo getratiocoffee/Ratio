@@ -903,6 +903,43 @@ function openDialinForm(i){
   });
   $('dl-cl').addEventListener('click',closeDrawer);
 }
+/* ===== 訂單瀏覽（唯讀：最近訂單清單＋詳情抽屜；動作照舊走今日流卡片）===== */
+function openOrdersSheet(){
+  var list=(DB.orders||[]).slice(0,25);
+  openDrawerHTML('<div class="t" style="font-size:19px">Recent orders</div>'
+    +'<div class="s" style="margin-top:2px">newest first · tap one for details · cancelled orders live in the classic app</div>'
+    +(list.length?list.map(function(o,ix){
+      var c=custById(o.customer_id);
+      return '<div class="hit" data-o="'+ix+'"><span><div class="t">#'+String(o.order_no||'—').padStart(4,'0')+' · '+esc((c&&c.name)||'Walk-in')+'</div>'
+        +'<div class="s">'+esc(o.status||'—')+' · '+money(o.total)+' · '+(o.payment_status==='paid'?'paid':'<span class="red">unpaid</span>')+' · '+(fmtD(o.created_at)||'—')+'</div></span>'
+        +'<span class="k">'+esc(o.channel||'')+'</span></div>';
+    }).join(''):'<div class="empty">No orders yet</div>')
+    +((DB.orders||[]).length>25?'<div class="s" style="margin-top:8px;text-align:center">'+((DB.orders||[]).length-25)+' older orders in the classic app</div>':'')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  document.querySelectorAll('#drawer [data-o]').forEach(function(el){el.addEventListener('click',function(){openOrderDetail(list[+el.dataset.o]);});});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+function openOrderDetail(o){
+  var c=custById(o.customer_id);
+  var items=(Array.isArray(o.items)?o.items:[]).map(function(it){
+    return '<div class="dl"><span>'+esc((it.grams?it.grams+'g ':'')+(it.name||'')+(it.qty>1?' ×'+it.qty:''))+'</span><span>'+(it.price!=null?money(it.price*(it.qty||1)):'—')+'</span></div>';
+  }).join('');
+  openDrawerHTML('<span class="tag'+(o.payment_status==='paid'?'':' warn')+'">'+esc(o.status||'—')+'</span>'
+    +'<div class="t" style="font-size:19px">#'+String(o.order_no||'—').padStart(4,'0')+' · '+esc((c&&c.name)||'Walk-in')+'</div>'
+    +(c&&c.email?'<div class="s" style="margin-top:2px">'+esc(c.email)+'</div>':'')
+    +'<div style="margin-top:10px">'+items
+    +'<div class="dl"><span><b>Total</b></span><span><b>'+money(o.total)+'</b></span></div>'
+    +'<div class="dl"><span>Payment</span><span>'+(o.payment_method==='bank_transfer'?'Bank transfer':'Platform')+' · '+(o.payment_status==='paid'?'paid':'<span class="red">'+esc(o.payment_status||'unpaid')+'</span>')+'</span></div>'
+    +'<div class="dl"><span>Placed</span><span>'+(fmtD(o.created_at)||'—')+'</span></div>'
+    +(o.dispatched_at?'<div class="dl"><span>Dispatched</span><span>'+(fmtD(o.dispatched_at)||'—')+'</span></div>':'')
+    +(o.tracking_no?'<div class="dl"><span>Tracking</span><span>'+esc(o.tracking_no)+'</span></div>':'')
+    +'</div>'
+    +'<button class="dclose" id="od-back">‹ Back to list</button>'
+    +'<a class="dclose" style="text-decoration:none;text-align:center;display:block" href="'+CLASSIC+'">Open in classic app</a>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('od-back').addEventListener('click',openOrdersSheet);
+  $('d-cl').addEventListener('click',closeDrawer);
+}
 /* ===== 收生豆（照 classic receivePurchase 規則但免採購單：併現有批次或開新豆＋stock_moves 'receive'）===== */
 var RCV=null;
 function openReceiveSheet(){
@@ -1487,7 +1524,7 @@ function renderTools(){
     +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
     +[['Invoice','GST PDF · classic'],['Info card','IG asset · classic'],['Labels','bag / tin · classic'],['Menus','A4 PDF · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
-    +[['Green stock','type a bean name above'],['Customers','type a name above'],['Orders','type a number above'],['Classic app','full interface']].map(function(x,ix){return '<button class="tool" data-t="'+ix+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
+    +[['Green stock','type a bean name above'],['Customers','type a name above'],['Orders','recent list · right here'],['Classic app','full interface']].map(function(x,ix){return '<button class="tool" data-t="'+ix+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div></div>';
   var inp=$('tsearch');
   function lookup(){
@@ -1530,6 +1567,7 @@ function renderTools(){
   m.querySelectorAll('[data-classic]').forEach(function(b){b.addEventListener('click',function(){location.href=CLASSIC;});});
   m.querySelectorAll('[data-t]').forEach(function(b){b.addEventListener('click',function(){
     if(b.dataset.t==='3'){location.href=CLASSIC;return;}
+    if(b.dataset.t==='2'){openOrdersSheet();return;}
     inp.focus();toast('Type in the search box above');
   });});
 }
