@@ -1225,6 +1225,17 @@
     </div>
   </div>
 
+  <div class="screen" id="screen-fin">
+    <header class="shead">
+      <span class="logo"><img src="logo.png" alt="Ratio" /></span>
+      <span class="hkey" id="fin-key"></span>
+    </header>
+    <div class="stitle" id="fin-title">Finance</div>
+    <div class="sbody">
+      <div id="fin-content"></div>
+    </div>
+  </div>
+
   <div class="screen" id="screen-cust">
     <header class="shead">
       <span class="logo"><img src="logo.png" alt="Ratio" /></span>
@@ -1388,6 +1399,7 @@ fill="#6F4A36" stroke="none">
     post:`<svg viewBox="0 0 24 24" ${s}><path d="M3.5 7.5 12 4l8.5 3.5L12 11 3.5 7.5z"/><path d="M3.5 7.5v9L12 20l8.5-3.5v-9"/><path d="M12 11v9"/></svg>`,
     mkt:`<svg viewBox="0 0 24 24" ${s}><path d="M4 10v4h3l5 4V6L7 10H4z"/><path d="M16 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10"/></svg>`,
     cust:`<svg viewBox="0 0 24 24" ${s}><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 5.6a3.2 3.2 0 0 1 0 5.8"/><path d="M17.5 13.6a5.5 5.5 0 0 1 3 4.9"/></svg>`,
+    fin:`<svg viewBox="0 0 24 24" ${s}><circle cx="12" cy="12" r="8.5"/><path d="M12 7v10"/><path d="M14.6 9.3c-.5-.9-1.5-1.3-2.6-1.3-1.5 0-2.6.8-2.6 2s1 1.7 2.6 2c1.6.3 2.6 1 2.6 2s-1.1 2-2.6 2c-1.1 0-2.1-.4-2.6-1.3"/></svg>`,
     file:`<svg viewBox="0 0 24 24" ${s}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 12v5M9.5 14.8 12 17.2l2.5-2.4"/></svg>`,
     swap:`<svg viewBox="0 0 24 24" ${s}><path d="M5 8h13M15 5l3 3-3 3"/><path d="M19 16H6M9 13l-3 3 3 3"/></svg>`,
     menu:`<svg viewBox="0 0 48 48"><rect x="11" y="8" width="26" height="32" rx="3" fill="#FCF6F4" ${O}/><path d="M16 8 V40" stroke="#B25E6A" stroke-width="1.6" stroke-dasharray="2 2.4" fill="none"/><path d="M20 16 h13 M20 22 h13 M20 28 h9" stroke="#CFC4B8" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>`,
@@ -1395,7 +1407,7 @@ fill="#6F4A36" stroke="none">
   };
   const shop=[['timesheet','Timesheet'],['beans','Beans'],['task','Task'],['recipe','Recipe']];
   const roastery=[['roast','Roaster'],['green','Green Buyer'],['order','Order'],['fx','Blender']];
-  const folder=[['print','Print Centre'],['mkt','Marketing'],['cust','Customers'],['feedback','Feedback'],['post','Post'],['file','File'],['user','Account'],['admin','Admin']]; /* G6: label/tinlabel/menu/invoice 併入 Print Centre；G7 加 Feedback；站台 7 加 Marketing、站台 9 加 Customers */
+  const folder=[['print','Print Centre'],['mkt','Marketing'],['cust','Customers'],['fin','Finance'],['feedback','Feedback'],['post','Post'],['file','File'],['user','Account'],['admin','Admin']]; /* G6: label/tinlabel/menu/invoice 併入 Print Centre；G7 加 Feedback；站台 7 加 Marketing、站台 9 加 Customers */
 
   function fill(side,arr){const el=document.querySelector(`.pill[data-side="${side}"]`);el.innerHTML='';
     arr.forEach(([ic,lb])=>{const d=document.createElement('div');d.className='item';d.dataset.id=ic;
@@ -3901,10 +3913,83 @@ fill="#6F4A36" stroke="none">
     box.querySelectorAll('[data-custfb]').forEach(function(el){el.addEventListener('click',function(){openFeedback();});});
     var fp=document.getElementById('cust-fbpage');if(fp)fp.addEventListener('click',function(){openFeedback();});
   }
+  /* ===== Finance 站（站台 12，MVP 唯讀儀表板）：營收／未收款／庫存價值——全部由現有資料推算 ===== */
+  function openFinance(){closeFolder();openPage('fin');renderFinance();}
+  async function renderFinance(){
+    var box=document.getElementById('fin-content');if(!box)return;
+    box.innerHTML='<div class="sempty">Loading…</div>';
+    var bq=sb.from('beans').select('name,quantity,cost_per_kg');
+    var pq=sb.from('purchases').select('name,kg,cost_per_kg,status,ordered_at,received_at,created_at');
+    var rs=await Promise.all([loadOrders(),loadCustomers(),bq,pq]);
+    box=document.getElementById('fin-content');if(!box)return;
+    var beans=(rs[2]&&rs[2].data)||[],pos=(rs[3]&&rs[3].data)||[];
+    var ym=function(d){return String(d||'').slice(0,7);};
+    var now=new Date(),thisM=now.toISOString().slice(0,7);
+    var lastD=new Date(now.getFullYear(),now.getMonth()-1,15),lastM=lastD.toISOString().slice(0,7);
+    /* ① 收入：已收款訂單（照下單月份分桶） */
+    var inThis=0,nThis=0,inLast=0,nLast=0,outSum=0,outRows=[];
+    (ORDERS||[]).forEach(function(o){
+      if((o.status||'New')==='Cancelled')return;
+      var m=ym(o.created_at),t=Number(o.total)||0;
+      if(o.payment_status==='paid'){
+        if(m===thisM){inThis+=t;nThis++;}else if(m===lastM){inLast+=t;nLast++;}
+      }else if(o.payment_status==='pending_payment'||o.payment_status==='overdue'){
+        outSum+=t;outRows.push(o);
+      }
+    });
+    outRows.sort(function(a,b){return ordDaysSince(b.created_at)-ordDaysSince(a.created_at);});
+    /* ③ 庫存價值＋本月採購 */
+    var stockVal=0,nPriced=0,nUnpriced=0;
+    beans.forEach(function(b){
+      var q=Number(b.quantity)||0;if(q<=0)return;
+      var c=parseFloat(b.cost_per_kg);
+      if(isNaN(c)){nUnpriced++;return;}
+      stockVal+=q*c;nPriced++;
+    });
+    var buyThis=0,nBuy=0;
+    pos.forEach(function(p){
+      if(p.status==='cancelled')return;
+      var m=ym(p.ordered_at||p.created_at);
+      if(m!==thisM)return;
+      var v=(Number(p.kg)||0)*(parseFloat(p.cost_per_kg)||0);
+      if(v>0){buyThis+=v;nBuy++;}
+    });
+    var h='<div class="gsec">Money in · paid orders</div>'
+      +'<div class="po-card"><div class="po-top"><div class="po-name">This month</div><span class="po-badge received">'+nThis+(nThis===1?' order':' orders')+'</span></div>'
+      +'<div class="po-sub" style="font-size:17px;font-weight:700;color:var(--ink)">'+ordMoney(inThis)+'</div></div>'
+      +'<div class="po-card"><div class="po-top"><div class="po-name">Last month</div><span class="po-badge">'+nLast+(nLast===1?' order':' orders')+'</span></div>'
+      +'<div class="po-sub">'+ordMoney(inLast)+'</div></div>';
+    h+='<div class="gsec">Outstanding · not yet paid</div>';
+    if(outRows.length){
+      h+='<div class="po-card"><div class="po-top"><div class="po-name">'+ordMoney(outSum)+'</div><span class="po-badge">'+outRows.length+(outRows.length===1?' order':' orders')+'</span></div>'
+        +outRows.slice(0,6).map(function(o){
+          var c=ordCustById(o.customer_id);
+          var days=ordDaysSince(o.created_at);
+          var od=o.payment_status==='overdue';
+          return '<div class="po-sub" style="display:flex;justify-content:space-between;gap:8px;margin-top:6px"><span>#'+(o.order_no!=null?String(o.order_no).padStart(4,'0'):'—')+' · '+esc(c?(c.name||'—'):'Walk-in')+'</span>'
+            +'<span style="flex:0 0 auto">'+ordMoney(o.total)+' · '+(od?'<span style="color:var(--danger)">'+days+'d overdue</span>':days+'d')+'</span></div>';
+        }).join('')
+        +'<div class="po-actions"><button class="gbtn" id="fin-pay">Open the Pay tab — chase and mark paid</button></div></div>';
+    }else{
+      h+='<div class="sempty" style="padding:14px 24px">Nothing outstanding ✓</div>';
+    }
+    h+='<div class="gsec">Stock and buying</div>'
+      +'<div class="po-card"><div class="po-top"><div class="po-name">Green stock value</div><span class="po-badge received">'+nPriced+(nPriced===1?' bean':' beans')+'</span></div>'
+      +'<div class="po-sub" style="font-size:17px;font-weight:700;color:var(--ink)">'+ordMoney(stockVal)+'</div>'
+      +(nUnpriced?'<div class="po-sub">'+nUnpriced+' bean'+(nUnpriced>1?'s':'')+' in stock without a cost/kg — value not counted</div>':'')+'</div>'
+      +'<div class="po-card"><div class="po-top"><div class="po-name">Green bought this month</div><span class="po-badge">'+nBuy+(nBuy===1?' purchase':' purchases')+'</span></div>'
+      +'<div class="po-sub">'+ordMoney(buyThis)+'</div></div>';
+    h+='<div style="padding:10px 16px 4px"><button class="gbtn ghost" id="fin-calc">Retail calculator — model margins</button></div>'
+      +'<div class="pc-sub" style="margin:8px 18px 18px">Read-only view built from orders, beans and purchases already in the app. Figures follow order dates; card fees and other expenses are not tracked yet.</div>';
+    box.innerHTML=h;
+    var fp=document.getElementById('fin-pay');if(fp)fp.addEventListener('click',function(){openOrdersTab('pay');});
+    var fc=document.getElementById('fin-calc');if(fc)fc.addEventListener('click',function(){openOrderCalc();});
+  }
   function onOpen(id){
     if(id==='print'){openPrint();return;}
     if(id==='mkt'){openMarketing();return;}
     if(id==='cust'){openCustomers();return;}
+    if(id==='fin'){openFinance();return;}
     if(id==='feedback'){openFeedback();return;}
     if(id==='label'){openLabel();return;}
     if(id==='tinlabel'){openTinLabel();return;}
