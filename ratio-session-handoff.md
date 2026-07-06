@@ -24,8 +24,10 @@
   - **`?shop` 公開菜單頁**（免登入，樣式沿用 ?bean= 公開頁 .pb-*，新 .ps-*）：列「Square synced ∧ 風味已鎖」的豆（QC 閘門同 public-bean），卡片＝名稱/配方或處理法/風味 3 顆/描述/價格規格 + Brew guide 連到 ?bean= + Order 鍵
   - **edge `public-shop` v1**（verify_jwt false）：GET=菜單 JSON（白名單欄位、快取 5 分）；POST checkout={bean,qty(1-5)} → 每次**新開** Square payment link（order-based link 綁單一訂單不能共用，所以不快取）帶 variation_id、要求寄送地址、關小費
   - 驗證：GET 回 June Project+Alo Village（其餘 5 支等鎖風味自動出現）、checkout 真的生出 square.link、本機 ?shop 渲染+Order 按鈕 POST 200；跳轉外域被預覽沙盒擋（真瀏覽器正常）
-  - **⚠ 最後一針未驗**：真實下單→webhook 匯入。風險點：payment link 訂單的 fulfillment recipient 若是空的會被 v13 POS 閘擋掉不匯入（設了 ask_for_shipping_address 理論上會有）。驗法：老闆自己下一單真的付款→看 Orders 有沒有自動出現+通知信→Square 後台退款
-  - 客人網址：https://ratio-theta.vercel.app/?shop （待 push 部署後生效）
+  - **老闆實測抓到兩顆震撼彈（都已修）**：①手動訂單 400——payment_method 表單是自由填空但 DB check 只收 bank_transfer/platform → 已改二選一下拉（index.html，已部署）②**webhook 匯入網店單從未成功過**——insert status:'new' 小寫違反 orders_status_check（六態大寫）→ **square-webhook v17** 改 'New' 已部署。老闆實測證實：地址有收、POS 閘有放行（fulfillment recipient 存在）、品項對得上，只差這個字
+  - 老闆的 $25 測試單（June Project）付款成功但卡在 v16 的匯入牆；webhook 回 200 Square 不重送 → 要嘛 Square Developer 後台 Webhooks→Event Log 手動 Resend、要嘛再下一單驗 v17 後兩筆一起退款
+  - **另注意 orders 表曾被整個清空**（連 #0001）：app 沒有刪訂單功能、老闆說不是他 → 疑似另一個 Claude session 或 Supabase 後台清測試資料；損失僅測試單。附帶發現店內 POS 刷卡（9:29 那筆）webhook 正確跳過 ✓
+  - 客人網址：https://ratio-theta.vercel.app/?shop
 - **老闆輪替制豆單重要背景**：豆子賣完就換新豆、不回購同一支 → 低庫存＝「貨架空位」訊號要接到找新豆流程，不是 reorder；警戒線設 0 = 該豆不警示
 - **Announce「沒收到信」破案**：管線沒壞（Resend 兩封都 Delivered）。orders@coffeeratio.com.au 是 getratiocoffee@gmail.com 的 send-as alias → Gmail 視為「自己寄自己」**跳過收件匣**（只在所有郵件/寄件備份）。已把測試客人 email 改成 ratiocoffee2473@gmail.com（另一帳號、正常進收件匣）；真實客人不受影響
 
