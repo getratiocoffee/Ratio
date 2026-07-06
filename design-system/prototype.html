@@ -10,7 +10,12 @@ header{background:#49423A;color:#F4ECEA;padding:calc(env(safe-area-inset-top,0px
 header .brand{font-family:'Fraunces',serif;font-size:20px;font-weight:700}
 header .cnt{font-size:14px;opacity:.85}
 .wrap{padding:14px 14px 0;max-width:520px;margin:0 auto}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px;transition:transform .25s,opacity .25s}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px;transition:transform .25s,opacity .25s;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.card.brief{background:#49423A;border-color:#49423A;color:#F4ECEA}
+.card.brief .t{color:#F4ECEA}
+.card.brief .s{color:rgba(244,236,234,.75)}
+.card.brief .tag{background:rgba(244,236,234,.16);color:#F4ECEA}
+.card.brief .more{color:rgba(244,236,234,.6)}
 .card.hot{border:2px solid var(--warn)}
 .card.gone{transform:translateX(70%);opacity:0}
 .tag{display:inline-block;font-size:12.5px;font-weight:700;border-radius:999px;padding:3px 11px;margin-bottom:8px;background:var(--tint);color:var(--accent-ink)}
@@ -80,7 +85,9 @@ nav button.on{background:#49423A;border-color:#49423A;color:#F4ECEA}
 var ROLES=[{id:'director',label:'Wu · Director'},{id:'roaster',label:'Sam · Roaster'},{id:'barista',label:'Dani · Barista'}];
 var roleIdx=0, view='feed', filter='all', selQC=null;
 var ITEMS=[
-{id:'o21',st:'Orders',hot:1,t:'Order #0021 · Happy Sip',s:'150g June Project ×2 · $50.00 · bank transfer',act:'Accept',roles:['director','barista'],
+{id:'brief',st:'Brief',pin:1,hot:0,t:'Morning brief · Mon 6 Jul',s:'Wu 7–15 · Dani 9–13 · 2 orders due · 1 QC waiting · 1 bean low',act:'Got it',roles:['director','roaster','barista'],
+ det:[['Roster','Wu 7:00–15:00 · Dani 9:00–13:00'],['Orders','#0021 to accept · #0015 to pack'],['QC','Dancer — waiting 3 days'],['Espresso','Alo Village never dialled in'],['Green','Gatitu AA low · 1.2 kg']],det2:'Snooze the brief'},
+{id:'o21',st:'Orders',hot:1,u:1,t:'Order #0021 · Happy Sip',s:'150g June Project ×2 · $50.00 · bank transfer',act:'Accept',roles:['director','barista'],
  det:[['Customer','Happy Sip (shop)'],['Items','150g June Project ×2'],['Total','$50.00'],['Payment','not yet paid'],['Placed','today 09:12']],det2:'Decline order'},
 {id:'qcD',st:'QC',hot:1,t:'QC · Dancer',s:'roasted 15/06 · Cherry, Cocoa · <span class=red>waiting 3 days</span>',act:'Pass',roles:['director','roaster'],
  det:[['Roasted','15/06/26'],['Flavour','Cherry, Cocoa'],['Cupped','01/07 · 84 pts'],['Batch','2.5 kg left']],det2:'Open QC station'},
@@ -88,7 +95,7 @@ var ITEMS=[
  det:[['Flagged','05/07/26'],['Reason','underdeveloped'],['Green stock','14 kg']],det2:'Skip for now'},
 {id:'diA',st:'Bar',hot:0,t:'Dial in · Alo Village',s:'<span class=red>never dialled in</span> · live on Square',act:'Dial in',roles:['director','barista'],
  det:[['Last dial-in','never'],['Brew guide','espresso empty'],['On bar since','04/07']],det2:'Not today'},
-{id:'pk15',st:'Orders',hot:0,t:'Pack #0015 · Dani',s:'1 of 1 items · unpaid',act:'Packed ✓',roles:['director','barista'],
+{id:'pk15',st:'Orders',hot:0,u:1,t:'Pack #0015 · Dani',s:'1 of 1 items · unpaid',act:'Packed ✓',roles:['director','barista'],
  det:[['Items','100g Alo Village ×1'],['Payment','awaiting'],['Ship to','Crows Nest pickup']],det2:'Cancel order'},
 {id:'gL',st:'Green',hot:0,t:'Low stock · Gatitu AA',s:'1.2 kg left · shelf gap coming',act:'Cup a sample',roles:['director','roaster'],
  det:[['Stock','1.2 kg'],['Threshold','5 kg'],['Rotation','sold out = find new bean']],det2:'Ignore'},
@@ -97,13 +104,47 @@ var ITEMS=[
 ];
 var QC=[{id:'q1',t:'Dancer',s:'roasted 15/06 · Cherry, Cocoa'},{id:'q2',t:'Dreamer',s:'roasted 08/06 · Peach, Honey'}];
 function role(){return ROLES[roleIdx];}
-function myItems(){return ITEMS.filter(function(i){return i.roles.indexOf(role().id)>-1&&(filter==='all'||i.st===filter);});}
+var SNOOZED=[], _drag=0;
+var CTXS=[
+{id:'morning',label:'Morning sort — bar first',pr:{Bar:1,Orders:2,QC:3,Roast:4,Green:5,Tasks:6}},
+{id:'day',label:'Daytime sort — orders first',pr:{Orders:1,QC:2,Roast:3,Bar:4,Green:5,Tasks:6}},
+{id:'payday',label:'Pay chase — money first',pr:{Orders:2,QC:3,Roast:4,Bar:5,Green:6,Tasks:7},pay:1}];
+var ctxIdx=(new Date().getHours()<11)?0:1;
+function ctx(){return CTXS[ctxIdx];}
+function myItems(){
+  var c=ctx();
+  return ITEMS.filter(function(i){return i.roles.indexOf(role().id)>-1&&(filter==='all'||i.st===filter);})
+    .sort(function(a,b){
+      var ka=(a.pin?-99:0)+((c.pay&&a.u)?0:(c.pr[a.st]||8))+(a.hot?0:.5);
+      var kb=(b.pin?-99:0)+((c.pay&&b.u)?0:(c.pr[b.st]||8))+(b.hot?0:.5);
+      return ka-kb;
+    });
+}
+function snoozeItem(id){
+  var i=ITEMS.find(function(x){return x.id===id;});if(!i)return;
+  var el=document.getElementById('c-'+id);
+  if(el){el.style.transition='transform .25s,opacity .25s';el.style.transform='translateX(-75%)';el.style.opacity='0';}
+  setTimeout(function(){ITEMS=ITEMS.filter(function(x){return x.id!==id;});SNOOZED.push(i);render();},240);
+  toast('Snoozed — back tomorrow');
+}
+function attachSwipe(el,id){
+  var x0=null,dx=0;
+  el.addEventListener('pointerdown',function(e){if(e.target.closest('button'))return;x0=e.clientX;dx=0;el.setPointerCapture(e.pointerId);el.style.transition='none';});
+  el.addEventListener('pointermove',function(e){if(x0==null)return;dx=e.clientX-x0;el.style.transform='translateX('+dx*0.9+'px)';
+    el.style.borderColor=dx>60?'var(--success)':(dx<-60?'var(--muted)':'');});
+  el.addEventListener('pointerup',function(){if(x0==null)return;
+    if(Math.abs(dx)>10)_drag=Date.now();
+    if(dx>90){el.style.transition='transform .22s,opacity .22s';el.style.transform='translateX(110%)';el.style.opacity='0';var iid=id;setTimeout(function(){doItem(iid,true);},200);}
+    else if(dx<-90){snoozeItem(id);}
+    else{el.style.transition='transform .25s';el.style.transform='';el.style.borderColor='';}
+    x0=null;dx=0;});
+}
 function esc(s){return s;}
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},1600);}
 function renderChips(){
   var el=document.getElementById('chips');
   if(view!=='feed'){el.innerHTML='';return;}
-  var sts={};ITEMS.forEach(function(i){if(i.roles.indexOf(role().id)>-1)sts[i.st]=(sts[i.st]||0)+1;});
+  var sts={};ITEMS.forEach(function(i){if(!i.pin&&i.roles.indexOf(role().id)>-1)sts[i.st]=(sts[i.st]||0)+1;});
   var h='<button class="chip'+(filter==='all'?' on':'')+'" data-f="all">All <span class="n">'+ITEMS.filter(function(i){return i.roles.indexOf(role().id)>-1;}).length+'</span></button>';
   Object.keys(sts).forEach(function(k){h+='<button class="chip'+(filter===k?' on':'')+'" data-f="'+k+'">'+k+' <span class="n">'+sts[k]+'</span></button>';});
   el.innerHTML=h;
@@ -114,22 +155,31 @@ function renderFeed(){
   var list=myItems();
   document.getElementById('hcnt').textContent=list.length?list.length+' to do':'all clear';
   var m=document.getElementById('main');
-  if(!list.length){m.innerHTML='<div class="empty">All clear — nothing needs you right now ☕</div>';return;}
-  m.innerHTML=list.map(function(i){
-    return '<div class="card'+(i.hot?' hot':'')+'" id="c-'+i.id+'">'
+  if(!list.length){m.innerHTML='<div class="empty">All clear — nothing needs you right now ☕</div>'+snoozeRow();return;}
+  m.innerHTML='<div class="note" id="ctxline">'+ctx().label+' · swipe right = do · left = later</div>'
+    +list.map(function(i){
+    return '<div class="card'+(i.hot?' hot':'')+(i.pin?' brief':'')+'" id="c-'+i.id+'">'
       +'<span class="tag'+(i.hot?' warn':'')+'">'+i.st+'</span>'
       +'<div class="t">'+i.t+'</div><div class="s">'+i.s+'</div>'
       +'<button class="act" data-do="'+i.id+'">'+i.act+'</button>'
       +'<button class="more" data-more="'+i.id+'">details ▾</button></div>';
-  }).join('');
-  m.querySelectorAll('[data-do]').forEach(function(b){b.addEventListener('click',function(){doItem(b.dataset.do);});});
-  m.querySelectorAll('[data-more]').forEach(function(b){b.addEventListener('click',function(){openDrawer(b.dataset.more);});});
+  }).join('')+snoozeRow();
+  m.querySelectorAll('[data-do]').forEach(function(b){b.addEventListener('click',function(){if(Date.now()-_drag<300)return;doItem(b.dataset.do);});});
+  m.querySelectorAll('[data-more]').forEach(function(b){b.addEventListener('click',function(){if(Date.now()-_drag<300)return;openDrawer(b.dataset.more);});});
+  list.forEach(function(i){var el=document.getElementById('c-'+i.id);if(el)attachSwipe(el,i.id);});
+  var un=document.getElementById('unsnooze');
+  if(un)un.addEventListener('click',function(){ITEMS=ITEMS.concat(SNOOZED);SNOOZED=[];render();toast('Brought back');});
+  var cl=document.getElementById('ctxline');
+  if(cl)cl.addEventListener('click',function(){ctxIdx=(ctxIdx+1)%CTXS.length;render();toast(ctx().label);});
 }
-function doItem(id){
+function snoozeRow(){
+  return SNOOZED.length?'<button class="more" id="unsnooze">'+SNOOZED.length+' snoozed until tomorrow · undo</button>':'';
+}
+function doItem(id,skipAnim){
   var i=ITEMS.find(function(x){return x.id===id;});if(!i)return;
   var el=document.getElementById('c-'+id);
-  if(el){el.classList.add('gone');}
-  setTimeout(function(){ITEMS=ITEMS.filter(function(x){return x.id!==id;});render();},260);
+  if(el&&!skipAnim){el.classList.add('gone');}
+  setTimeout(function(){ITEMS=ITEMS.filter(function(x){return x.id!==id;});render();},skipAnim?0:260);
   toast(i.act+' — done');
 }
 function openDrawer(id){
