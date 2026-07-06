@@ -932,6 +932,48 @@ function openDialinForm(i){
   });
   $('dl-cl').addEventListener('click',closeDrawer);
 }
+/* ===== 客戶名冊（照 classic 客戶站：最後下單排序、Cancelled 不計金額——DB.orders 本就排除、沒單標 new 沉底）===== */
+function openCustomersSheet(){
+  var rows=(DB.customers||[]).map(function(c){
+    var os=(DB.orders||[]).filter(function(o){return o.customer_id===c.id;});
+    var last=null,tot=0;
+    os.forEach(function(o){tot+=Number(o.total)||0;if(!last||String(o.created_at||'')>last)last=String(o.created_at||'');});
+    return {c:c,n:os.length,last:last,tot:tot};
+  }).sort(function(a,b){
+    if(!!a.last!==!!b.last)return a.last?-1:1;
+    return String(b.last||'').localeCompare(String(a.last||''))||String(a.c.name||'').localeCompare(String(b.c.name||''));
+  });
+  openDrawerHTML('<div class="t" style="font-size:19px">Customer book</div>'
+    +'<div class="s" style="margin-top:2px">'+rows.length+' customers · most recent order first · totals skip cancelled orders</div>'
+    +(rows.length?rows.map(function(r,ix){
+      return '<div class="hit" data-c="'+ix+'"><span><div class="t">'+esc(r.c.name||'—')+'</div>'
+        +'<div class="s">'+(r.n?(r.n+' order'+(r.n>1?'s':'')+' · last '+(fmtD(r.last)||'—')+' · '+money(r.tot)):'no orders yet')+'</div></span>'
+        +'<span class="k">'+esc(r.c.type||(r.n?'':'new'))+'</span></div>';
+    }).join(''):'<div class="empty">No customers yet</div>')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  document.querySelectorAll('#drawer [data-c]').forEach(function(el){el.addEventListener('click',function(){openCustomerDetail(rows[+el.dataset.c]);});});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+function openCustomerDetail(r){
+  var c=r.c;
+  var os=(DB.orders||[]).filter(function(o){return o.customer_id===c.id;})
+    .sort(function(a,b){return String(b.created_at||'').localeCompare(String(a.created_at||''));});
+  openDrawerHTML('<span class="tag">Customer</span><div class="t" style="font-size:19px">'+esc(c.name||'—')+'</div>'
+    +'<div style="margin-top:10px">'
+    +'<div class="dl"><span>Type</span><span>'+esc(c.type||'—')+'</span></div>'
+    +'<div class="dl"><span>Email</span><span>'+esc(c.email||'—')+'</span></div>'
+    +'<div class="dl"><span>Orders</span><span>'+r.n+'</span></div>'
+    +'<div class="dl"><span>Total spend</span><span>'+money(r.tot)+'</span></div>'
+    +'</div>'
+    +(os.length?'<div class="dlab">Order history</div>'+os.slice(0,10).map(function(o){
+      return '<div class="dl"><span>#'+String(o.order_no||'—').padStart(4,'0')+' · '+(fmtD(o.created_at)||'—')+'</span>'
+        +'<span>'+esc(o.status||'—')+' · '+money(o.total)+(o.payment_status==='paid'?'':' · <span class="red">unpaid</span>')+'</span></div>';
+    }).join('')+(os.length>10?'<div class="s" style="margin-top:6px;text-align:center">'+(os.length-10)+' older in the classic app</div>':''):'')
+    +'<button class="dclose" id="cd-back">‹ Back to book</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('cd-back').addEventListener('click',openCustomersSheet);
+  $('d-cl').addEventListener('click',closeDrawer);
+}
 /* ===== 團隊留言板（讀 general 頻道＋發文；刪除留在 classic）===== */
 function noteWhen(ts){
   if(!ts)return '';
@@ -1700,7 +1742,7 @@ function renderTools(){
     +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
     +[['Invoice','GST PDF · classic'],['Info card','IG asset · classic'],['Labels','bag / tin · classic'],['Menus','A4 PDF · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
-    +[['Green stock','full list · right here','greens'],['Roast batches','FIFO shelf · right here','batches'],['Customers','type a name above','search'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Classic app','full interface','classic']].map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
+    +[['Green stock','full list · right here','greens'],['Roast batches','FIFO shelf · right here','batches'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Classic app','full interface','classic']].map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div></div>';
   var inp=$('tsearch');
   function lookup(){
@@ -1748,6 +1790,7 @@ function renderTools(){
     if(k==='orders'){openOrdersSheet();return;}
     if(k==='greens'){openGreensSheet();return;}
     if(k==='batches'){openBatchesSheet();return;}
+    if(k==='customers'){openCustomersSheet();return;}
     inp.focus();toast('Type in the search box above');
   });});
 }
