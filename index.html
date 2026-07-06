@@ -338,6 +338,7 @@
   .gs-badge.warn{background:#E0B341;color:#5C4A10}
   .gs-badge.buy{background:var(--success-tint);color:var(--success-ink)}
   .gs-badge.maybe{background:#F6EBCB;color:#5C4A10}
+  .gs-badge.od{background:rgba(196,74,53,.12);color:var(--danger)}
   .gs-quiet-l{font-size:13px;color:var(--muted)}
   .gs-quiet-r{font-size:11.5px;color:var(--muted)}
   .gs-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--bg)}
@@ -1522,6 +1523,7 @@ fill="#6F4A36" stroke="none">
     if(deep==='green'){if(typeof closePage==='function')closePage();renderGreenStation();return;}
     if(deep==='green.trade'){if(typeof closePage==='function')closePage();renderCMarket();return;}
     if(deep==='green.sample'){if(typeof closePage==='function')closePage();hideCPanel();setFeedChannel(FEED_CHANNELS['green']||'general');return;}
+    if(deep==='order'){if(typeof closePage==='function')closePage();renderOrderStation();return;}
     if(rootKey==='timesheet'){
       const cw=currentWeekStart();
       const w=thisWeekEntry();
@@ -1696,6 +1698,108 @@ fill="#6F4A36" stroke="none">
       openPage('green');
       loadPurchases().then(function(){buyRecv=id;renderGreen();});
     });});
+  }
+  /* ===== Order Station：訂單站泡泡面板（接單→烘豆→備貨→出貨→收款）===== */
+  function openOrdersTab(t){ordTab=t;openOrders();}
+  async function renderOrderStation(){
+    var ct=document.getElementById('ctitle');if(ct){ct.textContent='Order Station';ct.classList.add('show');}
+    showCPanel('<div class="sempty" style="padding:34px 20px">Loading…</div>');
+    await Promise.all([loadOrders(),loadCustomers()]);
+    await markOverdueOrders();
+    if(dockStack[dockStack.length-1]!=='order')return; /* 載入途中使用者已離開 */
+    var newQ=ORDERS.filter(function(o){return (o.status||'New')==='New';});
+    var work=ORDERS.filter(function(o){var s=o.status||'New';return s==='Confirmed'||s==='Roasting';});
+    var shipQ=ORDERS.filter(function(o){return (o.status||'New')==='Ready';});
+    /* New 單先不催款：付款連結 Accept 時才會生成，接單卡已涵蓋 */
+    var payQ=ORDERS.filter(function(o){var s=o.status||'New';return s!=='Cancelled'&&s!=='New'&&(o.payment_status==='pending_payment'||o.payment_status==='overdue');});
+    function custName(o){var c=ordCustById(o.customer_id);return (c&&c.name)?c.name:'Walk-in';}
+    function ordNo(o){return o.order_no!=null?('#'+String(o.order_no).padStart(4,'0')):'#—';}
+    function itemsLine(o){return (Array.isArray(o.items)?o.items:[]).map(function(it){return (it.grams?it.grams+'g ':'')+(it.name||'')+(it.qty>1?(' ×'+it.qty):'');}).join(', ');}
+    var h='';
+    /* ① 接單佇列：Accept / Decline 直接長在列上 */
+    if(newQ.length){
+      h+='<div class="gs-card warn"><div class="gs-head"><span class="gs-title">New orders — accept or decline</span><span class="gs-badge warn">'+newQ.length+'</span></div>'
+        +newQ.map(function(o){
+          return '<div class="gs-row"><span style="min-width:0"><span class="gs-nm">'+esc(ordNo(o))+' · '+esc(custName(o))+'</span>'
+            +'<span class="gs-sub" style="display:block">'+esc(itemsLine(o)||'no items')+' · '+ordMoney(o.total)+'</span></span>'
+            +'<span style="display:flex;gap:6px;flex:0 0 auto"><button class="gs-act hot" data-osacc="'+esc(o.id)+'">Accept</button><button class="gs-act" data-osdec="'+esc(o.id)+'">Decline</button></span></div>';
+        }).join('')+'</div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">New orders</span><span class="gs-quiet-r">none waiting</span></div>';
+    }
+    /* ② 烘豆需求彙總（同名合併，熟豆 g + 生豆 g）；一鍵去 Production */
+    var agg={},ago=[];
+    work.forEach(function(o){(Array.isArray(o.items)?o.items:[]).forEach(function(it){
+      var nm=String(it.name||'').trim();if(!nm)return;var k=nm.toLowerCase();
+      var g=(Number(it.grams)||0)*(Number(it.qty)||1);
+      if(!agg[k]){agg[k]={name:nm,g:0};ago.push(k);}
+      agg[k].g+=g;
+    });});
+    ago.sort(function(a,b){return agg[b].g-agg[a].g;});
+    if(ago.length){
+      var totG=0;ago.forEach(function(k){totG+=agg[k].g;});
+      h+='<div class="gs-card"><div class="gs-head"><span class="gs-title">Roast queue — '+work.length+' order'+(work.length>1?'s':'')+'</span><span class="gs-badge buy">'+Math.ceil(totG*ORDER_GREEN_FACTOR)+'g green</span></div>'
+        +ago.map(function(k){var a=agg[k];
+          return '<div class="gs-row"><span class="gs-nm">'+esc(a.name)+'</span><span class="gs-kg">'+a.g+'g roast · '+Math.ceil(a.g*ORDER_GREEN_FACTOR)+'g green</span></div>';
+        }).join('')
+        +'<button class="gs-wide" id="os-prod">Open production — load the roast cart</button></div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">Roast queue</span><span class="gs-quiet-r">nothing to roast</span></div>';
+    }
+    /* ③ 備貨佇列：每單打包進度 n/m */
+    if(work.length){
+      h+='<div class="gs-card"><div class="gs-head"><span class="gs-title">Pack queue — tick items, full pack goes to Ship</span><span class="gs-badge buy">'+work.length+'</span></div>'
+        +work.map(function(o){
+          var items=Array.isArray(o.items)?o.items:[];
+          var ps=(o.pack_state&&typeof o.pack_state==='object')?o.pack_state:{};
+          var n=0;items.forEach(function(_,i){if(ps[String(i)])n++;});
+          return '<div class="gs-row"><span style="min-width:0"><span class="gs-nm">'+esc(ordNo(o))+' · '+esc(custName(o))+'</span>'
+            +'<span class="gs-sub" style="display:block">'+n+' / '+items.length+' packed'+(o.payment_status!=='paid'?' · <span style="color:var(--danger)">unpaid</span>':'')+'</span></span>'
+            +'<button class="gs-act'+(n?' hot':'')+'" data-ospack="'+esc(o.id)+'">Pack</button></div>';
+        }).join('')+'</div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">Pack queue</span><span class="gs-quiet-r">nothing to pack</span></div>';
+    }
+    /* ④ 出貨佇列：Dispatch 直接長在列上（走原 tracking+email 彈窗） */
+    if(shipQ.length){
+      h+='<div class="gs-card warn"><div class="gs-head"><span class="gs-title">Ready to ship</span><span class="gs-badge warn">'+shipQ.length+'</span></div>'
+        +shipQ.map(function(o){
+          return '<div class="gs-row"><span style="min-width:0"><span class="gs-nm">'+esc(ordNo(o))+' · '+esc(custName(o))+'</span>'
+            +'<span class="gs-sub" style="display:block">'+esc(itemsLine(o)||'')+(o.payment_status!=='paid'?' · <span style="color:var(--danger)">unpaid</span>':'')+'</span></span>'
+            +'<button class="gs-act hot" data-osdisp="'+esc(o.id)+'">Dispatch</button></div>';
+        }).join('')+'</div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">Ready to ship</span><span class="gs-quiet-r">none ready</span></div>';
+    }
+    /* ⑤ 收款佇列：標收款 / 催款直接長在列上 */
+    if(payQ.length){
+      h+='<div class="gs-card"><div class="gs-head"><span class="gs-title">Payments owing</span><span class="gs-badge od">'+payQ.length+'</span></div>'
+        +payQ.map(function(o){
+          var d=ordDaysSince(o.created_at);
+          var od=o.payment_status==='overdue';
+          return '<div class="gs-row"><span style="min-width:0"><span class="gs-nm">'+esc(ordNo(o))+' · '+esc(custName(o))+'</span>'
+            +'<span class="gs-sub" style="display:block">'+ordMoney(o.total)+' · '+d+'d'+(od?' · <span style="color:var(--danger)">overdue</span>':'')+'</span></span>'
+            +'<span style="display:flex;gap:6px;flex:0 0 auto"><button class="gs-act hot" data-ospaid="'+esc(o.id)+'">Paid ✓</button><button class="gs-act" data-osremind="'+esc(o.id)+'">Remind</button></span></div>';
+        }).join('')+'</div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">Payments</span><span class="gs-quiet-r">all settled</span></div>';
+    }
+    h+='<div class="gs-card quiet" id="os-all" style="cursor:pointer"><span class="gs-quiet-l">All orders</span><span class="gs-quiet-r">'+ORDERS.length+' orders ›</span></div>';
+    h+='<div class="gs-foot">Flow: accept → roast → pack → ship → get paid</div>';
+    showCPanel(h);
+    document.querySelectorAll('#cpanel [data-osacc]').forEach(function(el){el.addEventListener('click',function(){ordAccept(el.dataset.osacc,el);});});
+    document.querySelectorAll('#cpanel [data-osdec]').forEach(function(el){el.addEventListener('click',function(){ordDecline(el.dataset.osdec,el);});});
+    document.querySelectorAll('#cpanel [data-ospack]').forEach(function(el){el.addEventListener('click',function(){openOrdersTab('pack');});});
+    document.querySelectorAll('#cpanel [data-osdisp]').forEach(function(el){el.addEventListener('click',function(){ordDispatchAsk(el.dataset.osdisp);});});
+    document.querySelectorAll('#cpanel [data-ospaid]').forEach(function(el){el.addEventListener('click',function(){el.disabled=true;el.textContent='Saving…';markOrderPaid(el.dataset.ospaid);});});
+    document.querySelectorAll('#cpanel [data-osremind]').forEach(function(el){el.addEventListener('click',async function(){
+      el.disabled=true;el.textContent='Sending…';
+      try{await callEmailFn({action:'payment_reminder',order_id:el.dataset.osremind});el.textContent='Sent ✓';}
+      catch(err){el.textContent='Failed';alert('Reminder failed: '+((err&&err.message)||err));}
+      setTimeout(function(){el.disabled=false;el.textContent='Remind';},2500);
+    });});
+    var pr=document.getElementById('os-prod');if(pr)pr.addEventListener('click',function(){runModuleAction('roast:prod');});
+    var al=document.getElementById('os-all');if(al)al.addEventListener('click',function(){openOrdersTab('all');});
   }
   function runModuleAction(act){
     if(typeof act==='string'&&act.indexOf('timesheet:')===0)tsFilter=null;
@@ -5237,7 +5341,11 @@ fill="#6F4A36" stroke="none">
     return n;
   }
   function renderOrders(){
+    /* 訂單頁沒開、人在訂單站泡泡面板 → 改刷面板（Accept/收款/出貨等動作完成後自動回流） */
+    var scr=document.getElementById('screen-order');
+    if((!scr||!scr.classList.contains('open'))&&dockStack.length&&dockStack[dockStack.length-1]==='order'){renderOrderStation();return;}
     var box=document.getElementById('order-content');
+    if(!box)return;
     var title=document.getElementById('order-title');
     var count=document.getElementById('order-count');
     if(title)title.textContent='Orders';

@@ -8,7 +8,15 @@
 - **等老闆拍板**：分享平台 b/c、staff 角色開放、賣生豆/教學/wholesale
 - **已知限制**：Chrome MCP 網域白名單不含 ratio-theta.vercel.app（無法代測登入後功能）；Claude 記憶檔在 ~/.claude/.../memory/（驗證流程、工作模式都記了）
 
-## 〇、補記 — 2026-07-06 早上 session（QC 帶跑 + 補烘豆紀錄 + Re-analyse 防呆）
+## 〇、補記 — 2026-07-06 下午 session（訂單站泡泡面板）
+- **站台改造第 8 站：訂單站完成**（index.html，待 push 部署）：點 dock 的 Order 圖示不再只顯示訊息 feed，改顯示 `renderOrderStation()` 泡泡面板（樣式全沿用 .gs-*，只新增 .gs-badge.od 逾期紅膠囊）——
+  ①**New orders**（黃框，Accept/Decline 直接長在列上，重用 ordAccept/ordDecline）②**Roast queue**（Confirmed+Roasting 同名合併彙總，熟豆 g＋生豆 g ×1.15，總生豆量掛徽章；「Open production」一鍵去烘豆頁）③**Pack queue**（每單 n/m packed 進度＋unpaid 紅字；Pack 鍵跳訂單頁備貨分頁）④**Ready to ship**（黃框，Dispatch 鍵直接開原 tracking+email 彈窗 ordDispatchAsk）⑤**Payments owing**（**排除 New 單**——付款連結 Accept 才生成，接單卡已涵蓋；金額＋天數＋overdue 紅字，Paid ✓ = markOrderPaid、Remind = payment_reminder 信）⑥All orders 入口列＋流程頁尾。空佇列縮 quiet 卡
+  - **關鍵接線**：`renderOrders()` 開頭加轉接——訂單頁沒開＋dockStack 在 order 時改呼叫 renderOrderStation()，所以現成動作函式（Accept/收款/出貨彈窗關閉）完成後自動回流刷新面板，一行都不用改
+  - 驗證：jscheck ＋ preview 假資料實測全過（滿載 5 卡數字全對 2013g green、空狀態 6 quiet 卡、Dispatch 彈窗開關＋回流重畫、Pack/All 導覽跳對分頁、截圖上下半部確認）；⚠ 登入後實按 Accept/Paid/Dispatch 待 boss 部署後點一遍
+  - 註：本機預覽伺服器讀不到 Documents（macOS 權限），launch.json 指向 scratchpad/serve 複本——改完 index.html 要 cp 過去才會生效
+- 開工檢查：上一 session 全部已 push 已部署（線上 662,628 bytes 同步）；「Analysed by」確認早已上線（杯測卡/Retail 卡/詳情頁三處）
+
+## 〇之零、補記 — 2026-07-06 早上 session（QC 帶跑 + 補烘豆紀錄 + Re-analyse 防呆）
 - **QC 按鈕看不到的根因**：6 支 blend（Dreamer/Dancer/Dark Knight/April/May/June Project）只有杯測紀錄、roasts 表沒有批次 → `qcRoastForSample` 找不到對象，QC 列不渲染。**已補 6 筆 roast rows**（照 + Add Coffee 格式：green_kg null、不動庫存、recipe 快照自 blends 表），QC 列全部長出來了
 - **June Project 已 QC Pass + 風味鎖定**（老闆本人按的）；其餘 5 支 QC 還空著等老闆按 → 按完去 Retail Info push
 - **抓到複本 bug**：submitCupping（熟豆 Analyse/Re-analyse）每次 Submit 都 insert 新 sample、無防呆（saveSample 有、這條漏了）→ June Project 曾冒出 3 筆。已刪 2 筆孤兒複本（07-06、roast_date null），並在 submitCupping 加同豆同日警告（再按一次才存）+ openCupping/openBlendCupping 重置 smpDupConfirm。**已 commit 待 push 部署**；部署後驗法：對已有今日紀錄的豆按 Re-analyse → Submit 應先跳 ⚠ 警告不寫入
@@ -19,7 +27,7 @@
 - **Green dock 攤平**（index.html，待 push 部署）：DOCK_NODES.green 改 `grid` 型節點（dockTo 新支援 + `dockGridHTML()` + .gridpill/.dock-mini 樣式）——底部 dock 左格 TRADE（C Market/Inventory/Buy/Sell）右格 SAMPLE（Analyse/History），全部一按直達，不再經 Trade/Sample 兩層；新 act `green:cmarket`（cpanel 顯示 C 市場圖）、`green:inv`（開庫存頁）。green.trade/green.sample 節點留著但已無入口。⚠ 看完 C Market 要回泡泡面板得 Home→Green Buyer 兩下，之後可優化
 - **12 部門藍圖定案（老闆拍板，站台改造的底圖）**：主線九站＝1 生豆（✅已改造）→2 研發（app 支援最薄）→3 烘焙→4 QC→5 萃取→6 Retail→7 Marketing（功能散在 Retail 裡待集中：公告信/IG 素材/Google 評論/公開豆頁）→8 訂單（含出貨物流）→9 客戶；後勤三站＝10 文件（Print Centre）11 人事（Timesheet）12 財務（最零散：付款/對帳/利潤計算/雜支）。迴圈：客戶回饋→QC+研發、貨架空位→生豆。工作計劃待老闆排優先序
 - **站台改造進度板**（一站一燈、可不照順序做；每完成一站把該格改 ✅ 加日期，重畫板子照這行）：
-  ✅ 1生豆(2026-07-06) ✅ 13網店櫥窗(2026-07-06 老闆實付驗證全通：?shop→Square 結帳→webhook 匯入 #0015→信件；**遺留小修**：櫥窗價格讀 product_sync 快取（$25）但 Square 連結模式商品實收自家價（$30）→ 菜單應改讀 Square 現價。**public-shop v2**：結帳地點改優先挑名字含 Online 的 location（舊版拿第一個=Crows Nest；可用 SQUARE_LOCATION_ID secret 強制指定）；⚠ sync-to-square 的 payment_link 仍走第一個地點，老闆還沒決定要不要跟進)｜ ⬜ 0總覽首頁 ⬜ 權限地基 ⬜ Task模組 ⬜ 2研發 ⬜ 3烘焙 ⬜ 4QC ⬜ 5萃取 ⬜ 6Retail ⬜ 7Marketing ⬜ 8訂單 ⬜ 9客戶 ⬜ 10文件 ⬜ 11人事 ⬜ 12財務 ｜ 停車場（不排程）：wholesale／賣生豆／教學
+  ✅ 1生豆(2026-07-06) ✅ 13網店櫥窗(2026-07-06 老闆實付驗證全通：?shop→Square 結帳→webhook 匯入 #0015→信件；**遺留小修**：櫥窗價格讀 product_sync 快取（$25）但 Square 連結模式商品實收自家價（$30）→ 菜單應改讀 Square 現價。**public-shop v2**：結帳地點改優先挑名字含 Online 的 location（舊版拿第一個=Crows Nest；可用 SQUARE_LOCATION_ID secret 強制指定）；⚠ sync-to-square 的 payment_link 仍走第一個地點，老闆還沒決定要不要跟進)｜ ✅ 8訂單(2026-07-06 泡泡面板，見補記) ⬜ 0總覽首頁 ⬜ 權限地基 ⬜ Task模組 ⬜ 2研發 ⬜ 3烘焙 ⬜ 4QC ⬜ 5萃取 ⬜ 6Retail ⬜ 7Marketing ⬜ 9客戶 ⬜ 10文件 ⬜ 11人事 ⬜ 12財務 ｜ 停車場（不排程）：wholesale／賣生豆／教學
 - **13 網店櫥窗主體完工**（index.html 待 push；edge 已部署）：
   - **`?shop` 公開菜單頁**（免登入，樣式沿用 ?bean= 公開頁 .pb-*，新 .ps-*）：列「Square synced ∧ 風味已鎖」的豆（QC 閘門同 public-bean），卡片＝名稱/配方或處理法/風味 3 顆/描述/價格規格 + Brew guide 連到 ?bean= + Order 鍵
   - **edge `public-shop` v1**（verify_jwt false）：GET=菜單 JSON（白名單欄位、快取 5 分）；POST checkout={bean,qty(1-5)} → 每次**新開** Square payment link（order-based link 綁單一訂單不能共用，所以不快取）帶 variation_id、要求寄送地址、關小費
