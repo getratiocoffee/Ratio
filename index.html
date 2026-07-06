@@ -1908,7 +1908,26 @@ fill="#6F4A36" stroke="none">
     if(noBatch.length){
       h+='<div class="gs-card quiet" id="qcs-nobatch" style="cursor:pointer"><span class="gs-quiet-l">No roast batch — cannot QC</span><span class="gs-quiet-r">'+noBatch.length+' · Add Coffee ›</span></div>';
     }
-    h+='<div class="gs-card quiet" id="qcs-live" style="cursor:pointer"><span class="gs-quiet-l">Live on Square</span><span class="gs-quiet-r">'+live.length+' listed ›</span></div>';
+    /* ⑤ 貨架（Retail 站）：在賣的豆——價格＋Available/Sold Out；賣完＝貨架空位（輪替制訊號） */
+    if(live.length){
+      var soldMap=loadSold(),priceMap=loadRtlPrice(),gramsMap=loadGrams(),nOut=0;
+      var shelfRows=live.map(function(x){
+        var sid=x.s.sample_id||'';
+        var out=!!soldMap[sid];if(out)nOut++;
+        var pr=priceMap[sid],gv=gramsMap[sid]||250;
+        var sub=(pr!=null?('$'+pr+' · '+gv+'g'):'<span style="color:var(--danger)">no price recorded</span>')
+          +' · '+(out?'<span style="color:var(--danger)">Sold Out</span>':'Available');
+        return '<div class="gs-row" data-qcsshelf="1" style="cursor:pointer"><span style="min-width:0">'+nmHtml(x.s)
+          +'<span class="gs-sub" style="display:block">'+sub+'</span></span>'
+          +'<span class="gs-kg" style="color:'+(out?'var(--danger)':'var(--success-ink,#3E5C3A)')+'">'+(out?'✕ gap':'✓')+'</span></div>';
+      }).join('');
+      h+='<div class="gs-card'+(nOut?' warn':'')+'"><div class="gs-head"><span class="gs-title">Shelf — live on Square</span><span class="gs-badge '+(nOut?'warn':'buy')+'">'+(nOut?nOut+' sold out':live.length+' on shelf')+'</span></div>'
+        +shelfRows
+        +(nOut?'<div class="gs-sub" style="margin-top:6px;color:var(--danger)">Sold out = shelf gap — rotation: cup a sample in Green Buyer to fill it</div>':'')
+        +'<button class="gs-wide" id="qcs-shelf">Open Retail Info — manage the shelf</button></div>';
+    }else{
+      h+='<div class="gs-card quiet" id="qcs-live" style="cursor:pointer"><span class="gs-quiet-l">Shelf</span><span class="gs-quiet-r">nothing live on Square ›</span></div>';
+    }
     h+='<div class="gs-card quiet" id="qcs-page" style="cursor:pointer"><span class="gs-quiet-l">Cupping records and QC page</span><span class="gs-quiet-r">'+qs.length+' coffees ›</span></div>';
     h+='<div class="gs-foot">Flow: cup → QC verdict → lock flavour → list on Square</div>';
     showCPanel(h);
@@ -1932,6 +1951,8 @@ fill="#6F4A36" stroke="none">
     var qp=document.getElementById('qcs-prod');if(qp)qp.addEventListener('click',function(){runModuleAction('roast:prod');});
     var qn=document.getElementById('qcs-nobatch');if(qn)qn.addEventListener('click',function(){runModuleAction('beans:prod');});
     var ql=document.getElementById('qcs-live');if(ql)ql.addEventListener('click',function(){runModuleAction('beans:retail');});
+    var qsh=document.getElementById('qcs-shelf');if(qsh)qsh.addEventListener('click',function(){runModuleAction('beans:retail');});
+    document.querySelectorAll('#cpanel [data-qcsshelf]').forEach(function(el){el.addEventListener('click',function(){runModuleAction('beans:retail');});});
     var qg=document.getElementById('qcs-page');if(qg)qg.addEventListener('click',function(){runModuleAction('beans:prod');});
   }
   /* ===== Roast Station：烘焙站泡泡面板（訂單需求→重烘→批次庫齡）===== */
