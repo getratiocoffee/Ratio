@@ -22,7 +22,7 @@
 - **抽屜手風琴（老闆需求）**：全 app 抽屜/收合卡一次只開一個——新增 `accToggle(st,k)`（開新自動收其他、再點=收合）/`accOpen(st,k)`（程式主動開也先清場）。改了 12 個點：訂單卡 ordExpanded、Retail 卡 rtlOpen、烘豆日期 roastedOpen（兩處）、杯測日期 cupDateOpen、杯測卡 cuppedOpen、樣品歷史 historyOpen/sampleOpen（兩處）、Production 產地 roastAddOpen、Blending blOpen、Timesheet 歷史 tsHistOpen ＋ 4 個程式主動開的點（存單展開/查庫存展開/Add Coffee 開日期/新增 blend）。**排班表 planOpen 刻意不動**（表單預設開有班的日子，手風琴會壞 UX）。preview 實測訂單卡三步驟＋日期抽屜切換，全過
 - **聊天訊息刪除加警告（老闆需求）**：訊息中心 ✕ 鍵原本一按直刪（realtime 同步刪掉所有人的）→ `delMessage()` 加 confirm（顯示訊息前 60 字＋「刪了大家都看不到、無法復原」）。唯一刪除入口就這個。⚠ 點按路徑在 closure 裡、匿名又看不到訊息，只驗了語法＋頁面啟動零錯誤——部署後老闆自己刪一條測試訊息驗一次
 - **站台改造第 0 站：總覽首頁完成（MVP＝站台脈搏）**（index.html，待 push 部署）：首頁訊息 feed 上方新增 `#pulse` 藥丸條（`loadStationPulse()`）——五站各一顆：Orders N new / Roast N to roast（Confirmed+Roasting 單＋重烘批次）/ QC N waiting（有批次沒判定）/ Espresso N stale（在賣超過 7 天沒調）/ Green N low（低於警戒線）。**只亮有事的站**（計 0 不顯示），全部沒事顯示「All stations clear ✓」；點藥丸 dockTo 直達該站。時機：登入後抓一次、goHome 刷新（60 秒節流）、開任何 cpanel 自動藏。驗證：preview 假資料五藥丸計數（含排除規則）＋點跳站＋回首頁復現＋全清空狀態＋截圖，全過
-  - ⚠ **順帶發現 RLS 疑似漏洞**：preview 匿名（沒登入）竟能讀到 messages 團隊聊天內容（「July recycle」等真訊息）——之前只堵了 insert/update/delete，**select 對 anon 還是開的**。要鎖的話注意：loadMessages 在開機時就跑，鎖了之後要補「登入後重載 feed」不然畫面會空 → 待老闆拍板再動
+  - ~~⚠ RLS 漏洞：anon 可讀 messages~~ ✅ **已修**（老闆拍板）：migration `messages_select_authenticated_only`（drop「read for all」→ authenticated only）＋ applyRole 登入後補 `loadMessages()` 重載 feed。驗證：anon REST 讀 messages 回 `[]`、feedback 匿名寫入照常 201（測試列已清）、老闆登入中的 Chrome feed 正常顯示＋站台脈搏跑真資料（Espresso 10 stale / Green 4 low）
 - 開工檢查：上一 session 全部已 push 已部署（線上 662,628 bytes 同步）；「Analysed by」確認早已上線（杯測卡/Retail 卡/詳情頁三處）
 
 ## 〇之零、補記 — 2026-07-06 早上 session（QC 帶跑 + 補烘豆紀錄 + Re-analyse 防呆）

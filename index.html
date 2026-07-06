@@ -2319,6 +2319,7 @@ fill="#6F4A36" stroke="none">
       if(who)who.textContent=name+' · '+(cfg.label||role);
       if(typeof alignCenter==='function')alignCenter();
       try{loadStationPulse(true);}catch(e){} /* 登入後抓一次站台脈搏 */
+      try{loadMessages();}catch(e){} /* messages 已鎖 authenticated：開機那次抓不到，登入後重載 feed */
     }
     async function onSession(session){
       if(!session){showGate();return;}
