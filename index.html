@@ -1556,6 +1556,7 @@ fill="#6F4A36" stroke="none">
     if(deep==='roast'){if(typeof closePage==='function')closePage();renderRoastStation();return;}
     if(deep==='recipe'){if(typeof closePage==='function')closePage();renderEspressoStation();return;}
     if(deep==='task'){if(typeof closePage==='function')closePage();renderTaskStation();return;}
+    if(deep==='fx'){if(typeof closePage==='function')closePage();renderRnDStation();return;}
     if(rootKey==='timesheet'){
       const cw=currentWeekStart();
       const w=thisWeekEntry();
@@ -2124,6 +2125,60 @@ fill="#6F4A36" stroke="none">
       renderTaskStation();
     });});
     var tf=document.getElementById('tk-feed');if(tf)tf.addEventListener('click',function(){hideCPanel();setFeedChannel('task');});
+  }
+  /* ===== R&D Station：研發站泡泡面板（配方工作台——開發中/在賣、比例與成本體檢、杯測新鮮度）===== */
+  async function renderRnDStation(){
+    var ct=document.getElementById('ctitle');if(ct){ct.textContent='R&D Station';ct.classList.add('show');}
+    showCPanel('<div class="sempty" style="padding:34px 20px">Loading…</div>');
+    try{await blendsPull();}catch(e){}
+    try{await ensureBeansForInvoice();}catch(e){}
+    try{await loadProdSync();}catch(e){}
+    var sq=await sb.from('samples').select('sample_id,cupping_date').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false});
+    if(dockStack[dockStack.length-1]!=='fx')return; /* 載入途中使用者已離開 */
+    var lastCup={};(sq.data||[]).forEach(function(s){var k=String(s.sample_id||'').trim().toLowerCase();if(k&&!lastCup[k])lastCup[k]=s.cupping_date;});
+    var defs=loadBlendDefs().filter(function(b){return (b.name||'').trim();});
+    var live=[],dev=[];
+    defs.forEach(function(b){
+      var ps=PROD_SYNC[(b.name||'').trim()];
+      (ps&&ps.status==='synced'?live:dev).push(b);
+    });
+    var today=new Date();
+    function cupInfo(b){
+      var d=lastCup[String(b.name||'').trim().toLowerCase()];
+      if(!d)return '<span style="color:var(--danger)">never cupped</span>';
+      var days=Math.floor((today-new Date(d))/86400000);
+      return 'cupped '+esc(fmtDate(d))+(days>30?' · <span style="color:var(--danger)">'+days+'d ago</span>':'');
+    }
+    function rowHTML(b,withEdit){
+      var tot=blendTotal(b);
+      var ck=blendCostPerKg(b);
+      var sub=[(b.parts||[]).filter(function(p){return p.bean;}).length+' parts',
+        (Math.abs(tot-100)>0.01?'<span style="color:var(--danger)">pct '+gnum(tot)+'%</span>':'100%'),
+        (ck!=null?('cost $'+ck.toFixed(2)+'/kg'):'cost —'),
+        cupInfo(b)].join(' · ');
+      return '<div class="gs-row"><span style="min-width:0"><span class="gs-nm">'+esc(b.name)+'</span>'
+        +'<span class="gs-sub" style="display:block">'+sub+'</span></span>'
+        +(withEdit?'<button class="gs-act hot" data-rdedit="1">Edit</button>':'')+'</div>';
+    }
+    var h='';
+    if(dev.length){
+      h+='<div class="gs-card"><div class="gs-head"><span class="gs-title">Blends in development</span><span class="gs-badge maybe">'+dev.length+'</span></div>'
+        +dev.map(function(b){return rowHTML(b,true);}).join('')+'</div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">Blends in development</span><span class="gs-quiet-r">none — all live</span></div>';
+    }
+    if(live.length){
+      h+='<div class="gs-card"><div class="gs-head"><span class="gs-title">Live blends — health check</span><span class="gs-badge buy">'+live.length+'</span></div>'
+        +live.map(function(b){return rowHTML(b,false);}).join('')
+        +'<div class="gs-sub" style="margin-top:6px">Recipe changes go through the Blending workbench; QC and cards live in the Beans station</div></div>';
+    }
+    h+='<div class="gs-card quiet" id="rd-blend" style="cursor:pointer"><span class="gs-quiet-l">Blending workbench</span><span class="gs-quiet-r">edit recipes ›</span></div>';
+    h+='<div class="gs-card quiet" id="rd-calc" style="cursor:pointer"><span class="gs-quiet-l">Retail calculator</span><span class="gs-quiet-r">margins ›</span></div>';
+    h+='<div class="gs-foot">Flow: blend → cup → QC pass → list on Square</div>';
+    showCPanel(h);
+    document.querySelectorAll('#cpanel [data-rdedit]').forEach(function(el){el.addEventListener('click',function(){openBlending();});});
+    var rb=document.getElementById('rd-blend');if(rb)rb.addEventListener('click',function(){openBlending();});
+    var rc=document.getElementById('rd-calc');if(rc)rc.addEventListener('click',function(){openOrderCalc();});
   }
   /* ===== 0 總覽：站台脈搏（首頁 feed 上方；哪站有事亮黃、點了直達該站）===== */
   var _pulseAt=0;
