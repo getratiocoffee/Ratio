@@ -14,6 +14,7 @@
   - **關鍵接線**：`renderOrders()` 開頭加轉接——訂單頁沒開＋dockStack 在 order 時改呼叫 renderOrderStation()，所以現成動作函式（Accept/收款/出貨彈窗關閉）完成後自動回流刷新面板，一行都不用改
   - 驗證：jscheck ＋ preview 假資料實測全過（滿載 5 卡數字全對 2013g green、空狀態 6 quiet 卡、Dispatch 彈窗開關＋回流重畫、Pack/All 導覽跳對分頁、截圖上下半部確認）；⚠ 登入後實按 Accept/Paid/Dispatch 待 boss 部署後點一遍
   - 註：本機預覽伺服器讀不到 Documents（macOS 權限），launch.json 指向 scratchpad/serve 複本——改完 index.html 要 cp 過去才會生效
+- **Accept 後可取消（老闆需求，已部署 673,736 bytes 驗證）**：原本單子一 Accept 就沒有反悔的路（Decline 只在新單卡、狀態列無 Cancelled）→ 新增 `ordCancel()`（confirm → status Cancelled → order_cancelled 取消信；**已付款單 confirm 多提醒「信裡會提退款」**）。入口三處：站面板 Pack/Ship 列上 Cancel 鍵（.gs-act.danger 紅框）＋ 訂單頁展開卡片「Cancel order」（Dispatched/Cancelled 不顯示）。preview 假資料全流程實測過（confirm 文字/DB 寫入/寄信/取消後掉出佇列）；commit 6f22fcf
 - 開工檢查：上一 session 全部已 push 已部署（線上 662,628 bytes 同步）；「Analysed by」確認早已上線（杯測卡/Retail 卡/詳情頁三處）
 
 ## 〇之零、補記 — 2026-07-06 早上 session（QC 帶跑 + 補烘豆紀錄 + Re-analyse 防呆）
