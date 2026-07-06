@@ -5696,7 +5696,7 @@ fill="#6F4A36" stroke="none">
   function ordBlankItem(){return {name:'',grams:'',qty:1,price:''};}
   function startOrderDraft(){
     ordDraft={channel:'manual',cust:{name:'',type:'shop',phone:'',email:'',line1:'',suburb:'',postcode:''},
-      items:[ordBlankItem()],payment_method:'',notes:''};
+      items:[ordBlankItem()],payment_method:'bank_transfer',notes:''};
     document.getElementById('order-title').textContent='New Order';
     renderOrderForm();
   }
@@ -5718,7 +5718,7 @@ fill="#6F4A36" stroke="none">
     h+='<div class="ord-colhead"><span>Bean / blend</span><span>Grams</span><span>Qty</span><span>Price</span><span></span></div>';
     h+='<div id="of-items">'+d.items.map(function(it,i){return ordItemRowHTML(it,i);}).join('')+'</div>';
     h+='<button class="ord-additem" id="of-additem" style="margin-top:8px">+ Add item</button></div>';
-    h+='<div class="ord-field"><label class="ord-flab">Payment method</label><input id="of-pay" value="'+esc(d.payment_method)+'" placeholder="e.g. Bank transfer / Cash" /></div>';
+    h+='<div class="ord-field"><label class="ord-flab">Payment method</label><select id="of-pay"><option value="bank_transfer"'+(d.payment_method!=='platform'?' selected':'')+'>Bank transfer</option><option value="platform"'+(d.payment_method==='platform'?' selected':'')+'>Card / platform (Square)</option></select></div>';
     h+='<div class="ord-field"><label class="ord-flab">Notes</label><textarea id="of-notes" rows="2" placeholder="optional">'+esc(d.notes)+'</textarea></div>';
     h+='<div class="ord-actrow" style="padding:4px 0 24px"><button class="gbtn ghost" id="of-cancel" style="width:auto;padding:11px 20px;margin:0">Cancel</button>'+
        '<button class="gbtn" id="of-save" style="width:auto;padding:11px 24px;margin:0">Create order</button></div>';
@@ -5794,7 +5794,7 @@ fill="#6F4A36" stroke="none">
     /* order_no = max+1 */
     var maxNo=0;ORDERS.forEach(function(o){if(o.order_no!=null&&o.order_no>maxNo)maxNo=o.order_no;});
     var row={order_no:maxNo+1,channel:d.channel,status:'New',customer_id:custId,items:items,total:total,
-      currency:d.cust.type==='overseas'?'AUD':'AUD',payment_method:d.payment_method||null,
+      currency:d.cust.type==='overseas'?'AUD':'AUD',payment_method:(d.payment_method==='platform')?'platform':'bank_transfer',
       payment_status:'pending_payment',notes:d.notes||null};
     try{
       var r=await sb.from('orders').insert(row).select().single();
