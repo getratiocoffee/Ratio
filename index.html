@@ -340,6 +340,13 @@
   .gs-badge.maybe{background:#F6EBCB;color:#5C4A10}
   .gs-badge.od{background:rgba(196,74,53,.12);color:var(--danger)}
   .gs-act.danger{border-color:var(--danger);color:var(--danger)}
+  /* ===== 0 總覽：首頁站台脈搏（feed 上方一排狀態藥丸）===== */
+  .pulse{display:none;flex-wrap:wrap;gap:7px;padding:12px 16px 0}
+  .pulse.show{display:flex}
+  .pulse-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font-family:inherit;font-size:12px;font-weight:600;color:var(--ink);cursor:pointer}
+  .pulse-chip.hot{border-color:#E0B341}
+  .pulse-chip .pc-n{background:#E0B341;color:#5C4A10;border-radius:999px;padding:1px 7px;font-size:11px;font-weight:700}
+  .pulse-chip.ok{color:var(--muted);cursor:default}
   .gs-quiet-l{font-size:13px;color:var(--muted)}
   .gs-quiet-r{font-size:11.5px;color:var(--muted)}
   .gs-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--bg)}
@@ -1087,6 +1094,7 @@
   <div class="board">
     <header class="bhead"><span class="logo"><img src="logo.png" alt="Ratio" /></span><div class="hend"><div class="hright"><span id="who"></span><div class="clock" id="clock">9:41</div></div><button id="signout" class="logout-door" type="button" aria-label="Logout" title="Logout"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button></div></header>
     <div class="ctitle" id="ctitle"></div>
+    <div class="pulse" id="pulse"></div>
     <div class="feed" id="feed"></div>
     <div class="cpanel" id="cpanel"></div>
     <div class="composer">
@@ -1500,11 +1508,13 @@ fill="#6F4A36" stroke="none">
     if(typeof closePage==='function')closePage();
     if(typeof closeFolder==='function')closeFolder();
     if(dockStack.length)dockTo([]);
+    loadStationPulse(); /* 回首頁順手刷新站台脈搏（60 秒節流） */
   }
   function setContentTitle(t){const el=document.getElementById('ctitle');if(!el)return;el.textContent=t||'';el.classList.toggle('show',!!t);}
   function showCPanel(html){
     document.getElementById('feed').style.display='none';
     document.querySelector('.composer').style.display='none';
+    var _p=document.getElementById('pulse');if(_p)_p.classList.remove('show');
     const c=document.getElementById('cpanel');
     const fresh=!c.classList.contains('show');
     c.innerHTML=html;c.classList.add('show');c.scrollTop=0;
@@ -1520,6 +1530,7 @@ fill="#6F4A36" stroke="none">
     const c=document.getElementById('cpanel');c.classList.remove('show');c.innerHTML='';
     document.getElementById('feed').style.display='';
     document.querySelector('.composer').style.display='';
+    if(typeof pulseVisible==='function')pulseVisible();
   }
   let tsFilter=null;
   function renderModulePanel(rootKey){
@@ -2038,6 +2049,77 @@ fill="#6F4A36" stroke="none">
     var en=document.getElementById('es-new');if(en)en.addEventListener('click',function(){runModuleAction('recipe:dialin');});
     var eh=document.getElementById('es-hist');if(eh)eh.addEventListener('click',function(){runModuleAction('recipe:dialinhist');});
   }
+  /* ===== 0 總覽：站台脈搏（首頁 feed 上方；哪站有事亮黃、點了直達該站）===== */
+  var _pulseAt=0;
+  function pulseVisible(){
+    var p=document.getElementById('pulse');if(!p)return;
+    var cp=document.getElementById('cpanel');
+    var on=!dockStack.length&&!(cp&&cp.classList.contains('show'))&&p.children.length>0;
+    p.classList.toggle('show',on);
+  }
+  async function loadStationPulse(force){
+    var p=document.getElementById('pulse');if(!p)return;
+    try{var g=await sb.auth.getSession();if(!(g&&g.data&&g.data.session))return;}catch(e){return;} /* 未登入不打（RLS 全空白費） */
+    if(!force&&Date.now()-_pulseAt<60000){pulseVisible();return;} /* 60 秒內不重抓 */
+    _pulseAt=Date.now();
+    var rs=await Promise.all([
+      sb.from('orders').select('status,payment_status').neq('status','Cancelled'),
+      sb.from('beans').select('quantity,low_stock_kg'),
+      sb.from('roasts').select('bean_name,bean_id,roast_date,qc'),
+      sb.from('samples').select('sample_id,bean_id,process,roast_date,cupping_date,flavour_locked').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
+      sb.from('dialins').select('coffee,created_at').order('created_at',{ascending:false}).limit(200),
+      sb.from('product_sync').select('bean_id,status').eq('channel','square')
+    ]);
+    var orders=rs[0].data||[],beans=rs[1].data||[],roasts=rs[2].data||[],smps=rs[3].data||[],dls=rs[4].data||[],syncs=rs[5].data||[];
+    /* Orders：新單數 */
+    var nNew=orders.filter(function(o){return (o.status||'New')==='New';}).length;
+    /* Roast：待烘訂單 + 重烘批次 */
+    var nRoast=orders.filter(function(o){return o.status==='Confirmed'||o.status==='Roasting';}).length
+      +roasts.filter(function(r){return r.qc==='reroast';}).length;
+    /* QC：有批次沒判定（同 QC 站 wait 佇列邏輯，本地配對不動全域 ROASTS） */
+    function matchLocal(s){
+      var nm=String(s.sample_id||'').trim().toLowerCase();if(!nm)return null;
+      var cands=roasts.filter(function(r){
+        if(s.bean_id&&r.bean_id)return String(r.bean_id)===String(s.bean_id);
+        return String(r.bean_name||'').trim().toLowerCase()===nm;
+      });
+      if(!cands.length)return null;
+      if(s.roast_date){var ex=cands.find(function(r){return (r.roast_date||'')===s.roast_date;});if(ex)return ex;}
+      cands.sort(function(a,b){return String(a.roast_date||'')<String(b.roast_date||'')?1:-1;});
+      return cands[0];
+    }
+    var seen={},nQC=0;
+    smps.forEach(function(s){
+      var k=s.bean_id?('id:'+String(s.bean_id)):(String(s.sample_id||'').trim().toLowerCase()+''+String(s.process||'').trim().toLowerCase());
+      if(seen[k])return;seen[k]=1;
+      var qr=matchLocal(s);
+      if(qr&&!qr.qc)nQC++;
+    });
+    /* Espresso：在賣的豆超過 7 天沒調（或從沒調過） */
+    var latest={};dls.forEach(function(d){var k=String(d.coffee||'').trim().toLowerCase();if(k&&!latest[k])latest[k]=d;});
+    var nEsp=0,now=Date.now();
+    syncs.forEach(function(x){
+      if(x.status!=='synced')return;
+      var d=latest[String(x.bean_id||'').trim().toLowerCase()];
+      if(!d){nEsp++;return;}
+      var t=new Date(d.created_at);
+      if(isNaN(t)||((now-t)/86400000)>ESP_STALE_DAYS)nEsp++;
+    });
+    /* Green：低庫存 */
+    var nLow=beans.filter(function(b){var t=beanLowTh(b);return b.quantity!=null&&t>0&&Number(b.quantity)<=t;}).length;
+    var chips=[
+      {n:nNew,label:'Orders',word:'new',to:'order'},
+      {n:nRoast,label:'Roast',word:'to roast',to:'roast'},
+      {n:nQC,label:'QC',word:'waiting',to:'beans'},
+      {n:nEsp,label:'Espresso',word:'stale',to:'recipe'},
+      {n:nLow,label:'Green',word:'low',to:'green'}
+    ].filter(function(c){return c.n>0;});
+    p.innerHTML=chips.length?chips.map(function(c){
+      return '<button class="pulse-chip hot" data-pulse="'+c.to+'">'+esc(c.label)+' <span class="pc-n">'+c.n+' '+c.word+'</span></button>';
+    }).join(''):'<span class="pulse-chip ok">All stations clear ✓</span>';
+    p.querySelectorAll('[data-pulse]').forEach(function(el){el.addEventListener('click',function(){dockTo([el.dataset.pulse]);});});
+    pulseVisible();
+  }
   function runModuleAction(act){
     if(typeof act==='string'&&act.indexOf('timesheet:')===0)tsFilter=null;
     if(act==='beans:retail'){openPage('beans');beansView='retail';renderBeansRetail();}
@@ -2236,6 +2318,7 @@ fill="#6F4A36" stroke="none">
       const who=document.getElementById('who');
       if(who)who.textContent=name+' · '+(cfg.label||role);
       if(typeof alignCenter==='function')alignCenter();
+      try{loadStationPulse(true);}catch(e){} /* 登入後抓一次站台脈搏 */
     }
     async function onSession(session){
       if(!session){showGate();return;}
