@@ -407,6 +407,17 @@
   .pb-brew-l b{font-family:var(--font-mono);font-weight:600}
   .pb-foot{text-align:center;font-size:12px;color:var(--muted);margin-top:18px;line-height:1.7}
   .pb-foot a{color:var(--accent);font-weight:600}
+  /* ===== 分享平台 d)：公開菜單櫥窗（?shop）===== */
+  .ps-list{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+  .ps-item{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;text-align:left}
+  .ps-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .ps-name{font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--brand)}
+  .ps-price{font-family:var(--font-mono);font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap}
+  .ps-g{font-size:11px;color:var(--muted);font-weight:400}
+  .ps-actions{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+  .ps-more{font-size:12.5px;font-weight:600;color:var(--accent);text-decoration:none}
+  .ps-buy{border:none;background:var(--accent);color:#fff;font-family:inherit;font-size:13px;font-weight:600;border-radius:999px;padding:8px 20px;cursor:pointer}
+  .ps-buy:disabled{opacity:.6}
   .gsec{font-size:12px;font-weight:600;color:var(--muted);padding:14px 18px 2px;letter-spacing:.02em}
   /* level 1: country tiles */
   .gcountries{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:8px 16px 16px}
@@ -1980,6 +1991,49 @@ fill="#6F4A36" stroke="none">
             +'</div>';
         })
         .catch(function(){ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div><div class="sempty">Could not load this page — please try again.</div></div>';});
+    })();
+
+    /* ============ 分享平台 d)：公開菜單櫥窗（?shop，免登入；上架中＋風味已鎖的豆，可下單） ============ */
+    (function(){
+      var qs=null;try{qs=new URLSearchParams(location.search);}catch(e){}
+      if(!qs||qs.get('shop')==null)return;
+      var ov=document.createElement('div');ov.id='pb-ov';
+      ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div><div class="sempty">Loading…</div></div>';
+      document.body.appendChild(ov);
+      fetch(SUPABASE_URL+'/functions/v1/public-shop')
+        .then(function(r){return r.json();})
+        .then(function(d){
+          if(!d||!d.ok||!d.beans||!d.beans.length){ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div><div class="sempty">The shelf is being restocked — check back soon.</div></div>';return;}
+          var cards=d.beans.map(function(b){
+            var sub=[];
+            if(b.recipe&&b.recipe.length)sub.push(b.recipe.map(function(p){return esc(p.bean)+' '+p.pct+'%';}).join(' · '));
+            else if(b.process)sub.push(esc(b.process));
+            return '<div class="ps-item">'
+              +'<div class="ps-top"><div><div class="ps-name">'+esc(b.name)+'</div>'+(sub.length?'<div class="pb-sub">'+sub.join(' · ')+'</div>':'')+'</div>'
+              +(b.price!=null?'<div class="ps-price">$'+Number(b.price).toFixed(0)+'<span class="ps-g"> /'+(b.grams||250)+'g</span></div>':'')+'</div>'
+              +((b.flavour&&b.flavour.length)?'<div class="pb-flav" style="margin-top:9px">'+b.flavour.map(function(f){return '<span class="pb-chip">'+esc(f)+'</span>';}).join('')+'</div>':'')
+              +(b.comment?'<div class="pb-sub" style="margin-top:9px">'+esc(b.comment)+'</div>':'')
+              +'<div class="ps-actions"><a class="ps-more" href="?bean='+encodeURIComponent(b.slug)+'">Brew guide →</a>'
+              +'<button class="ps-buy" data-buy="'+esc(b.name)+'">Order</button></div>'
+              +'</div>';
+          }).join('');
+          ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div>'
+            +'<div class="pb-name">On the shelf</div>'
+            +'<div class="pb-sub">Freshly roasted in Crows Nest · tap Brew guide for flavour and recipes</div>'
+            +'<div class="ps-list">'+cards+'</div>'
+            +'<div class="pb-foot">Ratio Coffee · Crows Nest, Sydney<br><a href="?fb=store">Tried it? Tell us what you think →</a></div></div>';
+          ov.querySelectorAll('.ps-buy[data-buy]').forEach(function(el){el.addEventListener('click',function(){
+            el.disabled=true;el.textContent='Opening…';
+            fetch(SUPABASE_URL+'/functions/v1/public-shop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'checkout',bean:el.dataset.buy})})
+              .then(function(r){return r.json();})
+              .then(function(res){
+                if(res&&res.ok&&res.url){location.href=res.url;return;}
+                el.disabled=false;el.textContent='Order';alert('Could not start checkout — please try again.');
+              })
+              .catch(function(){el.disabled=false;el.textContent='Order';alert('Could not start checkout — please try again.');});
+          });});
+        })
+        .catch(function(){ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div><div class="sempty">Could not load the shop — please try again.</div></div>';});
     })();
 
     async function submit(){

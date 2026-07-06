@@ -19,7 +19,13 @@
 - **Green dock 攤平**（index.html，待 push 部署）：DOCK_NODES.green 改 `grid` 型節點（dockTo 新支援 + `dockGridHTML()` + .gridpill/.dock-mini 樣式）——底部 dock 左格 TRADE（C Market/Inventory/Buy/Sell）右格 SAMPLE（Analyse/History），全部一按直達，不再經 Trade/Sample 兩層；新 act `green:cmarket`（cpanel 顯示 C 市場圖）、`green:inv`（開庫存頁）。green.trade/green.sample 節點留著但已無入口。⚠ 看完 C Market 要回泡泡面板得 Home→Green Buyer 兩下，之後可優化
 - **12 部門藍圖定案（老闆拍板，站台改造的底圖）**：主線九站＝1 生豆（✅已改造）→2 研發（app 支援最薄）→3 烘焙→4 QC→5 萃取→6 Retail→7 Marketing（功能散在 Retail 裡待集中：公告信/IG 素材/Google 評論/公開豆頁）→8 訂單（含出貨物流）→9 客戶；後勤三站＝10 文件（Print Centre）11 人事（Timesheet）12 財務（最零散：付款/對帳/利潤計算/雜支）。迴圈：客戶回饋→QC+研發、貨架空位→生豆。工作計劃待老闆排優先序
 - **站台改造進度板**（一站一燈、可不照順序做；每完成一站把該格改 ✅ 加日期，重畫板子照這行）：
-  ✅ 1生豆(2026-07-06) ｜ ⬜ 0總覽首頁 ⬜ 權限地基 ⬜ Task模組 ⬜ 2研發 ⬜ 3烘焙 ⬜ 4QC ⬜ 5萃取 ⬜ 6Retail ⬜ 7Marketing ⬜ 8訂單 ⬜ 9客戶 ⬜ 10文件 ⬜ 11人事 ⬜ 12財務 ｜ 停車場（不排程）：wholesale／賣生豆／教學
+  ✅ 1生豆(2026-07-06) 🟡 13網店櫥窗（主體完工待實測：詳見下）｜ ⬜ 0總覽首頁 ⬜ 權限地基 ⬜ Task模組 ⬜ 2研發 ⬜ 3烘焙 ⬜ 4QC ⬜ 5萃取 ⬜ 6Retail ⬜ 7Marketing ⬜ 8訂單 ⬜ 9客戶 ⬜ 10文件 ⬜ 11人事 ⬜ 12財務 ｜ 停車場（不排程）：wholesale／賣生豆／教學
+- **13 網店櫥窗主體完工**（index.html 待 push；edge 已部署）：
+  - **`?shop` 公開菜單頁**（免登入，樣式沿用 ?bean= 公開頁 .pb-*，新 .ps-*）：列「Square synced ∧ 風味已鎖」的豆（QC 閘門同 public-bean），卡片＝名稱/配方或處理法/風味 3 顆/描述/價格規格 + Brew guide 連到 ?bean= + Order 鍵
+  - **edge `public-shop` v1**（verify_jwt false）：GET=菜單 JSON（白名單欄位、快取 5 分）；POST checkout={bean,qty(1-5)} → 每次**新開** Square payment link（order-based link 綁單一訂單不能共用，所以不快取）帶 variation_id、要求寄送地址、關小費
+  - 驗證：GET 回 June Project+Alo Village（其餘 5 支等鎖風味自動出現）、checkout 真的生出 square.link、本機 ?shop 渲染+Order 按鈕 POST 200；跳轉外域被預覽沙盒擋（真瀏覽器正常）
+  - **⚠ 最後一針未驗**：真實下單→webhook 匯入。風險點：payment link 訂單的 fulfillment recipient 若是空的會被 v13 POS 閘擋掉不匯入（設了 ask_for_shipping_address 理論上會有）。驗法：老闆自己下一單真的付款→看 Orders 有沒有自動出現+通知信→Square 後台退款
+  - 客人網址：https://ratio-theta.vercel.app/?shop （待 push 部署後生效）
 - **老闆輪替制豆單重要背景**：豆子賣完就換新豆、不回購同一支 → 低庫存＝「貨架空位」訊號要接到找新豆流程，不是 reorder；警戒線設 0 = 該豆不警示
 - **Announce「沒收到信」破案**：管線沒壞（Resend 兩封都 Delivered）。orders@coffeeratio.com.au 是 getratiocoffee@gmail.com 的 send-as alias → Gmail 視為「自己寄自己」**跳過收件匣**（只在所有郵件/寄件備份）。已把測試客人 email 改成 ratiocoffee2473@gmail.com（另一帳號、正常進收件匣）；真實客人不受影響
 
