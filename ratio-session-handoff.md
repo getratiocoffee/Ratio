@@ -19,6 +19,10 @@
 - **杯測快錄跟著搬進新殼**（new/index.html，同輪第二件，待 push）：補齊管線斷點——新殼 QC 佇列靠 samples 配批次，沒杯測過的新批次進不了 QC。①**今日流新「Cup」卡**（st:QC）：roasts status='pending_cupping' 且 qc 空 且不在 QC 佇列的批次（＝該豆從沒杯測過；有舊紀錄的豆照 classic 配對規則直接進 QC 佇列，不出 Cup 卡）——線上正好命中老闆 7/6 真烘的 5 批（Alo Bona/Finca Milan/El Vergel/Hakuna Matata/Danche）②**Cup 抽屜**：五感官 Light/Medium/Strong 三段選（再點＝清除）、風味 3 格（自動帶同豆上次紀錄）、描述 30 字 ③存檔照 classic submitCupping：no 依日連號（存檔時現查）、samples insert（supplier Ratio Coffee/decision null/cupper=WHO）＋容錯鏈（features→cupper→bean_id 逐個拿掉重試）→ roasts 標 cupped → toast「now in the QC queue」。防呆：全空擋存、同豆同日 confirm。loadAll roasts 查詢補帶 status 欄
   - 驗證：jscheck＋preview 假資料（卡片三分流：沒杯測出 Cup 卡/已判定排除/有紀錄走 QC 卡 ✓、風味預填 ✓、三段選切換與清除 ✓、insert payload 逐欄比對含 no=5 連號 ✓、status cupped ✓、同日重複 confirm 擋寫入 ✓）＋手機截圖；⚠ 部署後老闆拿那 5 批真杯一次
   - **管線現在成一條龍**：/new 記烘豆 → Cup 卡杯測 → QC 佇列判定 → （上架仍回 classic）
+- **上架也搬進新殼——生產線全線在手機上走完**（new/index.html，同輪第三件，待 push）：①**「List · 豆名」卡**（st:Shelf，director）：QC pass 且 Square 未上架 → 抽屜：袋規 100-250g 段選＋主價＋500g/1kg 選填（**價格記憶走 app_state rtl_price/rtl_g/rtl_sizes**，classic 同款鑰匙跨 app 同步；讀回最新再改防互蓋）＋未鎖時「Lock flavour description」開關（預設開）→ Push＝現畫資訊卡（同出貨信管線 flavour_locked 優先）→ callFn sync-to-square action:'push'（payload 同 classic pushToSquare：name/description=process·風味/grams/price/variations/image_b64）→ 回寫價格記憶＋補鎖風味。未鎖硬推會 confirm ②**「Lock flavours — N coffees」聚合卡**：QC pass＋已上架但風味沒鎖 → 抽屜逐支列風味＋Lock 鍵（samples.flavour_locked=true），鎖過的顯示 locked ✓ ③QCQ 去重迴圈順便產 LISTQ/LOCKQ，不多跑查詢
+  - **線上現況**：所有豆已 synced（老闆自己上完剩餘豆了），List 佇列今天是空的（未來新豆自動冒卡）；**Lock 聚合卡會亮 8 支**（Alo Village/April/Dancer/Dark Knight/Dreamer/La Molienda/May…風味都沒鎖）——老闆抽屜裡逐支按 Lock 就好
+  - 驗證：jscheck＋preview 假資料（四分流：未上架→List/已上架未鎖→Lock 聚合/已鎖→無卡/QC 未判→QC 卡 ✓、app_state 預填 28/50/250g ✓、push payload 逐欄比對含真畫 125KB 卡片與三規格 variations ✓、記憶回寫三鑰匙 ✓、鎖風味 update ✓、Lock 抽屜逐支鎖＋locked ✓ 重畫 ✓）＋兩張手機截圖；⚠ 真推 Square 待部署後老闆用下一支新豆驗
+  - **新殼生產線至此全線**：記烘豆 → 杯測 → QC → 鎖風味/上架 Square，classic 只剩低頻與後勤
 - 開發備忘：launch.json 加了 ratio-static-2（port 8125，8124 被別的 session 佔用時用）；serve 複本路徑不變
 
 ## 〇、補記 — 2026-07-06 下午 session（訂單站泡泡面板）

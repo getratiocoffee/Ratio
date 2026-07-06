@@ -190,12 +190,19 @@ function matchRoast(s){
 function buildItems(){
   var out=[],sn=snoozeMap();
   /* QC 佇列（也給 QC 分頁用） */
-  var seen={};QCQ=[];
+  var seen={};QCQ=[];var LISTQ=[],LOCKQ=[];
   DB.samples.forEach(function(s){
     var k=s.bean_id?('id:'+String(s.bean_id)):((s.sample_id||'')+'·'+(s.process||'')).toLowerCase();
     if(seen[k])return;seen[k]=1;
     var r=matchRoast(s);
-    if(r&&!r.qc)QCQ.push({s:s,r:r});
+    if(r&&!r.qc){QCQ.push({s:s,r:r});return;}
+    /* 上架佇列：QC pass 後未上 Square → List 卡；已上架但風味沒鎖 → Lock 聚合卡 */
+    if(r&&r.qc==='pass'){
+      var nm=String(s.sample_id||'').trim();if(!nm)return;
+      var sync=DB.syncs.find(function(x){return String(x.bean_id||'').trim().toLowerCase()===nm.toLowerCase();});
+      if(!(sync&&sync.status==='synced'))LISTQ.push(s);
+      else if(!s.flavour_locked)LOCKQ.push(s);
+    }
   });
   /* 晨報 */
   var newQ=DB.orders.filter(function(o){return (o.status||'New')==='New';});
@@ -263,6 +270,21 @@ function buildItems(){
       act:'Cup…',det:[['Roasted',fmtD(r.roast_date)||'—'],['Green in',(r.green_kg!=null?r.green_kg:'—')+' kg'],['Next','cup it, then it lands in the QC queue']],
       det2:'Later',roles:['director','roaster'],kind:'cup',ref:r});
   });
+  /* 上架卡：QC pass、Square 還沒上 → 抽屜定價推上架 */
+  LISTQ.forEach(function(s){
+    var f=(s.features||[]).slice(0,3).join(', ');
+    out.push({id:'list:'+s.id,st:'Shelf',hot:0,t:'List · '+esc(s.sample_id||'—'),
+      s:'QC passed · not on Square yet'+(f?' · '+esc(f):''),
+      act:'List on Square…',det:[['Flavour',f||'—'],['Process',s.process||'—'],['Flavour locked',s.flavour_locked?'yes':'not yet']],
+      det2:'Later',roles:['director'],kind:'list',ref:s});
+  });
+  /* 鎖風味聚合卡：已上架但風味沒鎖（鎖定的紀錄才會優先上資訊卡） */
+  if(LOCKQ.length){
+    out.push({id:'locks',st:'Shelf',hot:0,t:'Lock flavours — '+LOCKQ.length+' coffee'+(LOCKQ.length>1?'s':''),
+      s:LOCKQ.slice(0,3).map(function(x){return esc(x.sample_id);}).join(' · ')+(LOCKQ.length>3?' · +'+(LOCKQ.length-3)+' more':''),
+      act:'Lock…',det:LOCKQ.map(function(x){return [x.sample_id,(x.features||[]).slice(0,3).join(', ')||'no flavour notes'];}),
+      det2:'Later',roles:['director'],kind:'locks',ref:LOCKQ});
+  }
   packQ.forEach(function(o){
     var c=custById(o.customer_id);
     out.push({id:'pack:'+o.id,st:'Orders',hot:0,t:'Pack #'+String(o.order_no||'—').padStart(4,'0')+' · '+((c&&c.name)||'Walk-in'),
@@ -394,6 +416,8 @@ async function runAction(id,btn){
     if(i.kind==='dialin'){openDialinForm(i);return;}
     if(i.kind==='roastlog'){openRoastSheet(Array.isArray(i.ref)?i.ref:null);return;}
     if(i.kind==='cup'){openCupSheet(i);return;}
+    if(i.kind==='list'){await openListSheet(i);return;}
+    if(i.kind==='locks'){openLocksSheet(i);return;}
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent=i.act;}
     alert((i.act||'Action')+' failed: '+(e&&e.message||e));
@@ -878,6 +902,110 @@ function openDialinForm(i){
     closeDrawer();toast('Dial-in logged ✓');dropCard(i.id);
   });
   $('dl-cl').addEventListener('click',closeDrawer);
+}
+/* ===== 上架（照 classic pushToSquare：定價→現畫資訊卡→sync-to-square push；價格記憶走 app_state 跨 app 同步）===== */
+var LST=null;
+async function openListSheet(i){
+  var s=i.ref;var nm=String(s.sample_id||'').trim();
+  /* 帶上次的價格/規格記憶（classic 同款鑰匙） */
+  var mem={rtl_price:{},rtl_g:{},rtl_sizes:{}};
+  try{var r=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes']);
+    (r.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
+      if(v&&typeof v==='object')mem[x.key]=v;});
+  }catch(e){}
+  var sc=mem.rtl_sizes[nm]||{};
+  LST={s:s,name:nm,grams:mem.rtl_g[nm]||250,price:mem.rtl_price[nm]!=null?String(mem.rtl_price[nm]):'',
+    p500:sc.g500!=null?String(sc.g500):'',p1k:sc.g1000!=null?String(sc.g1000):'',lock:!s.flavour_locked};
+  paintListSheet();
+}
+function paintListSheet(){
+  var s=LST.s;
+  openDrawerHTML('<div class="t" style="font-size:19px">List · '+esc(LST.name)+'</div>'
+    +'<div class="s" style="margin-top:2px">draws a fresh info card and pushes to Square</div>'
+    +'<div class="dlab">Bag size</div>'
+    +'<div class="pm-seg">'+[100,150,200,250].map(function(g){return '<button data-g="'+g+'"'+(LST.grams===g?' class="on"':'')+'>'+g+'g</button>';}).join('')+'</div>'
+    +'<div class="dlab">Price (AUD)</div><input class="din" id="ls-p" inputmode="decimal" placeholder="e.g. 25" value="'+esc(LST.price)+'">'
+    +'<div class="dlab">500g price · blank = skip</div><input class="din" id="ls-p5" inputmode="decimal" placeholder="—" value="'+esc(LST.p500)+'">'
+    +'<div class="dlab">1kg price · blank = skip</div><input class="din" id="ls-p1" inputmode="decimal" placeholder="—" value="'+esc(LST.p1k)+'">'
+    +(s.flavour_locked?'':'<div class="pm-seg" style="margin-top:14px"><button id="ls-lk"'+(LST.lock?' class="on"':'')+'>'+(LST.lock?'✓ ':'')+'Lock flavour description</button></div>')
+    +'<button class="act" id="ls-push">Push to Square</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  function grab(){LST.price=$('ls-p').value;LST.p500=$('ls-p5').value;LST.p1k=$('ls-p1').value;}
+  document.querySelectorAll('#drawer [data-g]').forEach(function(el){el.addEventListener('click',function(){grab();LST.grams=+el.dataset.g;paintListSheet();});});
+  var lk=$('ls-lk');if(lk)lk.addEventListener('click',function(){grab();LST.lock=!LST.lock;paintListSheet();});
+  $('ls-push').addEventListener('click',function(){grab();pushListToSquare();});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+async function pushListToSquare(){
+  var s=LST.s,nm=LST.name;
+  var price=Number(String(LST.price).replace(/[^0-9.]/g,''));
+  if(!price||price<=0){toast('Enter a price first');return;}
+  var p500=Number(String(LST.p500).replace(/[^0-9.]/g,''))||0;
+  var p1k=Number(String(LST.p1k).replace(/[^0-9.]/g,''))||0;
+  if(!s.flavour_locked&&!LST.lock&&!confirm('Flavour description is not locked — push anyway?'))return;
+  var btn=$('ls-push');if(btn){btn.disabled=true;btn.textContent='Drawing card…';}
+  try{
+    /* 資訊卡：同出貨信管線（flavour_locked 紀錄優先） */
+    var img64=null;
+    try{
+      var fq=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',nm)
+        .order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
+      var full=fq&&fq.data&&fq.data[0];
+      if(full){
+        var dots=await cardDots();
+        var blendMap={};
+        try{var bq=await sb.from('blends').select('name,parts,note');
+          (bq.data||[]).forEach(function(b){if(b.name)blendMap[String(b.name).trim().toLowerCase()]={parts:b.parts||[],note:b.note||''};});}catch(e){}
+        img64=await makeSquareCard(await cardDataFor(full,blendMap,dots));
+      }
+    }catch(e){console.error('card',e);}
+    if(btn)btn.textContent='Pushing…';
+    var variations=[{grams:LST.grams,price:price}];
+    if(p500>0)variations.push({grams:500,price:p500});
+    if(p1k>0)variations.push({grams:1000,price:p1k});
+    var desc=[s.process||'',(s.features||[]).slice(0,3).join(', ')].filter(Boolean).join(' · ');
+    await callFn('sync-to-square',{action:'push',sample_id:nm,name:nm,description:desc,grams:LST.grams,price:price,variations:variations,image_b64:img64});
+    /* 價格記憶寫回 app_state（讀回最新再改，避免蓋掉別台改的） */
+    try{
+      var mem=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes']);
+      var m={rtl_price:{},rtl_g:{},rtl_sizes:{}};
+      (mem.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}if(v&&typeof v==='object')m[x.key]=v;});
+      m.rtl_price[nm]=price;m.rtl_g[nm]=LST.grams;
+      var sc={};if(p500>0)sc.g500=p500;if(p1k>0)sc.g1000=p1k;m.rtl_sizes[nm]=sc;
+      for(var k in m)await sb.from('app_state').upsert({key:k,value:m[k],updated_at:new Date().toISOString()},{onConflict:'key'});
+    }catch(e){console.error('price memory',e);}
+    if(!s.flavour_locked&&LST.lock){try{await sb.from('samples').update({flavour_locked:true}).eq('id',s.id);}catch(e){}}
+    closeDrawer();toast('Live on Square ✓');
+    await reload();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Push to Square';}
+    alert('Push failed: '+(e&&e.message||e));
+  }
+}
+/* ===== 鎖風味（聚合抽屜：逐支 Lock，寫 samples.flavour_locked）===== */
+function openLocksSheet(i){
+  var list=i.ref.slice();
+  function paint(){
+    openDrawerHTML('<div class="t" style="font-size:19px">Lock flavour descriptions</div>'
+      +'<div class="s" style="margin-top:2px">locked records go on info cards and emails — lock when the notes are right</div>'
+      +list.map(function(s,ix){
+        return '<div class="dl" style="align-items:center"><span><b>'+esc(s.sample_id)+'</b><br><span style="color:var(--muted);font-size:13px">'+esc((s.features||[]).slice(0,3).join(', ')||'no flavour notes')+'</span></span>'
+          +(s.flavour_locked?'<span>locked ✓</span>':'<button class="dclose" style="margin:0;width:auto;padding:8px 14px" data-lk="'+ix+'">Lock</button>')+'</div>';
+      }).join('')
+      +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+    document.querySelectorAll('#drawer [data-lk]').forEach(function(el){el.addEventListener('click',async function(){
+      var s=list[+el.dataset.lk];
+      el.disabled=true;el.textContent='…';
+      var u=await sb.from('samples').update({flavour_locked:true}).eq('id',s.id);
+      if(u.error){el.disabled=false;el.textContent='Lock';alert('Lock failed: '+u.error.message);return;}
+      s.flavour_locked=true;toast('Locked ✓');paint();
+    });});
+    $('d-cl').addEventListener('click',async function(){
+      closeDrawer();
+      if(list.some(function(s){return s.flavour_locked;}))await reload();
+    });
+  }
+  paint();
 }
 /* ===== 杯測快錄（照 classic submitCupping 規則：samples insert＋批次標 cupped → 進 QC 佇列）===== */
 var CUP=null;
