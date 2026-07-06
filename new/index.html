@@ -65,6 +65,7 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .grab{width:44px;height:5px;border-radius:99px;background:var(--line2);margin:4px auto 14px}
 .dl{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:15px}
 .dl span:first-child{color:var(--muted)}
+.dl span.red{color:var(--danger)}
 .dclose{display:block;width:100%;border:1px solid var(--line2);background:var(--bg);color:var(--ink);border-radius:10px;padding:15px;font-size:16px;font-weight:700;font-family:inherit;margin-top:16px;cursor:pointer}
 .pk-row{display:block;width:100%;text-align:left;border:1.5px solid var(--line2);background:var(--surface);color:var(--ink);border-radius:10px;padding:15px 16px;font-size:16px;font-weight:600;font-family:inherit;margin-top:9px;cursor:pointer}
 .pk-row.on{border-color:var(--accent);color:var(--accent)}
@@ -951,6 +952,43 @@ function openHelpSheet(){
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);
 }
+/* ===== 貨架清單（在賣的豆：價格規格/售罄/鎖風味＋待上架佇列；唯讀——動作走今日流卡與 classic Retail Info）===== */
+async function openRetailSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Retail shelf</div><div class="empty">Loading…</div>');
+  /* 價格/規格/售罄記憶（classic 同款 app_state 鑰匙） */
+  var m={rtl_price:{},rtl_g:{},rtl_sizes:{},rtl_sold:{}};
+  try{var r=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes','rtl_sold']);
+    (r.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
+      if(v&&typeof v==='object')m[x.key]=v;});
+  }catch(e){}
+  function lockedFor(nm){
+    var k=String(nm||'').trim().toLowerCase();
+    var s=(DB.samples||[]).find(function(x){return String(x.sample_id||'').trim().toLowerCase()===k;});
+    return !!(s&&s.flavour_locked);
+  }
+  var live=(DB.syncs||[]).filter(function(x){return x.status==='synced'&&String(x.bean_id||'').trim();})
+    .sort(function(a,b){return String(a.bean_id).localeCompare(String(b.bean_id));});
+  var soldN=0;
+  var rows=live.map(function(x){
+    var nm=String(x.bean_id).trim();
+    var price=m.rtl_price[nm],g=m.rtl_g[nm]||250,sc=m.rtl_sizes[nm]||{};
+    var sold=!!m.rtl_sold[nm];if(sold)soldN++;
+    var priceStr=price!=null?(g+'g '+money(price)+(sc.g500?' · 500g '+money(sc.g500):'')+(sc.g1000?' · 1kg '+money(sc.g1000):'')):'<span class="red">no price recorded</span>';
+    return '<div class="dl" style="align-items:center"><span><b>'+esc(nm)+'</b>'+(lockedFor(nm)?'':' <span style="color:var(--muted);font-size:12px">unlocked</span>')
+      +'<br><span style="color:var(--muted);font-size:13px">'+priceStr+'</span></span>'
+      +'<span'+(sold?' class="red"':'')+'>'+(sold?'Sold out':'On sale')+'</span></div>';
+  }).join('');
+  var errs=(DB.syncs||[]).filter(function(x){return x.status&&x.status!=='synced';});
+  var toList=ITEMS.filter(function(i){return i.kind==='list';});
+  openDrawerHTML('<div class="t" style="font-size:19px">Retail shelf</div>'
+    +'<div class="s" style="margin-top:2px">'+live.length+' live on Square'+(soldN?' · <span class="red">'+soldN+' sold out</span>':'')+' · prices from the last push · manage in Retail Info (classic)</div>'
+    +(rows||'<div class="empty">Nothing on the shelf yet</div>')
+    +(errs.length?'<div class="dlab">Sync problems</div>'+errs.map(function(x){return '<div class="dl"><span>'+esc(x.bean_id||'—')+'</span><span class="red">'+esc(x.status)+'</span></div>';}).join(''):'')
+    +(toList.length?'<div class="dlab">Ready to list</div>'+toList.map(function(i){
+        return '<div class="dl"><span>'+esc(i.ref.sample_id||'—')+'</span><span>QC passed · use the List card in Today</span></div>';}).join(''):'')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('d-cl').addEventListener('click',closeDrawer);
+}
 /* ===== 客戶名冊（照 classic 客戶站：最後下單排序、Cancelled 不計金額——DB.orders 本就排除、沒單標 new 沉底）===== */
 function openCustomersSheet(){
   var rows=(DB.customers||[]).map(function(c){
@@ -1761,7 +1799,7 @@ function renderTools(){
     +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
     +[['Invoice','GST PDF · classic'],['Info card','IG asset · classic'],['Labels','bag / tin · classic'],['Menus','A4 PDF · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
-    +[['Green stock','full list · right here','greens'],['Roast batches','FIFO shelf · right here','batches'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Classic app','full interface','classic'],['How it works','gestures and cards','help']].map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
+    +[['Green stock','full list · right here','greens'],['Roast batches','FIFO shelf · right here','batches'],['Retail shelf','live on Square','retail'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Classic app','full interface','classic'],['How it works','gestures and cards','help']].map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div></div>';
   var inp=$('tsearch');
   function lookup(){
@@ -1811,6 +1849,7 @@ function renderTools(){
     if(k==='batches'){openBatchesSheet();return;}
     if(k==='customers'){openCustomersSheet();return;}
     if(k==='help'){openHelpSheet();return;}
+    if(k==='retail'){openRetailSheet();return;}
     inp.focus();toast('Type in the search box above');
   });});
 }
