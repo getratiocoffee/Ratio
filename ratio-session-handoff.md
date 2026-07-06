@@ -40,7 +40,7 @@
   - **Today 真資料真寫入**：晨報（各佇列計數）／Accept（payment_link→Confirmed→確認信，照抄 callFn 模式）／Decline·Cancel（Cancelled＋取消信）／Pack（pack_state 全勾＋Ready）／Dispatch 抽屜（tracking＋出貨信**不帶新卡**，靠 edge 讀 mail-assets 既有卡——換裝完整版要補卡片管線）／Mark paid（＋收款信）／QC Pass（feed 卡）／Dial in 抽屜表單（insert dialins）／Task Done／Low green＝提示卡；滑卡右做左睡（貪睡存 localStorage 隔天回來）、時段排序、details 抽屜
   - **QC 分頁**：真佇列（samples 去重＋matchRoast）＋底部拇指 Pass/Re-roast/Down 真寫 roasts.qc
   - **Tools**：真搜尋 beans/customers/orders（抽屜詳情）＋ Make 類全部跳 classic
-  - 驗證：jscheck＋preview 登出閘門＋假資料全管線（10 卡衍生正確含排除規則/QC 台/搜尋/Task Done 寫入/貪睡持久化/抽屜）＋截圖；⚠ **edge 動作（Accept/寄信）要老闆登入後首測**，建議先拿測試單試 Accept
+  - 驗證：jscheck＋preview 登出閘門＋假資料全管線（10 卡衍生正確含排除規則/QC 台/搜尋/Task Done 寫入/貪睡持久化/抽屜）＋截圖；✅ **老闆真單實測全通（2026-07-06 晚）**：/new 按 Accept → 付款連結生成、狀態轉 Confirmed、確認信寄達、款項退款流程也跑過——edge 三連發驗證完畢，新殼正式可營業
   - **搬家原則（對老闆的承諾）**：新殼滿意一塊搬一塊，舊 app 保留到說拆為止；下一波候選＝PWA＋推播（第二級）、Dispatch 卡片管線、Pack 逐項勾、新殼內開新單
   - **網址（push 後）：ratio-theta.vercel.app/new/**
 - 開工檢查：上一 session 全部已 push 已部署（線上 662,628 bytes 同步）；「Analysed by」確認早已上線（杯測卡/Retail 卡/詳情頁三處）
