@@ -43,6 +43,11 @@
   - 驗證：jscheck＋preview 登出閘門＋假資料全管線（10 卡衍生正確含排除規則/QC 台/搜尋/Task Done 寫入/貪睡持久化/抽屜）＋截圖；✅ **老闆真單實測全通（2026-07-06 晚）**：/new 按 Accept → 付款連結生成、狀態轉 Confirmed、確認信寄達、款項退款流程也跑過——edge 三連發驗證完畢，新殼正式可營業
   - **搬家原則（對老闆的承諾）**：新殼滿意一塊搬一塊，舊 app 保留到說拆為止；下一波候選＝PWA＋推播（第二級）、Dispatch 卡片管線、Pack 逐項勾、新殼內開新單
   - **網址（push 後）：ratio-theta.vercel.app/new/**
+- **🔔 PWA＋推播完成（搬家第二波頭牌，老闆點名）**（`new/` 加 manifest.webmanifest/sw.js/icon-192/512＋index.html 改動，待 push；DB 與 edge 已生效）：
+  - **DB**（migration `push_notifications_setup`）：`push_subs`（endpoint 唯一/keys/who，authenticated 全可管）＋`secrets_kv`（**零 policy＝只有 service role 可讀**，VAPID 金鑰對放這，瀏覽器 Web Crypto 產生）
+  - **edge `push-send` v1**（verify_jwt true，director JWT 或 service-role bearer）：npm:web-push 廣播全部訂閱、404/410 自動清死訂閱、回 sent/failed/pruned
+  - **square-webhook v18**：網店新單匯入＋付款連結到帳兩處加 `callPush()`（service-role 內部呼叫、非致命 try/catch）→ **新單/收款手機鎖屏跳通知**
+  - **/new 客戶端**：manifest（standalone、scope /new/）＋apple-touch-icon＋sw.js（push 顯示通知、點通知聚焦或開 /new）＋Tools 新「Notifications」區（**Enable here** 訂閱寫 push_subs＋**Send test** 打 push-send；iPhone 未加主畫面時顯示 A2HS 教學小字）；app 圖示＝墨底玫瑰 R（canvas 產生）\n  - 驗證：preview 實測 manifest/SW 註冊/圖示 200/Tools 通知區渲染；⚠ **真推播要老闆手機驗**：push 部署後 iPhone 開 /new → 加入主畫面 → 從圖示開 → Tools → Enable here → 允許 → Send test 應該叮一聲；之後網店來單自動推。**注意 iPhone 刪主畫面圖示＝斷推播**
 - 開工檢查：上一 session 全部已 push 已部署（線上 662,628 bytes 同步）；「Analysed by」確認早已上線（杯測卡/Retail 卡/詳情頁三處）
 
 ## 〇之零、補記 — 2026-07-06 早上 session（QC 帶跑 + 補烘豆紀錄 + Re-analyse 防呆）
