@@ -903,6 +903,63 @@ function openDialinForm(i){
   });
   $('dl-cl').addEventListener('click',closeDrawer);
 }
+/* ===== 盤點（照 classic T8 saveStocktakeAll：只存有改動的，逐筆 beans 更新＋stock_moves 'stocktake'）===== */
+var STK=null;
+function openStocktakeSheet(){
+  STK={vals:{}};
+  var beans=(DB.beans||[]).slice().sort(function(a,b){
+    var c=String(a.country||'').localeCompare(String(b.country||''));
+    return c!==0?c:String(a.name||'').localeCompare(String(b.name||''));
+  });
+  var lastC=null,rows='';
+  beans.forEach(function(b){
+    var c=b.country||'—';
+    if(c!==lastC){rows+='<div class="dlab">'+esc(c)+'</div>';lastC=c;}
+    rows+='<div class="no-line" style="align-items:center;margin-top:8px">'
+      +'<span style="flex:1;min-width:0"><b>'+esc(b.name)+'</b>'+(b.process?' <span style="color:var(--muted);font-size:13px">'+esc(b.process)+'</span>':'')
+      +'<br><span style="color:var(--muted);font-size:13px">book '+(Number(b.quantity)||0)+' kg</span></span>'
+      +'<input class="din" data-stk="'+esc(b.id)+'" inputmode="decimal" placeholder="—" style="flex:0 0 96px;margin-top:0;text-align:center">'
+      +'</div>';
+  });
+  openDrawerHTML('<div class="t" style="font-size:19px">Stocktake</div>'
+    +'<div class="s" style="margin-top:2px">weigh, type the counted kg — only filled rows change the books</div>'
+    +(rows||'<div class="empty">No green beans on the books</div>')
+    +'<button class="act" id="stk-save">Save stocktake</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  document.querySelectorAll('#drawer [data-stk]').forEach(function(el){el.addEventListener('input',function(){STK.vals[el.dataset.stk]=el.value;});});
+  $('stk-save').addEventListener('click',saveStocktakeSheet);
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+async function saveStocktakeSheet(){
+  var changes=[];
+  (DB.beans||[]).forEach(function(b){
+    var raw=STK.vals[b.id];
+    if(raw==null||String(raw).trim()==='')return;
+    var v=parseFloat(String(raw).trim());
+    if(isNaN(v)||v<0)return;
+    var cur=Number(b.quantity)||0;
+    var delta=Math.round((v-cur)*1000)/1000;
+    if(Math.abs(delta)<0.0005)return;
+    changes.push({b:b,v:v,delta:delta});
+  });
+  if(!changes.length){toast('No changes to save');return;}
+  var btn=$('stk-save');if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  var ok=0,fail=0,failMsg='';
+  for(var i=0;i<changes.length;i++){
+    var c=changes[i];
+    var u=await sb.from('beans').update({quantity:c.v}).eq('id',c.b.id);
+    if(u.error){fail++;failMsg=u.error.message;continue;}
+    try{await sb.from('stock_moves').insert({bean_id:c.b.id,kind:'stocktake',delta_kg:c.delta,after_kg:c.v,note:'Bulk stocktake'});}catch(e){}
+    c.b.quantity=c.v;ok++;
+  }
+  if(fail){
+    if(btn){btn.disabled=false;btn.textContent='Save stocktake';}
+    alert(ok+' saved, '+fail+' failed: '+failMsg);
+    return;
+  }
+  closeDrawer();toast('Stocktake saved — '+ok+' bean'+(ok>1?'s':'')+' adjusted ✓');
+  await reload();
+}
 /* ===== 上架（照 classic pushToSquare：定價→現畫資訊卡→sync-to-square push；價格記憶走 app_state 跨 app 同步）===== */
 var LST=null;
 async function openListSheet(i){
@@ -1242,6 +1299,7 @@ function renderTools(){
     +'<div class="gsec">Make</div><div class="tgrid">'
     +'<button class="tool" id="t-neworder" style="border-color:var(--accent);color:var(--accent)">New order<small>right here</small></button>'
     +'<button class="tool" id="t-roast" style="border-color:var(--accent);color:var(--accent)">Log roast<small>green in · right here</small></button>'
+    +'<button class="tool" id="t-stk" style="border-color:var(--accent);color:var(--accent)">Stocktake<small>weigh greens · right here</small></button>'
     +[['Invoice','GST PDF · classic'],['Info card','IG asset · classic'],['Labels','bag / tin · classic'],['Menus','A4 PDF · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
     +[['Green stock','type a bean name above'],['Customers','type a name above'],['Orders','type a number above'],['Classic app','full interface']].map(function(x,ix){return '<button class="tool" data-t="'+ix+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
@@ -1274,6 +1332,7 @@ function renderTools(){
   inp.addEventListener('input',lookup);
   var no=$('t-neworder');if(no)no.addEventListener('click',openNewOrderSheet);
   var tr=$('t-roast');if(tr)tr.addEventListener('click',function(){openRoastSheet(null);});
+  var ts=$('t-stk');if(ts)ts.addEventListener('click',openStocktakeSheet);
   var tn=$('t-notif');if(tn)tn.addEventListener('click',function(){enablePush(tn);});
   var tp=$('t-ptest');if(tp)tp.addEventListener('click',async function(){
     tp.disabled=true;
