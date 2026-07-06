@@ -1525,6 +1525,7 @@ fill="#6F4A36" stroke="none">
     if(deep==='green.trade'){if(typeof closePage==='function')closePage();renderCMarket();return;}
     if(deep==='green.sample'){if(typeof closePage==='function')closePage();hideCPanel();setFeedChannel(FEED_CHANNELS['green']||'general');return;}
     if(deep==='order'){if(typeof closePage==='function')closePage();renderOrderStation();return;}
+    if(deep==='beans'){if(typeof closePage==='function')closePage();renderQCStation();return;}
     if(rootKey==='timesheet'){
       const cw=currentWeekStart();
       const w=thisWeekEntry();
@@ -1802,6 +1803,105 @@ fill="#6F4A36" stroke="none">
     });});
     var pr=document.getElementById('os-prod');if(pr)pr.addEventListener('click',function(){runModuleAction('roast:prod');});
     var al=document.getElementById('os-all');if(al)al.addEventListener('click',function(){openOrdersTab('all');});
+  }
+  /* ===== QC Station：品管站泡泡面板（杯測→QC 判定→鎖風味→上架）===== */
+  async function renderQCStation(){
+    var ct=document.getElementById('ctitle');if(ct){ct.textContent='QC Station';ct.classList.add('show');}
+    showCPanel('<div class="sempty" style="padding:34px 20px">Loading…</div>');
+    await loadRoasts();
+    var sq=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false});
+    await loadProdSync();
+    if(dockStack[dockStack.length-1]!=='beans')return; /* 載入途中使用者已離開 */
+    if(sq.error){showCPanel('<div class="sempty">Load failed: '+esc(sq.error.message)+'</div>');return;}
+    /* 每支咖啡取最新一筆杯測（同 Retail Info 去重規則：bean_id 優先，否則名稱+處理法） */
+    var seen={},qs=[];
+    (sq.data||[]).forEach(function(s){var k=s.bean_id?('id:'+String(s.bean_id)):sampleDisp(s).trim().toLowerCase();if(k){if(seen[k])return;seen[k]=true;}qs.push(s);});
+    var rows=qs.map(function(s){var qr=null;try{qr=qcRoastForSample(s);}catch(e){}return {s:s,qr:qr,sync:PROD_SYNC[(s.sample_id||'').trim()]};});
+    var wait=rows.filter(function(x){return x.qr&&!x.qr.qc;});
+    var toLock=rows.filter(function(x){return x.qr&&x.qr.qc==='pass'&&!x.s.flavour_locked;});
+    var toList=rows.filter(function(x){return x.qr&&x.qr.qc==='pass'&&x.s.flavour_locked&&!(x.sync&&x.sync.status==='synced');});
+    var reroast=rows.filter(function(x){return x.qr&&x.qr.qc==='reroast';});
+    var live=rows.filter(function(x){return x.sync&&x.sync.status==='synced';});
+    var noBatch=rows.filter(function(x){return !x.qr;});
+    function flavTxt(s){return (s.features&&s.features.length)?s.features.slice(0,3).join(', '):'';}
+    function nmHtml(s){return '<span class="gs-nm">'+esc(s.sample_id||'—')+(s.process?' <span class="gs-proc">'+esc(s.process)+'</span>':'')+'</span>';}
+    var h='';
+    /* ① 待判定：Pass / Re-roast / Down 直接長在列上 */
+    if(wait.length){
+      h+='<div class="gs-card warn"><div class="gs-head"><span class="gs-title">Awaiting QC — taste and judge</span><span class="gs-badge warn">'+wait.length+'</span></div>'
+        +wait.map(function(x){
+          var sub=[];if(x.qr.roast_date)sub.push('roasted '+fmtDate(x.qr.roast_date));var f=flavTxt(x.s);if(f)sub.push(f);
+          return '<div class="gs-row"><span style="min-width:0">'+nmHtml(x.s)
+            +(sub.length?'<span class="gs-sub" style="display:block">'+esc(sub.join(' · '))+'</span>':'')+'</span>'
+            +'<span style="display:flex;gap:5px;flex:0 0 auto">'
+            +'<button class="gs-act hot" data-qcsv="pass" data-qcsr="'+esc(x.qr.id)+'">Pass</button>'
+            +'<button class="gs-act" data-qcsv="reroast" data-qcsr="'+esc(x.qr.id)+'">Re-roast</button>'
+            +'<button class="gs-act danger" data-qcsv="downgrade" data-qcsr="'+esc(x.qr.id)+'">Down</button></span></div>';
+        }).join('')+'</div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">Awaiting QC</span><span class="gs-quiet-r">nothing to judge</span></div>';
+    }
+    /* ② 鎖風味：Pass 了但風味還沒鎖（鎖了才會上資訊卡/公開頁） */
+    if(toLock.length){
+      h+='<div class="gs-card"><div class="gs-head"><span class="gs-title">Lock flavour — goes on cards and the public page</span><span class="gs-badge buy">'+toLock.length+'</span></div>'
+        +toLock.map(function(x){
+          var f=flavTxt(x.s);
+          return '<div class="gs-row"><span style="min-width:0">'+nmHtml(x.s)
+            +'<span class="gs-sub" style="display:block">'+(f?esc(f):'<span style="color:var(--danger)">no flavour notes — cup it again first</span>')+'</span></span>'
+            +'<button class="gs-act hot" data-qcslock="'+esc(x.s.id)+'">Lock</button></div>';
+        }).join('')+'</div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">Lock flavour</span><span class="gs-quiet-r">nothing waiting</span></div>';
+    }
+    /* ③ 可上架：QC Pass + 已鎖 + Square 還沒 Live → 跳 Retail Info 按 Push */
+    if(toList.length){
+      h+='<div class="gs-card"><div class="gs-head"><span class="gs-title">Ready to list on Square</span><span class="gs-badge buy">'+toList.length+'</span></div>'
+        +toList.map(function(x){
+          return '<div class="gs-row"><span style="min-width:0">'+nmHtml(x.s)
+            +'<span class="gs-sub" style="display:block">QC pass ✓ · flavour locked ✓</span></span>'
+            +'<button class="gs-act hot" data-qcslist="1">List ›</button></div>';
+        }).join('')+'</div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">Ready to list</span><span class="gs-quiet-r">none waiting</span></div>';
+    }
+    /* ④ 重烘佇列：退回烘豆站 */
+    if(reroast.length){
+      h+='<div class="gs-card warn"><div class="gs-head"><span class="gs-title">Re-roast queue</span><span class="gs-badge warn">'+reroast.length+'</span></div>'
+        +reroast.map(function(x){
+          return '<div class="gs-row"><span style="min-width:0">'+nmHtml(x.s)
+            +(x.qr.roast_date?'<span class="gs-sub" style="display:block">roasted '+esc(fmtDate(x.qr.roast_date))+'</span>':'')+'</span></div>';
+        }).join('')
+        +'<button class="gs-wide" id="qcs-prod">Open production — roast these again</button></div>';
+    }
+    /* 沒批次的杯測（老陷阱：roasts 表沒有列 → QC 沒對象） */
+    if(noBatch.length){
+      h+='<div class="gs-card quiet" id="qcs-nobatch" style="cursor:pointer"><span class="gs-quiet-l">No roast batch — cannot QC</span><span class="gs-quiet-r">'+noBatch.length+' · Add Coffee ›</span></div>';
+    }
+    h+='<div class="gs-card quiet" id="qcs-live" style="cursor:pointer"><span class="gs-quiet-l">Live on Square</span><span class="gs-quiet-r">'+live.length+' listed ›</span></div>';
+    h+='<div class="gs-card quiet" id="qcs-page" style="cursor:pointer"><span class="gs-quiet-l">Cupping records and QC page</span><span class="gs-quiet-r">'+qs.length+' coffees ›</span></div>';
+    h+='<div class="gs-foot">Flow: cup → QC verdict → lock flavour → list on Square</div>';
+    showCPanel(h);
+    document.querySelectorAll('#cpanel [data-qcsv]').forEach(function(el){el.addEventListener('click',async function(){
+      var rid=el.dataset.qcsr,v=el.dataset.qcsv;
+      var r=(ROASTS||[]).find(function(x){return String(x.id)===String(rid);});if(!r)return;
+      el.disabled=true;el.textContent='Saving…';
+      var u=await sb.from('roasts').update({qc:v}).eq('id',rid);
+      if(u.error){alert('QC update failed: '+u.error.message);el.disabled=false;return;}
+      r.qc=v;renderQCStation();
+    });});
+    document.querySelectorAll('#cpanel [data-qcslock]').forEach(function(el){el.addEventListener('click',async function(){
+      var sid=el.dataset.qcslock;
+      var s=qs.find(function(x){return String(x.id)===String(sid);});if(!s)return;
+      el.disabled=true;el.textContent='Saving…';
+      var u=await sb.from('samples').update({flavour_locked:true}).eq('id',sid);
+      if(u.error){alert('Lock failed: '+u.error.message);el.disabled=false;return;}
+      s.flavour_locked=true;renderQCStation();
+    });});
+    document.querySelectorAll('#cpanel [data-qcslist]').forEach(function(el){el.addEventListener('click',function(){runModuleAction('beans:retail');});});
+    var qp=document.getElementById('qcs-prod');if(qp)qp.addEventListener('click',function(){runModuleAction('roast:prod');});
+    var qn=document.getElementById('qcs-nobatch');if(qn)qn.addEventListener('click',function(){runModuleAction('beans:prod');});
+    var ql=document.getElementById('qcs-live');if(ql)ql.addEventListener('click',function(){runModuleAction('beans:retail');});
+    var qg=document.getElementById('qcs-page');if(qg)qg.addEventListener('click',function(){runModuleAction('beans:prod');});
   }
   function runModuleAction(act){
     if(typeof act==='string'&&act.indexOf('timesheet:')===0)tsFilter=null;
