@@ -66,6 +66,19 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .dl{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:15px}
 .dl span:first-child{color:var(--muted)}
 .dclose{display:block;width:100%;border:1px solid var(--line2);background:var(--bg);color:var(--ink);border-radius:10px;padding:15px;font-size:16px;font-weight:700;font-family:inherit;margin-top:16px;cursor:pointer}
+.pk-row{display:block;width:100%;text-align:left;border:1.5px solid var(--line2);background:var(--surface);color:var(--ink);border-radius:10px;padding:15px 16px;font-size:16px;font-weight:600;font-family:inherit;margin-top:9px;cursor:pointer}
+.pk-row.on{border-color:var(--accent);color:var(--accent)}
+.dta{width:100%;min-height:110px;border:1.5px solid var(--line2);border-radius:10px;padding:13px;font-size:16px;font-family:inherit;background:var(--surface);color:var(--ink);outline:none;margin-top:8px;resize:vertical}
+.dta:focus{border-color:var(--ink)}
+.no-line{display:flex;gap:8px;align-items:center;margin-top:8px}
+.no-line select{flex:1;min-width:0;border:1.5px solid var(--line2);border-radius:10px;padding:12px 8px;font-size:15px;font-family:inherit;background:var(--surface);color:var(--ink)}
+.no-line .qty{display:flex;align-items:center;gap:4px;flex:0 0 auto}
+.no-line .qty button{width:38px;height:44px;border:1.5px solid var(--line2);background:var(--surface);color:var(--ink);border-radius:10px;font-size:19px;font-weight:700;font-family:inherit;cursor:pointer}
+.no-line .qty span{min-width:20px;text-align:center;font-weight:700}
+.no-price{width:86px;flex:0 0 auto;border:1.5px solid var(--line2);border-radius:10px;padding:12px 10px;font-size:15px;font-family:inherit;background:var(--surface);color:var(--ink);outline:none}
+.pm-seg{display:flex;gap:8px;margin-top:8px}
+.pm-seg button{flex:1;border:1.5px solid var(--line2);background:var(--surface);color:var(--muted);border-radius:10px;padding:13px 6px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer}
+.pm-seg button.on{border-color:var(--ink);color:var(--ink)}
 .din{width:100%;border:1.5px solid var(--line2);border-radius:10px;padding:14px;font-size:17px;font-family:inherit;background:var(--surface);color:var(--ink);outline:none;margin-top:8px}
 .din:focus{border-color:var(--ink)}
 .dlab{font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-top:14px}
@@ -120,7 +133,9 @@ function fmtD(s){if(!s)return '';var p=String(s).slice(0,10).split('-');return p
 function todayKey(){return new Date().toISOString().slice(0,10);}
 /* 貪睡與晨報收起：存 localStorage，到明天自動失效 */
 function snoozeMap(){try{var m=JSON.parse(localStorage.getItem('r2_snooze')||'{}');return m[todayKey()]||{};}catch(e){return {};}}
-function addSnooze(id){var all={};all[todayKey()]=snoozeMap();all[todayKey()][id]=1;try{localStorage.setItem('r2_snooze',JSON.stringify(all));}catch(e){}}
+var SNOOZED_SESSION=0;
+function addSnooze(id){var all={};all[todayKey()]=snoozeMap();all[todayKey()][id]=1;try{localStorage.setItem('r2_snooze',JSON.stringify(all));}catch(e){}SNOOZED_SESSION++;}
+function undoSnooze(){clearSnooze();SNOOZED_SESSION=0;buildItems();render();toast('Brought back');}
 function clearSnooze(){try{localStorage.removeItem('r2_snooze');}catch(e){}}
 
 async function callFn(name,payload){
@@ -145,10 +160,12 @@ async function loadAll(){
     sb.from('product_sync').select('bean_id,status').eq('channel','square'),
     sb.from('samples').select('id,sample_id,bean_id,process,roast_date,cupping_date,features,flavour_locked').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
     sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg').order('roast_date',{ascending:false}),
-    sb.from('beans').select('id,name,process,quantity,low_stock_kg')
+    sb.from('beans').select('id,name,process,quantity,low_stock_kg'),
+    sb.from('feedback').select('*').is('reply',null).order('created_at',{ascending:false})
   ]);
   DB={orders:rs[0].data||[],customers:rs[1].data||[],tasks:rs[2].data||[],dialins:rs[3].data||[],
-      syncs:rs[4].data||[],samples:rs[5].data||[],roasts:rs[6].data||[],beans:rs[7].data||[]};
+      syncs:rs[4].data||[],samples:rs[5].data||[],roasts:rs[6].data||[],beans:rs[7].data||[],
+      feedback:rs[8].data||[]};
   buildItems();
 }
 function matchRoast(s){
@@ -211,7 +228,7 @@ function buildItems(){
     var c=custById(o.customer_id);
     out.push({id:'pack:'+o.id,st:'Orders',hot:0,t:'Pack #'+String(o.order_no||'—').padStart(4,'0')+' · '+((c&&c.name)||'Walk-in'),
       s:esc(itemsLine(o))+(o.payment_status!=='paid'?' · <span class=red>unpaid</span>':''),
-      act:'All packed — Ready',det:[['Items',itemsLine(o)||'—'],['Status',o.status],['Payment',o.payment_status==='paid'?'paid':'awaiting']],
+      act:'Pack…',det:[['Items',itemsLine(o)||'—'],['Status',o.status],['Payment',o.payment_status==='paid'?'paid':'awaiting']],
       det2:'Cancel order',roles:['director','retail','staff'],kind:'pack',ref:o});
   });
   shipQ.forEach(function(o){
@@ -245,6 +262,14 @@ function buildItems(){
       s:[(t.created_by||''),fmtD(t.created_at)].filter(Boolean).join(' · ')||'team task',
       act:'Done',det:[['Added by',t.created_by||'—'],['Added',fmtD(t.created_at)||'—']],
       det2:'Later',roles:['director','roaster','retail','staff'],kind:'task',ref:t});
+  });
+  (DB.feedback||[]).forEach(function(f){
+    var stars='★★★★★'.slice(0,Math.max(0,Math.min(5,Number(f.rating)||0)))||'☆';
+    out.push({id:'fb:'+f.id,st:'Customers',hot:0,t:stars+' · '+esc(f.name||'Anonymous'),
+      s:esc(String(f.comment||'').slice(0,90))||'no comment',
+      act:f.email?'Reply…':'Got it',
+      det:[['Rating',stars],['Comment',String(f.comment||'—').slice(0,200)],['From',f.name||'Anonymous'],['Email',f.email||'—'],['When',fmtD(f.created_at)||'—']],
+      det2:'Later',roles:['director'],kind:'fb',ref:f});
   });
   ITEMS=out.filter(function(i){return !sn[i.id];});
 }
@@ -285,7 +310,9 @@ function renderFeed(){
         +'<div class="t">'+i.t+'</div><div class="s">'+i.s+'</div>'
         +'<button class="act" data-do="'+esc(i.id)+'">'+esc(i.act)+'</button>'
         +'<button class="more" data-more="'+esc(i.id)+'">details ▾</button></div>';
-    }).join('');
+    }).join('')
+    +(SNOOZED_SESSION?'<button class="more" id="unsnooze">'+SNOOZED_SESSION+' snoozed until tomorrow · undo</button>':'');
+  var un=$('unsnooze');if(un)un.addEventListener('click',undoSnooze);
   m.querySelectorAll('[data-do]').forEach(function(b){b.addEventListener('click',function(){if(Date.now()-_drag<300)return;runAction(b.dataset.do,b);});});
   m.querySelectorAll('[data-more]').forEach(function(b){b.addEventListener('click',function(){if(Date.now()-_drag<300)return;openDetails(b.dataset.more);});});
   list.forEach(function(i){var el=document.getElementById('c-'+i.id);if(el)attachSwipe(el,i.id);});
@@ -309,13 +336,11 @@ async function runAction(id,btn){
       dropCard(id);toast('Task done ✓');return;
     }
     if(i.kind==='qcpass'){await qcVerdict(i.ref.r,'pass',btn,id);return;}
-    if(i.kind==='pack'){
-      if(!confirm('Everything packed for '+i.t.replace('Pack ','')+'? It moves to Ready.'))return;
-      if(btn){btn.disabled=true;btn.textContent='Saving…';}
-      var ps={};(Array.isArray(i.ref.items)?i.ref.items:[]).forEach(function(_,ix){ps[String(ix)]=true;});
-      var u2=await sb.from('orders').update({pack_state:ps,status:'Ready'}).eq('id',i.ref.id);
-      if(u2.error)throw new Error(u2.error.message);
-      i.ref.status='Ready';toast('Ready to ship ✓');await reload();return;
+    if(i.kind==='pack'){openPackSheet(i);return;}
+    if(i.kind==='fb'){
+      if(i.ref.email){openReplySheet(i);}
+      else{addSnooze(id);dropCard(id);toast('Noted — no email to reply to');}
+      return;
     }
     if(i.kind==='accept'){await acceptOrder(i,btn);return;}
     if(i.kind==='ship'){openDispatch(i);return;}
@@ -421,6 +446,142 @@ function openDispatch(i){
   $('dp-silent').addEventListener('click',function(){go(false);});
   $('dp-cl').addEventListener('click',closeDrawer);
 }
+/* ===== Pack 逐項打勾（每勾一項即存 pack_state；全勾才能按 Ready）===== */
+function openPackSheet(i){
+  var o=i.ref;var items=Array.isArray(o.items)?o.items:[];
+  var ps=(o.pack_state&&typeof o.pack_state==='object')?Object.assign({},o.pack_state):{};
+  function allOn(){return items.length>0&&items.every(function(_,ix){return !!ps[String(ix)];});}
+  function paint(){
+    openDrawerHTML('<div class="t" style="font-size:19px">'+i.t.replace('Pack ','Packing ')+'</div>'
+      +'<div class="s" style="margin-top:2px">tap each item as it goes in the box</div>'
+      +items.map(function(it,ix){
+        var on=!!ps[String(ix)];
+        return '<button class="pk-row'+(on?' on':'')+'" data-pk="'+ix+'">'+(on?'✓ ':'')+esc((it.grams?it.grams+'g ':'')+(it.name||'')+(it.qty>1?' ×'+it.qty:''))+'</button>';
+      }).join('')
+      +'<button class="act" id="pk-ready"'+(allOn()?'':' disabled')+'>All packed — move to Ready</button>'
+      +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+    document.querySelectorAll('#drawer [data-pk]').forEach(function(el){el.addEventListener('click',async function(){
+      var k=String(el.dataset.pk);
+      if(ps[k])delete ps[k];else ps[k]=true;
+      o.pack_state=ps;
+      paint();
+      var u=await sb.from('orders').update({pack_state:ps}).eq('id',o.id);
+      if(u.error){alert('Save failed: '+u.error.message);}
+    });});
+    var pr=$('pk-ready');if(pr)pr.addEventListener('click',async function(){
+      pr.disabled=true;pr.textContent='Saving…';
+      var u=await sb.from('orders').update({pack_state:ps,status:'Ready'}).eq('id',o.id);
+      if(u.error){pr.disabled=false;pr.textContent='All packed — move to Ready';alert('Save failed: '+u.error.message);return;}
+      closeDrawer();toast('Ready to ship ✓');await reload();
+    });
+    var cl=$('d-cl');if(cl)cl.addEventListener('click',closeDrawer);
+  }
+  paint();
+}
+/* ===== 回饋回覆（走 send-email feedback_reply：寄信＋蓋章）===== */
+function openReplySheet(i){
+  var f=i.ref;
+  var stars='★★★★★'.slice(0,Math.max(0,Math.min(5,Number(f.rating)||0)));
+  openDrawerHTML('<span class="tag warn">Customers</span><div class="t" style="font-size:19px">'+stars+' · '+esc(f.name||'Anonymous')+'</div>'
+    +(f.comment?'<div class="s" style="margin-top:6px;background:var(--tint);border-radius:10px;padding:11px 13px;color:var(--ink)">'+esc(String(f.comment).slice(0,300))+'</div>':'')
+    +'<div class="dlab">Your reply · emails '+esc(f.email)+'</div>'
+    +'<textarea class="dta" id="fb-txt" placeholder="Thanks for the kind words…"></textarea>'
+    +'<button class="act" id="fb-send">Send reply</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('fb-send').addEventListener('click',async function(){
+    var txt=($('fb-txt').value||'').trim();
+    if(!txt){toast('Write a reply first');return;}
+    var b=$('fb-send');b.disabled=true;b.textContent='Sending…';
+    try{
+      await callFn('send-email',{action:'feedback_reply',feedback_id:f.id,reply:txt});
+      closeDrawer();toast('Reply sent ✓');dropCard(i.id);
+      DB.feedback=(DB.feedback||[]).filter(function(x){return x.id!==f.id;});
+    }catch(e){b.disabled=false;b.textContent='Send reply';alert('Send failed: '+(e&&e.message||e));}
+  });
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+/* ===== 新殼開新單（manual 單：客人＋品項＋單價 → New，之後照常 Accept）===== */
+var NO=null;
+function openNewOrderSheet(){
+  NO={cust:'',items:[{name:'',grams:250,qty:1,price:''}],pm:'bank_transfer'};
+  paintNewOrder();
+}
+function beanNames(){
+  var seen={},names=[];
+  (DB.beans||[]).forEach(function(b){var n=(b.name||'').trim();if(n&&!seen[n.toLowerCase()]){seen[n.toLowerCase()]=1;names.push(n);}});
+  (DB.syncs||[]).forEach(function(s){var n=(s.bean_id||'').trim();if(n&&!seen[n.toLowerCase()]){seen[n.toLowerCase()]=1;names.push(n);}});
+  return names.sort();
+}
+function paintNewOrder(){
+  var names=beanNames();
+  var custs=(DB.customers||[]).slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
+  var total=0;NO.items.forEach(function(it){total+=(Number(it.price)||0)*(it.qty||1);});
+  openDrawerHTML('<div class="t" style="font-size:19px">New order</div>'
+    +'<div class="dlab">Customer</div>'
+    +'<select class="din" id="no-cust" style="padding:12px">'
+    +'<option value="">— walk-in —</option>'
+    +custs.map(function(c){return '<option value="'+esc(c.id)+'"'+(NO.cust===c.id?' selected':'')+'>'+esc(c.name||'—')+'</option>';}).join('')
+    +'</select>'
+    +'<div class="dlab">Items</div>'
+    +NO.items.map(function(it,ix){
+      return '<div class="no-line" data-ix="'+ix+'">'
+        +'<select data-f="name">'+'<option value="">— coffee —</option>'+names.map(function(n){return '<option'+(it.name===n?' selected':'')+'>'+esc(n)+'</option>';}).join('')+'</select>'
+        +'<select data-f="grams" style="flex:0 0 84px">'+[100,150,200,250,1000].map(function(g){return '<option value="'+g+'"'+(it.grams===g?' selected':'')+'>'+(g===1000?'1kg':g+'g')+'</option>';}).join('')+'</select>'
+        +'</div>'
+        +'<div class="no-line">'
+        +'<span class="qty"><button data-q="-1" data-ix="'+ix+'">−</button><span>'+it.qty+'</span><button data-q="1" data-ix="'+ix+'">＋</button></span>'
+        +'<input class="no-price" data-ix="'+ix+'" data-f="price" inputmode="decimal" placeholder="$ each" value="'+esc(it.price)+'">'
+        +(NO.items.length>1?'<button class="qty-x" data-rm="'+ix+'" style="border:none;background:none;color:var(--danger);font-size:20px;font-weight:700;cursor:pointer;font-family:inherit">✕</button>':'')
+        +'</div>';
+    }).join('')
+    +'<button class="dclose" id="no-add" style="margin-top:10px">＋ Add another coffee</button>'
+    +'<div class="dlab">Payment</div>'
+    +'<div class="pm-seg"><button id="pm-bank" class="'+(NO.pm==='bank_transfer'?'on':'')+'">Bank transfer</button><button id="pm-plat" class="'+(NO.pm==='platform'?'on':'')+'">Platform</button></div>'
+    +'<div class="dl" style="margin-top:12px;border-bottom:none"><span>Total</span><span style="font-weight:700">'+money(total)+'</span></div>'
+    +'<button class="act" id="no-save">Create order</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  var d=$('drawer');
+  $('no-cust').addEventListener('change',function(){NO.cust=this.value;});
+  d.querySelectorAll('.no-line select[data-f]').forEach(function(el){el.addEventListener('change',function(){
+    var ix=+el.closest('.no-line').dataset.ix,f=el.dataset.f;
+    NO.items[ix][f]=(f==='grams')?parseInt(el.value,10):el.value;
+  });});
+  d.querySelectorAll('input[data-f="price"]').forEach(function(el){el.addEventListener('input',function(){
+    NO.items[+el.dataset.ix].price=el.value;
+    var t=0;NO.items.forEach(function(it){t+=(Number(it.price)||0)*(it.qty||1);});
+    var row=d.querySelector('.dl span:last-child');if(row)row.textContent=money(t);
+  });});
+  d.querySelectorAll('[data-q]').forEach(function(el){el.addEventListener('click',function(){
+    var it=NO.items[+el.dataset.ix];
+    it.qty=Math.max(1,Math.min(9,(it.qty||1)+(+el.dataset.q)));
+    paintNewOrder();
+  });});
+  d.querySelectorAll('[data-rm]').forEach(function(el){el.addEventListener('click',function(){NO.items.splice(+el.dataset.rm,1);paintNewOrder();});});
+  $('no-add').addEventListener('click',function(){NO.items.push({name:'',grams:250,qty:1,price:''});paintNewOrder();});
+  $('pm-bank').addEventListener('click',function(){NO.pm='bank_transfer';paintNewOrder();});
+  $('pm-plat').addEventListener('click',function(){NO.pm='platform';paintNewOrder();});
+  $('no-save').addEventListener('click',saveNewOrder);
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+async function saveNewOrder(){
+  var rows=NO.items.filter(function(it){return (it.name||'').trim();});
+  if(!rows.length){toast('Pick at least one coffee');return;}
+  if(rows.some(function(it){return !(Number(it.price)>0);})){toast('Set a price for each item');return;}
+  var b=$('no-save');b.disabled=true;b.textContent='Creating…';
+  try{
+    /* order_no = 全表 max+1（含已取消的，避免撞號） */
+    var mx=await sb.from('orders').select('order_no').order('order_no',{ascending:false}).limit(1);
+    var maxNo=(mx.data&&mx.data[0]&&mx.data[0].order_no)||0;
+    var items=rows.map(function(it){return {name:it.name,grams:it.grams,qty:it.qty,price:Number(it.price)};});
+    var total=0;items.forEach(function(it){total+=it.price*it.qty;});
+    var ins=await sb.from('orders').insert({order_no:maxNo+1,channel:'manual',status:'New',
+      customer_id:NO.cust||null,items:items,total:total,currency:'AUD',
+      payment_method:NO.pm,payment_status:'pending_payment'});
+    if(ins.error)throw new Error(ins.error.message);
+    closeDrawer();toast('Order #'+String(maxNo+1).padStart(4,'0')+' created ✓');
+    await reload();view='feed';render();
+  }catch(e){b.disabled=false;b.textContent='Create order';alert('Create failed: '+(e&&e.message||e));}
+}
 function openDialinForm(i){
   openDrawerHTML('<div class="t" style="font-size:19px">Dial in · '+esc(i.ref.name)+'</div>'
     +'<div class="dlab">Grind setting</div><input class="din" id="dl-g" inputmode="decimal" placeholder="e.g. 2.4">'
@@ -502,8 +663,9 @@ function renderTools(){
     +'<button class="tool" id="t-ptest">Send test<small>rings every subscribed phone</small></button>'
     +'</div>'
     +(iosNoA2HS?'<div class="note" style="text-align:left;margin:8px 2px 0">iPhone: first add this page to your Home Screen (Share → Add to Home Screen), open it from the icon, then tap Enable here.</div>':'')
-    +'<div class="gsec">Make · opens the classic app</div><div class="tgrid">'
-    +[['Invoice','GST PDF'],['Info card','IG asset PNG'],['Labels','bag / tin'],['Menus','A4 PDF'],['QR codes','shop / feedback'],['Announce','email customers']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
+    +'<div class="gsec">Make</div><div class="tgrid">'
+    +'<button class="tool" id="t-neworder" style="border-color:var(--accent);color:var(--accent)">New order<small>right here</small></button>'
+    +[['Invoice','GST PDF · classic'],['Info card','IG asset · classic'],['Labels','bag / tin · classic'],['Menus','A4 PDF · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
     +[['Green stock','type a bean name above'],['Customers','type a name above'],['Orders','type a number above'],['Classic app','full interface']].map(function(x,ix){return '<button class="tool" data-t="'+ix+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div></div>';
@@ -533,6 +695,7 @@ function renderTools(){
     });});
   }
   inp.addEventListener('input',lookup);
+  var no=$('t-neworder');if(no)no.addEventListener('click',openNewOrderSheet);
   var tn=$('t-notif');if(tn)tn.addEventListener('click',function(){enablePush(tn);});
   var tp=$('t-ptest');if(tp)tp.addEventListener('click',async function(){
     tp.disabled=true;

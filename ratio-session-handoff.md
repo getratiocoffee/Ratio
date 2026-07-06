@@ -48,6 +48,13 @@
   - **edge `push-send` v1**（verify_jwt true，director JWT 或 service-role bearer）：npm:web-push 廣播全部訂閱、404/410 自動清死訂閱、回 sent/failed/pruned
   - **square-webhook v18**：網店新單匯入＋付款連結到帳兩處加 `callPush()`（service-role 內部呼叫、非致命 try/catch）→ **新單/收款手機鎖屏跳通知**
   - **/new 客戶端**：manifest（standalone、scope /new/）＋apple-touch-icon＋sw.js（push 顯示通知、點通知聚焦或開 /new）＋Tools 新「Notifications」區（**Enable here** 訂閱寫 push_subs＋**Send test** 打 push-send；iPhone 未加主畫面時顯示 A2HS 教學小字）；app 圖示＝墨底玫瑰 R（canvas 產生）\n  - 驗證：preview 實測 manifest/SW 註冊/圖示 200/Tools 通知區渲染；⚠ **真推播要老闆手機驗**：push 部署後 iPhone 開 /new → 加入主畫面 → 從圖示開 → Tools → Enable here → 允許 → Send test 應該叮一聲；之後網店來單自動推。**注意 iPhone 刪主畫面圖示＝斷推播**
+- **🌙 夜班（老闆授權自主作業）：新殼第二波四件完工**（new/index.html，待老闆晨起 push）：
+  ①**Pack 逐項打勾**：Pack 卡改開清單抽屜——每項一顆大按鈕、勾一項即存 pack_state、**全勾才亮「All packed — move to Ready」**（預帶既有勾選狀態）
+  ②**回饋進今日流**：feedback（reply 為空）長成 Customers 卡——有 email 按 Reply… 開回覆抽屜（引原文＋textarea → send-email feedback_reply 寄信蓋章）、匿名按 Got it 收起
+  ③**新殼開新單**：Tools → Make 第一顆「New order」——客人下拉（含 walk-in）/品項（豆名下拉＝beans∪product_sync、克數 100-1000、qty 步進、單價輸入、可加行刪行）/付款二選一/總額即時算 → insert manual 單（**order_no 查全表 max+1 含 Cancelled 防撞號**）→ 出現在今日流等 Accept
+  ④**貪睡 undo**：本次 session 貪睡的卡在 feed 底部出現「N snoozed · undo」一鍵全部召回
+  - 驗證：jscheck＋preview 假資料全流程（六種卡渲染/Pack 三段流程含寫入內容比對/Reply 派發 payload 正確/匿名貪睡＋undo 列/開新單完整填寫＋insert payload 全欄位比對 order_no 21・total 50）
+  - **夜班守則遵守**：零真信件、零真推播、舊 app 未動、DB 只在老闆自己操作時寫；一切 UI 改動停留本機等 push。**剩下未做**：出貨信卡片管線（要移植 makeSquareCard 大段 canvas，留給白天）
 - 開工檢查：上一 session 全部已 push 已部署（線上 662,628 bytes 同步）；「Analysed by」確認早已上線（杯測卡/Retail 卡/詳情頁三處）
 
 ## 〇之零、補記 — 2026-07-06 早上 session（QC 帶跑 + 補烘豆紀錄 + Re-analyse 防呆）
