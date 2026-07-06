@@ -5563,10 +5563,12 @@ fill="#6F4A36" stroke="none">
   async function setOrderStatus(id,s){
     var o=ORDERS.filter(function(x){return x.id===id;})[0];if(!o)return;
     if(s==='Dispatched'&&(o.status||'New')!=='Dispatched'){ordDispatchAsk(id);return;}
-    o.status=s;
     var patch={status:s};
     if(s==='Dispatched')patch.dispatched_at=new Date().toISOString();
-    try{await sb.from('orders').update(patch).eq('id',id);}catch(e){}
+    /* 靜默失敗地雷：supabase 失敗不會 throw，要自己驗 error，否則畫面顯示成功、資料庫沒存 */
+    var u=await sb.from('orders').update(patch).eq('id',id);
+    if(u.error){alert('Status update failed: '+u.error.message);loadOrders();return;}
+    o.status=s;
     if(s==='Confirmed'){await checkOrderStock(id,true);}
     renderOrders();
   }
@@ -5633,16 +5635,18 @@ fill="#6F4A36" stroke="none">
   }
   async function markOrderPaid(id){
     var o=ORDERS.filter(function(x){return x.id===id;})[0];if(!o)return;
+    var u=await sb.from('orders').update({payment_status:'paid'}).eq('id',id);
+    if(u.error){alert('Could not mark as paid: '+u.error.message);loadOrders();return;}
     o.payment_status='paid';
-    try{await sb.from('orders').update({payment_status:'paid'}).eq('id',id);}catch(e){}
     /* Phase 3: notify customer their payment arrived; failure never blocks the paid flag */
     try{await callEmailFn({action:'payment_received',order_id:id});}catch(e){console.error('[Ratio] payment_received mail:',e&&e.message||e);}
     renderOrders();
   }
   async function setTransfer(id,val){
     var o=ORDERS.filter(function(x){return x.id===id;})[0];if(!o)return;
+    var u=await sb.from('orders').update({transfer_state:val}).eq('id',id);
+    if(u.error){alert('Transfer update failed: '+u.error.message);loadOrders();return;}
     o.transfer_state=val;
-    try{await sb.from('orders').update({transfer_state:val}).eq('id',id);}catch(e){}
     renderOrders();
   }
 
