@@ -1225,6 +1225,17 @@
     </div>
   </div>
 
+  <div class="screen" id="screen-mkt">
+    <header class="shead">
+      <span class="logo"><img src="logo.png" alt="Ratio" /></span>
+      <span class="hkey" id="mkt-key"></span>
+    </header>
+    <div class="stitle" id="mkt-title">Marketing</div>
+    <div class="sbody">
+      <div id="mkt-content"></div>
+    </div>
+  </div>
+
   <div class="screen" id="screen-recipe">
     <header class="shead">
       <span class="logo"><img src="logo.png" alt="Ratio" /></span>
@@ -1364,6 +1375,7 @@ fill="#6F4A36" stroke="none">
     cog:`<svg viewBox="0 0 24 24" ${s}><circle cx="12" cy="12" r="3"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2M6 6l1.5 1.5M16.5 16.5L18 18M18 6l-1.5 1.5M7.5 16.5L6 18"/></svg>`,
     bag:`<svg viewBox="0 0 24 24" ${s}><path d="M6 9h12l-.8 11a1 1 0 0 1-1 .9H7.8a1 1 0 0 1-1-.9z"/><path d="M9 9V7a3 3 0 0 1 6 0v2"/></svg>`,
     post:`<svg viewBox="0 0 24 24" ${s}><path d="M3.5 7.5 12 4l8.5 3.5L12 11 3.5 7.5z"/><path d="M3.5 7.5v9L12 20l8.5-3.5v-9"/><path d="M12 11v9"/></svg>`,
+    mkt:`<svg viewBox="0 0 24 24" ${s}><path d="M4 10v4h3l5 4V6L7 10H4z"/><path d="M16 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10"/></svg>`,
     file:`<svg viewBox="0 0 24 24" ${s}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 12v5M9.5 14.8 12 17.2l2.5-2.4"/></svg>`,
     swap:`<svg viewBox="0 0 24 24" ${s}><path d="M5 8h13M15 5l3 3-3 3"/><path d="M19 16H6M9 13l-3 3 3 3"/></svg>`,
     menu:`<svg viewBox="0 0 48 48"><rect x="11" y="8" width="26" height="32" rx="3" fill="#FCF6F4" ${O}/><path d="M16 8 V40" stroke="#B25E6A" stroke-width="1.6" stroke-dasharray="2 2.4" fill="none"/><path d="M20 16 h13 M20 22 h13 M20 28 h9" stroke="#CFC4B8" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>`,
@@ -1371,7 +1383,7 @@ fill="#6F4A36" stroke="none">
   };
   const shop=[['timesheet','Timesheet'],['beans','Beans'],['task','Task'],['recipe','Recipe']];
   const roastery=[['roast','Roaster'],['green','Green Buyer'],['order','Order'],['fx','Blender']];
-  const folder=[['print','Print Centre'],['feedback','Feedback'],['post','Post'],['file','File'],['user','Account'],['admin','Admin']]; /* G6: label/tinlabel/menu/invoice 併入 Print Centre；G7 加 Feedback */
+  const folder=[['print','Print Centre'],['mkt','Marketing'],['feedback','Feedback'],['post','Post'],['file','File'],['user','Account'],['admin','Admin']]; /* G6: label/tinlabel/menu/invoice 併入 Print Centre；G7 加 Feedback；站台 7 加 Marketing */
 
   function fill(side,arr){const el=document.querySelector(`.pill[data-side="${side}"]`);el.innerHTML='';
     arr.forEach(([ic,lb])=>{const d=document.createElement('div');d.className='item';d.dataset.id=ic;
@@ -3667,8 +3679,82 @@ fill="#6F4A36" stroke="none">
     }catch(e){msg.textContent='Failed: '+String(e&&e.message||e);msg.className='gform-msg err';}
     btn.disabled=false;
   }
+  /* ===== Marketing 站（站台 7）：對外宣傳集中頁——群發新豆通知＋網店連結/QR＋素材與評論入口 ===== */
+  const SHOP_PUBLIC_URL='https://ratio-theta.vercel.app/?shop';
+  var mktShopQr=false, mktSelIdx='';
+  function openMarketing(){closeFolder();openPage('mkt');mktShopQr=false;renderMarketing();mktEnsureData();}
+  async function mktEnsureRetail(){
+    /* 同 renderBeansRetail 的資料源，但不碰 beans 畫面 */
+    if(!ROASTS||!ROASTS.length){try{await loadRoasts();}catch(e){}}
+    try{await ensureBeansForInvoice();}catch(e){}
+    var res=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false});
+    if(res.error)return;
+    var rows=res.data||[],seenR={},uniq=[];
+    rows.forEach(function(s){var k=s.bean_id?('id:'+String(s.bean_id)):sampleDisp(s).trim().toLowerCase();if(k){if(seenR[k])return;seenR[k]=true;}uniq.push(s);});
+    RTL_ROWS=uniq;
+    try{await loadProdSync();}catch(e){}
+  }
+  async function mktEnsureData(){
+    await mktEnsureRetail();
+    try{
+      var gr=await sb.from('app_state').select('value').eq('key','google_review_url').maybeSingle();
+      GOOGLE_REVIEW_URL=(gr&&gr.data&&gr.data.value&&gr.data.value.url)?String(gr.data.value.url):'';
+    }catch(e){}
+    if(document.querySelector('#screen-mkt.open'))renderMarketing();
+  }
+  function renderMarketing(){
+    var box=document.getElementById('mkt-content');if(!box)return;
+    var t=document.getElementById('mkt-title');if(t)t.textContent='Marketing';
+    function jump(k,name,sub){return '<div class="gbean" data-mkt="'+k+'"><div class="gb-main"><div class="gb-name">'+name+'</div><div class="gb-attrs"><div class="gb-attr">'+sub+'</div></div></div><div class="gb-right"><span class="gb-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></div></div>';}
+    var opts='<option value="">— pick a coffee —</option>'
+      +(RTL_ROWS||[]).map(function(s,i){
+        var live=PROD_SYNC[s.sample_id||'']&&PROD_SYNC[s.sample_id||''].status==='synced';
+        return '<option value="'+i+'"'+(String(i)===String(mktSelIdx)?' selected':'')+'>'+esc(s.sample_id||'—')+(live?' · live':'')+'</option>';
+      }).join('');
+    var h='<div class="gsec">New coffee announcement</div>'
+      +'<div class="pc-wrap"><div class="pc-sub">Email every customer about a new coffee — info card attached, QC gate applies (same as the Announce button in Retail Info).</div>'
+      +'<select id="mkt-sel">'+opts+'</select>'
+      +'<button class="gbtn" id="mkt-announce">Send announcement</button>'
+      +'<div class="gform-msg" id="mkt-msg">'+((RTL_ROWS&&RTL_ROWS.length)?'':'Loading coffee list…')+'</div></div>'
+      +'<div class="gsec">Online shop</div>'
+      +'<div class="pc-wrap"><div class="pc-sub">Public menu and checkout — share it anywhere:<br>'+esc(SHOP_PUBLIC_URL)+'</div>'
+      +'<button class="gbtn" id="mkt-copy">Copy shop link</button>'
+      +(mktShopQr
+        ?'<div style="margin-top:10px"><img src="https://api.qrserver.com/v1/create-qr-code/?size=520x520&data='+encodeURIComponent(SHOP_PUBLIC_URL)+'" alt="shop QR" style="width:100%;max-width:250px;display:block;background:#fff;border-radius:10px;padding:10px;border:1px solid var(--line)" /><div class="pc-sub" style="margin-top:8px">Long-press / right-click to save — stickers, counter stand, parcel cards.</div></div>'
+        :'<button class="gbtn ghost" id="mkt-shopqr" style="margin-top:8px;background:transparent;color:var(--accent);border:1.5px solid var(--accent)">Show shop QR</button>')
+      +'<div class="gform-msg" id="mkt-copymsg"></div></div>'
+      +'<div class="gsec">Assets and links</div><div class="gbeans">'
+      +jump('cards','IG asset — info card PNG','1200×1200 card, same as Square and emails · Print Centre')
+      +jump('beanqr','Public bean page QR','Flavour, cup profile and brew guide per coffee · Print Centre')
+      +jump('review','Google review'+(GOOGLE_REVIEW_URL?' ✓ set':' — not set'),(GOOGLE_REVIEW_URL?'Dispatch emails carry the review CTA · QR in Print Centre':'Paste the link in Print Centre to activate email CTA + QR'))
+      +jump('fbqr','Feedback QR','Public feedback form for parcel cards and the counter · Print Centre')
+      +'</div>';
+    box.innerHTML=h;
+    var sel=document.getElementById('mkt-sel');if(sel)sel.addEventListener('change',function(){mktSelIdx=sel.value;});
+    var an=document.getElementById('mkt-announce');if(an)an.addEventListener('click',async function(){
+      var msg=document.getElementById('mkt-msg');
+      var i=sel?sel.value:'';var s=(i!==''&&RTL_ROWS)?RTL_ROWS[+i]:null;
+      if(!s){if(msg){msg.textContent='Pick a coffee first';msg.className='gform-msg err';}return;}
+      an.disabled=true;if(msg){msg.textContent='';msg.className='gform-msg';}
+      try{await announceCoffee(s.sample_id||('id:'+String(s.id||'')),s.sample_id||'');}
+      finally{an.disabled=false;}
+    });
+    var cp=document.getElementById('mkt-copy');if(cp)cp.addEventListener('click',function(){
+      var msg=document.getElementById('mkt-copymsg');
+      function ok(){if(msg){msg.textContent='Link copied';msg.className='gform-msg ok';}}
+      function fail(){if(msg){msg.textContent=SHOP_PUBLIC_URL;msg.className='gform-msg';}}
+      if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(SHOP_PUBLIC_URL).then(ok).catch(fail);
+      else fail();
+    });
+    var sq=document.getElementById('mkt-shopqr');if(sq)sq.addEventListener('click',function(){mktShopQr=true;renderMarketing();});
+    box.querySelectorAll('[data-mkt]').forEach(function(el){el.addEventListener('click',function(){
+      if(el.dataset.mkt==='fbqr')printFbQr=true;
+      openPrint();
+    });});
+  }
   function onOpen(id){
     if(id==='print'){openPrint();return;}
+    if(id==='mkt'){openMarketing();return;}
     if(id==='feedback'){openFeedback();return;}
     if(id==='label'){openLabel();return;}
     if(id==='tinlabel'){openTinLabel();return;}
