@@ -1526,6 +1526,7 @@ fill="#6F4A36" stroke="none">
     if(deep==='green.sample'){if(typeof closePage==='function')closePage();hideCPanel();setFeedChannel(FEED_CHANNELS['green']||'general');return;}
     if(deep==='order'){if(typeof closePage==='function')closePage();renderOrderStation();return;}
     if(deep==='beans'){if(typeof closePage==='function')closePage();renderQCStation();return;}
+    if(deep==='roast'){if(typeof closePage==='function')closePage();renderRoastStation();return;}
     if(rootKey==='timesheet'){
       const cw=currentWeekStart();
       const w=thisWeekEntry();
@@ -1902,6 +1903,79 @@ fill="#6F4A36" stroke="none">
     var qn=document.getElementById('qcs-nobatch');if(qn)qn.addEventListener('click',function(){runModuleAction('beans:prod');});
     var ql=document.getElementById('qcs-live');if(ql)ql.addEventListener('click',function(){runModuleAction('beans:retail');});
     var qg=document.getElementById('qcs-page');if(qg)qg.addEventListener('click',function(){runModuleAction('beans:prod');});
+  }
+  /* ===== Roast Station：烘焙站泡泡面板（訂單需求→重烘→批次庫齡）===== */
+  async function renderRoastStation(){
+    var ct=document.getElementById('ctitle');if(ct){ct.textContent='Roast Station';ct.classList.add('show');}
+    showCPanel('<div class="sempty" style="padding:34px 20px">Loading…</div>');
+    var bq=await sb.from('beans').select('id,name,process,quantity').order('name');
+    await Promise.all([loadRoasts(),loadRoastDemand()]);
+    if(dockStack[dockStack.length-1]!=='roast')return; /* 載入途中使用者已離開 */
+    var beans=(bq&&bq.data)||[];
+    var h='';
+    /* ① 訂單需求：熟豆 g → 生豆 kg（×1.15），庫存不夠紅字 */
+    var demKeys=Object.keys(ROAST_DEMAND);
+    demKeys.sort(function(a,b){return ROAST_DEMAND[b].g-ROAST_DEMAND[a].g;});
+    if(demKeys.length){
+      h+='<div class="gs-card warn"><div class="gs-head"><span class="gs-title">Needed for orders</span><span class="gs-badge warn">'+demKeys.length+'</span></div>'
+        +demKeys.map(function(k){
+          var d=ROAST_DEMAND[k];
+          var needKg=Math.round(d.g*ORDER_GREEN_FACTOR/100)/10;
+          var lots=beans.filter(function(b){return String(b.name||'').trim().toLowerCase()===k;});
+          var stockTot=0;lots.forEach(function(b){stockTot+=Number(b.quantity)||0;});
+          var short=lots.length&&(stockTot+0.0001)<needKg;
+          var sub=d.g+'g roast · ~'+needKg+' kg green'
+            +(lots.length?' · stock '+gnum(stockTot)+' kg':' · blend / no green lot')
+            +(short?' · <span style="color:var(--danger)">not enough</span>':'');
+          return '<div class="gs-row"><span style="min-width:0"><span class="gs-nm">'+esc(d.name)+'</span>'
+            +'<span class="gs-sub" style="display:block">'+sub+'</span></span></div>';
+        }).join('')
+        +'<button class="gs-wide" id="rs-prod">Open production — load the roast cart</button></div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">Needed for orders</span><span class="gs-quiet-r">no demand</span></div>';
+    }
+    /* ② QC 重烘佇列 */
+    var rrs=(ROASTS||[]).filter(function(r){return r.qc==='reroast';});
+    if(rrs.length){
+      h+='<div class="gs-card warn"><div class="gs-head"><span class="gs-title">QC re-roast queue</span><span class="gs-badge warn">'+rrs.length+'</span></div>'
+        +rrs.map(function(r){
+          return '<div class="gs-row"><span style="min-width:0"><span class="gs-nm">'+esc(r.bean_name||'—')+'</span>'
+            +(r.roast_date?'<span class="gs-sub" style="display:block">roasted '+esc(fmtDate(r.roast_date))+' · flagged by QC</span>':'')+'</span></div>';
+        }).join('')
+        +'<button class="gs-wide" id="rs-reroast">Open production — roast these again</button></div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">Re-roast queue</span><span class="gs-quiet-r">nothing flagged</span></div>';
+    }
+    /* ③ 老批次警示：熟豆批次 >30 天還有剩（FIFO 先用/出清） */
+    var today=new Date();
+    var aged=(ROASTS||[]).filter(function(r){
+      if(!(Number(r.remaining_kg)>0)||!r.roast_date)return false;
+      var d=new Date(r.roast_date);if(isNaN(d))return false;
+      return Math.floor((today-d)/86400000)>30;
+    }).sort(function(a,b){return String(a.roast_date||'')<String(b.roast_date||'')?-1:1;});
+    if(aged.length){
+      h+='<div class="gs-card" id="rs-aged" style="cursor:pointer"><div class="gs-head"><span class="gs-title">Ageing batches — use first or clear out</span><span class="gs-badge od">'+aged.length+'</span></div>'
+        +aged.map(function(r){
+          var days=Math.floor((today-new Date(r.roast_date))/86400000);
+          return '<div class="gs-row"><span style="min-width:0"><span class="gs-nm">'+esc(r.bean_name||'—')+'</span>'
+            +'<span class="gs-sub" style="display:block">roasted '+esc(fmtDate(r.roast_date))+' · <span style="color:var(--danger)">'+days+'d old</span></span></span>'
+            +'<span class="gs-kg">'+gnum(Number(r.remaining_kg)||0)+' kg left</span></div>';
+        }).join('')+'</div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">Ageing batches</span><span class="gs-quiet-r">all fresh</span></div>';
+    }
+    /* ④ 批次庫存 + 歷史入口 */
+    var bats=(ROASTS||[]).filter(function(r){return Number(r.remaining_kg)>0;});
+    var totKg=0;bats.forEach(function(r){totKg+=Number(r.remaining_kg)||0;});
+    h+='<div class="gs-card quiet" id="rs-stock" style="cursor:pointer"><span class="gs-quiet-l">Batch stock</span><span class="gs-quiet-r">'+bats.length+' batches · '+gnum(Math.round(totKg*100)/100)+' kg ›</span></div>';
+    h+='<div class="gs-card quiet" id="rs-hist" style="cursor:pointer"><span class="gs-quiet-l">Roast history</span><span class="gs-quiet-r">'+(ROASTS||[]).length+' roasts ›</span></div>';
+    h+='<div class="gs-foot">Flow: orders → roast → batch stock → QC</div>';
+    showCPanel(h);
+    var rp=document.getElementById('rs-prod');if(rp)rp.addEventListener('click',function(){runModuleAction('roast:prod');});
+    var rr=document.getElementById('rs-reroast');if(rr)rr.addEventListener('click',function(){runModuleAction('roast:prod');});
+    var ra=document.getElementById('rs-aged');if(ra)ra.addEventListener('click',function(){histView='stock';runModuleAction('roast:hist');});
+    var rs=document.getElementById('rs-stock');if(rs)rs.addEventListener('click',function(){histView='stock';runModuleAction('roast:hist');});
+    var rh=document.getElementById('rs-hist');if(rh)rh.addEventListener('click',function(){histView='date';runModuleAction('roast:hist');});
   }
   function runModuleAction(act){
     if(typeof act==='string'&&act.indexOf('timesheet:')===0)tsFilter=null;
