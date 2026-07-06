@@ -1527,6 +1527,7 @@ fill="#6F4A36" stroke="none">
     if(deep==='order'){if(typeof closePage==='function')closePage();renderOrderStation();return;}
     if(deep==='beans'){if(typeof closePage==='function')closePage();renderQCStation();return;}
     if(deep==='roast'){if(typeof closePage==='function')closePage();renderRoastStation();return;}
+    if(deep==='recipe'){if(typeof closePage==='function')closePage();renderEspressoStation();return;}
     if(rootKey==='timesheet'){
       const cw=currentWeekStart();
       const w=thisWeekEntry();
@@ -1976,6 +1977,63 @@ fill="#6F4A36" stroke="none">
     var ra=document.getElementById('rs-aged');if(ra)ra.addEventListener('click',function(){histView='stock';runModuleAction('roast:hist');});
     var rs=document.getElementById('rs-stock');if(rs)rs.addEventListener('click',function(){histView='stock';runModuleAction('roast:hist');});
     var rh=document.getElementById('rs-hist');if(rh)rh.addEventListener('click',function(){histView='date';runModuleAction('roast:hist');});
+  }
+  /* ===== Espresso Station：萃取站泡泡面板（在賣的豆逐支看調參新鮮度）===== */
+  var ESP_STALE_DAYS=7; /* 最新 dial-in 超過 7 天（或從沒調過）= 該調了 */
+  async function renderEspressoStation(){
+    var ct=document.getElementById('ctitle');if(ct){ct.textContent='Espresso Station';ct.classList.add('show');}
+    showCPanel('<div class="sempty" style="padding:34px 20px">Loading…</div>');
+    var dq=await sb.from('dialins').select('*').order('created_at',{ascending:false}).limit(200);
+    await loadProdSync();
+    if(dockStack[dockStack.length-1]!=='recipe')return; /* 載入途中使用者已離開 */
+    if(dq.error){showCPanel('<div class="sempty">Load failed: '+esc(dq.error.message)+'</div>');return;}
+    var dls=dq.data||[];
+    var latest={};dls.forEach(function(d){var k=String(d.coffee||'').trim().toLowerCase();if(k&&!latest[k])latest[k]=d;});
+    var live=Object.keys(PROD_SYNC).filter(function(k){return PROD_SYNC[k]&&PROD_SYNC[k].status==='synced';}).sort();
+    var today=new Date();
+    function ageDays(d){var t=new Date(d.created_at);return isNaN(t)?null:Math.floor((today-t)/86400000);}
+    var h='';
+    /* ① 在賣的豆：上次調參幾天前，過期紅字；Dial in 帶入豆名、Apply 寫進 Brew guide */
+    if(live.length){
+      var staleN=0;
+      var rowsH=live.map(function(nm){
+        var d=latest[nm.trim().toLowerCase()];
+        var age=d?ageDays(d):null;
+        var stale=!d||(age!=null&&age>ESP_STALE_DAYS);
+        if(stale)staleN++;
+        var sub=d?(dlMeta(d)+' · '+(age===0?'today':age+'d ago')):'never dialled in';
+        return '<div class="gs-row"><span style="min-width:0"><span class="gs-nm">'+esc(nm)+'</span>'
+          +'<span class="gs-sub" style="display:block'+(stale?';color:var(--danger)':'')+'">'+esc(sub)+'</span></span>'
+          +'<span style="display:flex;gap:6px;flex:0 0 auto"><button class="gs-act hot" data-esdial="'+esc(nm)+'">Dial in</button>'
+          +(d?'<button class="gs-act" data-esapply="'+esc(d.id)+'">Apply</button>':'')+'</span></div>';
+      }).join('');
+      h+='<div class="gs-card'+(staleN?' warn':'')+'"><div class="gs-head"><span class="gs-title">On the bar — dial-in freshness</span><span class="gs-badge '+(staleN?'warn':'buy')+'">'+(staleN?staleN+' stale':'all fresh')+'</span></div>'
+        +rowsH
+        +'<div class="gs-sub" style="margin-top:6px">Apply writes the latest numbers into the espresso Brew guide</div></div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">On the bar</span><span class="gs-quiet-r">nothing live on Square yet</span></div>';
+    }
+    /* ② 最近紀錄（其他豆的調參也看得到） */
+    var others=Object.keys(latest).filter(function(k){return live.every(function(nm){return nm.trim().toLowerCase()!==k;});});
+    if(others.length){
+      h+='<div class="gs-card"><div class="gs-head"><span class="gs-title">Other coffees dialled in</span><span class="gs-badge buy">'+others.length+'</span></div>'
+        +others.slice(0,6).map(function(k){var d=latest[k];var age=ageDays(d);
+          return '<div class="gs-row"><span style="min-width:0"><span class="gs-nm">'+esc(d.coffee)+'</span>'
+            +'<span class="gs-sub" style="display:block">'+esc(dlMeta(d)+(age!=null?' · '+(age===0?'today':age+'d ago'):''))+'</span></span>'
+            +'<button class="gs-act" data-esdial="'+esc(d.coffee)+'">Dial in</button></div>';
+        }).join('')+'</div>';
+    }
+    h+='<div class="gs-card quiet" id="es-new" style="cursor:pointer"><span class="gs-quiet-l">Log a dial-in</span><span class="gs-quiet-r">open form ›</span></div>';
+    h+='<div class="gs-card quiet" id="es-hist" style="cursor:pointer"><span class="gs-quiet-l">Dial-in history</span><span class="gs-quiet-r">'+dls.length+' logged ›</span></div>';
+    h+='<div class="gs-foot">Flow: taste → dial in → apply to Brew guide</div>';
+    showCPanel(h);
+    document.querySelectorAll('#cpanel [data-esdial]').forEach(function(el){el.addEventListener('click',function(){dlDraftCoffee=el.dataset.esdial;openDialin(true);});});
+    document.querySelectorAll('#cpanel [data-esapply]').forEach(function(el){el.addEventListener('click',async function(){
+      DIALINS=dls; /* applyDialin 從 DIALINS 找 */
+      el.disabled=true;await applyDialin(el.dataset.esapply);el.disabled=false;
+    });});
+    var en=document.getElementById('es-new');if(en)en.addEventListener('click',function(){runModuleAction('recipe:dialin');});
+    var eh=document.getElementById('es-hist');if(eh)eh.addEventListener('click',function(){runModuleAction('recipe:dialinhist');});
   }
   function runModuleAction(act){
     if(typeof act==='string'&&act.indexOf('timesheet:')===0)tsFilter=null;
