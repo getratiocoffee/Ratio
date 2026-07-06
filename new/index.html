@@ -130,7 +130,8 @@ function toast(m){var t=$('toast');t.textContent=m;t.classList.add('show');clear
 function money(n){return '$'+(Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function daysSince(ts){if(!ts)return 0;var d=new Date(ts);return isNaN(d)?0:Math.floor((Date.now()-d)/86400000);}
 function fmtD(s){if(!s)return '';var p=String(s).slice(0,10).split('-');return p.length===3?(p[2]+'/'+p[1]):s;}
-function todayKey(){return new Date().toISOString().slice(0,10);}
+/* 本地日（雪梨）——跟 todayStr 同步；舊版用 UTC 會讓「明天回來」變成早上 10 點才回來 */
+function todayKey(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 /* 貪睡與晨報收起：存 localStorage，到明天自動失效 */
 /* 貪睡改存 app_state（key: new_snooze）＝跨裝置同步：手機睡掉的卡，電腦也不再冒出來；到明天自動失效（只認今天的 key）。全店共用——誰睡掉就是大家都先不看 */
 var SNOOZE_ALL={};
@@ -1766,7 +1767,16 @@ function render(){
   $('nav-qc').classList.toggle('on',view==='qc');
   $('nav-tools').classList.toggle('on',view==='tools');
 }
-async function reload(){await loadAll();render();}
+var LAST_LOAD=0;
+async function reload(){await loadAll();LAST_LOAD=Date.now();render();}
+/* 切回前景自動刷新：超過 60 秒才刷、抽屜開著不打斷、未登入不動 */
+function maybeAutoRefresh(){
+  if(document.visibilityState!=='visible')return;
+  if(!LAST_LOAD)return;
+  var dr=$('drawer');if(dr&&dr.classList.contains('show'))return;
+  if(Date.now()-LAST_LOAD>60000)reload();
+}
+document.addEventListener('visibilitychange',maybeAutoRefresh);
 $('nav-feed').addEventListener('click',function(){view='feed';render();});
 $('nav-qc').addEventListener('click',function(){view='qc';render();});
 $('nav-tools').addEventListener('click',function(){view='tools';render();});
