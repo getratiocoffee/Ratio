@@ -1585,7 +1585,14 @@ fill="#6F4A36" stroke="none">
         var gs=filterGroups(w.groups,tsFilter);
         var body=gs.length?tsGroupsHTML(gs,cw,!!tsFilter):'<div class="sempty">'+esc(tsFilter||'')+' no shifts this week</div>';
         var editBtn='<div style="padding:8px 16px 14px"><button class="gbtn ghost" id="ts-editweek">Edit this week</button></div>';
-        html=chips+body+editBtn;
+        /* 人事站：今天誰當班一眼看（永遠用整週資料，不受名字篩選影響） */
+        var todayIso=isoDate(new Date());
+        var tg=(w.groups||[]).filter(function(g){var di=TS_ORDER.indexOf(g.dk);if(di<0)return false;var dd=new Date(cw+'T00:00:00');dd.setDate(dd.getDate()+di);return isoDate(dd)===todayIso;})[0];
+        var todayCard=(tg&&tg.rows&&tg.rows.length)
+          ?'<div class="gs-card" style="margin:12px 14px 2px"><div class="gs-head"><span class="gs-title">Today on shift</span><span class="gs-badge buy">'+tg.rows.length+'</span></div>'
+            +tg.rows.map(function(r){return '<div class="gs-row"><span class="gs-nm">'+esc(r.nm||'')+'</span><span class="gs-kg">'+esc(r.tm||'')+(r.hrs?' · '+esc(r.hrs):'')+'</span></div>';}).join('')+'</div>'
+          :'<div class="gs-card quiet" style="margin:12px 14px 2px"><span class="gs-quiet-l">Today on shift</span><span class="gs-quiet-r">no one rostered</span></div>';
+        html=todayCard+chips+body+editBtn;
       }else{
         html='<div class="sempty" style="padding:38px 24px 18px">No roster yet<br>Plan and upload this week</div>'
           +'<div style="padding:0 16px 14px"><button class="gbtn" id="ts-fillweek">Plan this week</button></div>';
