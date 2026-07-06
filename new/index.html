@@ -34,7 +34,7 @@ header .cnt{font-size:14px;color:var(--muted)}
 .tag.warn{color:var(--accent)}
 .t{font-size:19px;font-weight:700;line-height:1.3;font-family:'Fraunces',serif}
 .s{font-size:14px;color:var(--muted);margin-top:3px;line-height:1.5}
-.s .red{color:var(--danger);font-weight:600}
+.red{color:var(--danger);font-weight:600}
 .act{display:block;width:100%;border:none;border-radius:10px;padding:16px;font-size:17px;font-weight:700;font-family:'Inter',sans-serif;background:var(--accent);color:#fff;margin-top:12px;cursor:pointer}
 .act:active{opacity:.8}
 .act[disabled]{opacity:.45}
@@ -159,7 +159,7 @@ async function loadAll(){
     sb.from('dialins').select('coffee,created_at').order('created_at',{ascending:false}).limit(200),
     sb.from('product_sync').select('bean_id,status').eq('channel','square'),
     sb.from('samples').select('id,sample_id,bean_id,process,roast_date,cupping_date,features,flavour_locked').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
-    sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg,status').order('roast_date',{ascending:false}),
+    sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg,status,kind,remaining_kg').order('roast_date',{ascending:false}),
     sb.from('beans').select('id,name,process,quantity,low_stock_kg,country,cost_per_kg,supplier'),
     sb.from('feedback').select('*').is('reply',null).order('created_at',{ascending:false}),
     sb.from('rosters').select('week_start,shifts,deleted').eq('week_start',mondayStr())
@@ -1240,9 +1240,20 @@ async function saveCupSheet(){
 /* ===== 記烘豆（單批：選豆→生豆 kg→選填產出/快錄；照 classic saveRoast 規則寫 roasts＋扣庫存＋stock_moves）===== */
 var RO=null;
 function todayStr(){var t=new Date();return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
-function openRoastSheet(pre){
-  RO={beanId:'',kg:'',out:'',date:todayStr(),charge:'',fc:'',drop:'',dur:'',logOpen:false,pre:(pre&&pre.length)?pre:null};
+async function openRoastSheet(pre){
+  RO={mode:'single',beanId:'',kg:'',out:'',date:todayStr(),charge:'',fc:'',drop:'',dur:'',logOpen:false,
+    blendName:'',bkg:'',blends:[],pre:(pre&&pre.length)?pre:null};
+  /* 拼配模式要配方表（比例快照＋成分扣帳） */
+  try{var r=await sb.from('blends').select('id,name,parts');RO.blends=(r.data||[]).filter(function(b){return b.name;});}catch(e){}
   paintRoastSheet();
+}
+/* 成分熟豆批次可用量：非 blend、同名、remaining_kg>0 */
+function blendPartPool(name){
+  var key=String(name||'').trim().toLowerCase(),sum=0;
+  (DB.roasts||[]).forEach(function(r){
+    if(r.kind!=='blend'&&Number(r.remaining_kg)>0&&String(r.bean_name||'').trim().toLowerCase()===key)sum+=Number(r.remaining_kg)||0;
+  });
+  return Math.round(sum*1000)/1000;
 }
 function paintRoastSheet(){
   var beans=(DB.beans||[]).slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
@@ -1254,37 +1265,121 @@ function paintRoastSheet(){
     chips='<div class="dlab">Needed for orders · tap to fill</div>'+RO.pre.map(function(d,ix){
       var lot=beans.find(function(b){return String(b.name||'').trim().toLowerCase()===String(d.name||'').trim().toLowerCase();});
       var needKg=Math.round(d.g*1.15/100)/10;
-      if(!lot)return '<button class="dclose" disabled style="opacity:.55">'+esc(d.name)+' · no green lot (blend?)</button>';
-      return '<button class="dclose" data-lot="'+esc(lot.id)+'" data-kg="'+needKg+'">'+esc(d.name)+' · ~'+needKg+' kg green</button>';
+      if(lot)return '<button class="dclose" data-lot="'+esc(lot.id)+'" data-kg="'+needKg+'">'+esc(d.name)+' · ~'+needKg+' kg green</button>';
+      /* 配不到生豆批 → 查配方表，是 blend 就切拼配模式帶入（熟豆量不 ×1.15） */
+      var bl=RO.blends.find(function(b){return String(b.name||'').trim().toLowerCase()===String(d.name||'').trim().toLowerCase();});
+      if(bl){var bkg=Math.round(d.g/100)/10;return '<button class="dclose" data-blend="'+esc(bl.name)+'" data-bkg="'+bkg+'">'+esc(d.name)+' · blend · ~'+bkg+' kg roasted</button>';}
+      return '<button class="dclose" disabled style="opacity:.55">'+esc(d.name)+' · no green lot</button>';
     }).join('');
   }
-  openDrawerHTML('<div class="t" style="font-size:19px">Log roast</div>'
-    +'<div class="s" style="margin-top:2px">writes the batch and deducts green stock</div>'
-    +chips
-    +'<div class="dlab">Green coffee</div>'
+  var single=RO.mode==='single';
+  var body;
+  if(single){
+    body='<div class="dlab">Green coffee</div>'
     +'<select class="din" id="ro-bean" style="padding:12px"><option value="">— pick a bean —</option>'
     +beans.map(function(b){return '<option value="'+esc(b.id)+'"'+(String(RO.beanId)===String(b.id)?' selected':'')+'>'+esc(b.name)+(b.process?' · '+esc(b.process):'')+' · '+(Number(b.quantity)||0)+' kg</option>';}).join('')
     +'</select>'
     +(sel?'<div class="s" style="margin-top:4px">stock '+(Number(sel.quantity)||0)+' kg'+(over?' · <span class=red>exceeds stock</span>':'')+'</div>':'')
     +'<div class="dlab">Green in (kg)</div><input class="din" id="ro-kg" inputmode="decimal" placeholder="e.g. 10" value="'+esc(RO.kg)+'">'
-    +'<div class="dlab">Roasted out (kg) · optional</div><input class="din" id="ro-out" inputmode="decimal" placeholder="—" value="'+esc(RO.out)+'">'
+    +'<div class="dlab">Roasted out (kg) · optional</div><input class="din" id="ro-out" inputmode="decimal" placeholder="—" value="'+esc(RO.out)+'">';
+  }else{
+    var bl=RO.blends.find(function(b){return b.name===RO.blendName;})||null;
+    var parts=bl?(bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}):[];
+    body='<div class="dlab">Blend</div>'
+    +'<select class="din" id="ro-blend" style="padding:12px"><option value="">— pick a blend —</option>'
+    +RO.blends.map(function(b){return '<option'+(RO.blendName===b.name?' selected':'')+'>'+esc(b.name)+'</option>';}).join('')
+    +'</select>'
+    +(bl?parts.map(function(p){
+        var have=blendPartPool(p.bean);
+        return '<div class="dl"><span>'+esc(p.pct+'% '+p.bean)+'</span><span'+(have<=0?' class="red"':'')+'>batch stock '+have+' kg</span></div>';
+      }).join('')||'<div class="s" style="margin-top:6px"><span class="red">recipe has no parts — edit it in the classic app</span></div>':'')
+    +'<div class="dlab">Roasted out (kg) · consumes the parts above</div><input class="din" id="ro-bkg" inputmode="decimal" placeholder="e.g. 1.2" value="'+esc(RO.bkg)+'">';
+  }
+  openDrawerHTML('<div class="t" style="font-size:19px">Log roast</div>'
+    +'<div class="s" style="margin-top:2px">'+(single?'writes the batch and deducts green stock':'writes the blend batch and consumes component batches (oldest first)')+'</div>'
+    +chips
+    +'<div class="pm-seg"><button id="ro-m-s" class="'+(single?'on':'')+'">Single origin</button><button id="ro-m-b" class="'+(single?'':'on')+'">Blend</button></div>'
+    +body
     +'<div class="dlab">Roast date</div><input class="din" id="ro-date" type="date" value="'+esc(RO.date)+'">'
-    +'<button class="dclose" id="ro-log-t">Roast log (optional) '+(RO.logOpen?'▴':'▾')+'</button>'
-    +(RO.logOpen?'<div class="dlab">Charge temp °C</div><input class="din" id="ro-charge" inputmode="decimal" value="'+esc(RO.charge)+'">'
+    +(single?'<button class="dclose" id="ro-log-t">Roast log (optional) '+(RO.logOpen?'▴':'▾')+'</button>'
+      +(RO.logOpen?'<div class="dlab">Charge temp °C</div><input class="din" id="ro-charge" inputmode="decimal" value="'+esc(RO.charge)+'">'
       +'<div class="dlab">First crack mm:ss</div><input class="din" id="ro-fc" placeholder="e.g. 8:30" value="'+esc(RO.fc)+'">'
       +'<div class="dlab">Drop temp °C</div><input class="din" id="ro-drop" inputmode="decimal" value="'+esc(RO.drop)+'">'
-      +'<div class="dlab">Total time mm:ss</div><input class="din" id="ro-dur" placeholder="e.g. 11:20" value="'+esc(RO.dur)+'">':'')
-    +'<button class="act" id="ro-save">Log roast</button>'
+      +'<div class="dlab">Total time mm:ss</div><input class="din" id="ro-dur" placeholder="e.g. 11:20" value="'+esc(RO.dur)+'">':''):'')
+    +'<button class="act" id="ro-save">'+(single?'Log roast':'Log blend batch')+'</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
-  /* 重畫前先把已打的值收回 RO，避免切豆/開快錄時打到一半的字消失 */
-  function grab(){['kg','out','date','charge','fc','drop','dur'].forEach(function(k){var el=$('ro-'+k);if(el)RO[k]=el.value;});}
+  /* 重畫前先把已打的值收回 RO，避免切豆/切模式時打到一半的字消失 */
+  function grab(){['kg','out','date','charge','fc','drop','dur','bkg'].forEach(function(k){var el=$('ro-'+k);if(el)RO[k]=el.value;});}
   document.querySelectorAll('#drawer [data-lot]').forEach(function(el){el.addEventListener('click',function(){
-    grab();RO.beanId=el.dataset.lot;RO.kg=el.dataset.kg;paintRoastSheet();
+    grab();RO.mode='single';RO.beanId=el.dataset.lot;RO.kg=el.dataset.kg;paintRoastSheet();
   });});
-  $('ro-bean').addEventListener('change',function(){grab();RO.beanId=this.value;paintRoastSheet();});
-  $('ro-log-t').addEventListener('click',function(){grab();RO.logOpen=!RO.logOpen;paintRoastSheet();});
-  $('ro-save').addEventListener('click',function(){grab();saveRoastSheet();});
+  document.querySelectorAll('#drawer [data-blend]').forEach(function(el){el.addEventListener('click',function(){
+    grab();RO.mode='blend';RO.blendName=el.dataset.blend;RO.bkg=el.dataset.bkg;paintRoastSheet();
+  });});
+  $('ro-m-s').addEventListener('click',function(){grab();RO.mode='single';paintRoastSheet();});
+  $('ro-m-b').addEventListener('click',function(){grab();RO.mode='blend';paintRoastSheet();});
+  var rbSel=$('ro-bean');if(rbSel)rbSel.addEventListener('change',function(){grab();RO.beanId=this.value;paintRoastSheet();});
+  var blSel=$('ro-blend');if(blSel)blSel.addEventListener('change',function(){grab();RO.blendName=this.value;paintRoastSheet();});
+  var lt=$('ro-log-t');if(lt)lt.addEventListener('click',function(){grab();RO.logOpen=!RO.logOpen;paintRoastSheet();});
+  $('ro-save').addEventListener('click',function(){grab();if(RO.mode==='blend')saveBlendBatch();else saveRoastSheet();});
   $('d-cl').addEventListener('click',closeDrawer);
+}
+/* 拼配批次存檔（照 classic addCoffeeSubmit blend 路徑：快照配方→insert→FIFO 扣成分）*/
+async function saveBlendBatch(){
+  var bl=RO.blends.find(function(b){return b.name===RO.blendName;});
+  if(!bl){toast('Pick a blend first');return;}
+  var bkg=String(RO.bkg).trim()===''?0:parseFloat(RO.bkg);
+  if(isNaN(bkg)||bkg<0){toast('Roasted kg must be a number');return;}
+  var date=RO.date||todayStr();
+  var isDup=(DB.roasts||[]).some(function(r){return (r.roast_date||'')===date&&String(r.bean_name||'').trim().toLowerCase()===String(bl.name).trim().toLowerCase();});
+  if(isDup&&!confirm('"'+bl.name+'" already has a batch dated '+date+'. Add another?'))return;
+  var parts=(bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;})
+    .map(function(p){return {bean:p.bean,process:p.process||'',pct:parseFloat(p.pct)};});
+  var btn=$('ro-save');if(btn){btn.disabled=true;btn.textContent='Logging…';}
+  try{
+    var rec={bean_id:null,bean_name:bl.name,country:null,green_kg:null,status:'pending_cupping',roast_date:date,kind:'blend',
+      recipe:{blend_id:bl.id||null,parts:parts}};
+    if(bkg>0){rec.roasted_kg=bkg;rec.remaining_kg=bkg;}
+    var ins=await sb.from('roasts').insert(rec).select();
+    if(ins.error){var r2=Object.assign({},rec);delete r2.kind;delete r2.recipe;ins=await sb.from('roasts').insert(r2).select();}
+    if(ins.error)throw new Error(ins.error.message);
+    if(ins.data&&ins.data[0])DB.roasts.unshift(ins.data[0]);
+    var short=[];
+    if(bkg>0&&parts.length)short=await consumeBlendParts(parts,bkg);
+    closeDrawer();
+    if(short.length)alert('Blend logged, but batch stock came up short:\n'+short.join('\n')+'\n\nFix batch numbers in the classic app (History → Batch stock).');
+    else toast('Blend batch logged ✓');
+    await reload();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Log blend batch';}
+    alert('Log failed: '+(e&&e.message||e));
+  }
+}
+/* FIFO 消耗成分批次（照 classic consumeBlendComponents）——回傳不夠扣的清單 */
+async function consumeBlendParts(parts,totalKg){
+  var short=[];
+  for(var i=0;i<parts.length;i++){
+    var p=parts[i];
+    var need=totalKg*(parseFloat(p.pct)||0)/100;
+    if(!(need>0))continue;
+    var key=String(p.bean||'').trim().toLowerCase();
+    var pool=(DB.roasts||[]).filter(function(r){
+      return r.kind!=='blend'&&Number(r.remaining_kg)>0&&String(r.bean_name||'').trim().toLowerCase()===key;
+    }).sort(function(a,b){return String(a.roast_date||'9999')<String(b.roast_date||'9999')?-1:1;});
+    var left=need;
+    for(var j=0;j<pool.length&&left>0.0001;j++){
+      var b=pool[j];
+      var take=Math.min(Number(b.remaining_kg)||0,left);
+      var nr=Math.max(0,Math.round(((Number(b.remaining_kg)||0)-take)*1000)/1000);
+      try{
+        var u=await sb.from('roasts').update({remaining_kg:nr}).eq('id',b.id);
+        if(u.error)continue;
+        b.remaining_kg=nr;left-=take;
+      }catch(e){}
+    }
+    if(left>0.0001)short.push(p.bean+': short '+(Math.round(left*100)/100)+' kg (needed '+(Math.round(need*100)/100)+' kg)');
+  }
+  return short;
 }
 async function saveRoastSheet(){
   var b=(DB.beans||[]).find(function(x){return String(x.id)===String(RO.beanId);});
