@@ -5729,10 +5729,19 @@ fill="#6F4A36" stroke="none">
   function ordItemRowHTML(it,i){
     return '<div class="ord-itemrow" data-irow="'+i+'">'+
       '<select data-if="name">'+ordBeanSelectOptions(it.name)+'</select>'+
-      '<input data-if="grams" value="'+esc(it.grams)+'" inputmode="numeric" placeholder="250" />'+
+      '<select data-if="grams">'+ordGramsOptions(it.grams)+'</select>'+
       '<input data-if="qty" value="'+esc(it.qty)+'" inputmode="numeric" placeholder="1" />'+
       '<input data-if="price" value="'+esc(it.price)+'" inputmode="decimal" placeholder="0.00" />'+
       '<button class="oi-x" data-irm="'+i+'" title="Remove">&times;</button></div>';
+  }
+  /* 克數固定選單（自由輸入打錯過 120g）；碰到舊資料的非標準值就多列一個選項保留原值 */
+  function ordGramsOptions(sel){
+    var opts=[[100,'100g'],[150,'150g'],[200,'200g'],[250,'250g'],[1000,'1kg']];
+    var v=Number(sel)||250;
+    var h='',found=false;
+    opts.forEach(function(o){var on=(v===o[0]);if(on)found=true;h+='<option value="'+o[0]+'"'+(on?' selected':'')+'>'+o[1]+'</option>';});
+    if(!found)h='<option value="'+esc(String(v))+'" selected>'+esc(String(v))+'g</option>'+h;
+    return h;
   }
   /* dropdown options: every bean + blend name (typos impossible; free text was breaking dispatch-email brew matching) */
   function ordBeanSelectOptions(sel){
