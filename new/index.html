@@ -903,6 +903,47 @@ function openDialinForm(i){
   });
   $('dl-cl').addEventListener('click',closeDrawer);
 }
+/* ===== 團隊留言板（讀 general 頻道＋發文；刪除留在 classic）===== */
+function noteWhen(ts){
+  if(!ts)return '';
+  var d=new Date(ts);if(isNaN(d))return '';
+  var hm=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  return (fmtD(ts)||'')+' '+hm;
+}
+async function openNotesSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Team notes</div><div class="empty">Loading…</div>');
+  var rows=[];
+  try{
+    var q=await sb.from('messages').select('*').or('channel.is.null,channel.eq.general').order('created_at',{ascending:false}).limit(30);
+    if(q.error){ /* channel 欄不存在的舊庫 → 退回全撈（同 classic fallback） */
+      var q2=await sb.from('messages').select('*').order('created_at',{ascending:false}).limit(30);
+      rows=q2.data||[];
+    }else rows=q.data||[];
+  }catch(e){}
+  openDrawerHTML('<div class="t" style="font-size:19px">Team notes</div>'
+    +'<div class="s" style="margin-top:2px">the general board everyone sees at the classic home — delete over there</div>'
+    +'<div class="no-line" style="margin-top:10px"><input class="din" id="nt-in" placeholder="Write a note…" style="margin-top:0"><button class="act" id="nt-send" style="margin-top:0;flex:0 0 76px">Post</button></div>'
+    +(rows.length?rows.map(function(m){
+      return '<div class="dl" style="display:block"><div>'+esc(m.title||'')+'</div><div class="s" style="margin-top:2px">'+noteWhen(m.created_at)+'</div></div>';
+    }).join(''):'<div class="empty">No notes yet</div>')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  async function post(){
+    var inp=$('nt-in');
+    var text=(inp.value||'').trim();
+    if(!text){toast('Write something first');return;}
+    var b=$('nt-send');b.disabled=true;b.textContent='…';
+    var ins=await sb.from('messages').insert({title:text,unread:true,channel:'general'});
+    if(ins.error){ /* channel 欄不存在 → 照 classic 舊格式再試 */
+      var i2=await sb.from('messages').insert({title:text,unread:true});
+      if(i2.error){b.disabled=false;b.textContent='Post';alert('Post failed: '+i2.error.message);return;}
+    }
+    toast('Posted ✓');
+    openNotesSheet();
+  }
+  $('nt-send').addEventListener('click',post);
+  $('nt-in').addEventListener('keydown',function(e){if(e.key==='Enter')post();});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
 /* ===== 訂單瀏覽（唯讀：最近訂單清單＋詳情抽屜；動作照舊走今日流卡片）===== */
 function openOrdersSheet(){
   var list=(DB.orders||[]).slice(0,25);
@@ -1524,7 +1565,7 @@ function renderTools(){
     +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
     +[['Invoice','GST PDF · classic'],['Info card','IG asset · classic'],['Labels','bag / tin · classic'],['Menus','A4 PDF · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
-    +[['Green stock','type a bean name above'],['Customers','type a name above'],['Orders','recent list · right here'],['Classic app','full interface']].map(function(x,ix){return '<button class="tool" data-t="'+ix+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
+    +[['Green stock','type a bean name above'],['Customers','type a name above'],['Orders','recent list · right here'],['Team notes','read and post · right here'],['Classic app','full interface']].map(function(x,ix){return '<button class="tool" data-t="'+ix+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div></div>';
   var inp=$('tsearch');
   function lookup(){
@@ -1566,7 +1607,8 @@ function renderTools(){
   });
   m.querySelectorAll('[data-classic]').forEach(function(b){b.addEventListener('click',function(){location.href=CLASSIC;});});
   m.querySelectorAll('[data-t]').forEach(function(b){b.addEventListener('click',function(){
-    if(b.dataset.t==='3'){location.href=CLASSIC;return;}
+    if(b.dataset.t==='4'){location.href=CLASSIC;return;}
+    if(b.dataset.t==='3'){openNotesSheet();return;}
     if(b.dataset.t==='2'){openOrdersSheet();return;}
     inp.focus();toast('Type in the search box above');
   });});
