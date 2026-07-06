@@ -17,6 +17,7 @@
 - **介面改造方向拍板**：以工作崗位分功能——崗位首頁每站一顆泡泡（狀態藥丸＋一行預告），action 直接長在佇列列上，參考資訊收抽屜。細節見 Claude 記憶檔 ui-redesign-station-based.md
 - **Green Station 第一站完成**（index.html，待 push 部署）：點 Green Buyer 不再直接跳 Inventory，改顯示 cpanel 泡泡面板 `renderGreenStation()`（樣式 .gs-*）——①Running out（黃框，quantity≤警戒線且警戒線>0；輪替制所以**不放補訂鍵**，底部一鍵跳杯測找新豆）②Cupping picks（決策 buy/maybe、排除已下單和 Ratio Coffee 自家，顯示供應商供老闆決定要不要聯繫；Order 鍵預填採購單）③On order（Received 鍵跳收貨表單）④Inventory 入口列。空佇列縮成灰字 quiet 卡。驗證：jscheck + 本機假資料實測（滿載/全空/警戒線0排除），⚠ 登入後 Order/Received 實跳採購頁待 boss 部署後點一遍
 - **Green dock 攤平**（index.html，待 push 部署）：DOCK_NODES.green 改 `grid` 型節點（dockTo 新支援 + `dockGridHTML()` + .gridpill/.dock-mini 樣式）——底部 dock 左格 TRADE（C Market/Inventory/Buy/Sell）右格 SAMPLE（Analyse/History），全部一按直達，不再經 Trade/Sample 兩層；新 act `green:cmarket`（cpanel 顯示 C 市場圖）、`green:inv`（開庫存頁）。green.trade/green.sample 節點留著但已無入口。⚠ 看完 C Market 要回泡泡面板得 Home→Green Buyer 兩下，之後可優化
+- **12 部門藍圖定案（老闆拍板，站台改造的底圖）**：主線九站＝1 生豆（✅已改造）→2 研發（app 支援最薄）→3 烘焙→4 QC→5 萃取→6 Retail→7 Marketing（功能散在 Retail 裡待集中：公告信/IG 素材/Google 評論/公開豆頁）→8 訂單（含出貨物流）→9 客戶；後勤三站＝10 文件（Print Centre）11 人事（Timesheet）12 財務（最零散：付款/對帳/利潤計算/雜支）。迴圈：客戶回饋→QC+研發、貨架空位→生豆。工作計劃待老闆排優先序
 - **老闆輪替制豆單重要背景**：豆子賣完就換新豆、不回購同一支 → 低庫存＝「貨架空位」訊號要接到找新豆流程，不是 reorder；警戒線設 0 = 該豆不警示
 - **Announce「沒收到信」破案**：管線沒壞（Resend 兩封都 Delivered）。orders@coffeeratio.com.au 是 getratiocoffee@gmail.com 的 send-as alias → Gmail 視為「自己寄自己」**跳過收件匣**（只在所有郵件/寄件備份）。已把測試客人 email 改成 ratiocoffee2473@gmail.com（另一帳號、正常進收件匣）；真實客人不受影響
 
