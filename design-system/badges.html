@@ -1,0 +1,23 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ratio DS · Badges</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F4ECEA;--surface:#FCF6F4;--ink:#322B2A;--muted:#8C8079;--tint:#F3DDE0;--accent-ink:#6E2F39;--success-tint:#E2EADD;--success-ink:#3C5236;--danger:#C0392B;--line:rgba(50,43,42,.10)}
+body{margin:0;padding:22px;background:var(--bg);font-family:'Inter',sans-serif;color:var(--ink)}
+h1{font-size:15px;margin:0 0 14px}
+.lab{font-size:11px;color:var(--muted);margin:14px 0 8px;font-family:ui-monospace,monospace}
+.b{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;margin:0 6px 6px 0}
+</style></head><body>
+<h1>Badges — status pills on cards and rows</h1>
+<div class="lab">counts and states</div>
+<span class="b" style="background:#E0B341;color:#5C4A10">3 — warn / needs action</span>
+<span class="b" style="background:var(--success-tint);color:var(--success-ink)">Buy · Paid · QC ✓</span>
+<span class="b" style="background:#F6EBCB;color:#5C4A10">Maybe · pending</span>
+<span class="b" style="background:rgba(196,74,53,.12);color:var(--danger)">Overdue · gap</span>
+<span class="b" style="background:var(--tint);color:var(--accent-ink)">Awaiting · info</span>
+<span class="b" style="background:rgba(50,43,42,.10);color:var(--muted)">Cancelled · off</span>
+<div class="lab">usage — one badge per row max, colour = state not decoration</div>
+<div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:12.5px;max-width:340px">
+#0017 · Thirty 7even <span class="b" style="float:right;background:rgba(196,74,53,.12);color:var(--danger)">9d overdue</span></div>
+</body></html>

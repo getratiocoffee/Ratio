@@ -1,0 +1,40 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ratio DS · Cards</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F4ECEA;--surface:#FCF6F4;--ink:#322B2A;--muted:#8C8079;--accent:#B25E6A;--tint:#F3DDE0;--accent-ink:#6E2F39;--success-tint:#E2EADD;--success-ink:#3C5236;--danger:#C0392B;--line:rgba(50,43,42,.10);--line-strong:rgba(50,43,42,.22)}
+body{margin:0;padding:22px;background:var(--bg);font-family:'Inter',sans-serif;color:var(--ink);max-width:420px}
+h1{font-size:15px;margin:0 0 14px}
+.lab{font-size:11px;color:var(--muted);margin:16px 0 8px;font-family:ui-monospace,monospace}
+.gs-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.gs-card.warn{border:2px solid #E0B341}
+.gs-card.quiet{opacity:.75;display:flex;align-items:center;justify-content:space-between;padding:10px 14px}
+.gs-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.gs-title{font-size:13px;font-weight:700}
+.gs-badge{border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;background:#E0B341;color:#5C4A10}
+.gs-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--bg)}
+.gs-nm{font-size:12.5px;font-weight:600}
+.gs-sub{font-size:11px;color:var(--muted)}
+.gs-act{border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-family:inherit;font-size:11.5px;font-weight:600;border-radius:999px;padding:5px 12px;cursor:pointer}
+.gs-act.hot{border-color:var(--accent);color:var(--accent)}
+.gs-quiet-l{font-size:13px;color:var(--muted)}
+.gs-quiet-r{font-size:11.5px;color:var(--muted)}
+.po-card{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:12px 14px;margin-top:8px}
+.po-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.po-name{font-weight:600;font-size:14px}
+.po-badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--tint);color:var(--accent-ink)}
+.po-badge.received{background:var(--success-tint);color:var(--success-ink)}
+.po-sub{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5}
+</style></head><body>
+<h1>Cards — station queue anatomy</h1>
+<div class="lab">.gs-card.warn · needs attention (yellow ring, badge counts)</div>
+<div class="gs-card warn"><div class="gs-head"><span class="gs-title">Awaiting QC — taste and judge</span><span class="gs-badge">2</span></div>
+<div class="gs-row"><span><span class="gs-nm">Dancer</span><span class="gs-sub" style="display:block">roasted 15/06/26 · Cherry, Cocoa</span></span><span><button class="gs-act hot">Pass</button></span></div>
+<div class="gs-row"><span><span class="gs-nm">Dreamer</span><span class="gs-sub" style="display:block">roasted 08/06/26 · Peach</span></span><span><button class="gs-act hot">Pass</button></span></div></div>
+<div class="lab">.gs-card.quiet · empty queue collapses to one line</div>
+<div class="gs-card quiet"><span class="gs-quiet-l">Re-roast queue</span><span class="gs-quiet-r">nothing flagged</span></div>
+<div class="lab">.po-card · record card (purchases, customers, finance)</div>
+<div class="po-card"><div class="po-top"><div class="po-name">Happy Sip</div><span class="po-badge received">2×</span></div>
+<div class="po-sub">Shop · 2 orders · last 05/07/26 · $330.00</div></div>
+</body></html>

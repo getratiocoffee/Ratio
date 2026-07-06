@@ -1,0 +1,36 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ratio DS · Buttons</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F4ECEA;--surface:#FCF6F4;--ink:#322B2A;--muted:#8C8079;--accent:#B25E6A;--tint:#F3DDE0;--accent-ink:#6E2F39;--danger:#C0392B;--line:rgba(50,43,42,.10);--line-strong:rgba(50,43,42,.22)}
+body{margin:0;padding:22px;background:var(--bg);font-family:'Inter',sans-serif;color:var(--ink)}
+h1{font-size:15px;margin:0 0 14px}
+.lab{font-size:11px;color:var(--muted);margin:16px 0 8px;font-family:ui-monospace,monospace}
+.gbtn{display:block;width:100%;max-width:340px;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;background:var(--accent);color:#fff}
+.gbtn.ghost{background:var(--surface);color:var(--accent);border:1px solid var(--line)}
+.gbtn.danger{background:var(--danger);color:#fff}
+.gs-act{border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-family:inherit;font-size:11.5px;font-weight:600;border-radius:999px;padding:5px 12px;cursor:pointer;margin-right:6px}
+.gs-act.hot{border-color:var(--accent);color:var(--accent)}
+.gs-act.danger{border-color:var(--danger);color:var(--danger)}
+.gs-wide{width:100%;max-width:340px;border:1px solid var(--accent);background:var(--surface);color:var(--accent);font-family:inherit;font-size:12px;font-weight:600;border-radius:999px;padding:7px 0;cursor:pointer}
+.tf-chip{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;font-family:inherit;font-size:12px;font-weight:600;padding:6px 13px;cursor:pointer;margin-right:6px}
+.tf-chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.pulse-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #E0B341;background:var(--surface);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:600;color:var(--ink);cursor:pointer;margin-right:6px}
+.pulse-chip .pc-n{background:#E0B341;color:#5C4A10;border-radius:999px;padding:1px 7px;font-size:11px;font-weight:700}
+</style></head><body>
+<h1>Buttons — one primary per view, pills for row actions</h1>
+<div class="lab">.gbtn · primary block — forms, confirm steps</div>
+<button class="gbtn">Send announcement</button>
+<div class="lab">.gbtn.ghost / .gbtn.danger</div>
+<button class="gbtn ghost" style="margin-bottom:8px">Open Feedback page</button>
+<button class="gbtn danger">Delete</button>
+<div class="lab">.gs-act · row pills — actions that live on queue rows</div>
+<button class="gs-act">Done</button><button class="gs-act hot">Accept</button><button class="gs-act danger">Cancel</button>
+<div class="lab">.gs-wide · card-footer action</div>
+<button class="gs-wide">Open production — load the roast cart</button>
+<div class="lab">.tf-chip · filter tabs</div>
+<button class="tf-chip on">All</button><button class="tf-chip">Roast</button><button class="tf-chip">Pay 2</button>
+<div class="lab">.pulse-chip · home station pulse</div>
+<button class="pulse-chip">Orders <span class="pc-n">2 new</span></button><button class="pulse-chip">QC <span class="pc-n">1 waiting</span></button>
+</body></html>

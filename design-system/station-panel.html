@@ -1,0 +1,38 @@
+<!-- @dsCard group="Patterns" -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ratio DS · Station panel pattern</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:wght@700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F4ECEA;--surface:#FCF6F4;--ink:#322B2A;--muted:#8C8079;--accent:#B25E6A;--danger:#C0392B;--line:rgba(50,43,42,.10);--line-strong:rgba(50,43,42,.22)}
+body{margin:0;padding:22px;background:var(--bg);font-family:'Inter',sans-serif;color:var(--ink);max-width:420px}
+h1{font-size:15px;margin:0 0 4px}
+p.note{font-size:12px;color:var(--muted);margin:0 0 14px;line-height:1.6}
+.ctitle{font-family:'Fraunces',serif;font-size:15px;font-weight:700;padding:0 2px 10px;border-bottom:1px solid var(--line);margin-bottom:10px}
+.gs-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.gs-card.warn{border:2px solid #E0B341}
+.gs-card.quiet{opacity:.75;display:flex;align-items:center;justify-content:space-between;padding:10px 14px}
+.gs-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.gs-title{font-size:13px;font-weight:700}
+.gs-badge{border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;background:#E0B341;color:#5C4A10}
+.gs-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--bg)}
+.gs-nm{font-size:12.5px;font-weight:600}
+.gs-sub{font-size:11px;color:var(--muted)}
+.gs-act{border:1px solid var(--line-strong);background:var(--surface);font-family:inherit;font-size:11.5px;font-weight:600;border-radius:999px;padding:5px 12px;cursor:pointer;color:var(--ink)}
+.gs-act.hot{border-color:var(--accent);color:var(--accent)}
+.gs-wide{width:100%;margin-top:8px;border:1px solid var(--accent);background:var(--surface);color:var(--accent);font-family:inherit;font-size:12px;font-weight:600;border-radius:999px;padding:7px 0;cursor:pointer}
+.gs-quiet-l{font-size:13px;color:var(--muted)}
+.gs-quiet-r{font-size:11.5px;color:var(--muted)}
+.gs-foot{font-size:10.5px;color:var(--muted);text-align:center;margin-top:12px}
+</style></head><body>
+<h1>Station panel — the app-wide pattern</h1>
+<p class="note">One bubble per work station. Rules: busiest queue on top with a yellow ring · actions live on the row (pills) · empty queues collapse to quiet lines · one wide follow-up action per card · footer states the flow.</p>
+<div class="ctitle">Order Station</div>
+<div class="gs-card warn"><div class="gs-head"><span class="gs-title">New orders — accept or decline</span><span class="gs-badge">1</span></div>
+<div class="gs-row"><span><span class="gs-nm">#0021 · Happy Sip</span><span class="gs-sub" style="display:block">150g June Project ×2 · $50.00</span></span>
+<span style="display:flex;gap:6px"><button class="gs-act hot">Accept</button><button class="gs-act">Decline</button></span></div></div>
+<div class="gs-card"><div class="gs-head"><span class="gs-title">Roast queue — 1 order</span><span class="gs-badge" style="background:#E2EADD;color:#3C5236">345g green</span></div>
+<div class="gs-row"><span class="gs-nm">June Project</span><span class="gs-sub">300g roast · 345g green</span></div>
+<button class="gs-wide">Open production — load the roast cart</button></div>
+<div class="gs-card quiet"><span class="gs-quiet-l">Ready to ship</span><span class="gs-quiet-r">none ready</span></div>
+<div class="gs-foot">Flow: accept → roast → pack → ship → get paid</div>
+</body></html>
