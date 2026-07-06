@@ -932,6 +932,25 @@ function openDialinForm(i){
   });
   $('dl-cl').addEventListener('click',closeDrawer);
 }
+/* ===== 使用說明（新員工上手頁；內容跟著功能演進要記得更新）===== */
+function openHelpSheet(){
+  var P=function(t){return '<div class="s" style="margin-top:6px;line-height:1.55">'+t+'</div>';};
+  openDrawerHTML('<div class="t" style="font-size:19px">How it works</div>'
+    +'<div class="dlab">Today feed</div>'
+    +P('Everything that needs doing today shows up as a card — orders to accept, batches to cup or QC, coffees to dial in, payments to chase. Do the big button, or open <b>details</b> for the full picture. Cards disappear when the work is done and new ones appear as things happen.')
+    +'<div class="dlab">Gestures</div>'
+    +P('<b>Swipe right</b> = do it now (same as the big button). <b>Swipe left</b> = snooze until tomorrow — the card hides on every device, and the undo row at the bottom brings everything back. The chips up top filter by station.')
+    +'<div class="dlab">QC tab</div>'
+    +P('Batches waiting for a verdict. Tap one to select, then hit <b>Pass</b>, <b>Re-roast</b> or <b>Down</b> with your thumb. Judged batches move on automatically — passed coffees line up for flavour locking and Square listing.')
+    +'<div class="dlab">Tools tab</div>'
+    +P('<b>Make</b>: new orders, roast logging (single origin or blend), stocktake and green deliveries — all saved to the same books as the classic app. <b>Look up</b>: search anything, browse green stock, roast batches, customers, orders and team notes. Anything marked <b>classic</b> jumps to the desktop app.')
+    +'<div class="dlab">Notifications</div>'
+    +P('iPhone: open this page in Safari → Share → <b>Add to Home Screen</b> → open from the icon → Tools → <b>Enable here</b>. New orders and payments ding instantly, and a morning brief arrives at 6:30 every day. Deleting the icon stops notifications.')
+    +'<div class="dlab">Good to know</div>'
+    +P('The feed refreshes itself when you come back to the app. Snoozes are shared — if someone snoozes a card, it rests for the whole team until tomorrow. Roast logging deducts green stock and stocktake fixes any drift, so weigh and type whenever numbers look off.')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('d-cl').addEventListener('click',closeDrawer);
+}
 /* ===== 客戶名冊（照 classic 客戶站：最後下單排序、Cancelled 不計金額——DB.orders 本就排除、沒單標 new 沉底）===== */
 function openCustomersSheet(){
   var rows=(DB.customers||[]).map(function(c){
@@ -1742,7 +1761,7 @@ function renderTools(){
     +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
     +[['Invoice','GST PDF · classic'],['Info card','IG asset · classic'],['Labels','bag / tin · classic'],['Menus','A4 PDF · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
-    +[['Green stock','full list · right here','greens'],['Roast batches','FIFO shelf · right here','batches'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Classic app','full interface','classic']].map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
+    +[['Green stock','full list · right here','greens'],['Roast batches','FIFO shelf · right here','batches'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Classic app','full interface','classic'],['How it works','gestures and cards','help']].map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div></div>';
   var inp=$('tsearch');
   function lookup(){
@@ -1791,6 +1810,7 @@ function renderTools(){
     if(k==='greens'){openGreensSheet();return;}
     if(k==='batches'){openBatchesSheet();return;}
     if(k==='customers'){openCustomersSheet();return;}
+    if(k==='help'){openHelpSheet();return;}
     inp.focus();toast('Type in the search box above');
   });});
 }
