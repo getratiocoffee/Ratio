@@ -55,6 +55,7 @@
   ④**貪睡 undo**：本次 session 貪睡的卡在 feed 底部出現「N snoozed · undo」一鍵全部召回
   - 驗證：jscheck＋preview 假資料全流程（六種卡渲染/Pack 三段流程含寫入內容比對/Reply 派發 payload 正確/匿名貪睡＋undo 列/開新單完整填寫＋insert payload 全欄位比對 order_no 21・total 50）
   - **夜班守則遵守**：零真信件、零真推播、舊 app 未動、DB 只在老闆自己操作時寫；一切 UI 改動停留本機等 push。~~剩下未做：出貨信卡片管線~~ ✅ **完成（2026-07-07 晨）**：用 python 腳本從 classic **原封抽出** mnHexRgb/_rrPath/_cardFit/_cardRadar/兩張 icon base64/_loadCardIcons/_tintIcon/makeSquareCard 植入 new/index.html（37.5KB，零手抄）；資料端重寫成直查版 `cardDataFor`（blends 表直查配方、DB.roasts 補烘焙日、**app_state rtl_dot 讀卡片顏色**——PWA 的 localStorage 跟 Safari 分家所以不能學 classic 讀本機、beans ilike 查產地）＋`uploadCardsFor`（同 classic：flavour_locked 優先、去重、mail-assets upsert、cache-bust）。Dispatch 寄信改帶 cards、按鈕顯示 Drawing cards…。驗證：preview 實畫 blend 卡與 classic 視覺一致（截圖）＋上傳流程 stub 全對（去重/路徑/upsert/URL）。**新殼出貨信從此與 classic 同級**
+- **新殼今日流補強 ×2**（new/index.html，待 push）：①**晨報帶今日班表**——loadAll 加 rosters 查詢（mondayStr 定位本週、排除 deleted），晨報副標開頭「On: Yi, Nina」、details 首列完整時段（非當天班次過濾）②**烘豆需求卡**——Confirmed/Roasting 品項同名跨單合併，標題直接寫總生豆量（×1.15），details 逐豆換算＋Total；roles=director+roaster（零售員不看）；CTXS 三種排序加 Roast/Customers 權重。驗證：preview 假資料（跨單合併 550g/747g 生豆/當天過濾/角色可見性）全過
 - 開工檢查：上一 session 全部已 push 已部署（線上 662,628 bytes 同步）；「Analysed by」確認早已上線（杯測卡/Retail 卡/詳情頁三處）
 
 ## 〇之零、補記 — 2026-07-06 早上 session（QC 帶跑 + 補烘豆紀錄 + Re-analyse 防呆）

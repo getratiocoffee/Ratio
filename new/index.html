@@ -161,12 +161,22 @@ async function loadAll(){
     sb.from('samples').select('id,sample_id,bean_id,process,roast_date,cupping_date,features,flavour_locked').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
     sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg').order('roast_date',{ascending:false}),
     sb.from('beans').select('id,name,process,quantity,low_stock_kg'),
-    sb.from('feedback').select('*').is('reply',null).order('created_at',{ascending:false})
+    sb.from('feedback').select('*').is('reply',null).order('created_at',{ascending:false}),
+    sb.from('rosters').select('week_start,shifts,deleted').eq('week_start',mondayStr())
   ]);
   DB={orders:rs[0].data||[],customers:rs[1].data||[],tasks:rs[2].data||[],dialins:rs[3].data||[],
       syncs:rs[4].data||[],samples:rs[5].data||[],roasts:rs[6].data||[],beans:rs[7].data||[],
-      feedback:rs[8].data||[]};
+      feedback:rs[8].data||[],roster:((rs[9].data||[]).filter(function(r){return !r.deleted;})[0]||null)};
   buildItems();
+}
+function mondayStr(){
+  var t=new Date();t.setDate(t.getDate()-((t.getDay()+6)%7));
+  return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+}
+function todayShifts(){
+  var dk=['sun','mon','tue','wed','thu','fri','sat'][new Date().getDay()];
+  var sh=(DB.roster&&Array.isArray(DB.roster.shifts))?DB.roster.shifts:[];
+  return sh.filter(function(s){return s.day===dk;}).sort(function(a,b){return String(a.start||'')<String(b.start||'')?-1:1;});
 }
 function matchRoast(s){
   var nm=String(s.sample_id||'').trim().toLowerCase();if(!nm&&!s.bean_id)return null;
@@ -206,10 +216,30 @@ function buildItems(){
   if(stale.length)briefBits.push(stale.length+' dial-in');
   if(low.length)briefBits.push(low.length+' bean low');
   if(DB.tasks.length)briefBits.push(DB.tasks.length+' tasks');
+  var shifts=todayShifts();
+  var rosterLine=shifts.map(function(s){return s.name+' '+String(s.start||'').replace(/^0/,'')+'–'+String(s.end||'').replace(/^0/,'');}).join(' · ');
+  var rosterNames=shifts.map(function(s){return s.name;}).filter(function(n,i,a){return a.indexOf(n)===i;}).join(', ');
   out.push({id:'brief',st:'Brief',pin:1,t:(new Date().getHours()<12?'Morning':'Today')+' brief',
-    s:briefBits.length?briefBits.join(' · '):'all clear',act:'Got it',
-    det:[['To accept',String(newQ.length)],['To pack',String(packQ.length)],['To ship',String(shipQ.length)],['QC waiting',String(QCQ.length)],['Dial-in stale',String(stale.length)],['Beans low',String(low.length)],['Open tasks',String(DB.tasks.length)]],
+    s:(rosterNames?'On: '+esc(rosterNames)+(briefBits.length?' · ':''):'')+(briefBits.length?briefBits.join(' · '):(rosterNames?'':'all clear')),act:'Got it',
+    det:[['On shift',rosterLine||'no one rostered']].concat([['To accept',String(newQ.length)],['To pack',String(packQ.length)],['To ship',String(shipQ.length)],['QC waiting',String(QCQ.length)],['Dial-in stale',String(stale.length)],['Beans low',String(low.length)],['Open tasks',String(DB.tasks.length)]]),
     roles:['director','roaster','retail','staff'],kind:'dismiss'});
+  /* 烘豆需求卡：Confirmed/Roasting 品項同名合併，生豆 ×1.15（烘豆師視角的今日任務） */
+  var dem={},demOrder=[];
+  packQ.forEach(function(o){(Array.isArray(o.items)?o.items:[]).forEach(function(it){
+    var nm=String(it.name||'').trim();if(!nm)return;
+    var g=(Number(it.grams)||0)*(Number(it.qty)||1);if(!g)return;
+    var k=nm.toLowerCase();
+    if(!dem[k]){dem[k]={name:nm,g:0};demOrder.push(k);}
+    dem[k].g+=g;});});
+  if(demOrder.length){
+    demOrder.sort(function(a,b){return dem[b].g-dem[a].g;});
+    var totG=0;demOrder.forEach(function(k){totG+=dem[k].g;});
+    out.push({id:'roastdem',st:'Roast',hot:1,t:'Roast for orders — ~'+Math.round(totG*1.15)+'g green',
+      s:demOrder.slice(0,3).map(function(k){return esc(dem[k].name)+' '+dem[k].g+'g';}).join(' · ')+(demOrder.length>3?' · +'+(demOrder.length-3)+' more':''),
+      act:'Got it',
+      det:demOrder.map(function(k){return [dem[k].name,dem[k].g+'g roast · ~'+Math.round(dem[k].g*1.15)+'g green'];}).concat([['Total',totG+'g roast · ~'+Math.round(totG*1.15)+'g green']]),
+      det2:'Open classic app',roles:['director','roaster'],kind:'dismiss'});
+  }
   newQ.forEach(function(o){
     var c=custById(o.customer_id);
     out.push({id:'acc:'+o.id,st:'Orders',hot:1,t:'#'+String(o.order_no||'—').padStart(4,'0')+' · '+((c&&c.name)||'Walk-in'),
@@ -274,9 +304,9 @@ function buildItems(){
   ITEMS=out.filter(function(i){return !sn[i.id];});
 }
 var CTXS=[
-{id:'morning',label:'Morning sort — bar first',pr:{Bar:1,Orders:2,QC:3,Money:5,Green:5,Tasks:6}},
-{id:'day',label:'Daytime sort — orders first',pr:{Orders:1,QC:2,Bar:3,Money:4,Green:5,Tasks:6}},
-{id:'pay',label:'Pay chase — money first',pr:{Money:1,Orders:2,QC:3,Bar:4,Green:5,Tasks:6}}];
+{id:'morning',label:'Morning sort — bar first',pr:{Bar:1,Orders:2,Roast:3,QC:4,Money:5,Green:6,Tasks:7,Customers:8}},
+{id:'day',label:'Daytime sort — orders first',pr:{Orders:1,Roast:2,QC:3,Bar:4,Money:5,Green:6,Tasks:7,Customers:8}},
+{id:'pay',label:'Pay chase — money first',pr:{Money:1,Orders:2,Roast:3,QC:4,Bar:5,Green:6,Tasks:7,Customers:8}}];
 var ctxIdx=(new Date().getHours()<11)?0:1;
 function myRole(){return (ROLE==='director')?'director':(ROLE==='roaster'?'roaster':(ROLE==='retail'?'retail':'staff'));}
 function myItems(){
