@@ -1430,8 +1430,9 @@ fill="#6F4A36" stroke="none">
                    right:{label:'Sell',zh:'',icon:'sell',act:'green:sell'}},
     'green.sample':{left:{label:'Analyse',zh:'',icon:'analyse',act:'green:analyse'},
                     right:{label:'History',zh:'',icon:'history',act:'green:samplehist'}},
-    /* not built yet — tapping shows the reminder title + a "Coming soon" placeholder dock */
-    task:{soon:true,contentTitle:'Task Reminder'},
+    task:{contentTitle:'Task Reminder',
+          left:{label:'Tasks',zh:'',icon:'calendar',act:'task:board'},
+          right:{label:'Notes',zh:'',icon:'history',act:'task:feed'}},
     recipe:{contentTitle:'Recipe Reminder',
            left:{label:'Dial-in',zh:'',icon:'calc',act:'recipe:dialin'},
            right:{label:'History',zh:'',icon:'history',act:'recipe:dialinhist'}},
@@ -1542,6 +1543,7 @@ fill="#6F4A36" stroke="none">
     if(deep==='beans'){if(typeof closePage==='function')closePage();renderQCStation();return;}
     if(deep==='roast'){if(typeof closePage==='function')closePage();renderRoastStation();return;}
     if(deep==='recipe'){if(typeof closePage==='function')closePage();renderEspressoStation();return;}
+    if(deep==='task'){if(typeof closePage==='function')closePage();renderTaskStation();return;}
     if(rootKey==='timesheet'){
       const cw=currentWeekStart();
       const w=thisWeekEntry();
@@ -2049,6 +2051,68 @@ fill="#6F4A36" stroke="none">
     var en=document.getElementById('es-new');if(en)en.addEventListener('click',function(){runModuleAction('recipe:dialin');});
     var eh=document.getElementById('es-hist');if(eh)eh.addEventListener('click',function(){runModuleAction('recipe:dialinhist');});
   }
+  /* ===== Task Station：團隊待辦（新增／列上按 Done／最近完成可 Undo）===== */
+  async function renderTaskStation(){
+    var ct=document.getElementById('ctitle');if(ct){ct.textContent='Tasks';ct.classList.add('show');}
+    showCPanel('<div class="sempty" style="padding:34px 20px">Loading…</div>');
+    var q=await sb.from('tasks').select('*').order('created_at',{ascending:false}).limit(120);
+    if(dockStack[dockStack.length-1]!=='task')return; /* 載入途中使用者已離開 */
+    if(q.error){showCPanel('<div class="sempty">Load failed: '+esc(q.error.message)+'</div>');return;}
+    var ts=q.data||[];
+    var open=ts.filter(function(t){return !t.done;});
+    var doneList=ts.filter(function(t){return t.done;}).sort(function(a,b){return String(b.done_at||'')<String(a.done_at||'')?-1:1;}).slice(0,8);
+    var h='';
+    h+='<div class="gs-card"><div class="gs-head"><span class="gs-title">Add a task</span></div>'
+      +'<div style="display:flex;gap:8px;margin-top:4px"><input id="tk-in" type="text" maxlength="300" placeholder="e.g. Order 250g bags" style="flex:1;min-width:0;border:1px solid var(--line);border-radius:11px;padding:9px 12px;font-family:inherit;font-size:13px;background:var(--surface);color:var(--ink);outline:none">'
+      +'<button class="gs-act hot" id="tk-add">Add</button></div></div>';
+    if(open.length){
+      h+='<div class="gs-card warn"><div class="gs-head"><span class="gs-title">To do</span><span class="gs-badge warn">'+open.length+'</span></div>'
+        +open.map(function(t){
+          var sub=[(t.created_by||''),t.created_at?fmtDate(String(t.created_at).slice(0,10)):''].filter(Boolean).join(' · ');
+          return '<div class="gs-row"><span style="min-width:0"><span class="gs-nm">'+esc(t.title)+'</span>'
+            +(sub?'<span class="gs-sub" style="display:block">'+esc(sub)+'</span>':'')+'</span>'
+            +'<button class="gs-act" data-tkdone="'+esc(t.id)+'">Done</button></div>';
+        }).join('')+'</div>';
+    }else{
+      h+='<div class="gs-card quiet"><span class="gs-quiet-l">To do</span><span class="gs-quiet-r">all done ✓</span></div>';
+    }
+    if(doneList.length){
+      h+='<div class="gs-card"><div class="gs-head"><span class="gs-title">Recently done</span><span class="gs-badge buy">'+doneList.length+'</span></div>'
+        +doneList.map(function(t){
+          var sub=[(t.done_by||''),t.done_at?fmtDate(String(t.done_at).slice(0,10)):''].filter(Boolean).join(' · ');
+          return '<div class="gs-row"><span style="min-width:0"><span class="gs-nm" style="text-decoration:line-through;color:var(--muted)">'+esc(t.title)+'</span>'
+            +(sub?'<span class="gs-sub" style="display:block">'+esc(sub)+'</span>':'')+'</span>'
+            +'<button class="gs-act" data-tkundo="'+esc(t.id)+'">Undo</button></div>';
+        }).join('')+'</div>';
+    }
+    h+='<div class="gs-card quiet" id="tk-feed" style="cursor:pointer"><span class="gs-quiet-l">Task notes</span><span class="gs-quiet-r">open the feed ›</span></div>';
+    h+='<div class="gs-foot">Everyone sees the same list — tap Done when it is finished</div>';
+    showCPanel(h);
+    var addBtn=document.getElementById('tk-add'),inp=document.getElementById('tk-in');
+    async function addTask(){
+      var v=(inp&&inp.value||'').trim();if(!v)return;
+      addBtn.disabled=true;
+      var r=await sb.from('tasks').insert({title:v.slice(0,300),created_by:(window.CURRENT_USER||null)});
+      addBtn.disabled=false;
+      if(r.error){alert('Add failed: '+r.error.message);return;}
+      renderTaskStation();
+    }
+    if(addBtn)addBtn.addEventListener('click',addTask);
+    if(inp)inp.addEventListener('keydown',function(e){if(e.key==='Enter')addTask();});
+    document.querySelectorAll('#cpanel [data-tkdone]').forEach(function(el){el.addEventListener('click',async function(){
+      el.disabled=true;
+      var r=await sb.from('tasks').update({done:true,done_at:new Date().toISOString(),done_by:(window.CURRENT_USER||null)}).eq('id',el.dataset.tkdone);
+      if(r.error){alert('Update failed: '+r.error.message);el.disabled=false;return;}
+      renderTaskStation();
+    });});
+    document.querySelectorAll('#cpanel [data-tkundo]').forEach(function(el){el.addEventListener('click',async function(){
+      el.disabled=true;
+      var r=await sb.from('tasks').update({done:false,done_at:null,done_by:null}).eq('id',el.dataset.tkundo);
+      if(r.error){alert('Update failed: '+r.error.message);el.disabled=false;return;}
+      renderTaskStation();
+    });});
+    var tf=document.getElementById('tk-feed');if(tf)tf.addEventListener('click',function(){hideCPanel();setFeedChannel('task');});
+  }
   /* ===== 0 總覽：站台脈搏（首頁 feed 上方；哪站有事亮黃、點了直達該站）===== */
   var _pulseAt=0;
   function pulseVisible(){
@@ -2068,9 +2132,10 @@ fill="#6F4A36" stroke="none">
       sb.from('roasts').select('bean_name,bean_id,roast_date,qc'),
       sb.from('samples').select('sample_id,bean_id,process,roast_date,cupping_date,flavour_locked').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
       sb.from('dialins').select('coffee,created_at').order('created_at',{ascending:false}).limit(200),
-      sb.from('product_sync').select('bean_id,status').eq('channel','square')
+      sb.from('product_sync').select('bean_id,status').eq('channel','square'),
+      sb.from('tasks').select('id').eq('done',false)
     ]);
-    var orders=rs[0].data||[],beans=rs[1].data||[],roasts=rs[2].data||[],smps=rs[3].data||[],dls=rs[4].data||[],syncs=rs[5].data||[];
+    var orders=rs[0].data||[],beans=rs[1].data||[],roasts=rs[2].data||[],smps=rs[3].data||[],dls=rs[4].data||[],syncs=rs[5].data||[],tasksOpen=rs[6].data||[];
     /* Orders：新單數 */
     var nNew=orders.filter(function(o){return (o.status||'New')==='New';}).length;
     /* Roast：待烘訂單 + 重烘批次 */
@@ -2112,7 +2177,8 @@ fill="#6F4A36" stroke="none">
       {n:nRoast,label:'Roast',word:'to roast',to:'roast'},
       {n:nQC,label:'QC',word:'waiting',to:'beans'},
       {n:nEsp,label:'Espresso',word:'stale',to:'recipe'},
-      {n:nLow,label:'Green',word:'low',to:'green'}
+      {n:nLow,label:'Green',word:'low',to:'green'},
+      {n:tasksOpen.length,label:'Tasks',word:'open',to:'task'}
     ].filter(function(c){return c.n>0;});
     p.innerHTML=chips.length?chips.map(function(c){
       return '<button class="pulse-chip hot" data-pulse="'+c.to+'">'+esc(c.label)+' <span class="pc-n">'+c.n+' '+c.word+'</span></button>';
@@ -2126,6 +2192,8 @@ fill="#6F4A36" stroke="none">
     else if(act==='beans:prod'){roastedTitle='QC';openPage('beans');beansView='production';loadRoasted();}
     else if(act==='roast:prod'){openPage('green');loadBeans('roast');}
     else if(act==='roast:hist'){roastedTitle='History';openPage('beans');beansView='production';loadRoasted();}
+    else if(act==='task:board'){if(typeof closePage==='function')closePage();renderTaskStation();}
+    else if(act==='task:feed'){if(typeof closePage==='function')closePage();hideCPanel();setFeedChannel('task');}
     else if(act==='green:cmarket'){if(typeof closePage==='function')closePage();renderCMarket();}
     else if(act==='green:inv'){openPage('green');loadBeans('countries');}
     else if(act==='green:buy'){openPage('green');loadPurchases();}
