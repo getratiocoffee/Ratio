@@ -5493,7 +5493,7 @@ fill="#6F4A36" stroke="none">
     }
     b+='<div class="ord-actrow left"><button class="gbtn ghost" data-ordresend="'+esc(o.id)+'">'
       +(o.status==='Dispatched'?(o.dispatch_email_at?'Resend dispatch email':'Send dispatch email'):'Resend confirmation email')
-      +'</button></div>';
+      +'</button><button class="gbtn ghost" data-ordcards="'+esc(o.id)+'">Send info cards</button></div>';
     /* stock check */
     b+='<div class="ord-actrow left"><button class="gbtn ghost" data-ordstock="'+esc(o.id)+'">Check stock</button></div>';
     if(ordStockCache[o.id])b+=ordStockHTML(ordStockCache[o.id]);
@@ -5537,6 +5537,19 @@ fill="#6F4A36" stroke="none">
     });
     box.querySelectorAll('[data-ordresend]').forEach(function(el){
       el.addEventListener('click',function(e){e.stopPropagation();ordResendEmail(el.dataset.ordresend,el);});
+    });
+    /* 重寄資訊卡：現場重生卡片 → send-email info_cards 以「附件」寄出（Outlook 擋外圖也看得到） */
+    box.querySelectorAll('[data-ordcards]').forEach(function(el){
+      el.addEventListener('click',async function(e){
+        e.stopPropagation();el.disabled=true;el.textContent='Sending…';
+        try{
+          var o=ORDERS.filter(function(x){return x.id===el.dataset.ordcards;})[0];
+          var cards={};try{cards=await ordUploadCards(o);}catch(e2){}
+          var r=await callEmailFn({action:'info_cards',order_id:el.dataset.ordcards,cards:cards});
+          el.textContent='Sent ✓ ('+((r&&r.cards)||0)+' cards)';
+        }catch(err){el.textContent='Failed';alert('Info cards failed: '+((err&&err.message)||err));}
+        setTimeout(function(){el.disabled=false;el.textContent='Send info cards';},2600);
+      });
     });
     box.querySelectorAll('[data-ordstock]').forEach(function(el){
       el.addEventListener('click',function(e){e.stopPropagation();checkOrderStock(el.dataset.ordstock);});

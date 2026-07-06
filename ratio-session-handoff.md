@@ -28,7 +28,7 @@
   - 老闆的 $25 測試單（June Project）付款成功但卡在 v16 的匯入牆；webhook 回 200 Square 不重送 → 要嘛 Square Developer 後台 Webhooks→Event Log 手動 Resend、要嘛再下一單驗 v17 後兩筆一起退款
   - **另注意 orders 表曾被整個清空**（連 #0001）：app 沒有刪訂單功能、老闆說不是他 → 疑似另一個 Claude session 或 Supabase 後台清測試資料；損失僅測試單。附帶發現店內 POS 刷卡（9:29 那筆）webhook 正確跳過 ✓
   - 客人網址：https://ratio-theta.vercel.app/?shop
-- **首批真實批發單進場**（Happy Sip #0001 已出貨、Thirty 7even #0002）；順出三修：①訂單品項克數改固定下拉 100/150/200/250g/1kg（自由輸入打錯過 120g；舊資料非標準值會多列一項保留）②#0001 的 120g 已 SQL 修回 150g ③markOrderPaid 靜默失敗地雷待修（supabase update 不 throw、UI 卻顯示成功）。**客人「沒收到資訊卡」破案**：信 Resend 確認 delivered、卡有生成，是 Hotmail/Outlook 預設擋外部圖片 → 請客人按顯示圖片/加安全寄件人；治本待辦＝資訊卡改夾附件
+- **首批真實批發單進場**（Happy Sip #0001 已出貨、Thirty 7even #0002）；順出三修：①訂單品項克數改固定下拉 100/150/200/250g/1kg（自由輸入打錯過 120g；舊資料非標準值會多列一項保留）②#0001 的 120g 已 SQL 修回 150g ③markOrderPaid 靜默失敗地雷待修（supabase update 不 throw、UI 卻顯示成功）。**客人「沒收到資訊卡」破案**：信 Resend 確認 delivered、卡有生成，是 Hotmail/Outlook 預設擋外部圖片 → 請客人按顯示圖片/加安全寄件人；治本已做：**訂單卡新增「Send info cards」按鈕**（index.html 待 push）→ 現場重生卡片 → send-email 新 action `info_cards`（**v16 已部署**，resend() 支援 attachments）把每支豆的資訊卡**當 PNG 附件**寄給客人，Outlook 擋外圖也看得到；沒杯測資料的豆（如 Gatitu AA）自動跳過
 - **老闆輪替制豆單重要背景**：豆子賣完就換新豆、不回購同一支 → 低庫存＝「貨架空位」訊號要接到找新豆流程，不是 reorder；警戒線設 0 = 該豆不警示
 - **Announce「沒收到信」破案**：管線沒壞（Resend 兩封都 Delivered）。orders@coffeeratio.com.au 是 getratiocoffee@gmail.com 的 send-as alias → Gmail 視為「自己寄自己」**跳過收件匣**（只在所有郵件/寄件備份）。已把測試客人 email 改成 ratiocoffee2473@gmail.com（另一帳號、正常進收件匣）；真實客人不受影響
 
