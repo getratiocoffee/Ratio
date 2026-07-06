@@ -2459,6 +2459,10 @@ fill="#6F4A36" stroke="none">
   }
   async function delMessage(id){
     if(id==null||id==='null')return;
+    /* 老闆規矩：聊天訊息刪除一律先警告（realtime 會同步刪掉所有人的） */
+    const row=rows.find(r=>String(idOf(r))===String(id));
+    const t=row?String(titleOf(row)||'').slice(0,60):'';
+    if(!confirm('Delete this message?'+(t?('\n\n"'+t+'"'):'')+'\n\nIt disappears for everyone and cannot be undone.'))return;
     const {data,error}=await sb.from('messages').delete().eq('id',id).select();
     if(error||!data||!data.length){
       console.error('[Ratio] Message delete failed (messages table likely missing a DELETE RLS policy): ',error&&(error.message||error));
