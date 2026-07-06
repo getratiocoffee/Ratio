@@ -339,6 +339,7 @@
   .gs-badge.buy{background:var(--success-tint);color:var(--success-ink)}
   .gs-badge.maybe{background:#F6EBCB;color:#5C4A10}
   .gs-badge.od{background:rgba(196,74,53,.12);color:var(--danger)}
+  .gs-act.danger{border-color:var(--danger);color:var(--danger)}
   .gs-quiet-l{font-size:13px;color:var(--muted)}
   .gs-quiet-r{font-size:11.5px;color:var(--muted)}
   .gs-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--bg)}
@@ -1755,7 +1756,7 @@ fill="#6F4A36" stroke="none">
           var n=0;items.forEach(function(_,i){if(ps[String(i)])n++;});
           return '<div class="gs-row"><span style="min-width:0"><span class="gs-nm">'+esc(ordNo(o))+' · '+esc(custName(o))+'</span>'
             +'<span class="gs-sub" style="display:block">'+n+' / '+items.length+' packed'+(o.payment_status!=='paid'?' · <span style="color:var(--danger)">unpaid</span>':'')+'</span></span>'
-            +'<button class="gs-act'+(n?' hot':'')+'" data-ospack="'+esc(o.id)+'">Pack</button></div>';
+            +'<span style="display:flex;gap:6px;flex:0 0 auto"><button class="gs-act'+(n?' hot':'')+'" data-ospack="'+esc(o.id)+'">Pack</button><button class="gs-act danger" data-oscancel="'+esc(o.id)+'">Cancel</button></span></div>';
         }).join('')+'</div>';
     }else{
       h+='<div class="gs-card quiet"><span class="gs-quiet-l">Pack queue</span><span class="gs-quiet-r">nothing to pack</span></div>';
@@ -1766,7 +1767,7 @@ fill="#6F4A36" stroke="none">
         +shipQ.map(function(o){
           return '<div class="gs-row"><span style="min-width:0"><span class="gs-nm">'+esc(ordNo(o))+' · '+esc(custName(o))+'</span>'
             +'<span class="gs-sub" style="display:block">'+esc(itemsLine(o)||'')+(o.payment_status!=='paid'?' · <span style="color:var(--danger)">unpaid</span>':'')+'</span></span>'
-            +'<button class="gs-act hot" data-osdisp="'+esc(o.id)+'">Dispatch</button></div>';
+            +'<span style="display:flex;gap:6px;flex:0 0 auto"><button class="gs-act hot" data-osdisp="'+esc(o.id)+'">Dispatch</button><button class="gs-act danger" data-oscancel="'+esc(o.id)+'">Cancel</button></span></div>';
         }).join('')+'</div>';
     }else{
       h+='<div class="gs-card quiet"><span class="gs-quiet-l">Ready to ship</span><span class="gs-quiet-r">none ready</span></div>';
@@ -1790,6 +1791,7 @@ fill="#6F4A36" stroke="none">
     document.querySelectorAll('#cpanel [data-osacc]').forEach(function(el){el.addEventListener('click',function(){ordAccept(el.dataset.osacc,el);});});
     document.querySelectorAll('#cpanel [data-osdec]').forEach(function(el){el.addEventListener('click',function(){ordDecline(el.dataset.osdec,el);});});
     document.querySelectorAll('#cpanel [data-ospack]').forEach(function(el){el.addEventListener('click',function(){openOrdersTab('pack');});});
+    document.querySelectorAll('#cpanel [data-oscancel]').forEach(function(el){el.addEventListener('click',function(){ordCancel(el.dataset.oscancel,el);});});
     document.querySelectorAll('#cpanel [data-osdisp]').forEach(function(el){el.addEventListener('click',function(){ordDispatchAsk(el.dataset.osdisp);});});
     document.querySelectorAll('#cpanel [data-ospaid]').forEach(function(el){el.addEventListener('click',function(){el.disabled=true;el.textContent='Saving…';markOrderPaid(el.dataset.ospaid);});});
     document.querySelectorAll('#cpanel [data-osremind]').forEach(function(el){el.addEventListener('click',async function(){
@@ -5474,6 +5476,23 @@ fill="#6F4A36" stroke="none">
     }catch(e){alert('Decline failed: '+(e&&e.message||e));btn.disabled=false;btn.textContent='Decline';return;}
     renderOrders();
   }
+  /* 接單後反悔/客人取消：未出貨的單 → Cancelled + 取消信（已付款的信裡會提退款） */
+  async function ordCancel(id,btn){
+    var o=ORDERS.filter(function(x){return x.id===id;})[0];if(!o)return;
+    var no=o.order_no!=null?('#'+String(o.order_no).padStart(4,'0')):'';
+    var warn=o.payment_status==='paid'?'\n\nThis order is PAID - the cancellation email will mention a refund.':'';
+    if(!confirm('Cancel '+no+' and email the customer a cancellation notice?'+warn))return;
+    var old=btn?btn.textContent:'';
+    if(btn){btn.disabled=true;btn.textContent='Cancelling…';}
+    try{
+      var r=await sb.from('orders').update({status:'Cancelled'}).eq('id',id);
+      if(r&&r.error)throw new Error(r.error.message);
+      o.status='Cancelled';
+      try{await callEmailFn({action:'order_cancelled',order_id:id});}
+      catch(e){alert('Cancelled, but the notification email failed: '+(e&&e.message||e));}
+    }catch(e){alert('Cancel failed: '+(e&&e.message||e));if(btn){btn.disabled=false;btn.textContent=old;}return;}
+    renderOrders();
+  }
   /* \u70d8\u8c46 tab: read-only demand roll-up across accepted orders \u2014 never touches status */
   function ordRoastView(list){
     var agg={},order=[];
@@ -5602,8 +5621,11 @@ fill="#6F4A36" stroke="none">
     b+='<div class="ord-actrow left"><button class="gbtn ghost" data-ordresend="'+esc(o.id)+'">'
       +(o.status==='Dispatched'?(o.dispatch_email_at?'Resend dispatch email':'Send dispatch email'):'Resend confirmation email')
       +'</button><button class="gbtn ghost" data-ordcards="'+esc(o.id)+'">Send info cards</button></div>';
-    /* stock check */
-    b+='<div class="ord-actrow left"><button class="gbtn ghost" data-ordstock="'+esc(o.id)+'">Check stock</button></div>';
+    /* stock check + cancel（未出貨/未取消才可取消） */
+    var _st=o.status||'New';
+    b+='<div class="ord-actrow left"><button class="gbtn ghost" data-ordstock="'+esc(o.id)+'">Check stock</button>'
+      +(_st!=='Dispatched'&&_st!=='Cancelled'?'<button class="gbtn ghost" style="color:var(--danger);border-color:var(--danger)" data-ordcancel="'+esc(o.id)+'">Cancel order</button>':'')
+      +'</div>';
     if(ordStockCache[o.id])b+=ordStockHTML(ordStockCache[o.id]);
     /* transfer notice */
     if(o.transfer_state==='requested'){
@@ -5661,6 +5683,9 @@ fill="#6F4A36" stroke="none">
     });
     box.querySelectorAll('[data-ordstock]').forEach(function(el){
       el.addEventListener('click',function(e){e.stopPropagation();checkOrderStock(el.dataset.ordstock);});
+    });
+    box.querySelectorAll('[data-ordcancel]').forEach(function(el){
+      el.addEventListener('click',function(e){e.stopPropagation();ordCancel(el.dataset.ordcancel,el);});
     });
     box.querySelectorAll('[data-ordtransfer]').forEach(function(el){
       el.addEventListener('click',function(e){e.stopPropagation();setTransfer(el.dataset.ordtransfer,el.dataset.tv);});
