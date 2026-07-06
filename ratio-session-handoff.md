@@ -11,6 +11,13 @@
 - **等老闆拍板**：staff 帳號開放（新殼角色過濾已就緒）、語音快錄/BOOKOO 秤（第三級）、wholesale/賣生豆/教學（停車場）
 - **開發環境備忘**：push 用 GitHub Desktop（終端機無 Git 認證）；無 Node，jscheck 用 osascript；本機預覽 launch.json 指向 scratchpad/serve 複本（**改完檔案要 cp 過去**）；Chrome MCP 可開 ratio-theta（老闆登入態可代跑 callSquareFn 等）；Claude Code CLI 已裝在老闆 Mac（design-login 已授權，重推設計系統用終端機 claude）
 
+## 〇、補記 — 2026-07-07 白天 session（搬家：記烘豆進新殼）
+- **開工檢查**：本機＝GitHub＝線上全同步（classic 726,356 / new 94,471 bytes）；Chrome MCP 實測線上 /new 三分頁全功能健康、console 零錯誤；DB 現況：無新單、3 張待收款（#0002 真單＋#0021/#0022 Dani $1 測試單——**老闆還沒回覆要不要取消清掉**）、push_subs=0（**推播還沒有任何裝置訂閱**，等老闆 iPhone 走 A2HS→Enable）
+- **記烘豆搬進新殼**（new/index.html，待 push）：老闆「繼續」授權自選 → 按建議先搬烘豆記錄。①**Tools → Make 新「Log roast」**（玫瑰框，與 New order 並列）②**烘豆需求卡主鍵改「Log roast…」**（kind:'roastlog'，ref 帶需求清單）→ 開單批記錄抽屜：需求籌碼一鍵帶入（豆名配生豆批＋kg=×1.15 換算；配不到標 no green lot (blend?)）、選豆下拉帶庫存、生豆 kg、選填熟豆產出（同額入 remaining_kg）、日期預設今天、「Roast log (optional)」收合四欄（charge/first crack/drop/duration）③存檔**照抄 classic saveRoast 三筆寫入**：roasts insert（status pending_cupping）→ beans.quantity 扣減 → stock_moves kind:'roast' 流水帳。防呆：沒選豆 toast、超量 Stock check confirm（同 classic 文案）、產出>生豆 confirm。beans 查詢補帶 country 欄
+  - 驗證：jscheck ＋ preview 假資料全流程（籌碼換算 0.6kg ✓/三筆寫入 payload 逐欄比對 ✓/庫存 8.5→7.9 ✓/超量擋寫入 ✓/需求卡 575g 接線 ✓）＋手機尺寸截圖夜版樣式一致；⚠ 登入後真烘一鍋待 boss 部署後試
+  - 尚未搬：多批連烘（新殼一次一批，關掉再開即可）、blend 扣成分批次（Blending 工作台留 classic）
+- 開發備忘：launch.json 加了 ratio-static-2（port 8125，8124 被別的 session 佔用時用）；serve 複本路徑不變
+
 ## 〇、補記 — 2026-07-06 下午 session（訂單站泡泡面板）
 - **站台改造第 8 站：訂單站完成**（index.html，待 push 部署）：點 dock 的 Order 圖示不再只顯示訊息 feed，改顯示 `renderOrderStation()` 泡泡面板（樣式全沿用 .gs-*，只新增 .gs-badge.od 逾期紅膠囊）——
   ①**New orders**（黃框，Accept/Decline 直接長在列上，重用 ordAccept/ordDecline）②**Roast queue**（Confirmed+Roasting 同名合併彙總，熟豆 g＋生豆 g ×1.15，總生豆量掛徽章；「Open production」一鍵去烘豆頁）③**Pack queue**（每單 n/m packed 進度＋unpaid 紅字；Pack 鍵跳訂單頁備貨分頁）④**Ready to ship**（黃框，Dispatch 鍵直接開原 tracking+email 彈窗 ordDispatchAsk）⑤**Payments owing**（**排除 New 單**——付款連結 Accept 才生成，接單卡已涵蓋；金額＋天數＋overdue 紅字，Paid ✓ = markOrderPaid、Remind = payment_reminder 信）⑥All orders 入口列＋流程頁尾。空佇列縮 quiet 卡

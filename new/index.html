@@ -160,7 +160,7 @@ async function loadAll(){
     sb.from('product_sync').select('bean_id,status').eq('channel','square'),
     sb.from('samples').select('id,sample_id,bean_id,process,roast_date,cupping_date,features,flavour_locked').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
     sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg').order('roast_date',{ascending:false}),
-    sb.from('beans').select('id,name,process,quantity,low_stock_kg'),
+    sb.from('beans').select('id,name,process,quantity,low_stock_kg,country'),
     sb.from('feedback').select('*').is('reply',null).order('created_at',{ascending:false}),
     sb.from('rosters').select('week_start,shifts,deleted').eq('week_start',mondayStr())
   ]);
@@ -236,9 +236,10 @@ function buildItems(){
     var totG=0;demOrder.forEach(function(k){totG+=dem[k].g;});
     out.push({id:'roastdem',st:'Roast',hot:1,t:'Roast for orders — ~'+Math.round(totG*1.15)+'g green',
       s:demOrder.slice(0,3).map(function(k){return esc(dem[k].name)+' '+dem[k].g+'g';}).join(' · ')+(demOrder.length>3?' · +'+(demOrder.length-3)+' more':''),
-      act:'Got it',
+      act:'Log roast…',
       det:demOrder.map(function(k){return [dem[k].name,dem[k].g+'g roast · ~'+Math.round(dem[k].g*1.15)+'g green'];}).concat([['Total',totG+'g roast · ~'+Math.round(totG*1.15)+'g green']]),
-      det2:'Open classic app',roles:['director','roaster'],kind:'dismiss'});
+      det2:'Open classic app',roles:['director','roaster'],kind:'roastlog',
+      ref:demOrder.map(function(k){return {name:dem[k].name,g:dem[k].g};})});
   }
   newQ.forEach(function(o){
     var c=custById(o.customer_id);
@@ -383,6 +384,7 @@ async function runAction(id,btn){
       dropCard(id);toast('Paid ✓ receipt sent');return;
     }
     if(i.kind==='dialin'){openDialinForm(i);return;}
+    if(i.kind==='roastlog'){openRoastSheet(Array.isArray(i.ref)?i.ref:null);return;}
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent=i.act;}
     alert((i.act||'Action')+' failed: '+(e&&e.message||e));
@@ -868,6 +870,90 @@ function openDialinForm(i){
   });
   $('dl-cl').addEventListener('click',closeDrawer);
 }
+/* ===== 記烘豆（單批：選豆→生豆 kg→選填產出/快錄；照 classic saveRoast 規則寫 roasts＋扣庫存＋stock_moves）===== */
+var RO=null;
+function todayStr(){var t=new Date();return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
+function openRoastSheet(pre){
+  RO={beanId:'',kg:'',out:'',date:todayStr(),charge:'',fc:'',drop:'',dur:'',logOpen:false,pre:(pre&&pre.length)?pre:null};
+  paintRoastSheet();
+}
+function paintRoastSheet(){
+  var beans=(DB.beans||[]).slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
+  var sel=beans.find(function(b){return String(b.id)===String(RO.beanId);})||null;
+  var kgNum=parseFloat(RO.kg)||0;
+  var over=sel&&kgNum>((Number(sel.quantity)||0)+0.0001);
+  var chips='';
+  if(RO.pre){
+    chips='<div class="dlab">Needed for orders · tap to fill</div>'+RO.pre.map(function(d,ix){
+      var lot=beans.find(function(b){return String(b.name||'').trim().toLowerCase()===String(d.name||'').trim().toLowerCase();});
+      var needKg=Math.round(d.g*1.15/100)/10;
+      if(!lot)return '<button class="dclose" disabled style="opacity:.55">'+esc(d.name)+' · no green lot (blend?)</button>';
+      return '<button class="dclose" data-lot="'+esc(lot.id)+'" data-kg="'+needKg+'">'+esc(d.name)+' · ~'+needKg+' kg green</button>';
+    }).join('');
+  }
+  openDrawerHTML('<div class="t" style="font-size:19px">Log roast</div>'
+    +'<div class="s" style="margin-top:2px">writes the batch and deducts green stock</div>'
+    +chips
+    +'<div class="dlab">Green coffee</div>'
+    +'<select class="din" id="ro-bean" style="padding:12px"><option value="">— pick a bean —</option>'
+    +beans.map(function(b){return '<option value="'+esc(b.id)+'"'+(String(RO.beanId)===String(b.id)?' selected':'')+'>'+esc(b.name)+(b.process?' · '+esc(b.process):'')+' · '+(Number(b.quantity)||0)+' kg</option>';}).join('')
+    +'</select>'
+    +(sel?'<div class="s" style="margin-top:4px">stock '+(Number(sel.quantity)||0)+' kg'+(over?' · <span class=red>exceeds stock</span>':'')+'</div>':'')
+    +'<div class="dlab">Green in (kg)</div><input class="din" id="ro-kg" inputmode="decimal" placeholder="e.g. 10" value="'+esc(RO.kg)+'">'
+    +'<div class="dlab">Roasted out (kg) · optional</div><input class="din" id="ro-out" inputmode="decimal" placeholder="—" value="'+esc(RO.out)+'">'
+    +'<div class="dlab">Roast date</div><input class="din" id="ro-date" type="date" value="'+esc(RO.date)+'">'
+    +'<button class="dclose" id="ro-log-t">Roast log (optional) '+(RO.logOpen?'▴':'▾')+'</button>'
+    +(RO.logOpen?'<div class="dlab">Charge temp °C</div><input class="din" id="ro-charge" inputmode="decimal" value="'+esc(RO.charge)+'">'
+      +'<div class="dlab">First crack mm:ss</div><input class="din" id="ro-fc" placeholder="e.g. 8:30" value="'+esc(RO.fc)+'">'
+      +'<div class="dlab">Drop temp °C</div><input class="din" id="ro-drop" inputmode="decimal" value="'+esc(RO.drop)+'">'
+      +'<div class="dlab">Total time mm:ss</div><input class="din" id="ro-dur" placeholder="e.g. 11:20" value="'+esc(RO.dur)+'">':'')
+    +'<button class="act" id="ro-save">Log roast</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  /* 重畫前先把已打的值收回 RO，避免切豆/開快錄時打到一半的字消失 */
+  function grab(){['kg','out','date','charge','fc','drop','dur'].forEach(function(k){var el=$('ro-'+k);if(el)RO[k]=el.value;});}
+  document.querySelectorAll('#drawer [data-lot]').forEach(function(el){el.addEventListener('click',function(){
+    grab();RO.beanId=el.dataset.lot;RO.kg=el.dataset.kg;paintRoastSheet();
+  });});
+  $('ro-bean').addEventListener('change',function(){grab();RO.beanId=this.value;paintRoastSheet();});
+  $('ro-log-t').addEventListener('click',function(){grab();RO.logOpen=!RO.logOpen;paintRoastSheet();});
+  $('ro-save').addEventListener('click',function(){grab();saveRoastSheet();});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+async function saveRoastSheet(){
+  var b=(DB.beans||[]).find(function(x){return String(x.id)===String(RO.beanId);});
+  if(!b){toast('Pick a bean first');return;}
+  var kg=parseFloat(RO.kg);
+  if(isNaN(kg)||kg<=0){toast('Enter the green kg');return;}
+  var out=String(RO.out).trim()===''?null:parseFloat(RO.out);
+  if(out!=null&&(isNaN(out)||out<0)){toast('Roasted out must be a number');return;}
+  if(out!=null&&out>kg&&!confirm('Roasted out ('+out+' kg) is more than green in ('+kg+' kg). Save anyway?'))return;
+  var stock=Number(b.quantity)||0;
+  if(kg>stock+0.0001&&!confirm('Stock check:\n'+b.name+': '+kg+' kg entered, '+stock+' kg in stock\n\nLog anyway? Stock will stop at 0 — fix the numbers later with Stocktake.'))return;
+  var btn=$('ro-save');if(btn){btn.disabled=true;btn.textContent='Logging…';}
+  try{
+    var rec={bean_id:b.id,bean_name:b.name,country:b.country||null,green_kg:kg,status:'pending_cupping'};
+    if(out!=null&&out>0){rec.roasted_kg=out;rec.remaining_kg=out;}
+    if(RO.date)rec.roast_date=RO.date;
+    var num=function(v){var n=parseFloat(v);return (String(v).trim()===''||isNaN(n))?null:n;};
+    if(num(RO.charge)!=null)rec.charge_temp=num(RO.charge);
+    if(String(RO.fc).trim())rec.first_crack=String(RO.fc).trim();
+    if(num(RO.drop)!=null)rec.drop_temp=num(RO.drop);
+    if(String(RO.dur).trim())rec.duration=String(RO.dur).trim();
+    var ins=await sb.from('roasts').insert(rec).select();
+    if(ins.error)throw new Error(ins.error.message);
+    var newQty=Math.max(0,Math.round((stock-kg)*1000)/1000);
+    var u=await sb.from('beans').update({quantity:newQty}).eq('id',b.id);
+    if(u.error)throw new Error('batch saved but stock update failed: '+u.error.message);
+    b.quantity=newQty;
+    try{await sb.from('stock_moves').insert({bean_id:b.id,kind:'roast',delta_kg:-kg,after_kg:newQty,note:'Roast'+(RO.date?' '+RO.date:'')});}catch(e){}
+    if(ins.data&&ins.data[0])DB.roasts.unshift(ins.data[0]);
+    closeDrawer();toast('Roast logged ✓ stock −'+kg+' kg');
+    await reload();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Log roast';}
+    alert('Log failed: '+(e&&e.message||e));
+  }
+}
 /* ===== 滑卡 ===== */
 function attachSwipe(el,id){
   /* 誤觸防護：①方向鎖——先確認是「明確的橫向」才開始滑（斜滑/直捲直接放棄）
@@ -934,6 +1020,7 @@ function renderTools(){
     +(iosNoA2HS?'<div class="note" style="text-align:left;margin:8px 2px 0">iPhone: first add this page to your Home Screen (Share → Add to Home Screen), open it from the icon, then tap Enable here.</div>':'')
     +'<div class="gsec">Make</div><div class="tgrid">'
     +'<button class="tool" id="t-neworder" style="border-color:var(--accent);color:var(--accent)">New order<small>right here</small></button>'
+    +'<button class="tool" id="t-roast" style="border-color:var(--accent);color:var(--accent)">Log roast<small>green in · right here</small></button>'
     +[['Invoice','GST PDF · classic'],['Info card','IG asset · classic'],['Labels','bag / tin · classic'],['Menus','A4 PDF · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
     +[['Green stock','type a bean name above'],['Customers','type a name above'],['Orders','type a number above'],['Classic app','full interface']].map(function(x,ix){return '<button class="tool" data-t="'+ix+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
@@ -965,6 +1052,7 @@ function renderTools(){
   }
   inp.addEventListener('input',lookup);
   var no=$('t-neworder');if(no)no.addEventListener('click',openNewOrderSheet);
+  var tr=$('t-roast');if(tr)tr.addEventListener('click',function(){openRoastSheet(null);});
   var tn=$('t-notif');if(tn)tn.addEventListener('click',function(){enablePush(tn);});
   var tp=$('t-ptest');if(tp)tp.addEventListener('click',async function(){
     tp.disabled=true;
