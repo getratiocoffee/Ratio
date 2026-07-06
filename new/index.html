@@ -5,7 +5,7 @@
 <link rel="apple-touch-icon" href="/new/icon-192.png">
 <meta name="theme-color" content="#1A1A1A">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:wght@700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#FFFFFF;--surface:#FFFFFF;--ink:#1A1A1A;--muted:#8A8A8A;--accent:#B25E6A;--tint:#F7EBED;--danger:#C0392B;--line:#ECECEC;--line2:#DADADA;--inv:#1A1A1A;--inv-t:#FFFFFF}
@@ -13,6 +13,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;font-size:16px;padding-bottom:170px}
 header{background:var(--bg);color:var(--ink);border-bottom:1.5px solid var(--ink);padding:calc(env(safe-area-inset-top,0px) + 14px) 18px 12px;display:flex;justify-content:space-between;align-items:baseline;position:sticky;top:0;z-index:10}
+.sbar{position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#1A1A1A;z-index:100;pointer-events:none}
 header .brand{font-family:'Fraunces',serif;font-size:21px;font-weight:700}
 header .cnt{font-size:14px;color:var(--muted)}
 .wrap{padding:14px 14px 0;max-width:520px;margin:0 auto}
@@ -77,6 +78,7 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .hit .t{font-size:17px}
 .hit .k{flex:0 0 auto;font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--accent)}
 </style></head><body>
+<div class="sbar"></div>
 <header><span class="brand" id="hbrand">Ratio</span><span class="cnt" id="hcnt">loading…</span></header>
 <div class="chips" id="chips"></div>
 <div class="wrap" id="main"><div class="empty">Loading your day…</div></div>
