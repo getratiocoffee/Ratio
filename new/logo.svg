@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <mask id="beangap">
+      <rect width="400" height="400" fill="#fff"/>
+      <path d="M150,102 C128,136 172,182 150,216" stroke="#000" stroke-width="12" fill="none" stroke-linecap="round" transform="rotate(-20 150 159)"/>
+    </mask>
+  </defs>
+  <g transform="rotate(-12 200 200)">
+    <rect x="84" y="84" width="232" height="232" rx="54" fill="none" stroke="#000" stroke-width="13"/>
+    <ellipse cx="150" cy="159" rx="37" ry="56" transform="rotate(-20 150 159)" fill="#000" mask="url(#beangap)"/>
+    <path d="M258,190 C242,220 234,238 234,256 a26,26 0 0 0 52,0 C286,238 274,220 258,190 Z" fill="none" stroke="#000" stroke-width="11" stroke-linejoin="round"/>
+    <line x1="174" y1="288" x2="238" y2="112" stroke="#000" stroke-width="11" stroke-linecap="round"/>
+  </g>
+</svg>
