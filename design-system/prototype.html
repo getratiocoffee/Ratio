@@ -52,6 +52,16 @@ nav button.on{background:#49423A;border-color:#49423A;color:#F4ECEA}
 .toast{position:fixed;left:50%;transform:translateX(-50%) translateY(20px);bottom:150px;background:#49423A;color:#F4ECEA;border-radius:999px;padding:11px 22px;font-size:15px;font-weight:600;opacity:0;transition:all .3s;z-index:60;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .note{font-size:12.5px;color:var(--muted);text-align:center;margin:6px 14px 0;line-height:1.6}
+.search{width:100%;border:1.5px solid var(--line);border-radius:16px;padding:15px 16px;font-size:16px;font-family:inherit;background:var(--surface);color:var(--ink);outline:none;margin-bottom:6px}
+.search:focus{border-color:var(--accent)}
+.gsec{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin:18px 2px 8px}
+.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.tool{border:1px solid var(--line);background:var(--surface);border-radius:16px;padding:17px 12px;font-size:15px;font-weight:700;font-family:inherit;color:var(--ink);cursor:pointer;text-align:center}
+.tool:active{background:var(--tint)}
+.tool small{display:block;font-size:11.5px;font-weight:500;color:var(--muted);margin-top:3px}
+.hit{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:13px 15px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.hit .t{font-size:16px}
+.hit .k{flex:0 0 auto;font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 10px;background:var(--tint);color:var(--accent-ink)}
 </style></head><body>
 <header><span class="brand">Ratio</span><span class="cnt" id="hcnt"></span></header>
 <div class="chips" id="chips"></div>
@@ -59,8 +69,9 @@ nav button.on{background:#49423A;border-color:#49423A;color:#F4ECEA}
 <div class="deck" id="deck" style="display:none"></div>
 <nav>
 <button id="nav-feed" class="on">Today</button>
-<button id="nav-qc">QC station</button>
-<button id="nav-role">Role: Wu</button>
+<button id="nav-qc">QC</button>
+<button id="nav-tools">Tools</button>
+<button id="nav-role">Wu ▾</button>
 </nav>
 <div class="drawer-bg" id="dbg"></div>
 <div class="drawer" id="drawer"></div>
@@ -157,15 +168,65 @@ function renderQC(){
   document.getElementById('qr').addEventListener('click',function(){judge('Re-roast');});
   document.getElementById('qd').addEventListener('click',function(){judge('Down');});
 }
-function render(){renderChips();if(view==='feed')renderFeed();else renderQC();
+var LOOKUP=[
+{k:'Green',t:'Alo Village',s:'Natural · 1.2 kg green · cost $18/kg',det:[['Process','Natural'],['Green stock','1.2 kg'],['Cost','$18.00/kg'],['Supplier','Melco'],['Low alert','below 5 kg']],act:'Stocktake'},
+{k:'Green',t:'Gatitu AA',s:'Washed · 12 kg green · cost $14/kg',det:[['Process','Washed'],['Green stock','12 kg'],['Cost','$14.00/kg'],['Supplier','Kenya direct']],act:'Stocktake'},
+{k:'Roasted',t:'June Project · batch 01/07',s:'4 kg left · QC pass · 5 days old',det:[['Roasted','01/07/26'],['Remaining','4 kg'],['QC','pass'],['Loss','13%']],act:'Use / sell kg'},
+{k:'Customer',t:'Happy Sip',s:'shop · 2 orders · last 05/07 · $330',det:[['Type','Shop'],['Orders','2 · $330.00 lifetime'],['Last order','05/07/26'],['Email','hs@happysip.com.au'],['Phone','0400 111 222']],act:'New order'},
+{k:'Customer',t:'Dani Wong',s:'home · no orders yet',det:[['Type','Home'],['Orders','none yet']],act:'New order'},
+{k:'Order',t:'#0015 · Dani',s:'Ready · unpaid · 100g Alo Village',det:[['Status','Ready'],['Items','100g Alo Village ×1'],['Payment','awaiting'],['Placed','06/07/26']],act:'Mark paid'}
+];
+var TOOLS=[
+{g:'Make',list:[['Invoice','GST PDF'],['Info card','1200 PNG for IG'],['Labels','bag / tin .lbx'],['Menus','A4 PDF'],['QR codes','shop / feedback / review'],['Announce','email all customers']]},
+{g:'Look up',list:[['Green stock','beans + stocktake'],['Roasted batches','FIFO + age'],['Customers','orders + contact'],['Order history','all + search'],['Dial-in log','recent shots'],['Finance','money in / owing']]}
+];
+function renderTools(){
+  document.getElementById('deck').style.display='none';
+  document.getElementById('hcnt').textContent='find and make';
+  var m=document.getElementById('main');
+  m.innerHTML='<input class="search" id="tsearch" type="search" placeholder="Search beans, customers, orders…">'
+    +'<div id="thits"></div><div id="tgroups">'
+    +TOOLS.map(function(g){
+      return '<div class="gsec">'+g.g+'</div><div class="tgrid">'
+        +g.list.map(function(x){return '<button class="tool" data-tool="'+x[0]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')+'</div>';
+    }).join('')+'</div>';
+  var inp=document.getElementById('tsearch');
+  inp.addEventListener('input',function(){
+    var q=inp.value.trim().toLowerCase();
+    var hits=q?LOOKUP.filter(function(x){return (x.t+' '+x.s+' '+x.k).toLowerCase().indexOf(q)>-1;}):[];
+    document.getElementById('tgroups').style.display=q?'none':'';
+    document.getElementById('thits').innerHTML=q?(hits.length?hits.map(function(x,i){
+      return '<div class="hit" data-hit="'+LOOKUP.indexOf(x)+'"><span><div class="t">'+x.t+'</div><div class="s">'+x.s+'</div></span><span class="k">'+x.k+'</span></div>';
+    }).join(''):'<div class="empty">No match for "'+inp.value+'"</div>'):'';
+    document.querySelectorAll('[data-hit]').forEach(function(el){el.addEventListener('click',function(){openLookup(+el.dataset.hit);});});
+  });
+  m.querySelectorAll('[data-tool]').forEach(function(b){b.addEventListener('click',function(){
+    if(b.dataset.tool==='Customers'||b.dataset.tool==='Green stock'){inp.value=b.dataset.tool==='Customers'?'customer':'green';inp.dispatchEvent(new Event('input'));inp.focus();return;}
+    toast('Opens '+b.dataset.tool+' (real version)');
+  });});
+}
+function openLookup(i){
+  var x=LOOKUP[i];if(!x)return;
+  var d=document.getElementById('drawer');
+  d.innerHTML='<div class="grab"></div><span class="tag">'+x.k+'</span><div class="t" style="font-size:19px">'+x.t+'</div>'
+    +'<div style="margin-top:10px">'+x.det.map(function(r){return '<div class="dl"><span>'+r[0]+'</span><span>'+r[1]+'</span></div>';}).join('')+'</div>'
+    +'<button class="act" id="lact">'+x.act+'</button>'
+    +'<button class="dclose" id="dcl" style="border:none;background:none;color:var(--muted)">Close</button>';
+  d.classList.add('show');document.getElementById('dbg').classList.add('show');
+  d.querySelector('#lact').addEventListener('click',function(){closeDrawer();toast(x.act+' — opens form');});
+  d.querySelector('#dcl').addEventListener('click',closeDrawer);
+}
+function render(){renderChips();if(view==='feed')renderFeed();else if(view==='qc')renderQC();else renderTools();
   document.getElementById('nav-feed').classList.toggle('on',view==='feed');
   document.getElementById('nav-qc').classList.toggle('on',view==='qc');
+  document.getElementById('nav-tools').classList.toggle('on',view==='tools');
 }
 document.getElementById('nav-feed').addEventListener('click',function(){view='feed';render();});
 document.getElementById('nav-qc').addEventListener('click',function(){view='qc';render();});
+document.getElementById('nav-tools').addEventListener('click',function(){view='tools';render();});
 document.getElementById('nav-role').addEventListener('click',function(){
   roleIdx=(roleIdx+1)%ROLES.length;filter='all';
-  document.getElementById('nav-role').textContent='Role: '+ROLES[roleIdx].label.split(' ')[0];
+  document.getElementById('nav-role').textContent=ROLES[roleIdx].label.split(' ')[0]+' ▾';
   toast('Now viewing as '+ROLES[roleIdx].label);render();
 });
 render();
