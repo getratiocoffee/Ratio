@@ -1,12 +1,15 @@
-# Ratio 開發交接 — 2026-07-05/06 Session（Phase 3 + Orders 2.0 + Beans 2.0 全線）
+# Ratio 開發交接 — 至 2026-07-07（站台改造全線＋新殼 /new 上線）
 
-## ⚡ 當前狀態速覽（2026-07-06 收工時，新 session 先讀這段）
-- **全部完工且上線**：Orders 2.0（含付款連結自動確認收款）、Beans 2.0 G1–G7、小工具 T1/T2/T3/T5/T7/T8、Square Grind modifier+多規格、公開豆頁（?bean=）、回饋系統（?fb=）、Google 評論管線（連結已設好）、Print Centre、Retail Info 分頁改版、安全+效能掃描全清
-- **重大修復**：square-webhook secrets 曾設反（金鑰在 URL 欄）→ v12 自我修復 + 老闆已改正 secrets（簽名測試 200 驗證）；v13 加 POS 防洪閘（店內刷卡不匯入）
-- **Edge 版本**：send-email v15 / sync-to-square v15 / square-webhook v13 / public-bean v1
-- **等老闆做**：4 支上架（Dancer/Dreamer/April/May/June Project：QC Pass→Lock flavour→Push to Square，順便驗 Grind/規格）、Leaked password protection（Supabase Auth 後台）、印 QR、工具實戰
-- **等老闆拍板**：分享平台 b/c、staff 角色開放、賣生豆/教學/wholesale
-- **已知限制**：Chrome MCP 網域白名單不含 ratio-theta.vercel.app（無法代測登入後功能）；Claude 記憶檔在 ~/.claude/.../memory/（驗證流程、工作模式都記了）
+## ⚡ 當前狀態速覽（2026-07-07 更新，新 session 先讀這段）
+- **兩個 app 並行**：
+  - **新殼 `/new`**（new/index.html，獨立檔案）＝日常營運主力：今日流（10 種卡：晨報含班表/接單/烘豆需求/備貨打勾/出貨含現畫資訊卡/收款/QC/調參/低庫存/任務/回饋回覆）＋QC 拇指工作台＋Tools（搜尋/開新單/傳送門）；滑卡（右做左睡＋undo）、時段排序、紙白玫瑰＋炭紙自動夜版、PWA 可裝＋**Web Push 推播**（新單/收款手機叮）、角色過濾（director/roaster/retail/staff）。與 classic 同網域共用登入
+  - **classic `/`**（index.html 單檔）＝低頻功能：上架/印刷/盤點/庫存/財務儀表板等，12 站泡泡面板全亮；**完全沒被新殼改動**
+- **Edge 版本**：send-email **v20**（付款按鈕帶 surcharge 揭露）/ sync-to-square **v19**（付款連結走 Online 地點＋2.2% surcharge）/ square-webhook **v18**（＋推播）/ public-shop **v4**（結帳 service-charge surcharge）/ public-bean v1 / **push-send v1**。SURCHARGE_PCT secret 一處管三處（預設 2.2）
+- **新表**：tasks（團隊待辦）/ push_subs（推播訂閱）/ secrets_kv（**零政策＝service-role only**，放 VAPID 鑰匙——advisor 的 INFO 是刻意設計）
+- **安全**：messages 匿名讀已鎖＋登入重載；handle_new_user execute 已再次 revoke（2026-07-07 驗證 404）；always-true 政策群＝小團隊信任模型（刻意）；mail-assets 可列目錄（低風險留觀）
+- **等老闆做**：Leaked password protection（Supabase Auth 後台一鍵，advisor 持續提醒）、上架剩餘豆（classic Beans 站照佇列按）、新殼 Dispatch 首次真單看卡片
+- **等老闆拍板**：staff 帳號開放（新殼角色過濾已就緒）、語音快錄/BOOKOO 秤（第三級）、wholesale/賣生豆/教學（停車場）
+- **開發環境備忘**：push 用 GitHub Desktop（終端機無 Git 認證）；無 Node，jscheck 用 osascript；本機預覽 launch.json 指向 scratchpad/serve 複本（**改完檔案要 cp 過去**）；Chrome MCP 可開 ratio-theta（老闆登入態可代跑 callSquareFn 等）；Claude Code CLI 已裝在老闆 Mac（design-login 已授權，重推設計系統用終端機 claude）
 
 ## 〇、補記 — 2026-07-06 下午 session（訂單站泡泡面板）
 - **站台改造第 8 站：訂單站完成**（index.html，待 push 部署）：點 dock 的 Order 圖示不再只顯示訊息 feed，改顯示 `renderOrderStation()` 泡泡面板（樣式全沿用 .gs-*，只新增 .gs-badge.od 逾期紅膠囊）——
