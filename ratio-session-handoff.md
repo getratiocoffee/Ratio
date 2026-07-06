@@ -35,6 +35,14 @@
   - **老闆看過方案說不錯 → 追加 Tools 分頁**（pull 式功能的家）：頂部大搜尋框跨生豆/客戶/訂單（命中開抽屜：庫存/客戶訂單史/聯絡方式），下面 Make（Invoice/資訊卡/標籤/菜單/QR/群發）＋ Look up（生豆/熟豆批次/客戶/訂單史/調參/財務）分組大按鈕。新殼＝三個世界：Today 事情找你／Tools 你找東西／角色鍵過濾
   - **進階第一級三件套已加進原型**（老闆點名做）：①**滑卡**（右滑=執行、左滑=貪睡到明天＋底部 undo 列；pointer events、touch-action:pan-y 不擋直捲）②**時段感知排序**（morning bar 優先/day 訂單優先/payday 錢優先，點排序說明線可切換試玩）③**晨報卡**（深色置頂：今日班表/待出訂單/QC/低庫存，details 開完整清單）。preview 全互動實測過。**進階路線圖已跟老闆講**：第二級 PWA＋推播（新單手機叮）＋離線佇列、第三級語音快錄／BOOKOO 秤藍牙／掃碼——換裝時做一級、緊接二級
   - **視覺定裝（老闆拍板）**：出過兩輪造型（奶茶/深焙/紙白/工裝 → 老闆選 3 紙白再延伸玫瑰/墨綠/雜誌襯線/炭紙）→ 定案 **3A 紙白＋玫瑰點綴＋Fraunces 標題，深色模式自動切炭紙夜版**（prefers-color-scheme，CSS 變數 --inv/--inv-t 反白件）。原則：黑白灰為底、**玫瑰只給可以按的東西**、晨報與 active 導覽用反白、細線 12px 圓角、tag 改大寫字距。已整套套進 prototype.html（preview 雙模式截圖驗證）。**若全面換裝，index.html 也照這套語言走**
+- **🚚 開搬第一波：新殼 `/new` 真資料版完成**（`new/index.html` 全新檔案，舊 index.html 一字未動，待 push 部署）：
+  - **架構**：獨立頁、同 Supabase 同 publishable key、**同網域共用登入 session**（classic 登入過直接進；未登入顯示閘門連去 classic 登入）；讀 profiles 帶角色（director 全看、roaster 看 QC/Green/Tasks、retail/staff 看 Orders/Bar/Tasks）
+  - **Today 真資料真寫入**：晨報（各佇列計數）／Accept（payment_link→Confirmed→確認信，照抄 callFn 模式）／Decline·Cancel（Cancelled＋取消信）／Pack（pack_state 全勾＋Ready）／Dispatch 抽屜（tracking＋出貨信**不帶新卡**，靠 edge 讀 mail-assets 既有卡——換裝完整版要補卡片管線）／Mark paid（＋收款信）／QC Pass（feed 卡）／Dial in 抽屜表單（insert dialins）／Task Done／Low green＝提示卡；滑卡右做左睡（貪睡存 localStorage 隔天回來）、時段排序、details 抽屜
+  - **QC 分頁**：真佇列（samples 去重＋matchRoast）＋底部拇指 Pass/Re-roast/Down 真寫 roasts.qc
+  - **Tools**：真搜尋 beans/customers/orders（抽屜詳情）＋ Make 類全部跳 classic
+  - 驗證：jscheck＋preview 登出閘門＋假資料全管線（10 卡衍生正確含排除規則/QC 台/搜尋/Task Done 寫入/貪睡持久化/抽屜）＋截圖；⚠ **edge 動作（Accept/寄信）要老闆登入後首測**，建議先拿測試單試 Accept
+  - **搬家原則（對老闆的承諾）**：新殼滿意一塊搬一塊，舊 app 保留到說拆為止；下一波候選＝PWA＋推播（第二級）、Dispatch 卡片管線、Pack 逐項勾、新殼內開新單
+  - **網址（push 後）：ratio-theta.vercel.app/new/**
 - 開工檢查：上一 session 全部已 push 已部署（線上 662,628 bytes 同步）；「Analysed by」確認早已上線（杯測卡/Retail 卡/詳情頁三處）
 
 ## 〇之零、補記 — 2026-07-06 早上 session（QC 帶跑 + 補烘豆紀錄 + Re-analyse 防呆）
