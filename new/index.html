@@ -160,7 +160,7 @@ async function loadAll(){
     sb.from('product_sync').select('bean_id,status').eq('channel','square'),
     sb.from('samples').select('id,sample_id,bean_id,process,roast_date,cupping_date,features,flavour_locked').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
     sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg,status').order('roast_date',{ascending:false}),
-    sb.from('beans').select('id,name,process,quantity,low_stock_kg,country'),
+    sb.from('beans').select('id,name,process,quantity,low_stock_kg,country,cost_per_kg,supplier'),
     sb.from('feedback').select('*').is('reply',null).order('created_at',{ascending:false}),
     sb.from('rosters').select('week_start,shifts,deleted').eq('week_start',mondayStr())
   ]);
@@ -903,6 +903,95 @@ function openDialinForm(i){
   });
   $('dl-cl').addEventListener('click',closeDrawer);
 }
+/* ===== 收生豆（照 classic receivePurchase 規則但免採購單：併現有批次或開新豆＋stock_moves 'receive'）===== */
+var RCV=null;
+function openReceiveSheet(){
+  RCV={mode:'existing',beanId:'',name:'',country:'',process:'',kg:'',cost:'',supplier:'',lot:''};
+  paintReceiveSheet();
+}
+function paintReceiveSheet(){
+  var beans=(DB.beans||[]).slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
+  var sel=beans.find(function(b){return String(b.id)===String(RCV.beanId);})||null;
+  var ex=RCV.mode==='existing';
+  openDrawerHTML('<div class="t" style="font-size:19px">Receive green</div>'
+    +'<div class="s" style="margin-top:2px">adds the delivery to stock and writes the ledger</div>'
+    +'<div class="pm-seg"><button id="rv-ex" class="'+(ex?'on':'')+'">Existing lot</button><button id="rv-new" class="'+(ex?'':'on')+'">New bean</button></div>'
+    +(ex
+      ?'<div class="dlab">Green coffee</div>'
+        +'<select class="din" id="rv-bean" style="padding:12px"><option value="">— pick a bean —</option>'
+        +beans.map(function(b){return '<option value="'+esc(b.id)+'"'+(String(RCV.beanId)===String(b.id)?' selected':'')+'>'+esc(b.name)+(b.process?' · '+esc(b.process):'')+' · '+(Number(b.quantity)||0)+' kg</option>';}).join('')
+        +'</select>'
+        +(sel?'<div class="s" style="margin-top:4px">book '+(Number(sel.quantity)||0)+' kg'+(sel.supplier?' · '+esc(sel.supplier):'')+'</div>':'')
+      :'<div class="dlab">Coffee name</div><input class="din" id="rv-name" placeholder="e.g. Finca Milan" value="'+esc(RCV.name)+'">'
+        +'<div class="dlab">Country</div><input class="din" id="rv-country" placeholder="e.g. Colombia" value="'+esc(RCV.country)+'">'
+        +'<div class="dlab">Process</div><input class="din" id="rv-process" placeholder="e.g. Washed" value="'+esc(RCV.process)+'">')
+    +'<div class="dlab">Received (kg)</div><input class="din" id="rv-kg" inputmode="decimal" placeholder="e.g. 30" value="'+esc(RCV.kg)+'">'
+    +'<div class="dlab">Cost per kg (AUD) · optional</div><input class="din" id="rv-cost" inputmode="decimal" placeholder="—" value="'+esc(RCV.cost)+'">'
+    +'<div class="dlab">Supplier · optional</div><input class="din" id="rv-sup" placeholder="—" value="'+esc(RCV.supplier)+'">'
+    +'<div class="dlab">Lot no · optional</div><input class="din" id="rv-lot" placeholder="—" value="'+esc(RCV.lot)+'">'
+    +'<button class="act" id="rv-save">Add to stock</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  function grab(){
+    ['kg','cost','lot','name','country','process'].forEach(function(k){var el=$('rv-'+k);if(el)RCV[k]=el.value;});
+    var su=$('rv-sup');if(su)RCV.supplier=su.value;
+  }
+  $('rv-ex').addEventListener('click',function(){grab();RCV.mode='existing';paintReceiveSheet();});
+  $('rv-new').addEventListener('click',function(){grab();RCV.mode='new';paintReceiveSheet();});
+  var rb=$('rv-bean');
+  if(rb)rb.addEventListener('change',function(){
+    grab();RCV.beanId=this.value;
+    var b=(DB.beans||[]).find(function(x){return String(x.id)===String(RCV.beanId);});
+    /* 帶上次的供應商/單價（可改） */
+    if(b){if(!RCV.supplier)RCV.supplier=b.supplier||'';if(!RCV.cost&&b.cost_per_kg!=null)RCV.cost=String(b.cost_per_kg);}
+    paintReceiveSheet();
+  });
+  $('rv-save').addEventListener('click',function(){grab();saveReceiveSheet();});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+async function saveReceiveSheet(){
+  var kg=parseFloat(String(RCV.kg).trim());
+  if(isNaN(kg)||kg<=0){toast('Enter the received kg');return;}
+  var cost=String(RCV.cost).trim()===''?null:parseFloat(String(RCV.cost).replace(/[^0-9.]/g,''));
+  if(cost!=null&&(isNaN(cost)||cost<0)){toast('Cost must be a number');return;}
+  var sup=String(RCV.supplier||'').trim(),lot=String(RCV.lot||'').trim();
+  var btn=$('rv-save');
+  var beanId,after;
+  try{
+    if(RCV.mode==='existing'){
+      var b=(DB.beans||[]).find(function(x){return String(x.id)===String(RCV.beanId);});
+      if(!b){toast('Pick a bean first');return;}
+      if(btn){btn.disabled=true;btn.textContent='Saving…';}
+      var nq=Math.round(((Number(b.quantity)||0)+kg)*1000)/1000;
+      var upd={quantity:nq};
+      if(cost!=null)upd.cost_per_kg=cost;
+      if(sup)upd.supplier=sup;
+      var u=await sb.from('beans').update(upd).eq('id',b.id);
+      if(u.error)throw new Error(u.error.message);
+      Object.assign(b,upd);
+      beanId=b.id;after=nq;
+    }else{
+      var nm=String(RCV.name||'').trim();
+      if(!nm){toast('Enter the coffee name');return;}
+      /* 防重複：同名同處理法已有批次 → 提醒改用 Existing lot 併批 */
+      var dup=(DB.beans||[]).find(function(x){return String(x.name||'').trim().toLowerCase()===nm.toLowerCase()&&String(x.process||'').trim().toLowerCase()===String(RCV.process||'').trim().toLowerCase();});
+      if(dup&&!confirm('"'+nm+'" with this process is already on the books ('+(Number(dup.quantity)||0)+' kg). Create a separate lot anyway?'))return;
+      if(btn){btn.disabled=true;btn.textContent='Saving…';}
+      var rec={id:'bean_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8),
+        name:nm,process:String(RCV.process||'').trim()||null,country:String(RCV.country||'').trim()||null,
+        quantity:kg,cost_per_kg:cost,supplier:sup||null};
+      var ins=await sb.from('beans').insert(rec).select();
+      if(ins.error)throw new Error(ins.error.message);
+      DB.beans.push((ins.data&&ins.data[0])||rec);
+      beanId=rec.id;after=kg;
+    }
+    try{await sb.from('stock_moves').insert({bean_id:beanId,kind:'receive',delta_kg:kg,after_kg:after,note:'Received'+(sup?' — '+sup:'')+(lot?' · lot '+lot:'')});}catch(e){}
+    closeDrawer();toast('Received ✓ +'+kg+' kg');
+    await reload();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Add to stock';}
+    alert('Receive failed: '+(e&&e.message||e));
+  }
+}
 /* ===== 盤點（照 classic T8 saveStocktakeAll：只存有改動的，逐筆 beans 更新＋stock_moves 'stocktake'）===== */
 var STK=null;
 function openStocktakeSheet(){
@@ -1300,6 +1389,7 @@ function renderTools(){
     +'<button class="tool" id="t-neworder" style="border-color:var(--accent);color:var(--accent)">New order<small>right here</small></button>'
     +'<button class="tool" id="t-roast" style="border-color:var(--accent);color:var(--accent)">Log roast<small>green in · right here</small></button>'
     +'<button class="tool" id="t-stk" style="border-color:var(--accent);color:var(--accent)">Stocktake<small>weigh greens · right here</small></button>'
+    +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
     +[['Invoice','GST PDF · classic'],['Info card','IG asset · classic'],['Labels','bag / tin · classic'],['Menus','A4 PDF · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
     +[['Green stock','type a bean name above'],['Customers','type a name above'],['Orders','type a number above'],['Classic app','full interface']].map(function(x,ix){return '<button class="tool" data-t="'+ix+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
@@ -1333,6 +1423,7 @@ function renderTools(){
   var no=$('t-neworder');if(no)no.addEventListener('click',openNewOrderSheet);
   var tr=$('t-roast');if(tr)tr.addEventListener('click',function(){openRoastSheet(null);});
   var ts=$('t-stk');if(ts)ts.addEventListener('click',openStocktakeSheet);
+  var tv=$('t-recv');if(tv)tv.addEventListener('click',openReceiveSheet);
   var tn=$('t-notif');if(tn)tn.addEventListener('click',function(){enablePush(tn);});
   var tp=$('t-ptest');if(tp)tp.addEventListener('click',async function(){
     tp.disabled=true;

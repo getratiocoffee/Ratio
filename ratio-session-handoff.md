@@ -24,6 +24,8 @@
   - 驗證：jscheck＋preview 假資料（四分流：未上架→List/已上架未鎖→Lock 聚合/已鎖→無卡/QC 未判→QC 卡 ✓、app_state 預填 28/50/250g ✓、push payload 逐欄比對含真畫 125KB 卡片與三規格 variations ✓、記憶回寫三鑰匙 ✓、鎖風味 update ✓、Lock 抽屜逐支鎖＋locked ✓ 重畫 ✓）＋兩張手機截圖；⚠ 真推 Square 待部署後老闆用下一支新豆驗
   - **新殼生產線至此全線**：記烘豆 → 杯測 → QC → 鎖風味/上架 Square，classic 只剩低頻與後勤
 - **盤點也進新殼**（new/index.html，同輪第四件，待 push）：Tools → Make 新「Stocktake」（玫瑰框）→ 全豆清單抽屜（產地分組、每支顯示帳面 kg＋實秤輸入格）→ Save **只存有改動的**（照 classic T8 規則：空白/無效/差異<0.0005 跳過）：beans.quantity 更新＋stock_moves kind:'stocktake' note:'Bulk stocktake'。驗證：jscheck＋preview（三支豆填 7.2/3/空白 → 只寫 b1 兩筆、delta −1.3 ✓、本地同步 ✓）＋截圖
+  - **期間老闆 push 了前三個 commit**：線上 /new 已含記烘豆/杯測/上架（115,733 bytes 驗過含新函式）；盤點起的後續 commit 還在本機
+- **收生豆也進新殼**（new/index.html，同輪第五件，待 push）：查出 purchases 表全空＝老闆訂豆從不走 app 採購鏈 → 做**免採購單版**「Receive green」（Tools 玫瑰鍵）：Existing lot（選豆→帶上次供應商/單價可改→輸實收 kg，quantity 累加＋更新 cost/supplier）／New bean（名/國/處理法/kg/單價/供應商，**id 用 classic 同款 'bean_<ts36>_<rand6>' 格式**；同名同處理法已在帳上會 confirm 提醒改用併批）；兩路都記 stock_moves kind:'receive' note:'Received — 供應商 · lot X'（照 classic receivePurchase，只差 note 開頭不寫 PO）。loadAll beans 查詢補帶 cost_per_kg/supplier。驗證：jscheck＋preview（併批 8.5+30=38.5＋單價 15 更新＋lot 流水帳 ✓/新豆全欄位＋id 格式 ✓/預填 ✓/重複豆 confirm 擋 ✓）＋截圖
 - 開發備忘：launch.json 加了 ratio-static-2（port 8125，8124 被別的 session 佔用時用）；serve 複本路徑不變
 
 ## 〇、補記 — 2026-07-06 下午 session（訂單站泡泡面板）
