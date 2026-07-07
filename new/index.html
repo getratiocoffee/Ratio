@@ -49,7 +49,10 @@ header .cnt{font-size:14px;color:var(--muted)}
 .shoptabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1.5px solid var(--ink);display:flex;gap:8px;padding:10px 20px calc(env(safe-area-inset-bottom,0px) + 12px);z-index:30}
 .shoptabs button{flex:1;border:1.5px solid var(--line2);background:var(--surface);color:var(--muted);border-radius:12px;padding:12px 2px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer}
 .shoptabs button.on{background:var(--inv);color:var(--inv-t);border-color:var(--inv)}
-.shopc .shopimg{width:100%;aspect-ratio:16/10;object-fit:cover;object-position:top;display:block;border-bottom:1px solid var(--line)}
+/* 資訊卡圖滿版：CSS 裁掉 Square 安全白邊——內容框在 1200×1200 佔 x217-983/y64-1136，
+   裁切盒各留 12px 呼吸邊＝x0 205 w790 / y0 52 h1096。⚠ 數字綁 classic makeSquareCard 預設邊距，改邊距要跟著改 */
+.shopimghold{width:100%;aspect-ratio:790/1096;overflow:hidden;position:relative;border-bottom:1px solid var(--line)}
+.shopimghold .shopimg{position:absolute;width:151.9%;left:-25.95%;top:-4.74%;height:auto;display:block}
 .shopc .shopin{padding:14px 18px 18px}
 .shop-chip{background:var(--tint);color:var(--accent);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:600;display:inline-block;margin:0 6px 6px 0}
 .shopc .sl{flex:0 0 84px;text-transform:uppercase;font-size:11.5px;letter-spacing:.06em;padding-top:2px}
@@ -2133,24 +2136,42 @@ function paintShopBody(){
     Array.prototype.forEach.call(ds.children,function(d,ix){d.classList.toggle('on',ix===i);});
   },{passive:true});
 }
-/* C 規格書版（老闆挑的）：Square 商品圖橫幅＋風味膠囊＋明細表（配方或處理法/產區/品種/杯感/規格/烘焙日）＋Order */
+/* 規格明細列（Blend 或 Process/Origin/Variety/Cup/Bag/Roasted）——主卡瘦身後只在明細抽屜用 */
+function shopSpecsFor(b){
+  var specs=[];
+  if(b.recipe&&b.recipe.length)specs.push(['Blend',b.recipe.map(function(p){return esc(p.bean)+' '+p.pct+'%';}).join(' · ')]);
+  else if(b.process)specs.push(['Process',esc(b.process)]);
+  if(b.origin)specs.push(['Origin',esc(b.origin)]);
+  if(b.variety)specs.push(['Variety',esc(b.variety)]);
+  if(b.comment)specs.push(['Cup',esc(b.comment)]);
+  specs.push(['Bag',(b.grams||250)+'g whole beans']);
+  if(b.roast_date){
+    var age=daysSince(b.roast_date);
+    /* 對客人講人話：<14 剛烘好、14–28 最佳賞味、>28 醒好豆（店內的紅綠黃是營運視角） */
+    var band=age<SHELF_FRESH_REST?'freshly roasted':(age<=SHELF_FRESH_PRIME?'prime window':'well rested');
+    specs.push(['Roasted',(fmtD(b.roast_date)||'')+' — '+band]);
+  }
+  return specs;
+}
+/* 明細抽屜：主卡只留圖＋價＋購買列，膠囊與規格表收進來（照 openSignInSheet 的 openDrawerHTML 路數） */
+function openShopDetailSheet(name){
+  var b=null;SHOP_BEANS.forEach(function(x){if(!b&&x.name===name)b=x;});
+  if(!b)return;
+  var chips=(b.flavour||[]).slice(0,3).map(function(f){return '<span class="shop-chip">'+esc(f)+'</span>';}).join('');
+  var specs=shopSpecsFor(b);
+  openDrawerHTML('<div class="t" style="font-size:19px">'+esc(b.name)+'</div>'
+    +(chips?'<div style="margin-top:10px">'+chips+'</div>':'')
+    +'<div style="margin-top:6px">'+specs.map(function(r,ix){
+      return '<div class="dl"'+(ix===specs.length-1?' style="border-bottom:none"':'')+'><span class="sl" style="flex:0 0 84px;text-transform:uppercase;font-size:11.5px;letter-spacing:.06em;padding-top:2px">'+r[0]+'</span><span style="text-align:right">'+r[1]+'</span></div>';
+    }).join('')+'</div>'
+    +(b.slug?'<a class="more" style="text-decoration:none;display:block;text-align:center;margin-top:12px" href="/?bean='+encodeURIComponent(b.slug)+'">Brew guide →</a>':'')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+/* C 規格書版（老闆挑的）v2：資訊卡圖滿版（白邊 CSS 裁掉）＋價格＋Details 抽屜列＋購買列 */
 function shopCardsHTML(beans){
   if(!beans.length)return '<div class="empty">The shelf is being restocked — check back soon ☕</div>';
   return beans.map(function(b,bx){
-    var specs=[];
-    if(b.recipe&&b.recipe.length)specs.push(['Blend',b.recipe.map(function(p){return esc(p.bean)+' '+p.pct+'%';}).join(' · ')]);
-    else if(b.process)specs.push(['Process',esc(b.process)]);
-    if(b.origin)specs.push(['Origin',esc(b.origin)]);
-    if(b.variety)specs.push(['Variety',esc(b.variety)]);
-    if(b.comment)specs.push(['Cup',esc(b.comment)]);
-    specs.push(['Bag',(b.grams||250)+'g whole beans']);
-    if(b.roast_date){
-      var age=daysSince(b.roast_date);
-      /* 對客人講人話：<14 剛烘好、14–28 最佳賞味、>28 醒好豆（店內的紅綠黃是營運視角） */
-      var band=age<SHELF_FRESH_REST?'freshly roasted':(age<=SHELF_FRESH_PRIME?'prime window':'well rested');
-      specs.push(['Roasted',(fmtD(b.roast_date)||'')+' — '+band]);
-    }
-    var chips=(b.flavour||[]).slice(0,3).map(function(f){return '<span class="shop-chip">'+esc(f)+'</span>';}).join('');
     var sizes=(b.sizes&&b.sizes.length)?b.sizes:(b.price!=null?[{id:'',label:(b.grams||250)+'g',price:b.price}]:[]);
     var s0=sizes[0]||{};
     var sizeSeg=sizes.length>1
@@ -2159,22 +2180,18 @@ function shopCardsHTML(beans){
         }).join('')+'</div>'
       :'';
     return '<div class="card shopc" data-bean="'+esc(b.name)+'" data-vid="'+esc(s0.id||'')+'" data-price="'+(s0.price!=null?s0.price:'')+'" data-label="'+esc(s0.label||'')+'">'
-      +(b.image?'<img class="shopimg" src="'+esc(b.image)+'" alt="'+esc(b.name)+'" loading="'+(bx===0?'eager':'lazy')+'">':'')
+      +(b.image?'<div class="shopimghold"><img class="shopimg" src="'+esc(b.image)+'" alt="'+esc(b.name)+'" loading="'+(bx===0?'eager':'lazy')+'"></div>':'')
       +'<div class="shopin">'
       +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">'
       +'<span class="t" style="font-size:22px">'+esc(b.name)+'</span>'
       +(s0.price!=null?'<span class="t shopprice" style="font-size:19px;white-space:nowrap">$'+Number(s0.price).toFixed(0)+'<span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif"> /'+esc(s0.label||((b.grams||250)+'g'))+'</span></span>':'')
       +'</div>'
-      +(chips?'<div style="margin-top:10px">'+chips+'</div>':'')
-      +'<div style="margin-top:6px">'+specs.map(function(r,ix){
-        return '<div class="dl"'+(ix===specs.length-1?' style="border-bottom:none"':'')+'><span class="sl">'+r[0]+'</span><span style="text-align:right">'+r[1]+'</span></div>';
-      }).join('')+'</div>'
+      +'<div class="dl" data-shopdetail style="margin-top:8px;cursor:pointer"><span>Details & brew guide</span><span style="text-align:right;color:var(--muted)">→</span></div>'
       +sizeSeg
       +'<div class="no-line" style="margin-top:12px;align-items:center">'
       +'<span class="qty"><button data-shopq="-1">−</button><span class="shopqty">1</span><button data-shopq="1">＋</button></span>'
       +'<button class="act" data-addcart style="flex:1;margin-top:0">Add to cart'+(s0.price!=null?' · $'+Number(s0.price).toFixed(0):'')+'</button>'
       +'</div>'
-      +(b.slug?'<a class="more" style="text-decoration:none;display:block;text-align:center" href="/?bean='+encodeURIComponent(b.slug)+'">Brew guide →</a>':'')
       +'</div></div>';
   }).join('');
 }
@@ -2206,6 +2223,8 @@ function wireShopCards(root){
       cartAdd({bean:card.dataset.bean,label:card.dataset.label,vid:card.dataset.vid,price:parseFloat(card.dataset.price)||0,qty:qty()});
       toast('Added to cart ✓');
     });
+    var det=card.querySelector('[data-shopdetail]');
+    if(det)det.addEventListener('click',function(){openShopDetailSheet(card.dataset.bean);});
   });
 }
 /* ===== 登入抽屜（帳號＝打開其他功能的鑰匙；照 classic submit 的 signInWithPassword，只登入不註冊）===== */
