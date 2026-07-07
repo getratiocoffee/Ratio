@@ -1981,16 +1981,64 @@ $('nav-feed').addEventListener('click',function(){view='feed';render();});
 $('nav-qc').addEventListener('click',function(){view='qc';render();});
 $('nav-tools').addEventListener('click',function(){view='tools';render();});
 $('nav-refresh').addEventListener('click',async function(){this.textContent='…';await reload();this.textContent='Refresh';toast('Refreshed');});
-/* ===== 客戶門戶（權限地基第一塊磚：客戶登入只看自己的單＋商店＋回饋；一鍵切員工登入）
+/* ===== 客戶介面（老闆定調：進來直接看到豆單）＝沒登入的店面＋客戶登入的門戶共用菜單
    ⚠ 目前只是 UI 隔離——RLS 還是小團隊信任模型，真開放客戶帳號前要先鎖資料庫政策（設定階段） ===== */
+async function loadShopMenu(){
+  try{
+    var r=await fetch(SUPABASE_URL+'/functions/v1/public-shop');
+    var d=await r.json();
+    return (d&&d.ok&&d.beans)?d.beans:[];
+  }catch(e){return [];}
+}
+function shopCardsHTML(beans){
+  if(!beans.length)return '<div class="empty">The shelf is being restocked — check back soon ☕</div>';
+  return beans.map(function(b){
+    var sub=(b.recipe&&b.recipe.length)?b.recipe.map(function(p){return esc(p.bean)+' '+p.pct+'%';}).join(' · '):(b.process?esc(b.process):'');
+    var flav=(b.flavour||[]).slice(0,3).join(', ');
+    return '<div class="card"><span class="tag">Coffee</span>'
+      +'<div class="t">'+esc(b.name)+(b.price!=null?' · $'+Number(b.price).toFixed(0)+'<span style="font-size:13px;color:var(--muted)"> /'+(b.grams||250)+'g</span>':'')+'</div>'
+      +'<div class="s">'+[sub,esc(flav)].filter(Boolean).join(' · ')+(b.comment?' · '+esc(b.comment):'')+'</div>'
+      +'<button class="act" data-shopbuy="'+esc(b.name)+'">Order</button>'
+      +(b.slug?'<a class="more" style="text-decoration:none;display:block;text-align:center" href="/?bean='+encodeURIComponent(b.slug)+'">brew guide ▾</a>':'')
+      +'</div>';
+  }).join('');
+}
+function wireShopBuy(root){
+  root.querySelectorAll('[data-shopbuy]').forEach(function(el){el.addEventListener('click',async function(){
+    el.disabled=true;el.textContent='Opening…';
+    try{
+      var r=await fetch(SUPABASE_URL+'/functions/v1/public-shop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'checkout',bean:el.dataset.shopbuy})});
+      var res=await r.json();
+      if(res&&res.ok&&res.url){location.href=res.url;return;}
+      throw new Error('no checkout url');
+    }catch(e){el.disabled=false;el.textContent='Order';alert('Could not start checkout — please try again.');}
+  });});
+}
+/* 沒登入＝店面：豆單直接開門見山（員工從底部小連結去登入） */
+async function renderPublicMenu(){
+  var nav=document.querySelector('nav');if(nav)nav.style.display='none';
+  $('chips').innerHTML='';
+  $('hcnt').textContent='on the shelf';
+  var m=$('main');
+  m.innerHTML='<div class="empty">Loading the shelf…</div>';
+  var beans=await loadShopMenu();
+  m.innerHTML='<div class="note">Freshly roasted in Crows Nest · tap Order to check out</div>'
+    +shopCardsHTML(beans)
+    +'<div class="note" style="margin-top:16px"><a href="/?fb=store" style="color:var(--accent)">Tried it? Tell us what you think →</a></div>'
+    +'<button class="more" id="pm-staff">Staff sign in</button>';
+  wireShopBuy(m);
+  var st=$('pm-staff');if(st)st.addEventListener('click',function(){location.href=CLASSIC;});
+}
+/* 客戶登入＝豆單在上、自己的訂單在下＋切員工登入鍵 */
 async function renderCustomerPortal(sess){
   var nav=document.querySelector('nav');if(nav)nav.style.display='none';
   $('chips').innerHTML='';
   $('hcnt').textContent='customer';
   var m=$('main');
-  m.innerHTML='<div class="empty">Loading your orders…</div>';
+  m.innerHTML='<div class="empty">Loading the shelf…</div>';
   var email=(sess&&sess.user&&sess.user.email)||'';
   var orders=[],custName='';
+  var beansP=loadShopMenu();
   try{
     var cq=await sb.from('customers').select('id,name').ilike('email',email);
     var ids=(cq.data||[]).map(function(c){return c.id;});
@@ -2000,19 +2048,20 @@ async function renderCustomerPortal(sess){
       orders=oq.data||[];
     }
   }catch(e){}
+  var beans=await beansP;
   m.innerHTML='<div class="card brief"><span class="tag">Welcome</span>'
     +'<div class="t">'+esc(custName||'Hello')+'</div>'
-    +'<div class="s">Your orders with Ratio Coffee'+(email?' · '+esc(email):'')+'</div>'
-    +'<button class="act" id="cp-shop">Order coffee — open the shop</button>'
-    +'<button class="more" id="cp-fb">Leave feedback</button></div>'
-    +(orders.length?orders.map(function(o){
+    +'<div class="s">Ratio Coffee · on the shelf today'+(email?' · '+esc(email):'')+'</div>'
+    +'<button class="more" id="cp-fb" style="color:var(--inv-t)">Leave feedback</button></div>'
+    +shopCardsHTML(beans)
+    +(orders.length?'<div class="note" style="margin-top:16px">Your orders</div>'+orders.map(function(o){
       var paid=o.payment_status==='paid';
       return '<div class="card"><span class="tag'+(o.status==='Dispatched'?'':' warn')+'">'+esc(o.status||'—')+'</span>'
         +'<div class="t">#'+String(o.order_no||'—').padStart(4,'0')+' · '+money(o.total)+'</div>'
         +'<div class="s">'+esc(itemsLine(o)||'—')+(paid?'':' · awaiting payment')+(o.tracking_no?' · tracking '+esc(o.tracking_no):'')+'</div></div>';
-    }).join(''):'<div class="empty">No orders yet — the shop is one tap away ☕</div>')
+    }).join(''):'')
     +'<button class="more" id="cp-staff" style="margin-top:18px">Staff sign in — switch account</button>';
-  $('cp-shop').addEventListener('click',function(){location.href='/?shop';});
+  wireShopBuy(m);
   $('cp-fb').addEventListener('click',function(){location.href='/?fb=store';});
   /* 更高權限入口：登出這個客戶 → 去 classic 用員工帳號登入 → 回來就是員工視角 */
   $('cp-staff').addEventListener('click',async function(){
@@ -2024,8 +2073,8 @@ async function renderCustomerPortal(sess){
 (async function init(){
   var g=await sb.auth.getSession();
   if(!(g&&g.data&&g.data.session)){
-    $('hcnt').textContent='signed out';
-    $('main').innerHTML='<div class="empty">Sign in once in the classic app, then come back.<br><br><a href="'+CLASSIC+'" style="color:var(--accent);font-weight:700">Open the classic app to sign in →</a></div>';
+    /* 沒登入＝客戶店面（老闆定調：進來直接看到豆單）；員工從底部 Staff sign in 進 classic 登入 */
+    await renderPublicMenu();
     return;
   }
   /* 沒 profile 或沒角色＝客戶（舊版預設 director，開放客戶登入前必須翻過來） */
