@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#1A1A1A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#FFFFFF;--surface:#FFFFFF;--ink:#1A1A1A;--muted:#8A8A8A;--accent:#B25E6A;--tint:#F7EBED;--danger:#C0392B;--line:#ECECEC;--line2:#DADADA;--inv:#1A1A1A;--inv-t:#FFFFFF}
 @media(prefers-color-scheme:dark){:root:not(.light){--bg:#1C1C1C;--surface:#1C1C1C;--ink:#F2F0EB;--muted:#8F8D87;--accent:#C97783;--tint:#33272A;--danger:#E0685A;--line:#333333;--line2:#4A4A4A;--inv:#F2F0EB;--inv-t:#1C1C1C}}
@@ -2282,9 +2282,9 @@ async function openInfoCardsSheet(){
    → 用 canvas 畫成 PNG 嵌 <img>，4 倍超取樣夠印刷 */
 function printRadarPNG(sc,color){
   var S=4;
-  var cv=document.createElement('canvas');cv.width=372*S;cv.height=244*S;
-  var x=cv.getContext('2d');x.scale(S,S);x.translate(36,-4); /* 對齊 SVG viewBox -36 4 372 244 */
-  var K=[['fragrance','Aroma'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
+  var cv=document.createElement('canvas');cv.width=412*S;cv.height=246*S;
+  var x=cv.getContext('2d');x.scale(S,S);x.translate(62,-2); /* 對齊定稿 viewBox -62 2 412 246（大寫標籤要寬邊） */
+  var K=[['fragrance','AROMA'],['acidity','ACIDITY'],['sweetness','SWEETNESS'],['body','BODY'],['aftertaste','AFTERTASTE']];
   var cx=150,cy=128,R=88;
   function pt(i,rad){var a=i*2*Math.PI/5;return [cx+rad*Math.sin(a),cy-rad*Math.cos(a)];}
   x.lineWidth=1;x.strokeStyle='#D9D2CB';
@@ -2292,11 +2292,12 @@ function printRadarPNG(sc,color){
   for(var i=0;i<5;i++){var q=pt(i,R);x.beginPath();x.moveTo(cx,cy);x.lineTo(q[0],q[1]);x.stroke();}
   var pts=K.map(function(k,i){return pt(i,R*(Number(sc[k[0]])||0)/3);});
   x.beginPath();pts.forEach(function(p,i){if(i)x.lineTo(p[0],p[1]);else x.moveTo(p[0],p[1]);});x.closePath();
-  x.globalAlpha=.15;x.fillStyle=color;x.fill();x.globalAlpha=1;
+  x.globalAlpha=.14;x.fillStyle=color;x.fill();x.globalAlpha=1;
   x.lineWidth=2.5;x.strokeStyle=color;x.lineJoin='round';x.stroke();
   x.fillStyle=color;
   pts.forEach(function(p){x.beginPath();x.arc(p[0],p[1],4.5,0,6.3);x.fill();});
-  x.fillStyle='#8A837C';x.font='600 14px Inter, sans-serif';
+  x.fillStyle='#8A837C';x.font='600 13.5px Inter, sans-serif';
+  try{x.letterSpacing='1px';}catch(e){}
   K.forEach(function(k,i){
     var q=pt(i,R+21);
     x.textAlign=q[0]<cx-4?'right':(q[0]>cx+4?'left':'center');
@@ -2364,33 +2365,49 @@ async function openInfoCardPrint(s){
   /* ===== A4 雙面＝2 張完整摺疊卡（老闆定稿：封面回歸）=====
      每卡攤平 297×105 對摺成 148.5×105；A4 上下兩條、裁一刀各自對摺；雙面短邊翻
      第 1 頁條＝〔QR 背面｜封面〕、第 2 頁條＝〔The coffee 詳情｜Tasting notes＋雷達〕 */
-  var outerStrip='<div class="strip"><div class="fold"></div>'
-    +'<div class="panel" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">'
-    +'<img src="https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl)+'" style="width:36mm;height:36mm" alt="QR">'
-    +'<div class="lab" style="margin-top:5mm">Scan for this coffee — flavour, brew guide, story</div>'
-    +'<div style="font-size:8.5pt;color:#5A534C;margin-top:5mm;line-height:1.9">@ratio.crowsnest · caffeine@coffeeratio.com · 0403 037 369<br>Roasted in Crows Nest, Sydney</div>'
-    +'</div>'
-    +'<div class="panel" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">'
-    +'<img src="/logo.png" style="width:20mm;height:20mm" alt="Ratio">'
-    +'<div class="serif" style="font-size:26pt;font-weight:700;margin-top:6mm">Ratio Coffee</div>'
-    +'<div class="lab" style="margin-top:3mm">Specialty Coffee Lab</div>'
-    +'<div style="position:absolute;bottom:11mm;left:0;right:0;text-align:center;font-size:9.5pt;color:#5A534C">'+esc(nm)+'</div>'
-    +'</div></div>';
-  var innerStrip='<div class="strip"><div class="fold"></div>'
-    +'<div class="panel">'
-    +'<div class="lab" style="color:'+col+'">The coffee</div>'
-    +'<div class="serif" style="font-size:16pt;font-weight:700;margin-top:2mm">'+esc(nm)+'</div>'
-    +'<div style="margin-top:3mm">'+info.map(function(r){return '<div class="br"><span>'+esc(r[0])+'</span><b>'+esc(String(r[1]))+'</b></div>';}).join('')+'</div>'
-    +'</div>'
-    +'<div class="panel">'
-    +'<div class="lab" style="color:'+col+'">Tasting notes</div>'
-    +'<div style="display:flex;align-items:center;gap:5mm;margin-top:4mm">'
-    +'<div style="flex:1;min-width:0">'
-    +feats.map(function(f){return '<div class="serif" style="font-size:17pt;font-weight:600;line-height:1.55;color:'+col+'">'+esc(f)+'</div>';}).join('')
-    +(full.comment?'<div style="font-size:9.5pt;font-style:italic;color:#5A534C;margin-top:4mm;line-height:1.5">“'+esc(full.comment)+'”</div>':'')
-    +'</div>'
-    +'<div style="flex:0 0 50mm"><img src="'+printRadarPNG(sc,col)+'" style="width:50mm;display:block" alt=""></div>'
+  /* 定稿設計（實驗室證書風）：四面細線框、豆色菱飾、Fraunces 義大利體風味詞；QR 80%、無電話、Sydney */
+  var orn='<div style="display:flex;align-items:center;justify-content:center;gap:3mm;margin:4mm 0 3.2mm">'
+    +'<div style="width:16mm;border-top:.2mm solid #C9C2BB"></div>'
+    +'<div style="width:2.1mm;height:2.1mm;background:'+col+';transform:rotate(45deg)"></div>'
+    +'<div style="width:16mm;border-top:.2mm solid #C9C2BB"></div></div>';
+  var outerStrip='<div class="strip"><div class="foldl"></div>'
+    +'<div class="panel"><div class="frame"></div>'
+    +'<div class="inner" style="align-items:center;justify-content:center;text-align:center">'
+    +'<div style="border:.25mm solid #E1DAD3;padding:2.2mm;background:#fff"><img src="https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl)+'" style="width:29mm;height:29mm;display:block" alt="QR"></div>'
+    +'<div class="lab" style="margin-top:4.5mm">Scan for this coffee</div>'
+    +'<div class="lab" style="font-size:5.8pt;color:#B3ABA3;margin-top:1.2mm">Flavour · Brew guide · Story</div>'
+    +orn
+    +'<div style="font-size:8.5pt;color:#5A534C;line-height:2">@ratio.crowsnest · caffeine@coffeeratio.com<br><span style="color:#8A837C">Roasted in Sydney, Australia</span></div>'
     +'</div></div>'
+    +'<div class="panel"><div class="frame frame2"></div>'
+    +'<div class="inner" style="align-items:center;justify-content:center;text-align:center">'
+    +'<img src="/logo.png" style="width:15mm;height:15mm" alt="Ratio">'
+    +'<div class="serif" style="font-size:24pt;font-weight:700;margin-top:4.5mm;letter-spacing:.01em">Ratio Coffee</div>'
+    +orn
+    +'<div class="lab" style="letter-spacing:.34em">Specialty Coffee Lab</div>'
+    +'<div style="position:absolute;bottom:9.5mm;left:0;right:0;text-align:center">'
+    +'<span style="display:inline-block;width:1.8mm;height:1.8mm;border-radius:50%;background:'+col+';vertical-align:.4mm;margin-right:2mm"></span>'
+    +'<span class="serif" style="font-style:italic;font-size:10.5pt;font-weight:600">'+esc(nm)+'</span></div>'
+    +'</div></div></div>';
+  var innerStrip='<div class="strip"><div class="foldl"></div>'
+    +'<div class="panel"><div class="frame"></div>'
+    +'<div class="inner">'
+    +'<div class="lab" style="color:'+col+'">The coffee</div>'
+    +'<div class="serif" style="font-size:16pt;font-weight:700;margin-top:1.6mm">'+esc(nm)+'</div>'
+    +'<div style="width:12mm;border-top:.5mm solid '+col+';margin:2.6mm 0 2mm"></div>'
+    +'<div>'+info.map(function(r){return '<div class="br"><span>'+esc(r[0])+'</span><b>'+esc(String(r[1]))+'</b></div>';}).join('')+'</div>'
+    +'</div></div>'
+    +'<div class="panel"><div class="frame"></div>'
+    +'<div class="inner">'
+    +'<div class="lab" style="color:'+col+'">Tasting notes</div>'
+    +'<div style="width:12mm;border-top:.5mm solid '+col+';margin:2.6mm 0 0"></div>'
+    +'<div style="flex:1;display:flex;align-items:center;gap:3mm">'
+    +'<div style="flex:1;min-width:0">'
+    +feats.map(function(f){return '<div class="serif" style="font-style:italic;font-size:17.5pt;font-weight:600;line-height:1.6;color:'+col+'">'+esc(f)+'</div>';}).join('')
+    +(full.comment?'<div style="font-size:9pt;font-style:italic;color:#5A534C;margin-top:3.5mm;line-height:1.55">“'+esc(full.comment)+'”</div>':'')
+    +'</div>'
+    +'<div style="flex:0 0 47mm"><img src="'+printRadarPNG(sc,col)+'" style="width:47mm;display:block" alt=""></div>'
+    +'</div></div></div>'
     +'</div>';
   var html='<div class="icroot">'
     +'<style>'
@@ -2400,13 +2417,16 @@ async function openInfoCardPrint(s){
     +'.icroot .page{width:297mm;height:calc(210mm - 1px);position:relative;background:#fff;overflow:hidden}'
     +'.icroot .page.pb{page-break-after:always}'
     +'.icroot .strip{width:297mm;height:calc(105mm - .5px);display:flex;position:relative;overflow:hidden;background:#fff}'
-    +'.icroot .fold{position:absolute;left:148.25mm;top:6mm;bottom:6mm;border-left:.3mm dashed #D9D2CB}'
+    +'.icroot .foldl{position:absolute;left:148.25mm;top:7mm;bottom:7mm;border-left:.3mm dashed #D9D2CB;z-index:4}'
     +'.icroot .cuth{position:absolute;top:104.8mm;left:0;right:0;border-top:.25mm dashed #C9C2BB;z-index:5}'
-    +'.icroot .panel{width:148.5mm;height:105mm;padding:11mm 13mm;position:relative}'
-    +'.icroot .lab{font-size:7.5pt;font-weight:700;letter-spacing:.22em;color:#8A837C;text-transform:uppercase}'
+    +'.icroot .panel{width:148.5mm;height:105mm;position:relative}'
+    +'.icroot .frame{position:absolute;inset:5mm;border:.3mm solid #4A423B}'
+    +'.icroot .frame2{outline:.2mm solid #C9C2BB;outline-offset:1.1mm}'
+    +'.icroot .inner{position:absolute;inset:5mm;padding:6.5mm 8mm;display:flex;flex-direction:column}'
+    +'.icroot .lab{font-size:7pt;font-weight:700;letter-spacing:.28em;color:#8A837C;text-transform:uppercase}'
     +'.icroot .serif{font-family:\'Fraunces\',serif}'
-    +'.icroot .br{display:flex;justify-content:space-between;gap:5mm;border-bottom:.2mm solid #E8E2DB;padding:2.2mm 0;font-size:9.5pt}'
-    +'.icroot .br span{color:#8A837C;flex:0 0 auto}'
+    +'.icroot .br{display:flex;justify-content:space-between;gap:5mm;border-bottom:.2mm solid #E8E2DB;padding:1.9mm 0;font-size:9pt;align-items:baseline}'
+    +'.icroot .br span{color:#8A837C;flex:0 0 auto;font-size:6.6pt;font-weight:700;letter-spacing:.14em;text-transform:uppercase}'
     +'.icroot .br b{font-weight:600;text-align:right;overflow-wrap:anywhere}'
     +'</style>'
     +'<div class="page pb"><div class="cuth"></div>'+outerStrip+outerStrip+'</div>'
