@@ -2263,13 +2263,13 @@ async function openInfoCardsSheet(){
   var list=passedBeans();
   var dots={};try{dots=await cardDots();}catch(e){}
   openDrawerHTML('<div class="t" style="font-size:19px">Info cards</div>'
-    +'<div class="s" style="margin-top:2px">QC-passed coffees · tap one to print the foldable card (148.5 × 105 mm)</div>'
+    +'<div class="s" style="margin-top:2px">QC-passed coffees · tap one to download the foldable card PDF (148.5 × 105 mm)</div>'
     +(list.length?list.map(function(s){
       var c=dotColorFor(s.sample_id,dots);
       return '<div class="dl" data-ic="'+esc(s.id)+'" style="cursor:pointer;align-items:center">'
         +'<span style="color:var(--ink);font-weight:600">'+(c?'<span style="color:'+c+'">●</span> ':'')+esc(s.sample_id||'—')
         +(s.process?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(s.process)+'</span>':'')+'</span>'
-        +'<span style="color:var(--muted)">print →</span></div>';
+        +'<span style="color:var(--muted)">PDF →</span></div>';
     }).join(''):'<div class="empty">No QC-passed coffees yet</div>')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);
@@ -2341,22 +2341,22 @@ async function openInfoCardPrint(s){
   var others=[['espresso','Espresso'],['infusion','Infusion'],['ice','Ice filter']].filter(function(m){
     var v=brew[m[0]];return v&&Object.keys(v).some(function(k){return String(v[k]||'').trim()!=='';});
   });
-  var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Info card · '+esc(nm)+'</title>'
-    +'<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">'
+  var html='<div class="icroot">'
     +'<style>'
-    +'@page{size:297mm 105mm;margin:0}'
-    +'*{box-sizing:border-box;margin:0;padding:0}'
-    +'body{font-family:Inter,sans-serif;color:#1E1A19;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#777}'
-    +'.side{width:297mm;height:105mm;display:flex;position:relative;background:#fff;page-break-after:always;margin:0 auto 6mm;overflow:hidden}'
-    +'.fold{position:absolute;left:148.25mm;top:5mm;bottom:5mm;border-left:.3mm dashed #D9D2CB}'
-    +'.panel{width:148.5mm;height:105mm;padding:11mm 13mm;position:relative}'
-    +'.lab{font-size:7.5pt;font-weight:700;letter-spacing:.22em;color:#8A837C;text-transform:uppercase}'
-    +'.serif{font-family:Fraunces,serif}'
-    +'.br{display:flex;justify-content:space-between;border-bottom:.2mm solid #E8E2DB;padding:2.4mm 0;font-size:10pt}'
-    +'.br b{font-weight:600}'
-    +'</style></head><body>'
+    +'.icroot{font-family:Inter,sans-serif;color:#1E1A19}'
+    +'.icroot *{box-sizing:border-box;margin:0;padding:0}'
+    /* 高度減 1px：吃掉 mm→px 進位，避免多出一頁空白尾巴 */
+    +'.icroot .side{width:297mm;height:calc(105mm - 1px);display:flex;position:relative;background:#fff;overflow:hidden}'
+    +'.icroot .side.pb{page-break-after:always}'
+    +'.icroot .fold{position:absolute;left:148.25mm;top:5mm;bottom:5mm;border-left:.3mm dashed #D9D2CB}'
+    +'.icroot .panel{width:148.5mm;height:105mm;padding:11mm 13mm;position:relative}'
+    +'.icroot .lab{font-size:7.5pt;font-weight:700;letter-spacing:.22em;color:#8A837C;text-transform:uppercase}'
+    +'.icroot .serif{font-family:\'Fraunces\',serif}'
+    +'.icroot .br{display:flex;justify-content:space-between;border-bottom:.2mm solid #E8E2DB;padding:2.4mm 0;font-size:10pt}'
+    +'.icroot .br b{font-weight:600}'
+    +'</style>'
     /* ===== 第 1 面（外）：左＝背面 QR/聯絡，右＝封面 ===== */
-    +'<div class="side"><div class="fold"></div>'
+    +'<div class="side pb"><div class="fold"></div>'
     +'<div class="panel" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">'
     +'<img src="https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl)+'" style="width:34mm;height:34mm" alt="QR">'
     +'<div class="lab" style="margin-top:5mm">Scan for the full brew guide</div>'
@@ -2391,11 +2391,44 @@ async function openInfoCardPrint(s){
         +'<div style="margin-top:1mm">'+brewRows(brew[m[0]])+'</div>';
     }).join('')
     +'</div></div>'
-    +'<script>window.addEventListener("load",function(){setTimeout(function(){window.print();},600);});<\/script>'
-    +'</body></html>';
-  var w=window.open('','_blank');
-  if(!w){alert('Pop-up blocked — allow pop-ups for this site to print cards.');return;}
-  w.document.open();w.document.write(html);w.document.close();
+    +'</div>';
+  /* 老闆指定：不開列印框，直接產 PDF 檔下載（html2pdf 首次用時才載，兩頁 297×105mm）
+     ⚠ 兩個坑：①離螢幕定位不能寫在交給 html2pdf 的元素上（會被 clone 走→截到空白）——包殼藏、把乾淨的 .icroot 交出去
+       ②html2canvas 截 CORS 圖要 useCORS＋等圖載完 */
+  var host=document.createElement('div');
+  host.style.cssText='position:absolute;left:-9999px;top:0';
+  host.innerHTML=html;
+  document.body.appendChild(host);
+  try{
+    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
+    /* 等 QR/logo 圖到齊再截 */
+    await Promise.all(Array.prototype.map.call(host.querySelectorAll('img'),function(im){
+      im.crossOrigin='anonymous';
+      return (im.complete&&im.naturalWidth)?Promise.resolve():new Promise(function(r){im.onload=r;im.onerror=r;});
+    }));
+    await html2pdf().set({
+      filename:'infocard-'+beanSlug(nm)+'.pdf',
+      image:{type:'jpeg',quality:.95},
+      html2canvas:{scale:3.3,useCORS:true,backgroundColor:'#ffffff'},
+      jsPDF:{unit:'mm',format:[297,105],orientation:'landscape'},
+      pagebreak:{mode:['css']}
+    }).from(host.firstChild).save();
+    toast('PDF downloaded ✓');
+  }catch(e){
+    alert('PDF failed: '+(e&&e.message||e));
+  }
+  host.remove();
+}
+/* 外部腳本延遲載入（只載一次） */
+var _loadedScripts={};
+function loadScriptOnce(url){
+  if(_loadedScripts[url])return _loadedScripts[url];
+  _loadedScripts[url]=new Promise(function(res,rej){
+    var s=document.createElement('script');
+    s.src=url;s.onload=res;s.onerror=function(){delete _loadedScripts[url];rej(new Error('script load failed — check the connection'));};
+    document.head.appendChild(s);
+  });
+  return _loadedScripts[url];
 }
 /* ===== Tools ===== */
 function renderTools(){
