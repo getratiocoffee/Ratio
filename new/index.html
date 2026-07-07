@@ -41,7 +41,8 @@ header .cnt{font-size:14px;color:var(--muted)}
 .shopc{padding:0;overflow:hidden}
 .shopwrap{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:14px;margin:0 -22px;padding:0 22px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .shopwrap::-webkit-scrollbar{display:none}
-.shopwrap .shopc{flex:0 0 100%;scroll-snap-align:center;touch-action:pan-x pan-y}
+.shopwrap .shopc{flex:0 0 92%;scroll-snap-align:center;touch-action:pan-x pan-y}
+.cartbar{position:fixed;left:20px;right:20px;bottom:calc(env(safe-area-inset-bottom,0px) + 82px);max-width:480px;margin:0 auto;background:var(--inv);color:var(--inv-t);border:none;border-radius:14px;padding:15px 18px;display:none;justify-content:space-between;align-items:center;z-index:31;cursor:pointer;font-weight:700;font-size:15px;font-family:inherit}
 .shopdots{display:flex;justify-content:center;gap:7px;margin:12px 0 6px}
 .shopdots span{width:7px;height:7px;border-radius:50%;background:var(--line2)}
 .shopdots span.on{background:var(--accent)}
@@ -129,6 +130,7 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 <button id="nav-tools">Tools</button>
 <button id="nav-refresh">Refresh</button>
 </nav>
+<button class="cartbar" id="cartbar"></button>
 <div class="shoptabs" id="shoptabs" style="display:none"></div>
 <div class="drawer-bg" id="dbg"></div>
 <div class="drawer" id="drawer"></div>
@@ -2015,6 +2017,7 @@ function maybeAutoRefresh(){
   if(Date.now()-LAST_LOAD>60000)reload();
 }
 document.addEventListener('visibilitychange',maybeAutoRefresh);
+$('cartbar').addEventListener('click',openCartSheet);
 $('nav-feed').addEventListener('click',function(){view='feed';render();});
 $('nav-qc').addEventListener('click',function(){view='qc';render();});
 $('nav-tools').addEventListener('click',function(){view='tools';render();});
@@ -2027,6 +2030,69 @@ async function loadShopMenu(){
     var d=await r.json();
     return (d&&d.ok&&d.beans)?d.beans:[];
   }catch(e){return [];}
+}
+/* ===== 購物車（匿名客人也能用：localStorage 保留；同規格再加＝數量累加；付款完成 ?checkout=done 清車）===== */
+function cartGet(){try{return JSON.parse(localStorage.getItem('r2_cart')||'[]');}catch(e){return [];}}
+function cartSet(c){try{localStorage.setItem('r2_cart',JSON.stringify(c));}catch(e){}paintCartBar();}
+function cartAdd(item){
+  var c=cartGet();
+  var ex=c.find(function(x){return x.vid===item.vid;});
+  if(ex)ex.qty=Math.min(9,(ex.qty||1)+(item.qty||1));
+  else c.push(item);
+  cartSet(c);
+}
+function cartCount(){return cartGet().reduce(function(a,x){return a+(x.qty||1);},0);}
+function cartTotal(){return cartGet().reduce(function(a,x){return a+(x.qty||1)*(Number(x.price)||0);},0);}
+function paintCartBar(){
+  var el=$('cartbar');if(!el)return;
+  var n=cartCount();
+  if(!n||!$('shopbody')){el.style.display='none';return;}
+  el.style.display='flex';
+  /* tabs 藏起來（只剩一類）時浮條貼底 */
+  el.style.bottom=($('shoptabs').style.display==='flex')?'':'calc(env(safe-area-inset-bottom,0px) + 16px)';
+  el.innerHTML='<span>'+n+' item'+(n>1?'s':'')+' · '+money(cartTotal())+'</span><span>View cart →</span>';
+}
+function openCartSheet(){
+  var c=cartGet();
+  if(!c.length){
+    openDrawerHTML('<div class="t" style="font-size:19px">Your cart</div>'
+      +'<div class="empty">Nothing here yet — swipe the shelf and add a coffee ☕</div>'
+      +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+    $('d-cl').addEventListener('click',closeDrawer);
+    return;
+  }
+  openDrawerHTML('<div class="t" style="font-size:19px">Your cart</div>'
+    +c.map(function(it,ix){
+      return '<div class="dl" style="align-items:center;gap:10px"><span style="flex:1;min-width:0"><b>'+esc(it.bean)+'</b>'
+        +(it.label?' <span style="color:var(--muted);font-size:13px">'+esc(it.label)+'</span>':'')
+        +'<br><span class="qty" style="margin-top:6px;display:inline-flex;align-items:center;gap:10px"><button data-cq="'+ix+'|-1">−</button><span>'+it.qty+'</span><button data-cq="'+ix+'|1">＋</button></span></span>'
+        +'<span style="white-space:nowrap">'+money((Number(it.price)||0)*it.qty)
+        +' <button data-crm="'+ix+'" style="border:none;background:none;color:var(--danger);font-size:18px;font-weight:700;cursor:pointer;font-family:inherit;padding:4px 2px 4px 8px">✕</button></span></div>';
+    }).join('')
+    +'<div class="dl" style="border-bottom:none"><span><b>Subtotal</b></span><span><b>'+money(cartTotal())+'</b></span></div>'
+    +'<div class="s" style="margin-top:2px">+2.2% card surcharge at checkout · shipping arranged after payment</div>'
+    +'<button class="act" id="cart-go">Checkout with Square</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Keep browsing</button>');
+  document.querySelectorAll('#drawer [data-cq]').forEach(function(el){el.addEventListener('click',function(){
+    var p=el.dataset.cq.split('|'),ix=+p[0],d=+p[1];
+    var cc=cartGet();if(!cc[ix])return;
+    cc[ix].qty=Math.max(1,Math.min(9,(cc[ix].qty||1)+d));
+    cartSet(cc);openCartSheet();
+  });});
+  document.querySelectorAll('#drawer [data-crm]').forEach(function(el){el.addEventListener('click',function(){
+    var cc=cartGet();cc.splice(+el.dataset.crm,1);cartSet(cc);openCartSheet();
+  });});
+  $('cart-go').addEventListener('click',async function(){
+    var b=$('cart-go');b.disabled=true;b.textContent='Opening secure checkout…';
+    try{
+      var r=await fetch(SUPABASE_URL+'/functions/v1/public-shop',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'checkout',items:cartGet().map(function(x){return {id:x.vid,qty:x.qty};})})});
+      var res=await r.json();
+      if(res&&res.ok&&res.url){location.href=res.url;return;} /* cart 不先清——取消付款回來還在；付款成功走 ?checkout=done 清 */
+      throw new Error((res&&res.error)||'no checkout url');
+    }catch(e){b.disabled=false;b.textContent='Checkout with Square';alert('Checkout failed: '+(e&&e.message||e));}
+  });
+  $('d-cl').addEventListener('click',closeDrawer);
 }
 /* 分類（老闆定的四格）：Blend＝有配方；Co-ferment＝culturing/co-ferment 類；Innovation＝實驗處理法；其餘 Classic */
 var SHOP_CATS=[['blend','Blend'],['classic','Classic'],['innovation','Innovation'],['coferment','Co-ferment']];
@@ -2041,10 +2107,13 @@ function shopCategory(b){
 /* 店面主體：左右滑輪播（scroll-snap，一頁一支豆）＋圓點指示；tab 切分類重畫 */
 function renderShopTabs(){
   var el=$('shoptabs');
-  el.style.display='flex';
   var counts={};SHOP_BEANS.forEach(function(b){var c=shopCategory(b);counts[c]=(counts[c]||0)+1;});
-  if(!counts[SHOP_CAT]){var first=SHOP_CATS.find(function(c){return counts[c[0]];});if(first)SHOP_CAT=first[0];}
-  el.innerHTML=SHOP_CATS.map(function(c){return '<button data-sct="'+c[0]+'" class="'+(SHOP_CAT===c[0]?'on':'')+'">'+c[1]+'</button>';}).join('');
+  var visible=SHOP_CATS.filter(function(c){return counts[c[0]];});
+  if(!counts[SHOP_CAT])SHOP_CAT=visible.length?visible[0][0]:SHOP_CAT;
+  /* 空分類不渲染（死路移除）；只剩一類＝整條藏 */
+  if(visible.length<=1){el.style.display='none';el.innerHTML='';return;}
+  el.style.display='flex';
+  el.innerHTML=visible.map(function(c){return '<button data-sct="'+c[0]+'" class="'+(SHOP_CAT===c[0]?'on':'')+'">'+c[1]+'</button>';}).join('');
   el.querySelectorAll('[data-sct]').forEach(function(b){b.addEventListener('click',function(){SHOP_CAT=b.dataset.sct;paintShopBody();});});
 }
 function paintShopBody(){
@@ -2054,7 +2123,8 @@ function paintShopBody(){
   if(!list.length){host.innerHTML='<div class="empty">Nothing in this corner right now ☕</div>';return;}
   host.innerHTML='<div class="shopwrap" id="shopwrap">'+shopCardsHTML(list)+'</div>'
     +(list.length>1?'<div class="shopdots" id="shopdots">'+list.map(function(_,i){return '<span class="'+(i===0?'on':'')+'"></span>';}).join('')+'</div>':'');
-  wireShopBuy(host);
+  wireShopCards(host);
+  paintCartBar();
   var w=$('shopwrap');
   if(w)w.addEventListener('scroll',function(){
     var sw=w.children[0]?(w.children[0].offsetWidth+14):w.clientWidth;
@@ -2081,32 +2151,62 @@ function shopCardsHTML(beans){
       specs.push(['Roasted',(fmtD(b.roast_date)||'')+' — '+band]);
     }
     var chips=(b.flavour||[]).slice(0,3).map(function(f){return '<span class="shop-chip">'+esc(f)+'</span>';}).join('');
-    return '<div class="card shopc">'
+    var sizes=(b.sizes&&b.sizes.length)?b.sizes:(b.price!=null?[{id:'',label:(b.grams||250)+'g',price:b.price}]:[]);
+    var s0=sizes[0]||{};
+    var sizeSeg=sizes.length>1
+      ?'<div class="pm-seg" style="margin-top:12px">'+sizes.map(function(s,si){
+          return '<button data-sz="'+si+'" data-vid="'+esc(s.id)+'" data-price="'+(s.price!=null?s.price:'')+'" data-label="'+esc(s.label)+'"'+(si===0?' class="on"':'')+'>'+esc(s.label)+(s.price!=null?' $'+Number(s.price).toFixed(0):'')+'</button>';
+        }).join('')+'</div>'
+      :'';
+    return '<div class="card shopc" data-bean="'+esc(b.name)+'" data-vid="'+esc(s0.id||'')+'" data-price="'+(s0.price!=null?s0.price:'')+'" data-label="'+esc(s0.label||'')+'">'
       +(b.image?'<img class="shopimg" src="'+esc(b.image)+'" alt="'+esc(b.name)+'" loading="'+(bx===0?'eager':'lazy')+'">':'')
       +'<div class="shopin">'
       +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">'
       +'<span class="t" style="font-size:22px">'+esc(b.name)+'</span>'
-      +(b.price!=null?'<span class="t" style="font-size:19px;white-space:nowrap">$'+Number(b.price).toFixed(0)+'<span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif"> /'+(b.grams||250)+'g</span></span>':'')
+      +(s0.price!=null?'<span class="t shopprice" style="font-size:19px;white-space:nowrap">$'+Number(s0.price).toFixed(0)+'<span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif"> /'+esc(s0.label||((b.grams||250)+'g'))+'</span></span>':'')
       +'</div>'
       +(chips?'<div style="margin-top:10px">'+chips+'</div>':'')
       +'<div style="margin-top:6px">'+specs.map(function(r,ix){
         return '<div class="dl"'+(ix===specs.length-1?' style="border-bottom:none"':'')+'><span class="sl">'+r[0]+'</span><span style="text-align:right">'+r[1]+'</span></div>';
       }).join('')+'</div>'
-      +'<button class="act" data-shopbuy="'+esc(b.name)+'">Order'+(b.price!=null?' · $'+Number(b.price).toFixed(0):'')+'</button>'
+      +sizeSeg
+      +'<div class="no-line" style="margin-top:12px;align-items:center">'
+      +'<span class="qty"><button data-shopq="-1">−</button><span class="shopqty">1</span><button data-shopq="1">＋</button></span>'
+      +'<button class="act" data-addcart style="flex:1;margin-top:0">Add to cart'+(s0.price!=null?' · $'+Number(s0.price).toFixed(0):'')+'</button>'
+      +'</div>'
       +(b.slug?'<a class="more" style="text-decoration:none;display:block;text-align:center" href="/?bean='+encodeURIComponent(b.slug)+'">Brew guide →</a>':'')
       +'</div></div>';
   }).join('');
 }
-function wireShopBuy(root){
-  root.querySelectorAll('[data-shopbuy]').forEach(function(el){el.addEventListener('click',async function(){
-    el.disabled=true;el.textContent='Opening…';
-    try{
-      var r=await fetch(SUPABASE_URL+'/functions/v1/public-shop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'checkout',bean:el.dataset.shopbuy})});
-      var res=await r.json();
-      if(res&&res.ok&&res.url){location.href=res.url;return;}
-      throw new Error('no checkout url');
-    }catch(e){el.disabled=false;el.textContent='Order';alert('Could not start checkout — please try again.');}
-  });});
+/* 卡片互動：規格段選、數量步進、加入購物車（狀態記在卡片 data-*，不重畫不打斷輪播） */
+function wireShopCards(root){
+  root.querySelectorAll('.shopc').forEach(function(card){
+    function price(){return parseFloat(card.dataset.price)||0;}
+    function qty(){return parseInt(card.querySelector('.shopqty')?card.querySelector('.shopqty').textContent:'1',10)||1;}
+    function paintBtn(){
+      var b=card.querySelector('[data-addcart]');if(!b)return;
+      var p=price()*qty();
+      b.textContent='Add to cart'+(p?' · $'+(Math.round(p*100)/100):'');
+    }
+    card.querySelectorAll('[data-sz]').forEach(function(el){el.addEventListener('click',function(){
+      card.querySelectorAll('[data-sz]').forEach(function(x){x.classList.toggle('on',x===el);});
+      card.dataset.vid=el.dataset.vid;card.dataset.price=el.dataset.price;card.dataset.label=el.dataset.label;
+      var pp=card.querySelector('.shopprice');
+      if(pp&&el.dataset.price)pp.innerHTML='$'+Number(el.dataset.price).toFixed(0)+'<span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif"> /'+esc(el.dataset.label)+'</span>';
+      paintBtn();
+    });});
+    card.querySelectorAll('[data-shopq]').forEach(function(el){el.addEventListener('click',function(){
+      var q=Math.max(1,Math.min(9,qty()+(+el.dataset.shopq)));
+      card.querySelector('.shopqty').textContent=q;
+      paintBtn();
+    });});
+    var add=card.querySelector('[data-addcart]');
+    if(add)add.addEventListener('click',function(){
+      if(!card.dataset.vid){alert('This coffee is not available right now.');return;}
+      cartAdd({bean:card.dataset.bean,label:card.dataset.label,vid:card.dataset.vid,price:parseFloat(card.dataset.price)||0,qty:qty()});
+      toast('Added to cart ✓');
+    });
+  });
 }
 /* ===== 登入抽屜（帳號＝打開其他功能的鑰匙；照 classic submit 的 signInWithPassword，只登入不註冊）===== */
 function openSignInSheet(){
@@ -2199,9 +2299,16 @@ async function renderCustomerPortal(sess){
 /* 三層路由：沒登入＝豆單店面／customer＝客戶門戶／員工四角色＝操作台。
    登入、登出後都重呼叫一次即可換視角（nav/chips 先復位，因為店面與門戶會藏 nav） */
 async function boot(){
+  /* 付款完成回店面：清購物車＋致謝（Square redirect_url 帶 ?checkout=done 回來） */
+  if(/[?&]checkout=done/.test(location.search)){
+    try{localStorage.setItem('r2_cart','[]');}catch(e){}
+    try{history.replaceState(null,'',location.pathname);}catch(e){}
+    setTimeout(function(){toast('Thanks! Your order is on its way to the roastery ☕');},600);
+  }
   var nav=document.querySelector('nav');if(nav)nav.style.display='';
   $('shoptabs').style.display='none';
   $('chips').innerHTML='';
+  paintCartBar();
   var g=await sb.auth.getSession();
   if(!(g&&g.data&&g.data.session)){
     await renderPublicMenu();
