@@ -1149,8 +1149,14 @@ async function openRetailSheet(){
       if(v&&typeof v==='object')m[x.key]=v;});
   }catch(e){}
   var dots={};try{dots=await cardDots();}catch(e){}
+  /* 排序照老闆定：烘豆日從舊到新（最老的在上＝先賣先清）；沒烘豆日的沉底按名字排 */
   var live=(DB.syncs||[]).filter(function(x){return x.status==='synced'&&String(x.bean_id||'').trim();})
-    .sort(function(a,b){return String(a.bean_id).localeCompare(String(b.bean_id));});
+    .map(function(x){var nm=String(x.bean_id).trim();var d=null;try{d=shelfLatestRoast(nm);}catch(e){}return {x:x,nm:nm,d:d};})
+    .sort(function(a,b){
+      if(!!a.d!==!!b.d)return a.d?-1:1;
+      return String(a.d||'').localeCompare(String(b.d||''))||a.nm.localeCompare(b.nm);
+    })
+    .map(function(e){return e.x;});
   var soldN=0;
   /* 可點列（同客戶名冊 .hit 樣式）：點豆 → 明細抽屜（烘焙風味＋豆子履歷，老闆點名） */
   var rows=live.map(function(x){
