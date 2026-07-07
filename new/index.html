@@ -104,8 +104,8 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .drawer-bg.show{display:block}
 .drawer{position:fixed;left:22px;right:22px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);max-width:476px;margin:0 auto;background:var(--surface);border:1.5px solid var(--ink);border-radius:16px;padding:12px 20px 20px;z-index:50;visibility:hidden;transform:translateY(calc(100% + 120px));transition:transform .28s ease,visibility 0s linear .3s;max-height:78vh;overflow-y:auto;overscroll-behavior:contain}
 .drawer.show{visibility:visible;transform:translateY(0);transition:transform .28s ease}
-.grab{display:flex;justify-content:center;padding:8px 0 12px;margin:-4px 0 4px;touch-action:none;cursor:grab}
-.grab::after{content:'';width:44px;height:5px;border-radius:99px;background:var(--line2)}
+.grab{display:flex;justify-content:center;padding:12px 0 14px;margin:-6px 0 2px;touch-action:none;cursor:grab}
+.grab::after{content:'';width:52px;height:5px;border-radius:99px;background:var(--line2)}
 .dl{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:15px}
 .dl span:first-child{color:var(--muted)}
 .dl span.red{color:var(--danger)}
@@ -552,6 +552,9 @@ function openDrawerHTML(h){var d=$('drawer');d.innerHTML='<div class="grab"></di
 function attachDrawerDrag(){
   var d=$('drawer'),g=d.querySelector('.grab');if(!g)return;
   var y0=null,dy=0;
+  /* iOS Safari 對捲動容器內的 touch-action:none 不一定買帳——手指一動就當捲動、pointercancel 把拖曳殺掉。
+     非 passive 的 touchmove preventDefault 硬擋捲動，讓 pointermove 一路活著 */
+  g.addEventListener('touchmove',function(e){e.preventDefault();},{passive:false});
   g.addEventListener('pointerdown',function(e){
     y0=e.clientY;dy=0;
     try{g.setPointerCapture(e.pointerId);}catch(err){}
