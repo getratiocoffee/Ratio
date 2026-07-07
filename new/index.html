@@ -9,14 +9,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:wght@700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#FFFFFF;--surface:#FFFFFF;--ink:#1A1A1A;--muted:#8A8A8A;--accent:#B25E6A;--tint:#F7EBED;--danger:#C0392B;--line:#ECECEC;--line2:#DADADA;--inv:#1A1A1A;--inv-t:#FFFFFF}
-@media(prefers-color-scheme:dark){:root{--bg:#1C1C1C;--surface:#1C1C1C;--ink:#F2F0EB;--muted:#8F8D87;--accent:#C97783;--tint:#33272A;--danger:#E0685A;--line:#333333;--line2:#4A4A4A;--inv:#F2F0EB;--inv-t:#1C1C1C}}
+@media(prefers-color-scheme:dark){:root:not(.light){--bg:#1C1C1C;--surface:#1C1C1C;--ink:#F2F0EB;--muted:#8F8D87;--accent:#C97783;--tint:#33272A;--danger:#E0685A;--line:#333333;--line2:#4A4A4A;--inv:#F2F0EB;--inv-t:#1C1C1C}}
+:root.dark{--bg:#1C1C1C;--surface:#1C1C1C;--ink:#F2F0EB;--muted:#8F8D87;--accent:#C97783;--tint:#33272A;--danger:#E0685A;--line:#333333;--line2:#4A4A4A;--inv:#F2F0EB;--inv-t:#1C1C1C}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{background:var(--bg)}
 body{margin:0;background:transparent;color:var(--ink);font-family:'Inter',sans-serif;font-size:16px;padding-bottom:170px}
 .bglogo{position:fixed;inset:0;z-index:-1;pointer-events:none;background:var(--ink);opacity:.055;
   -webkit-mask:url(/logo.png) no-repeat center 36% / min(110vw,500px);
   mask:url(/logo.png) no-repeat center 36% / min(110vw,500px)}
-@media(prefers-color-scheme:dark){.bglogo{opacity:.09}}
+@media(prefers-color-scheme:dark){:root:not(.light) .bglogo{opacity:.09}}
+:root.dark .bglogo{opacity:.09}
 header{background:var(--bg);color:var(--ink);border-bottom:1.5px solid var(--ink);padding:calc(env(safe-area-inset-top,0px) + 14px) 18px 12px;display:flex;justify-content:space-between;align-items:baseline;position:sticky;top:0;z-index:10}
 .sbar{position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#1A1A1A;z-index:100;pointer-events:none}
 header .brand{font-family:'Fraunces',serif;font-size:21px;font-weight:700}
@@ -124,6 +126,15 @@ const CLASSIC='/index.html';
 const ESP_STALE_DAYS=7, GREEN_LOW_KG=5, ORD_OVERDUE_DAYS=7;
 const VAPID_PUBLIC='BFPC3UdlUFbYeowrMvVn-eJWjES_PHYuy34_7v7XbgPSb88CRdG5pjyT30Ht-1Ok4C0dj25Ut-ahokw-9STRY9o';
 var view='feed', filter='all', selQC=null, ITEMS=[], QCQ=[], ROLE='director', WHO='';
+/* 黑白頁手動切換：auto=跟系統、light/dark=強制；記在本機（顯示偏好本來就該一台一台設） */
+function themeGet(){try{return localStorage.getItem('r2_theme')||'auto';}catch(e){return 'auto';}}
+function applyTheme(t){
+  var el=document.documentElement;
+  el.classList.remove('light','dark');
+  if(t==='light'||t==='dark')el.classList.add(t);
+  try{localStorage.setItem('r2_theme',t);}catch(e){}
+}
+applyTheme(themeGet());
 var DB={orders:[],customers:[],tasks:[],dialins:[],syncs:[],samples:[],roasts:[],beans:[]};
 var _drag=0;
 function $(id){return document.getElementById(id);}
@@ -1833,6 +1844,9 @@ function renderTools(){
     +'<button class="tool" id="t-ptest">Send test<small>rings every subscribed phone</small></button>'
     +'</div>'
     +(iosNoA2HS?'<div class="note" style="text-align:left;margin:8px 2px 0">iPhone: first add this page to your Home Screen (Share → Add to Home Screen), open it from the icon, then tap Enable here.</div>':'')
+    +'<div class="gsec">Appearance</div><div class="pm-seg">'
+    +[['auto','Auto'],['light','Light'],['dark','Dark']].map(function(x){return '<button data-th="'+x[0]+'"'+(themeGet()===x[0]?' class="on"':'')+'>'+x[1]+'</button>';}).join('')
+    +'</div>'
     +'<div class="gsec">Make</div><div class="tgrid">'
     +'<button class="tool" id="t-neworder" style="border-color:var(--accent);color:var(--accent)">New order<small>right here</small></button>'
     +'<button class="tool" id="t-roast" style="border-color:var(--accent);color:var(--accent)">Log roast<small>green in · right here</small></button>'
@@ -1872,6 +1886,7 @@ function renderTools(){
   var tr=$('t-roast');if(tr)tr.addEventListener('click',function(){openRoastSheet(null);});
   var ts=$('t-stk');if(ts)ts.addEventListener('click',openStocktakeSheet);
   var tv=$('t-recv');if(tv)tv.addEventListener('click',openReceiveSheet);
+  m.querySelectorAll('[data-th]').forEach(function(b){b.addEventListener('click',function(){applyTheme(b.dataset.th);renderTools();});});
   var tn=$('t-notif');if(tn)tn.addEventListener('click',function(){enablePush(tn);});
   var tp=$('t-ptest');if(tp)tp.addEventListener('click',async function(){
     tp.disabled=true;
