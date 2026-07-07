@@ -1872,19 +1872,22 @@ function attachSwipe(el,id){
   /* 誤觸防護：①方向鎖——先確認是「明確的橫向」才開始滑（斜滑/直捲直接放棄）
      ②門檻加大——要滑過卡片寬度的 35%（做）/ 45%（貪睡）才觸發 */
   var x0=null,y0=0,dx=0,locked=false,dead=false;
-  function reset(anim){el.style.transition=anim?'transform .25s':'none';el.style.transform='';el.style.borderColor='';x0=null;dx=0;locked=false;dead=false;}
+  var barC=el.style.borderLeftColor; /* 類別色條：borderColor 清空會連左條一起洗掉，回彈時補回 */
+  function reset(anim){el.style.transition=anim?'transform .25s':'none';el.style.transform='';el.style.borderColor='';el.style.borderLeftColor=barC;x0=null;dx=0;locked=false;dead=false;}
   el.addEventListener('pointerdown',function(e){if(e.target.closest('button'))return;x0=e.clientX;y0=e.clientY;dx=0;locked=false;dead=false;try{el.setPointerCapture(e.pointerId);}catch(err){}el.style.transition='none';});
   el.addEventListener('pointermove',function(e){
     if(x0==null||dead)return;
     dx=e.clientX-x0;var dy=e.clientY-y0;
     if(!locked){
-      if(Math.abs(dy)>14&&Math.abs(dy)>Math.abs(dx)){dead=true;el.style.transform='';el.style.borderColor='';return;}
+      if(Math.abs(dy)>14&&Math.abs(dy)>Math.abs(dx)){dead=true;el.style.transform='';el.style.borderColor='';el.style.borderLeftColor=barC;return;}
       if(Math.abs(dx)>18&&Math.abs(dx)>Math.abs(dy)*1.6)locked=true;
       else return;
     }
     el.style.transform='translateX('+dx*0.9+'px)';
     var w=el.offsetWidth;
-    el.style.borderColor=dx>w*0.25?'var(--accent)':(dx<-w*0.3?'var(--muted)':'');
+    var bc=dx>w*0.25?'var(--accent)':(dx<-w*0.3?'var(--muted)':'');
+    el.style.borderColor=bc;
+    el.style.borderLeftColor=bc||barC; /* 沒過門檻時左條維持類別色 */
   });
   el.addEventListener('pointercancel',function(){reset(true);});
   el.addEventListener('pointerup',function(){
