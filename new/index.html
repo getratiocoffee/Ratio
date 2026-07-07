@@ -92,6 +92,9 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .deck{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 76px);background:var(--surface);border-top:1px solid var(--line);padding:12px 22px 10px;z-index:20}
 .deck .who{font-size:13px;color:var(--muted);text-align:center;margin-bottom:8px}
 .deck .who b{color:var(--ink)}
+/* judging → decision 區重排（老闆點名）：底線連結改四顆等寬小鍵，觸控目標大、不換行擠壓 */
+.qacts{display:flex;gap:8px;max-width:520px;margin:0 auto 8px}
+.qact{flex:1;border:1px solid var(--line2);background:var(--surface);color:var(--ink);border-radius:10px;padding:9px 0;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer}
 .deck-btns{display:grid;gap:8px;max-width:520px;margin:0 auto}
 .big{border:none;border-radius:10px;padding:17px;font-size:18px;font-weight:700;font-family:inherit;cursor:pointer;background:var(--accent);color:#fff}
 .pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -2272,23 +2275,55 @@ function renderQC(){
   m.querySelectorAll('[data-q]').forEach(function(r){r.addEventListener('click',function(){selQC=r.dataset.q;renderQC();});});
   var q=QCQ.find(function(x){return String(x.r.id)===String(selQC);});
   var deck=$('deck');deck.style.display='block';
+  /* judging → decision 重排：標題行乾淨、四顆等寬工具鍵（含編輯烘豆日）、鎖風味膠囊、判定鈕 */
   deck.innerHTML='<div class="who">judging <b>'+esc(q.s.sample_id||'—')+(q.s.process?' · '+esc(q.s.process):'')+'</b>'
-    +' · <button class="qlink" id="q-recup">re-cup</button>'
-    +' · <button class="qlink" id="q-card">card</button>'
-    +' · <button class="qlink" id="q-imm">immersion</button></div>'
+    +(q.r.roast_date?' <span style="opacity:.8">· roasted '+esc(fmtD(q.r.roast_date))+'</span>':'')+'</div>'
+    +'<div class="qacts">'
+    +'<button class="qact" id="q-recup">Re-cup</button>'
+    +'<button class="qact" id="q-card">Card</button>'
+    +'<button class="qact" id="q-imm">Immersion</button>'
+    +'<button class="qact" id="q-date">Roast date</button>'
+    +'</div>'
     /* 鎖風味的決定在判定當下：pass＝判定＋鎖（開關可關；已鎖的豆顯示已鎖不重複問） */
     +(q.s.flavour_locked
-      ?'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:2px 0 6px">flavours already locked ✓</div>'
-      :'<button id="q-lock" style="display:block;margin:2px auto 6px;background:none;border:1px solid '+(QCLOCK?'var(--accent)':'var(--line2)')+';color:'+(QCLOCK?'var(--accent)':'var(--muted)')+';border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer">'+(QCLOCK?'✓ ':'')+'Lock flavours on pass</button>')
+      ?'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:2px 0 8px">flavours already locked ✓</div>'
+      :'<button id="q-lock" style="display:block;margin:2px auto 8px;background:none;border:1px solid '+(QCLOCK?'var(--accent)':'var(--line2)')+';color:'+(QCLOCK?'var(--accent)':'var(--muted)')+';border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer">'+(QCLOCK?'✓ ':'')+'Lock flavours on pass</button>')
     +'<div class="deck-btns"><button class="big" id="q-p">Pass</button>'
     +'<div class="pair"><button class="rr" id="q-r">Re-roast</button><button class="dn" id="q-d">Down</button></div></div>';
   $('q-recup').addEventListener('click',function(){openRecupSheet(q);});
   $('q-card').addEventListener('click',function(){openCardPreview(q);});
   $('q-imm').addEventListener('click',function(){openImmersionSheet(q);});
+  $('q-date').addEventListener('click',function(){openRoastDateSheet(q);});
   var ql=$('q-lock');if(ql)ql.addEventListener('click',function(){QCLOCK=!QCLOCK;renderQC();});
   $('q-p').addEventListener('click',function(){qcVerdict(q.r,'pass',null,'qc:'+q.r.id,q.s);});
   $('q-r').addEventListener('click',function(){qcVerdict(q.r,'reroast',null,'qc:'+q.r.id,q.s);});
   $('q-d').addEventListener('click',function(){qcVerdict(q.r,'downgrade',null,'qc:'+q.r.id,q.s);});
+}
+/* 編輯烘豆日期（老闆點名）：修批次日期——新鮮度、資訊卡、貨架排序全跟著走 */
+function openRoastDateSheet(q){
+  openDrawerHTML('<div class="t" style="font-size:19px">Roast date · '+esc(q.s.sample_id||'—')+'</div>'
+    +'<div class="s" style="margin-top:2px">fixes this batch — freshness, cards and shelf order follow</div>'
+    +'<div class="dlab">Roast date</div><input class="din" id="rd-date" type="date" value="'+esc(q.r.roast_date||'')+'">'
+    +'<button class="act" id="rd-save">Save date</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  $('rd-save').addEventListener('click',async function(){
+    var v=$('rd-date').value;
+    if(!v){toast('Pick a date first');return;}
+    var btn=this;btn.disabled=true;btn.textContent='Saving…';
+    try{
+      var u=await sb.from('roasts').update({roast_date:v}).eq('id',q.r.id);
+      if(u.error)throw new Error(u.error.message);
+      /* 杯測紀錄若有掛日期就跟著改（matchRoast 靠日期優先配對） */
+      if(q.s.id&&q.s.roast_date){try{await sb.from('samples').update({roast_date:v}).eq('id',q.s.id);}catch(e){}}
+      q.r.roast_date=v;if(q.s.roast_date)q.s.roast_date=v;
+      closeDrawer();toast('Roast date updated ✓');
+      buildItems();render();
+    }catch(e){
+      btn.disabled=false;btn.textContent='Save date';
+      alert('Save failed: '+(e&&e.message||e));
+    }
+  });
+  $('d-cl').addEventListener('click',closeDrawer);
 }
 /* QC 補豆：舊烘豆補登（roasts 補一筆，不扣生豆庫存）——有杯測紀錄直接進 QC 佇列，沒有就長 Cup 卡 */
 function openBackfillSheet(){
