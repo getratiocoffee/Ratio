@@ -1163,6 +1163,10 @@ async function openRetailSheet(){
     .map(function(e){return e.x;});
   var soldN=0;
   /* 可點列（同客戶名冊 .hit 樣式）：點豆 → 明細抽屜（烘焙風味＋豆子履歷，老闆點名） */
+  /* 回爐標示：豆同時在 QC 佇列/待杯（send back 之後）＝內部重審中、對外照賣——標出來免得像重複 */
+  var inQCSet={};
+  (QCQ||[]).forEach(function(q){inQCSet[String(q.s.sample_id||'').trim().toLowerCase()]=1;});
+  toCupList().forEach(function(r){inQCSet[String(r.bean_name||'').trim().toLowerCase()]=1;});
   var rows=live.map(function(x){
     var nm=String(x.bean_id).trim();
     var price=m.rtl_price[nm],g=m.rtl_g[nm]||250;
@@ -1170,11 +1174,13 @@ async function openRetailSheet(){
     var fr=shelfFreshness(nm);
     var rep=shelfSampleFor(nm);
     var col=dotColorFor(nm,dots);
+    var inQC=!!inQCSet[nm.toLowerCase()];
     return '<div class="hit" data-shelf="'+esc(nm)+'"><span><div class="t" style="font-size:16px">'
       +(col?'<span style="color:'+col+';font-size:12px">●</span> ':'')+esc(nm)
       +(rep&&rep.process?' <span style="color:var(--muted);font-weight:400;font-size:12.5px;font-family:Inter,sans-serif">'+esc(rep.process)+'</span>':'')+'</div>'
       +'<div class="s">'+(price!=null?g+'g '+money(price):'<span class="red">no price</span>')
-      +' · <span class="'+fr.cls+'"'+(fr.cls?'':' style="color:var(--muted)"')+'>'+esc(fr.txt)+'</span></div></span>'
+      +' · <span class="'+fr.cls+'"'+(fr.cls?'':' style="color:var(--muted)"')+'>'+esc(fr.txt)+'</span>'
+      +(inQC?' · <span class="fr-yellow">re-checking in QC</span>':'')+'</div></span>'
       +'<span class="k'+(sold?' red':'')+'">'+(sold?'Sold out':'On sale')+'</span></div>';
   }).join('');
   var errs=(DB.syncs||[]).filter(function(x){return x.status&&x.status!=='synced'&&x.status!=='paused';});
@@ -1211,7 +1217,8 @@ async function openShelfBeanDetail(nm,m){
     +(s.process?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif;font-weight:400">'+esc(s.process)+'</span>':'')+'</div>'
     +'<div class="s" style="margin-top:2px">'+(rdate?'roasted '+fmtD(rdate)+' · ':'')
     +'<span class="'+fr.cls+'"'+(fr.cls?'':' style="color:var(--muted)"')+'>'+esc(fr.days!=null?fr.days+'d — '+fr.txt.split('— ')[1]:fr.txt)+'</span>'
-    +(s.flavour_locked?'':' · flavour unlocked')+'</div>'
+    +(s.flavour_locked?'':' · flavour unlocked')
+    +((QCQ||[]).some(function(q){return String(q.s.sample_id||'').trim().toLowerCase()===nm.toLowerCase();})?' · <span class="fr-yellow">re-checking in QC</span>':'')+'</div>'
     +'<div style="margin-top:10px">'
     +(price!=null?'<div class="dl"><span>'+g+'g</span><span>'+money(price)+'</span></div>':'<div class="dl"><span>Price</span><span class="red">not recorded</span></div>')
     +(szc.g500?'<div class="dl"><span>500g</span><span>'+money(szc.g500)+'</span></div>':'')
