@@ -515,7 +515,6 @@ async function runAction(id,btn){
     }
     if(i.kind==='dialin'){openDialinForm(i);return;}
     if(i.kind==='roastlog'){openRoastSheet(Array.isArray(i.ref)?i.ref:null);return;}
-    if(i.kind==='cup'){openCupSheet(i);return;}
     if(i.kind==='list'){await openListSheet(i);return;}
     if(i.kind==='locks'){openLocksSheet(i);return;}
   }catch(e){
@@ -628,7 +627,7 @@ function openDetails(id){
     }else if(i.det2==='Send reminder email'){
       try{await callFn('send-email',{action:'payment_reminder',order_id:i.ref.id});toast('Reminder sent ✓');}
       catch(e){alert('Reminder failed: '+(e&&e.message||e));}
-    }else if(i.det2==='Open QC station'){view='qc';render();}
+    }
     else if(i.det2==='Open classic app'){location.href=CLASSIC;}
     else if(i.det2==='Not today'||i.det2==='Later'){addSnooze(id);dropCard(id,true);toast('Snoozed — back tomorrow');}
   });
@@ -2455,26 +2454,6 @@ function printRadarPNG(sc,color){
   });
   return cv.toDataURL('image/png');
 }
-/* 印刷頁雷達：獨立文件用，純字串 SVG（實色不吃 CSS 變數） */
-function printRadarSVG(sc,color,mm){
-  var K=[['fragrance','Aroma'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
-  var cx=150,cy=128,R=88;
-  function pt(i,rad){var a=i*2*Math.PI/5;return [cx+rad*Math.sin(a),cy-rad*Math.cos(a)];}
-  var rings=[1,2,3].map(function(l){
-    var p='';for(var i=0;i<=5;i++){var q=pt(i%5,R*l/3);p+=(i?'L':'M')+q[0].toFixed(1)+','+q[1].toFixed(1);}
-    return '<path d="'+p+'Z" fill="none" stroke="#D9D2CB" stroke-width="1"/>';
-  }).join('');
-  var spokes=K.map(function(_,i){var q=pt(i,R);return '<line x1="'+cx+'" y1="'+cy+'" x2="'+q[0].toFixed(1)+'" y2="'+q[1].toFixed(1)+'" stroke="#D9D2CB" stroke-width="1"/>';}).join('');
-  var pts=K.map(function(k,i){return pt(i,R*(Number(sc[k[0]])||0)/3);});
-  var poly=pts.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ');
-  var dts=pts.map(function(p){return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="4" fill="'+color+'"/>';}).join('');
-  var labels=K.map(function(k,i){
-    var q=pt(i,R+20);var anch=q[0]<cx-4?'end':(q[0]>cx+4?'start':'middle');
-    return '<text x="'+q[0].toFixed(1)+'" y="'+(q[1]+4).toFixed(1)+'" text-anchor="'+anch+'" font-size="13" font-weight="600" fill="#8A837C" font-family="Inter,sans-serif">'+k[1]+'</text>';
-  }).join('');
-  return '<svg viewBox="-32 0 364 250" style="width:'+mm+'mm;display:block">'+rings+spokes
-    +'<polygon points="'+poly+'" fill="'+color+'" fill-opacity=".15" stroke="'+color+'" stroke-width="2.5" stroke-linejoin="round"/>'+dts+labels+'</svg>';
-}
 /* 豆子履歷全欄位（產區/處理廠/品種/海拔/處理法/產季/烘豆日/生豆商）——資訊卡與 Retail shelf 明細共用；生豆查法同 cardDataFor */
 async function beanInfoRows(full){
   var nm=String(full.sample_id||'').trim();
@@ -2633,13 +2612,13 @@ function loadScriptOnce(url){
    資料層接新殼：BEANS/ROASTS/RETAIL_BEANS 轉接 DB.*，設定存 app_state（與 classic 同鑰匙互通） */
 var BEANS=[],ROASTS=[],RETAIL_BEANS=[];
 var MENU_SLOTS=['','','',''],SPECIAL_PICK=[],SPECIAL_PRICES={},TAKEAWAY=null,DINEIN=null;
-var MENUS_DATA={blends:[],grams:{},dots:{},loaded:false};
+var MENUS_DATA={blends:[],grams:{},loaded:false};
 function loadBlendDefs(){return MENUS_DATA.blends;}
 function blendNames(){return loadBlendDefs().map(function(b){return (b.name||'').trim();}).filter(Boolean);}
 function readyBlendNames(){return loadBlendDefs().filter(blendReady).map(function(b){return (b.name||'').trim();});}
 function blendDefByName(name){var n=String(name||'').trim().toLowerCase();if(!n)return null;return loadBlendDefs().filter(function(b){return String(b.name||'').trim().toLowerCase()===n;})[0]||null;}
 function loadGrams(){return MENUS_DATA.grams;}
-function loadDots(){return MENUS_DATA.dots;}
+function loadDots(){return _dotsMap||{};} /* 與 cardDots 共用同一份快取 */
 function normDinein(o){
   var d=diClone(DINEIN_DEFAULT);
   if(!o||typeof o!=='object')return d;
@@ -2665,7 +2644,7 @@ async function menusEnsureData(force){
     if(Array.isArray(m.takeaway)&&m.takeaway.length===4)TAKEAWAY=m.takeaway.map(function(o){o=o||{};return {bean:o.bean||'',name:o.name||'',origin:o.origin||'',flavour:o.flavour||'',hot:o.hot||'',cold:o.cold||''};});
     DINEIN=normDinein(m.dinein);
     if(m.rtl_g&&typeof m.rtl_g==='object')MENUS_DATA.grams=m.rtl_g;
-    if(m.rtl_dot&&typeof m.rtl_dot==='object')MENUS_DATA.dots=m.rtl_dot;
+    if(m.rtl_dot&&typeof m.rtl_dot==='object')_dotsMap=m.rtl_dot;
   }catch(e){}
   if(!TAKEAWAY)TAKEAWAY=TAKEAWAY_DEFAULT.map(function(o){var n={};for(var k in o)n[k]=o[k];return n;});
   if(!DINEIN)DINEIN=diClone(DINEIN_DEFAULT);
@@ -2789,23 +2768,10 @@ function saveDinein(){menusSave('dinein',DINEIN);}
     doc.text(text,x,yy,align?{align:align}:undefined);
     return s;
   }
-  function strThumbPos(v){return ((2*v-1)/6*100).toFixed(2)+'%';}
   function mnAsc(t){return String(t==null?'':t).replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...');}
   function specialAllBeans(){
     var seen={},out=[];
     (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;seen[k]=true;out.push(nm);});
-    return out;
-  }
-  function retailOnlyBeanList(){
-    var seen={},out=[];
-    var src=(RETAIL_BEANS||[]);  /* 移植：新殼沒有 RTL_ROWS，直接用 RETAIL_BEANS */
-    src.forEach(function(s){
-      var nm=(s.sample_id||'').trim();if(!nm)return;
-      var isBlend=false;try{isBlend=!!blendDefByName(nm);}catch(e){}
-      if(isBlend)return;
-      var disp=sampleDisp(s);var k=disp.toLowerCase();if(seen[k])return;
-      seen[k]=true;out.push(disp);
-    });
     return out;
   }
   function takeawayOptionList(){
