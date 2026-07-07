@@ -48,7 +48,7 @@ header .cnt{font-size:14px;color:var(--muted)}
 nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1.5px solid var(--ink);display:flex;gap:8px;padding:10px 20px calc(env(safe-area-inset-bottom,0px) + 12px);z-index:30}
 nav button{flex:1;border:1px solid var(--line2);background:var(--bg);color:var(--ink);border-radius:10px;padding:13px 6px;font-size:14.5px;font-weight:700;font-family:inherit;cursor:pointer}
 nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
-.deck{position:fixed;left:0;right:0;bottom:76px;background:var(--surface);border-top:1px solid var(--line);padding:12px 22px 10px;z-index:20}
+.deck{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 76px);background:var(--surface);border-top:1px solid var(--line);padding:12px 22px 10px;z-index:20}
 .deck .who{font-size:13px;color:var(--muted);text-align:center;margin-bottom:8px}
 .deck .who b{color:var(--ink)}
 .deck-btns{display:grid;gap:8px;max-width:520px;margin:0 auto}
@@ -1814,7 +1814,7 @@ function attachSwipe(el,id){
 function renderQC(){
   $('hcnt').textContent=QCQ.length?QCQ.length+' waiting':'all judged';
   var m=$('main');
-  if(!QCQ.length){m.innerHTML='<div class="empty">QC queue is clear ✓</div>';$('deck').style.display='none';return;}
+  if(!QCQ.length){m.innerHTML='<div class="empty">QC queue is clear ✓</div>';$('deck').style.display='none';document.body.style.paddingBottom='';return;}
   if(selQC==null||!QCQ.find(function(q){return q.r.id===selQC;}))selQC=QCQ[0].r.id;
   m.innerHTML='<div class="note">Tap a batch to select — buttons below judge the selected one</div>'
     +QCQ.map(function(q){
@@ -1938,6 +1938,8 @@ function render(){
   /* 浮水印只給今日流：內容少的頁（QC/Tools）整塊露出來像破圖 */
   var bgl=document.querySelector('.bglogo');if(bgl)bgl.style.display=(view==='feed')?'':'none';
   if(view==='feed')renderFeed();else if(view==='qc')renderQC();else renderTools();
+  /* 判定板亮著時底部留白加大，清單最後一列才捲得出來（板＋nav 疊起來近 300px） */
+  document.body.style.paddingBottom=($('deck').style.display==='block')?'330px':'';
   $('nav-feed').classList.toggle('on',view==='feed');
   $('nav-qc').classList.toggle('on',view==='qc');
   $('nav-tools').classList.toggle('on',view==='tools');
