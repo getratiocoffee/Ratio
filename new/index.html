@@ -1275,13 +1275,19 @@ function openDeleteCoffeeSheet(){
 }
 async function confirmDeleteCoffee(e){
   var msg='Delete "'+e.name+'"?\n\nThis removes:\n· '+e.cups+' cupping record'+(e.cups===1?'':'s')+'\n· '+e.roasts+' roast batch'+(e.roasts===1?'':'es')+'\n· shelf price / colour memories'
-    +(e.synced?'\n\n⚠ It is LIVE on Square — it will leave the shop menu here, but remove the Square item itself in the Square dashboard.':'')
+    +(e.synced?'\n· the Square listing (item deleted from the Square catalogue too)':'')
     +'\n\nGreen bean stock is NOT touched. This cannot be undone.';
   if(!confirm(msg))return;
   if(!confirm('Really delete "'+e.name+'"? Last chance.'))return;
-  var btn=document.querySelector('#drawer [data-delc]');
   toast('Deleting…');
   try{
+    /* 已上架＝先拆 Square（edge 內建 delete：刪目錄商品＋product_sync）；失敗就先停，別半刪 */
+    if(e.synced){
+      try{await callFn('sync-to-square',{action:'delete',sample_id:e.name});}
+      catch(err){
+        if(!confirm('Square removal failed: '+(err&&err.message||err)+'\n\nDelete the local records anyway? The Square item will stay until you remove it in the Square dashboard.'))return;
+      }
+    }
     var d1=await sb.from('samples').delete().eq('supplier','Ratio Coffee').ilike('sample_id',e.name);
     if(d1.error)throw new Error(d1.error.message);
     var d2=await sb.from('roasts').delete().ilike('bean_name',e.name);
