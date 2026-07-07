@@ -1239,6 +1239,73 @@ async function openShelfBeanDetail(nm,m){
   $('sb-back').addEventListener('click',openRetailSheet);
   $('d-cl').addEventListener('click',closeDrawer);
 }
+/* ===== 刪除咖啡豆（老闆點名：清打錯名/重複的零售豆）=====
+   刪 samples（Ratio Coffee 杯測紀錄）＋roasts（烘豆批次）＋product_sync＋app_state 記憶鍵；
+   **生豆庫存（beans）永遠不碰**；Square 目錄上的商品本身留著（要移除去 Square 後台），但清掉 product_sync 後店面菜單就不再列它 */
+function allRetailCoffees(){
+  var seen={},out=[];
+  (DB.samples||[]).forEach(function(s){
+    var nm=String(s.sample_id||'').trim();if(!nm)return;
+    var k=nm.toLowerCase();
+    if(!seen[k]){seen[k]={name:nm,cups:0,roasts:0};out.push(seen[k]);}
+    seen[k].cups++;
+  });
+  (DB.roasts||[]).forEach(function(r){
+    var nm=String(r.bean_name||'').trim();if(!nm)return;
+    var k=nm.toLowerCase();
+    if(!seen[k]){seen[k]={name:nm,cups:0,roasts:0};out.push(seen[k]);}
+    seen[k].roasts++;
+  });
+  out.forEach(function(e){e.synced=!!(DB.syncs||[]).find(function(x){return x.status==='synced'&&String(x.bean_id||'').trim().toLowerCase()===e.name.toLowerCase();});});
+  return out.sort(function(a,b){return a.name.localeCompare(b.name);});
+}
+function openDeleteCoffeeSheet(){
+  var list=allRetailCoffees();
+  openDrawerHTML('<div class="t" style="font-size:19px">Delete a coffee</div>'
+    +'<div class="s" style="margin-top:2px">removes cupping records and roast batches — green bean stock is never touched</div>'
+    +(list.length?list.map(function(e,ix){
+      return '<div class="dl" style="align-items:center"><span><b>'+esc(e.name)+'</b>'
+        +(e.synced?' <span style="color:var(--muted);font-size:12px">on Square</span>':'')
+        +'<br><span style="color:var(--muted);font-size:13px">'+e.cups+' cupping'+(e.cups===1?'':'s')+' · '+e.roasts+' batch'+(e.roasts===1?'':'es')+'</span></span>'
+        +'<button class="dclose red" style="margin:0;width:auto;padding:8px 14px;border-color:var(--danger);color:var(--danger)" data-delc="'+ix+'">Delete…</button></div>';
+    }).join(''):'<div class="empty">No retail coffees found</div>')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  document.querySelectorAll('#drawer [data-delc]').forEach(function(el){el.addEventListener('click',function(){confirmDeleteCoffee(list[+el.dataset.delc]);});});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+async function confirmDeleteCoffee(e){
+  var msg='Delete "'+e.name+'"?\n\nThis removes:\n· '+e.cups+' cupping record'+(e.cups===1?'':'s')+'\n· '+e.roasts+' roast batch'+(e.roasts===1?'':'es')+'\n· shelf price / colour memories'
+    +(e.synced?'\n\n⚠ It is LIVE on Square — it will leave the shop menu here, but remove the Square item itself in the Square dashboard.':'')
+    +'\n\nGreen bean stock is NOT touched. This cannot be undone.';
+  if(!confirm(msg))return;
+  if(!confirm('Really delete "'+e.name+'"? Last chance.'))return;
+  var btn=document.querySelector('#drawer [data-delc]');
+  toast('Deleting…');
+  try{
+    var d1=await sb.from('samples').delete().eq('supplier','Ratio Coffee').ilike('sample_id',e.name);
+    if(d1.error)throw new Error(d1.error.message);
+    var d2=await sb.from('roasts').delete().ilike('bean_name',e.name);
+    if(d2.error)throw new Error(d2.error.message);
+    try{await sb.from('product_sync').delete().ilike('bean_id',e.name);}catch(err){}
+    /* app_state 記憶鍵大掃除（價/克/規格/售罄/顏色） */
+    var keys=['rtl_price','rtl_g','rtl_sizes','rtl_sold','rtl_dot'];
+    for(var i=0;i<keys.length;i++){
+      try{
+        var r=await sb.from('app_state').select('value').eq('key',keys[i]).maybeSingle();
+        var v=r&&r.data&&r.data.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(err){v=null;}}
+        if(!v||typeof v!=='object')continue;
+        var hit=false;
+        Object.keys(v).forEach(function(k){if(String(k).trim().toLowerCase()===e.name.toLowerCase()){delete v[k];hit=true;}});
+        if(hit)await sb.from('app_state').upsert({key:keys[i],value:v,updated_at:new Date().toISOString()},{onConflict:'key'});
+      }catch(err){}
+    }
+    _dotsMap=null;
+    closeDrawer();toast('"'+e.name+'" deleted ✓');
+    await reload();
+  }catch(err){
+    alert('Delete failed: '+(err&&err.message||err));
+  }
+}
 /* 售罄切換：Square availability（照 classic syncSquareAvailability）＋ rtl_sold 記憶 read-modify-write */
 async function setShelfSold(nm,sold){
   await callFn('sync-to-square',{action:'availability',sample_id:nm,sold_out:!!sold});
@@ -2577,7 +2644,7 @@ function renderTools(){
     +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
     +[['Invoice','GST PDF · classic'],['Info card','IG asset · classic'],['Labels','bag / tin · classic'],['Menus','A4 PDF · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
-    +[['Green stock','full list · right here','greens'],['Roast batches','FIFO shelf · right here','batches'],['Retail shelf','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']].map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
+    +[['Green stock','full list · right here','greens'],['Roast batches','FIFO shelf · right here','batches'],['Retail shelf','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Delete a coffee','remove records · careful','delbean'],['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']].map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div></div>';
   var inp=$('tsearch');
   function lookup(){
@@ -2630,6 +2697,7 @@ function renderTools(){
     if(k==='help'){openHelpSheet();return;}
     if(k==='retail'){openRetailSheet();return;}
     if(k==='infocards'){openInfoCardsSheet();return;}
+    if(k==='delbean'){openDeleteCoffeeSheet();return;}
     if(k==='signout'){
       if(!confirm('Sign out? The app returns to the public shop menu.'))return;
       (async function(){try{await sb.auth.signOut();}catch(e){}toast('Signed out');await boot();})();
