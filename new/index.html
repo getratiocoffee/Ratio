@@ -1609,7 +1609,7 @@ function openLocksSheet(i){
 }
 /* ===== 杯測快錄（照 classic submitCupping 規則：samples insert＋批次標 cupped → 進 QC 佇列）===== */
 var CUP=null;
-var CUP_FIELDS=[['fragrance','Fragrance / Aroma'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
+var CUP_FIELDS=[['fragrance','Aroma'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
 function openCupSheet(i){
   var r=i.ref;
   /* 帶上一次同豆紀錄的風味（DB.samples 已篩 Ratio Coffee、新→舊） */
@@ -1620,40 +1620,97 @@ function openCupSheet(i){
     if(String(s.sample_id||'').trim().toLowerCase()===String(r.bean_name||'').trim().toLowerCase())prev=s;
   });
   var bean=(DB.beans||[]).find(function(b){return String(b.id)===String(r.bean_id);});
-  CUP={r:r,scores:{fragrance:0,acidity:0,sweetness:0,body:0,aftertaste:0},
+  /* 拉霸永遠有值：上次同豆分數帶入（clamp 1–3），沒有全 2＝Medium */
+  function cl(v){v=Number(v);if(isNaN(v)||v<=0)return 2;return Math.min(3,Math.max(1,v));}
+  var sc={};CUP_FIELDS.forEach(function(f){sc[f[0]]=cl(prev?prev[f[0]]:null);});
+  CUP={r:r,scores:sc,
     feats:(prev&&prev.features?prev.features.slice(0,3):[]),comment:'',
     process:(bean&&bean.process)||(prev&&prev.process)||''};
   paintCupSheet();
 }
+/* comment 留白時的規則組句（老闆拍板：本機組句不呼叫 AI）：風味詞＋高分感官，總長 ≤30 字元 */
+function cupAutoComment(sc,feats){
+  sc=sc||{};
+  var fl=(feats||[]).filter(Boolean);
+  var out=fl.slice(0,2).join(', ');
+  if(out.length>22)out=fl[0]||'';
+  var cand=[];
+  if((sc.acidity||0)>=2.5)cand.push([sc.acidity,'bright']);
+  if((sc.sweetness||0)>=2.5)cand.push([sc.sweetness,'sweet']);
+  if((sc.body||0)>=2.5)cand.push([sc.body,'syrupy']);
+  else if(sc.body&&sc.body<=1.5)cand.push([2,'silky']);
+  if((sc.aftertaste||0)>=2.5)cand.push([sc.aftertaste,'long finish']);
+  if((sc.fragrance||0)>=2.5)cand.push([sc.fragrance,'perfumed']);
+  cand.sort(function(a,b){return b[0]-a[0];});
+  var first=true;
+  for(var i=0;i<cand.length;i++){
+    var sep=out?(first?' · ':', '):'';
+    if((out+sep+cand[i][1]).length>30)continue;
+    out+=sep+cand[i][1];first=false;
+  }
+  return out;
+}
+/* Cup v2（杯測師視角設計評審）：成品預覽卡（雷達＋風味＋comment 合一）＋五條拉霸即時驅動 */
 function paintCupSheet(){
-  var r=CUP.r;
+  var r=CUP.r,K=CUP_FIELDS;
+  var cx=150,cy=118,R=84;
+  function pt(i,rad){var a=i*2*Math.PI/5;return [cx+rad*Math.sin(a),cy-rad*Math.cos(a)];}
+  var rings=[1,2,3].map(function(l){
+    var p='';for(var i=0;i<=5;i++){var q=pt(i%5,R*l/3);p+=(i?'L':'M')+q[0].toFixed(1)+','+q[1].toFixed(1);}
+    return '<path d="'+p+'Z" fill="none" stroke="var(--line2)" stroke-width="1"/>';
+  }).join('');
+  var spokes=K.map(function(_,i){var q=pt(i,R);return '<line x1="'+cx+'" y1="'+cy+'" x2="'+q[0].toFixed(1)+'" y2="'+q[1].toFixed(1)+'" stroke="var(--line2)" stroke-width="1"/>';}).join('');
+  var labels=K.map(function(k,i){
+    var q=pt(i,R+16);var anch=q[0]<cx-4?'end':(q[0]>cx+4?'start':'middle');
+    return '<text x="'+q[0].toFixed(1)+'" y="'+(q[1]+4).toFixed(1)+'" text-anchor="'+anch+'" font-size="11.5" font-weight="600" fill="var(--muted)">'+k[1]+'</text>';
+  }).join('');
+  var dots=K.map(function(_,i){return '<circle id="cup-dot'+i+'" r="3.5" fill="var(--accent)"/>';}).join('');
   openDrawerHTML('<div class="t" style="font-size:19px">Cup · '+esc(r.bean_name||'—')+'</div>'
     +'<div class="s" style="margin-top:2px">'+(r.roast_date?'roasted '+fmtD(r.roast_date)+' · ':'')+'saves a cupping record and queues it for QC</div>'
-    +CUP_FIELDS.map(function(f){
-      var v=CUP.scores[f[0]];
-      return '<div class="dlab">'+f[1]+'</div><div class="pm-seg">'
-        +[[1,'Light'],[2,'Medium'],[3,'Strong']].map(function(o){
-          return '<button data-sc="'+f[0]+'" data-v="'+o[0]+'"'+(v===o[0]?' class="on"':'')+'>'+o[1]+'</button>';
-        }).join('')+'</div>';
+    +'<div style="border:1.5px solid var(--ink);border-radius:14px;padding:12px 10px;margin-top:12px;background:var(--surface)">'
+    +'<svg viewBox="0 0 300 236" style="width:100%;max-width:300px;display:block;margin:0 auto">'+rings+spokes
+    +'<polygon id="cup-poly" points="" fill="var(--accent)" fill-opacity=".18" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>'
+    +dots+labels+'</svg>'
+    +'<div id="cup-flprev" style="text-align:center;margin-top:4px;font-family:\'Fraunces\',serif;font-weight:700;font-size:17px"></div>'
+    +'<div id="cup-cprev" style="text-align:center;margin-top:3px;font-size:13px;color:var(--muted);font-style:italic"></div>'
+    +'</div>'
+    +K.map(function(k){
+      return '<div style="display:flex;align-items:center;gap:10px;margin-top:13px">'
+        +'<span style="flex:0 0 76px;font-size:13px;font-weight:600;color:var(--muted)">'+k[1]+'</span>'
+        +'<span style="font-size:10.5px;color:var(--muted)">light</span>'
+        +'<input type="range" data-cup="'+k[0]+'" min="1" max="3" step="0.5" value="'+CUP.scores[k[0]]+'" style="flex:1;accent-color:var(--accent)">'
+        +'<span style="font-size:10.5px;color:var(--muted)">heavy</span></div>';
     }).join('')
     +'<div class="dlab">Flavours</div>'
     +[0,1,2].map(function(ix){return '<input class="din" id="cup-f'+ix+'" maxlength="22" placeholder="e.g. Blueberry" value="'+esc(CUP.feats[ix]||'')+'">';}).join('')
-    +'<div class="dlab">Description · max 30 characters</div>'
+    +'<div class="dlab">Comment · 30 chars · blank = auto</div>'
     +'<input class="din" id="cup-c" maxlength="30" placeholder="—" value="'+esc(CUP.comment)+'">'
     +'<button class="act" id="cup-save">Save cupping</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
   function grab(){
+    document.querySelectorAll('#drawer [data-cup]').forEach(function(el){CUP.scores[el.dataset.cup]=parseFloat(el.value)||2;});
     CUP.feats=[0,1,2].map(function(ix){return ($('cup-f'+ix).value||'').trim();});
     CUP.comment=($('cup-c').value||'').trim();
   }
-  document.querySelectorAll('#drawer [data-sc]').forEach(function(el){el.addEventListener('click',function(){
+  /* 即時預覽：只動 SVG 錨點與文字，不整張重畫（拖霸重畫會炸手感） */
+  function preview(){
     grab();
-    var k=el.dataset.sc,v=+el.dataset.v;
-    CUP.scores[k]=(CUP.scores[k]===v)?0:v; /* 再點一次＝清除 */
-    paintCupSheet();
-  });});
+    var pts=K.map(function(k,i){return pt(i,R*(CUP.scores[k[0]]||0)/3);});
+    var poly=document.getElementById('cup-poly');
+    if(poly)poly.setAttribute('points',pts.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' '));
+    pts.forEach(function(p,i){var d=document.getElementById('cup-dot'+i);if(d){d.setAttribute('cx',p[0].toFixed(1));d.setAttribute('cy',p[1].toFixed(1));}});
+    var fl=CUP.feats.filter(Boolean);
+    $('cup-flprev').textContent=fl.length?fl.join(' · '):'— add flavours below —';
+    var auto=cupAutoComment(CUP.scores,fl);
+    $('cup-cprev').textContent='“'+(CUP.comment||auto||'…')+'”';
+    $('cup-c').placeholder=auto||'—';
+  }
+  document.querySelectorAll('#drawer [data-cup]').forEach(function(el){el.addEventListener('input',preview);});
+  [0,1,2].forEach(function(ix){$('cup-f'+ix).addEventListener('input',preview);});
+  $('cup-c').addEventListener('input',preview);
   $('cup-save').addEventListener('click',function(){grab();saveCupSheet();});
   $('d-cl').addEventListener('click',closeDrawer);
+  preview();
 }
 async function saveCupSheet(){
   var r=CUP.r;
@@ -1675,7 +1732,7 @@ async function saveCupSheet(){
     var rec={no:no,cupping_date:today,roast_date:r.roast_date||null,supplier:'Ratio Coffee',
       sample_id:name,process:String(CUP.process||'').trim()||null,bean_id:r.bean_id||null,
       fragrance:sc.fragrance||null,acidity:sc.acidity||null,sweetness:sc.sweetness||null,body:sc.body||null,aftertaste:sc.aftertaste||null,
-      features:feats,comment:CUP.comment||null,decision:null,cupper:WHO||null};
+      features:feats,comment:(CUP.comment||cupAutoComment(sc,feats))||null,decision:null,cupper:WHO||null};
     /* 同 classic 的容錯鏈：舊欄位缺就逐個拿掉重試 */
     var ins=await sb.from('samples').insert(rec).select();
     if(ins.error){var r2=Object.assign({},rec);delete r2.features;ins=await sb.from('samples').insert(r2).select();}
