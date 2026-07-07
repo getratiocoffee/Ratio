@@ -39,6 +39,15 @@ header .cnt{font-size:14px;color:var(--muted)}
 .red{color:var(--danger);font-weight:600}
 .fr-red{color:var(--danger);font-weight:600}
 .shopc{padding:0;overflow:hidden}
+.shopwrap{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:14px;margin:0 -22px;padding:0 22px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.shopwrap::-webkit-scrollbar{display:none}
+.shopwrap .shopc{flex:0 0 100%;scroll-snap-align:center;touch-action:pan-x pan-y}
+.shopdots{display:flex;justify-content:center;gap:7px;margin:12px 0 6px}
+.shopdots span{width:7px;height:7px;border-radius:50%;background:var(--line2)}
+.shopdots span.on{background:var(--accent)}
+.shoptabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1.5px solid var(--ink);display:flex;gap:8px;padding:10px 20px calc(env(safe-area-inset-bottom,0px) + 12px);z-index:30}
+.shoptabs button{flex:1;border:1.5px solid var(--line2);background:var(--surface);color:var(--muted);border-radius:12px;padding:12px 2px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer}
+.shoptabs button.on{background:var(--inv);color:var(--inv-t);border-color:var(--inv)}
 .shopc .shopimg{width:100%;aspect-ratio:16/10;object-fit:cover;object-position:top;display:block;border-bottom:1px solid var(--line)}
 .shopc .shopin{padding:14px 18px 18px}
 .shop-chip{background:var(--tint);color:var(--accent);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:600;display:inline-block;margin:0 6px 6px 0}
@@ -120,6 +129,7 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 <button id="nav-tools">Tools</button>
 <button id="nav-refresh">Refresh</button>
 </nav>
+<div class="shoptabs" id="shoptabs" style="display:none"></div>
 <div class="drawer-bg" id="dbg"></div>
 <div class="drawer" id="drawer"></div>
 <div class="toast" id="toast"></div>
@@ -2018,6 +2028,41 @@ async function loadShopMenu(){
     return (d&&d.ok&&d.beans)?d.beans:[];
   }catch(e){return [];}
 }
+/* 分類（老闆定的四格）：Blend＝有配方；Co-ferment＝culturing/co-ferment 類；Innovation＝實驗處理法；其餘 Classic */
+var SHOP_CATS=[['blend','Blend'],['classic','Classic'],['innovation','Innovation'],['coferment','Co-ferment']];
+var SHOP_CAT='blend', SHOP_BEANS=[];
+function shopCategory(b){
+  if(b.recipe&&b.recipe.length)return 'blend';
+  var p=String(b.process||'').toLowerCase();
+  if(/co.?ferment|culturing/.test(p))return 'coferment';
+  if(/anaerobic|hydro|nitro|carbonic|thermal|cold ferment|yeast|lactic|maceration/.test(p))return 'innovation';
+  return 'classic';
+}
+/* 店面主體：左右滑輪播（scroll-snap，一頁一支豆）＋圓點指示；tab 切分類重畫 */
+function renderShopTabs(){
+  var el=$('shoptabs');
+  el.style.display='flex';
+  var counts={};SHOP_BEANS.forEach(function(b){var c=shopCategory(b);counts[c]=(counts[c]||0)+1;});
+  if(!counts[SHOP_CAT]){var first=SHOP_CATS.find(function(c){return counts[c[0]];});if(first)SHOP_CAT=first[0];}
+  el.innerHTML=SHOP_CATS.map(function(c){return '<button data-sct="'+c[0]+'" class="'+(SHOP_CAT===c[0]?'on':'')+'">'+c[1]+'</button>';}).join('');
+  el.querySelectorAll('[data-sct]').forEach(function(b){b.addEventListener('click',function(){SHOP_CAT=b.dataset.sct;paintShopBody();});});
+}
+function paintShopBody(){
+  var host=$('shopbody');if(!host)return;
+  document.querySelectorAll('#shoptabs [data-sct]').forEach(function(b){b.classList.toggle('on',b.dataset.sct===SHOP_CAT);});
+  var list=SHOP_BEANS.filter(function(b){return shopCategory(b)===SHOP_CAT;});
+  if(!list.length){host.innerHTML='<div class="empty">Nothing in this corner right now ☕</div>';return;}
+  host.innerHTML='<div class="shopwrap" id="shopwrap">'+shopCardsHTML(list)+'</div>'
+    +(list.length>1?'<div class="shopdots" id="shopdots">'+list.map(function(_,i){return '<span class="'+(i===0?'on':'')+'"></span>';}).join('')+'</div>':'');
+  wireShopBuy(host);
+  var w=$('shopwrap');
+  if(w)w.addEventListener('scroll',function(){
+    var sw=w.children[0]?(w.children[0].offsetWidth+14):w.clientWidth;
+    var i=Math.round(w.scrollLeft/sw);
+    var ds=$('shopdots');if(!ds)return;
+    Array.prototype.forEach.call(ds.children,function(d,ix){d.classList.toggle('on',ix===i);});
+  },{passive:true});
+}
 /* C 規格書版（老闆挑的）：Square 商品圖橫幅＋風味膠囊＋明細表（配方或處理法/產區/品種/杯感/規格/烘焙日）＋Order */
 function shopCardsHTML(beans){
   if(!beans.length)return '<div class="empty">The shelf is being restocked — check back soon ☕</div>';
@@ -2099,12 +2144,13 @@ async function renderPublicMenu(){
   $('hcnt').textContent='on the shelf';
   var m=$('main');
   m.innerHTML='<div class="empty">Loading the shelf…</div>';
-  var beans=await loadShopMenu();
-  m.innerHTML='<div class="note">Freshly roasted in Crows Nest · tap Order to check out</div>'
-    +shopCardsHTML(beans)
+  SHOP_BEANS=await loadShopMenu();
+  m.innerHTML='<div class="note">Freshly roasted in Crows Nest · swipe for the next coffee</div>'
+    +'<div id="shopbody"></div>'
     +'<div class="note" style="margin-top:16px"><a href="/?fb=store" style="color:var(--accent)">Tried it? Tell us what you think →</a></div>'
     +'<button class="more" id="pm-staff">Staff sign in</button>';
-  wireShopBuy(m);
+  renderShopTabs();
+  paintShopBody();
   var st=$('pm-staff');if(st)st.addEventListener('click',openSignInSheet);
 }
 /* 客戶登入＝豆單在上、自己的訂單在下＋切員工登入鍵 */
@@ -2126,12 +2172,12 @@ async function renderCustomerPortal(sess){
       orders=oq.data||[];
     }
   }catch(e){}
-  var beans=await beansP;
+  SHOP_BEANS=await beansP;
   m.innerHTML='<div class="card brief"><span class="tag">Welcome</span>'
     +'<div class="t">'+esc(custName||'Hello')+'</div>'
     +'<div class="s">Ratio Coffee · on the shelf today'+(email?' · '+esc(email):'')+'</div>'
     +'<button class="more" id="cp-fb" style="color:var(--inv-t)">Leave feedback</button></div>'
-    +shopCardsHTML(beans)
+    +'<div id="shopbody"></div>'
     +(orders.length?'<div class="note" style="margin-top:16px">Your orders</div>'+orders.map(function(o){
       var paid=o.payment_status==='paid';
       return '<div class="card"><span class="tag'+(o.status==='Dispatched'?'':' warn')+'">'+esc(o.status||'—')+'</span>'
@@ -2139,7 +2185,8 @@ async function renderCustomerPortal(sess){
         +'<div class="s">'+esc(itemsLine(o)||'—')+(paid?'':' · awaiting payment')+(o.tracking_no?' · tracking '+esc(o.tracking_no):'')+'</div></div>';
     }).join(''):'')
     +'<button class="more" id="cp-staff" style="margin-top:18px">Staff sign in — switch account</button>';
-  wireShopBuy(m);
+  renderShopTabs();
+  paintShopBody();
   $('cp-fb').addEventListener('click',function(){location.href='/?fb=store';});
   /* 更高權限入口：登出這個客戶 → 原地開登入抽屜換帳號，全程不離開 /new */
   $('cp-staff').addEventListener('click',async function(){
@@ -2153,6 +2200,7 @@ async function renderCustomerPortal(sess){
    登入、登出後都重呼叫一次即可換視角（nav/chips 先復位，因為店面與門戶會藏 nav） */
 async function boot(){
   var nav=document.querySelector('nav');if(nav)nav.style.display='';
+  $('shoptabs').style.display='none';
   $('chips').innerHTML='';
   var g=await sb.auth.getSession();
   if(!(g&&g.data&&g.data.session)){
