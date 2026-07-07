@@ -11,6 +11,11 @@
 - **等老闆拍板**：staff 帳號開放（新殼角色過濾已就緒）、語音快錄/BOOKOO 秤（第三級）、wholesale/賣生豆/教學（停車場）
 - **開發環境備忘**：push 用 GitHub Desktop（終端機無 Git 認證）；無 Node，jscheck 用 osascript；本機預覽 launch.json 指向 scratchpad/serve 複本（**改完檔案要 cp 過去**）；Chrome MCP 可開 ratio-theta（老闆登入態可代跑 callSquareFn 等）；Claude Code CLI 已裝在老闆 Mac（design-login 已授權，重推設計系統用終端機 claude）
 
+## 〇、補記 — 2026-07-07 下午 session（資訊卡下載版白邊縮減）
+- **老闆反映 Print Centre 下載的 1200×1200 資訊卡四周白邊太多**（原設計左右各 217px 是給 Square Online 直式版位裁切用的安全邊）。改法：`makeSquareCard(card,opts)` 加 **tight 模式**（index.html）——四邊只留 40px、文字內縮 58px；**只有 `printCardDownload` 傳 `{tight:true}`**，Square 上架（pushToSquare）與信件卡（uploadCardFor/ordUploadCards）維持原安全白邊**完全不動**（Square 會裁兩側，改了內容會被切）。Print Centre 說明文字同步改為 tighter margins 版
+- 驗證：jscheck ✓；preview 假資料畫單品/拼配 tight 版＋原版對照截圖 ✓（雷達圖、風味橫幅、表格全正常）。⚠ 注意：杯測雷達的分數刻度是 **0–3**（`_cardRadar` 裡 `n/3`），餵測試資料別用 10 分制
+- 待 push（GitHub Desktop）→ 部署後老闆去 Print Centre 重下載一張看效果
+
 ## 〇、補記 — 2026-07-07 白天 session（搬家：記烘豆進新殼）
 - **開工檢查**：本機＝GitHub＝線上全同步（classic 726,356 / new 94,471 bytes）；Chrome MCP 實測線上 /new 三分頁全功能健康、console 零錯誤；DB 現況：無新單、3 張待收款（#0002 真單＋#0021/#0022 Dani $1 測試單——**老闆還沒回覆要不要取消清掉**）、push_subs=0（**推播還沒有任何裝置訂閱**，等老闆 iPhone 走 A2HS→Enable）
 - **記烘豆搬進新殼**（new/index.html，待 push）：老闆「繼續」授權自選 → 按建議先搬烘豆記錄。①**Tools → Make 新「Log roast」**（玫瑰框，與 New order 並列）②**烘豆需求卡主鍵改「Log roast…」**（kind:'roastlog'，ref 帶需求清單）→ 開單批記錄抽屜：需求籌碼一鍵帶入（豆名配生豆批＋kg=×1.15 換算；配不到標 no green lot (blend?)）、選豆下拉帶庫存、生豆 kg、選填熟豆產出（同額入 remaining_kg）、日期預設今天、「Roast log (optional)」收合四欄（charge/first crack/drop/duration）③存檔**照抄 classic saveRoast 三筆寫入**：roasts insert（status pending_cupping）→ beans.quantity 扣減 → stock_moves kind:'roast' 流水帳。防呆：沒選豆 toast、超量 Stock check confirm（同 classic 文案）、產出>生豆 confirm。beans 查詢補帶 country 欄

@@ -3712,7 +3712,7 @@ fill="#6F4A36" stroke="none">
       +row('invoice','Invoice','GST invoice PDF')
       +'</div>'
       +'<div class="gsec">Info card · 1200×1200 PNG</div>'
-      +'<div class="pc-wrap"><div class="pc-sub">Same card as Square and dispatch emails — use it for IG posts or print. Pick a retail coffee:</div>'
+      +'<div class="pc-wrap"><div class="pc-sub">Same design as the Square and dispatch email cards, with tighter margins for IG posts or print. Pick a retail coffee:</div>'
       +'<select id="pc-sel"><option value="">— pick a coffee —</option>'
       +(PRINT_CARDS||[]).map(function(n){return '<option value="'+esc(n)+'"'+(n===printCardSel?' selected':'')+'>'+esc(n)+'</option>';}).join('')
       +'</select>'
@@ -3779,7 +3779,7 @@ fill="#6F4A36" stroke="none">
       var r=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',name).order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1); /* G4: 鎖定的風味優先上卡 */
       var s=r&&r.data&&r.data[0];
       if(!s)throw new Error('no retail record for '+name);
-      var b64=await makeSquareCard(squareCardDataFor(s));
+      var b64=await makeSquareCard(squareCardDataFor(s),{tight:true}); /* 下載版走緊湊白邊，Square/信件版不動 */
       if(!b64)throw new Error('card render failed');
       var url=URL.createObjectURL(_b64ToBlob(b64,'image/png'));
       var a=document.createElement('a');a.href=url;a.download='card-'+ordCardSlug(name)+'.png';document.body.appendChild(a);a.click();a.remove();
@@ -7721,17 +7721,25 @@ fill="#6F4A36" stroke="none">
     g.fillStyle=color;g.fillRect(0,0,w,h);
     return c;
   }
-  async function makeSquareCard(card){
+  async function makeSquareCard(card,opts){
     try{await document.fonts.ready;}catch(e){}
     var icons=null;try{icons=await _loadCardIcons();}catch(e){}
     var W=1200,H=1200,cv=document.createElement('canvas');cv.width=W;cv.height=H;
     var x=cv.getContext('2d');
     var INK='#1E1A19',BERRY='#B25E6A';
-    /* square card with asymmetric safe margins — Square Online portrait hero
-       crops ~150px off each side, so sides get 150px margin, top/bottom 64px */
-    var CX=217,CY=64,CW=W-434,CH=H-128,CR=28;
-    /* text-safe zone: mobile portrait hero crops ~200px+ per side, so all text lives in the centre 760px */
-    var TSX=275,TEX=W-275,TW2=TEX-TSX;
+    var CX,CY,CW,CH,CR=28,TSX,TEX;
+    if(opts&&opts.tight){
+      /* tight mode（Print Centre 下載/IG 貼文用）：沒有平台裁切，四邊留窄框即可 */
+      CX=40;CY=40;CW=W-80;CH=H-80;
+      TSX=CX+58;TEX=W-CX-58;
+    }else{
+      /* square card with asymmetric safe margins — Square Online portrait hero
+         crops ~150px off each side, so sides get 150px margin, top/bottom 64px */
+      CX=217;CY=64;CW=W-434;CH=H-128;
+      /* text-safe zone: mobile portrait hero crops ~200px+ per side, so all text lives in the centre 760px */
+      TSX=275;TEX=W-275;
+    }
+    var TW2=TEX-TSX;
     x.fillStyle='#ffffff';x.fillRect(0,0,W,H);
     var band=mnHexRgb(card.color)||[73,66,58];
     var lum=.299*band[0]+.587*band[1]+.114*band[2];
