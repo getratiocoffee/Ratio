@@ -1906,13 +1906,21 @@ function attachSwipe(el,id){
 function renderQC(){
   $('hcnt').textContent=QCQ.length?QCQ.length+' waiting':'all judged';
   var m=$('main');
-  if(!QCQ.length){m.innerHTML='<div class="empty">QC queue is clear ✓</div>';$('deck').style.display='none';document.body.style.paddingBottom='';return;}
+  if(!QCQ.length){
+    m.innerHTML='<div class="empty">QC queue is clear ✓</div>'
+      +'<button class="more" id="qc-add">＋ Add a past batch</button>';
+    $('deck').style.display='none';document.body.style.paddingBottom='';
+    var a0=$('qc-add');if(a0)a0.addEventListener('click',openBackfillSheet);
+    return;
+  }
   if(selQC==null||!QCQ.find(function(q){return q.r.id===selQC;}))selQC=QCQ[0].r.id;
   m.innerHTML='<div class="note">Tap a batch to select — buttons below judge the selected one</div>'
     +QCQ.map(function(q){
       var f=(q.s.features||[]).slice(0,3).join(', ');
       return '<div class="qrow'+(q.r.id===selQC?' sel':'')+'" data-q="'+esc(q.r.id)+'"><div class="t">'+esc(q.s.sample_id||'—')+(q.s.process?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif">'+esc(q.s.process)+'</span>':'')+'</div><div class="s">'+(q.r.roast_date?'roasted '+fmtD(q.r.roast_date)+' · ':'')+esc(f||'')+'</div></div>';
-    }).join('');
+    }).join('')
+    +'<button class="more" id="qc-add">＋ Add a past batch</button>';
+  var ad=$('qc-add');if(ad)ad.addEventListener('click',openBackfillSheet);
   m.querySelectorAll('[data-q]').forEach(function(r){r.addEventListener('click',function(){selQC=r.dataset.q;renderQC();});});
   var q=QCQ.find(function(x){return String(x.r.id)===String(selQC);});
   var deck=$('deck');deck.style.display='block';
@@ -1922,6 +1930,54 @@ function renderQC(){
   $('q-p').addEventListener('click',function(){qcVerdict(q.r,'pass',null,'qc:'+q.r.id);});
   $('q-r').addEventListener('click',function(){qcVerdict(q.r,'reroast',null,'qc:'+q.r.id);});
   $('q-d').addEventListener('click',function(){qcVerdict(q.r,'downgrade',null,'qc:'+q.r.id);});
+}
+/* QC 補豆：舊烘豆補登（roasts 補一筆，不扣生豆庫存）——有杯測紀錄直接進 QC 佇列，沒有就長 Cup 卡 */
+function openBackfillSheet(){
+  var beans=(DB.beans||[]).slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
+  openDrawerHTML('<div class="t" style="font-size:19px">Add a past batch</div>'
+    +'<div class="s" style="margin-top:2px">for roasts done before logging existed — green stock is not touched</div>'
+    +'<div class="dlab">Bean</div>'
+    +'<select class="din" id="bf-bean" style="padding:12px"><option value="">— pick a bean —</option>'
+    +beans.map(function(b){return '<option value="'+esc(b.id)+'">'+esc(b.name)+(b.process?' · '+esc(b.process):'')+'</option>';}).join('')
+    +'</select>'
+    +'<div class="dlab">Not in the list? Type the name</div><input class="din" id="bf-name" placeholder="e.g. Danche">'
+    +'<div class="dlab">Roast date</div><input class="din" id="bf-date" type="date" value="'+esc(todayStr())+'">'
+    +'<div class="dlab">Roasted out (kg) · optional</div><input class="din" id="bf-out" inputmode="decimal" placeholder="—">'
+    +'<button class="act" id="bf-save">Add to QC pipeline</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  $('bf-save').addEventListener('click',saveBackfill);
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+async function saveBackfill(){
+  var sel=(DB.beans||[]).find(function(b){return String(b.id)===String($('bf-bean').value||'');})||null;
+  var typed=String($('bf-name').value||'').trim();
+  var name=typed||(sel?sel.name:'');
+  if(!name){toast('Pick a bean or type a name');return;}
+  var outRaw=String($('bf-out').value||'').trim();
+  var out=outRaw===''?null:parseFloat(outRaw);
+  if(out!=null&&(isNaN(out)||out<0)){toast('Roasted out must be a number');return;}
+  var date=$('bf-date').value||todayStr();
+  var isDup=(DB.roasts||[]).some(function(r){return (r.roast_date||'')===date&&String(r.bean_name||'').trim().toLowerCase()===name.toLowerCase();});
+  if(isDup&&!confirm('"'+name+'" already has a batch dated '+date+'. Add another?'))return;
+  var btn=$('bf-save');if(btn){btn.disabled=true;btn.textContent='Adding…';}
+  try{
+    /* 打了字＝走純名字配對（不掛 bean_id，避免名字跟選單豆對不上）；關鍵差異：green_kg null、不動 beans、不寫 stock_moves */
+    var rec={bean_id:(typed?null:(sel?sel.id:null)),bean_name:name,country:(!typed&&sel&&sel.country)?sel.country:null,
+      green_kg:null,status:'pending_cupping',roast_date:date};
+    if(out!=null&&out>0){rec.roasted_kg=out;rec.remaining_kg=out;}
+    var ins=await sb.from('roasts').insert(rec).select();
+    if(ins.error)throw new Error(ins.error.message);
+    if(ins.data&&ins.data[0])DB.roasts.unshift(ins.data[0]);
+    closeDrawer();
+    var hasCup=(DB.samples||[]).some(function(s){
+      if(rec.bean_id&&s.bean_id)return String(s.bean_id)===String(rec.bean_id);
+      return String(s.sample_id||'').trim().toLowerCase()===name.toLowerCase();});
+    toast(hasCup?'In the QC queue ✓':'Logged — a Cup card is waiting in Today');
+    buildItems();render();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Add to QC pipeline';}
+    alert('Add failed: '+(e&&e.message||e));
+  }
 }
 /* ===== Tools ===== */
 function renderTools(){
