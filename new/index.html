@@ -288,7 +288,7 @@ function buildItems(){
   });
   QCQ.forEach(function(x){
     var f=(x.s.features||[]).slice(0,3).join(', ');
-    out.push({id:'qc:'+x.r.id,st:'QC',hot:daysSince(x.r.roast_date)>2?1:0,t:'QC · '+(x.s.sample_id||'—'),
+    out.push({id:'qc:'+x.r.id,st:'QC',hot:daysSince(x.r.roast_date)>2?1:0,t:'QC · '+esc(x.s.sample_id||'—')+(x.s.process?' <span style="font-size:14px;color:var(--muted)">'+esc(x.s.process)+'</span>':''),
       s:(x.r.roast_date?'roasted '+fmtD(x.r.roast_date)+' · ':'')+esc(f||'no flavour notes'),
       act:'Pass',det:[['Roasted',fmtD(x.r.roast_date)||'—'],['Flavour',f||'—'],['Process',x.s.process||'—'],['Cupped',fmtD(x.s.cupping_date)||'—']],
       det2:'Open QC station',roles:['director','roaster'],kind:'qcpass',ref:x});
@@ -296,7 +296,9 @@ function buildItems(){
   /* 杯測快錄卡：烘了還沒杯測的批次（已判定或已在 QC 佇列的排除） */
   var inQC={};QCQ.forEach(function(x){inQC[String(x.r.id)]=1;});
   DB.roasts.filter(function(r){return r.status==='pending_cupping'&&!r.qc&&!inQC[String(r.id)];}).forEach(function(r){
-    out.push({id:'cup:'+r.id,st:'QC',hot:daysSince(r.roast_date)>2?1:0,t:'Cup · '+esc(r.bean_name||'—'),
+    var cupBean=(DB.beans||[]).find(function(b){return String(b.id)===String(r.bean_id);});
+    out.push({id:'cup:'+r.id,st:'QC',hot:daysSince(r.roast_date)>2?1:0,
+      t:'Cup · '+esc(r.bean_name||'—')+(cupBean&&cupBean.process?' <span style="font-size:14px;color:var(--muted)">'+esc(cupBean.process)+'</span>':''),
       s:(r.roast_date?'roasted '+fmtD(r.roast_date):'roast batch')+(r.green_kg?' · '+r.green_kg+' kg green in':'')+' · not cupped yet',
       act:'Cup…',det:[['Roasted',fmtD(r.roast_date)||'—'],['Green in',(r.green_kg!=null?r.green_kg:'—')+' kg'],['Next','cup it, then it lands in the QC queue']],
       det2:'Later',roles:['director','roaster'],kind:'cup',ref:r});
@@ -1011,8 +1013,24 @@ function openHelpSheet(){
 /* ===== 貨架清單（在賣的豆：價格規格/售罄/鎖風味/烘焙新鮮度＋待上架佇列；唯讀）===== */
 /* 新鮮度規則（老闆定，2026-07-07）：<14 天紅（還在養豆）、14–28 天綠（最佳）、>28 天黃（老化）；>60 天晨報推警示 */
 var SHELF_FRESH_REST=14, SHELF_FRESH_PRIME=28, SHELF_STALE_DAYS=60;
+/* 上架代表樣品：鎖定的優先（同名多處理法時＝實際在賣的那個處理法，例如三個 Danche） */
+function shelfSampleFor(nm){
+  var k=String(nm||'').trim().toLowerCase();
+  var pool=(DB.samples||[]).filter(function(s){return String(s.sample_id||'').trim().toLowerCase()===k;});
+  return pool.find(function(s){return s.flavour_locked;})||pool[0]||null;
+}
 function shelfLatestRoast(nm){
-  var k=String(nm||'').trim().toLowerCase(),best=null;
+  var best=null;
+  /* 先照上架樣品的 bean_id 找同一支生豆批的烘豆（同名不同處理法不再互相污染） */
+  var s=shelfSampleFor(nm);
+  if(s&&s.bean_id){
+    (DB.roasts||[]).forEach(function(r){
+      if(String(r.bean_id||'')!==String(s.bean_id)||!r.roast_date)return;
+      if(!best||r.roast_date>best)best=r.roast_date;
+    });
+    if(best)return best;
+  }
+  var k=String(nm||'').trim().toLowerCase();
   (DB.roasts||[]).forEach(function(r){
     if(String(r.bean_name||'').trim().toLowerCase()!==k||!r.roast_date)return;
     if(!best||r.roast_date>best)best=r.roast_date;
@@ -1035,11 +1053,6 @@ async function openRetailSheet(){
     (r.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
       if(v&&typeof v==='object')m[x.key]=v;});
   }catch(e){}
-  function lockedFor(nm){
-    var k=String(nm||'').trim().toLowerCase();
-    var s=(DB.samples||[]).find(function(x){return String(x.sample_id||'').trim().toLowerCase()===k;});
-    return !!(s&&s.flavour_locked);
-  }
   var live=(DB.syncs||[]).filter(function(x){return x.status==='synced'&&String(x.bean_id||'').trim();})
     .sort(function(a,b){return String(a.bean_id).localeCompare(String(b.bean_id));});
   var soldN=0;
@@ -1049,7 +1062,10 @@ async function openRetailSheet(){
     var sold=!!m.rtl_sold[nm];if(sold)soldN++;
     var priceStr=price!=null?(g+'g '+money(price)+(sc.g500?' · 500g '+money(sc.g500):'')+(sc.g1000?' · 1kg '+money(sc.g1000):'')):'<span class="red">no price recorded</span>';
     var fr=shelfFreshness(nm);
-    return '<div class="dl" style="align-items:center"><span><b>'+esc(nm)+'</b>'+(lockedFor(nm)?'':' <span style="color:var(--muted);font-size:12px">unlocked</span>')
+    var rep=shelfSampleFor(nm);
+    return '<div class="dl" style="align-items:center"><span><b>'+esc(nm)+'</b>'
+      +(rep&&rep.process?' <span style="color:var(--muted);font-size:12px">'+esc(rep.process)+'</span>':'')
+      +((rep&&rep.flavour_locked)?'':' <span style="color:var(--muted);font-size:12px">unlocked</span>')
       +'<br><span style="color:var(--muted);font-size:13px">'+priceStr+'</span>'
       +'<br><span class="'+fr.cls+'" style="font-size:13px'+(fr.cls?'':';color:var(--muted)')+'">'+esc(fr.txt)+'</span></span>'
       +'<span'+(sold?' class="red"':'')+'>'+(sold?'Sold out':'On sale')+'</span></div>';
@@ -1842,12 +1858,12 @@ function renderQC(){
   m.innerHTML='<div class="note">Tap a batch to select — buttons below judge the selected one</div>'
     +QCQ.map(function(q){
       var f=(q.s.features||[]).slice(0,3).join(', ');
-      return '<div class="qrow'+(q.r.id===selQC?' sel':'')+'" data-q="'+esc(q.r.id)+'"><div class="t">'+esc(q.s.sample_id||'—')+'</div><div class="s">'+(q.r.roast_date?'roasted '+fmtD(q.r.roast_date)+' · ':'')+esc(f||'')+'</div></div>';
+      return '<div class="qrow'+(q.r.id===selQC?' sel':'')+'" data-q="'+esc(q.r.id)+'"><div class="t">'+esc(q.s.sample_id||'—')+(q.s.process?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif">'+esc(q.s.process)+'</span>':'')+'</div><div class="s">'+(q.r.roast_date?'roasted '+fmtD(q.r.roast_date)+' · ':'')+esc(f||'')+'</div></div>';
     }).join('');
   m.querySelectorAll('[data-q]').forEach(function(r){r.addEventListener('click',function(){selQC=r.dataset.q;renderQC();});});
   var q=QCQ.find(function(x){return String(x.r.id)===String(selQC);});
   var deck=$('deck');deck.style.display='block';
-  deck.innerHTML='<div class="who">judging <b>'+esc(q.s.sample_id||'—')+'</b></div>'
+  deck.innerHTML='<div class="who">judging <b>'+esc(q.s.sample_id||'—')+(q.s.process?' · '+esc(q.s.process):'')+'</b></div>'
     +'<div class="deck-btns"><button class="big" id="q-p">Pass</button>'
     +'<div class="pair"><button class="rr" id="q-r">Re-roast</button><button class="dn" id="q-d">Down</button></div></div>';
   $('q-p').addEventListener('click',function(){qcVerdict(q.r,'pass',null,'qc:'+q.r.id);});
