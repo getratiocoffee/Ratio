@@ -299,7 +299,8 @@ function buildItems(){
     s:(rosterNames?'On: '+esc(rosterNames)+(briefBits.length?' · ':''):'')+(briefBits.length?briefBits.join(' · '):(rosterNames?'':'all clear')),act:'Got it',
     det:[['On shift',rosterLine||'no one rostered']].concat([['To accept',String(newQ.length)],['To pack',String(packQ.length)],['To ship',String(shipQ.length)],['QC waiting',String(QCQ.length)],['Dial-in stale',String(stale.length)],['Beans low',String(low.length)],['Open tasks',String(DB.tasks.length)]]),
     roles:['director','roaster','retail','staff'],kind:'dismiss'});
-  /* 烘豆需求卡：Confirmed/Roasting 品項同名合併，生豆 ×1.15（烘豆師視角的今日任務） */
+  /* 烘豆需求卡：Confirmed/Roasting 品項同名合併，**先看熟豆貨架只提差額**（老闆的生產線：接單→看熟豆庫存→沒貨才烘）；
+     貨架＝roasts.remaining_kg 同名加總（QC 打槍的 reroast/downgrade 批不算可賣）；全夠貨＝不出卡 */
   var dem={},demOrder=[];
   packQ.forEach(function(o){(Array.isArray(o.items)?o.items:[]).forEach(function(it){
     var nm=String(it.name||'').trim();if(!nm)return;
@@ -308,14 +309,29 @@ function buildItems(){
     if(!dem[k]){dem[k]={name:nm,g:0};demOrder.push(k);}
     dem[k].g+=g;});});
   if(demOrder.length){
-    demOrder.sort(function(a,b){return dem[b].g-dem[a].g;});
-    var totG=0;demOrder.forEach(function(k){totG+=dem[k].g;});
-    out.push({id:'roastdem',st:'Roast',hot:1,t:'Roast for orders — ~'+Math.round(totG*1.15)+'g green',
-      s:demOrder.slice(0,3).map(function(k){return esc(dem[k].name)+' '+dem[k].g+'g';}).join(' · ')+(demOrder.length>3?' · +'+(demOrder.length-3)+' more':''),
-      act:'Log roast…',
-      det:demOrder.map(function(k){return [dem[k].name,dem[k].g+'g roast · ~'+Math.round(dem[k].g*1.15)+'g green'];}).concat([['Total',totG+'g roast · ~'+Math.round(totG*1.15)+'g green']]),
-      det2:'Open classic app',roles:['director','roaster'],kind:'roastlog',
-      ref:demOrder.map(function(k){return {name:dem[k].name,g:dem[k].g};})});
+    var shelfG=function(name){
+      var k=String(name||'').trim().toLowerCase(),s=0;
+      (DB.roasts||[]).forEach(function(r){
+        if(r.qc==='reroast'||r.qc==='downgrade')return;
+        if(Number(r.remaining_kg)>0&&String(r.bean_name||'').trim().toLowerCase()===k)s+=Number(r.remaining_kg);
+      });
+      return Math.round(s*1000);
+    };
+    var needs=[],covered=0,detRows=[],totNeed=0;
+    demOrder.forEach(function(k){
+      var d=dem[k],have=shelfG(d.name),need=Math.max(0,d.g-have);
+      if(need>0){needs.push({name:d.name,g:need});totNeed+=need;detRows.push([d.name,d.g+'g ordered · '+have+'g on shelf → roast '+need+'g']);}
+      else{covered++;detRows.push([d.name,d.g+'g ordered · '+have+'g on shelf → covered ✓']);}
+    });
+    if(needs.length){
+      needs.sort(function(a,b){return b.g-a.g;});
+      out.push({id:'roastdem',st:'Roast',hot:1,t:'Roast for orders — ~'+Math.round(totNeed*1.15)+'g green',
+        s:needs.slice(0,3).map(function(n){return esc(n.name)+' '+n.g+'g';}).join(' · ')+(needs.length>3?' · +'+(needs.length-3)+' more':'')+(covered?' · '+covered+' covered by shelf':''),
+        act:'Log roast…',
+        det:detRows.concat([['Total','roast '+totNeed+'g · ~'+Math.round(totNeed*1.15)+'g green']]),
+        det2:'Open classic app',roles:['director','roaster'],kind:'roastlog',
+        ref:needs.map(function(n){return {name:n.name,g:n.g};})});
+    }
   }
   newQ.forEach(function(o){
     var c=custById(o.customer_id);
