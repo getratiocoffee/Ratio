@@ -1935,6 +1935,8 @@ async function enablePush(btn){
 if('serviceWorker' in navigator){try{navigator.serviceWorker.register('/new/sw.js');}catch(e){}}
 function render(){
   renderChips();
+  /* 浮水印只給今日流：內容少的頁（QC/Tools）整塊露出來像破圖 */
+  var bgl=document.querySelector('.bglogo');if(bgl)bgl.style.display=(view==='feed')?'':'none';
   if(view==='feed')renderFeed();else if(view==='qc')renderQC();else renderTools();
   $('nav-feed').classList.toggle('on',view==='feed');
   $('nav-qc').classList.toggle('on',view==='qc');
