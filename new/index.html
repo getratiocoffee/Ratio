@@ -29,12 +29,21 @@ header .brand{font-family:'Fraunces',serif;font-size:21px;font-weight:700}
 header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 .wrap{padding:14px 22px 0;max-width:520px;margin:0 auto}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px;transition:transform .25s,opacity .25s;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+/* Today 流卡片 v2（老闆 manager 視角評審）：類別色條＋右上角分類＋小膠囊鈕；.feed 限定不波及商店卡 */
+.card.feed{position:relative;border-left:4px solid var(--line);padding:14px 16px;margin-bottom:10px}
+.cattag{position:absolute;top:13px;right:14px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.actsm{border:none;border-radius:999px;padding:12px 22px;font-size:15px;font-weight:700;font-family:'Inter',sans-serif;background:var(--accent);color:#fff;cursor:pointer}
+.cfoot{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.moresm{background:none;border:none;font-size:13.5px;color:var(--muted);padding:8px 0;font-family:inherit;cursor:pointer}
+.s1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card.brief{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .card.brief .t{color:var(--inv-t)}
 .card.brief .s{color:var(--inv-t);opacity:.72}
 .card.brief .tag{color:var(--inv-t);opacity:.65}
 .card.brief .more{color:var(--inv-t);opacity:.55}
-.card.hot{border:2px solid var(--accent)}
+/* 急件不再整圈紅框：左色條變 accent（renderFeed inline）＋右上角「· now」 */
+.card.brief .cattag{color:var(--inv-t);opacity:.65}
+.card.brief .moresm{color:var(--inv-t);opacity:.55}
 .card.gone{transform:translateX(70%);opacity:0}
 .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:7px;color:var(--muted)}
 .tag.warn{color:var(--accent)}
@@ -396,6 +405,8 @@ function buildItems(){
   });
   ITEMS=out.filter(function(i){return !sn[i.id];});
 }
+/* 類別色表：低飽和塵彩配紙白玫瑰；色條＋右上角分類＋chips 色點共用 */
+var STCOLOR={Orders:'#B25E6A',QC:'#5B7DB1',Roast:'#A87436',Money:'#6E8B4E',Shelf:'#8A6FA8',Bar:'#4E8B83',Green:'#7A8450',Tasks:'#8A837C',Customers:'#C07A5B'};
 var CTXS=[
 {id:'morning',label:'Morning sort — bar first',pr:{Bar:1,Orders:2,Roast:3,QC:4,Money:5,Green:6,Tasks:7,Customers:8}},
 {id:'day',label:'Daytime sort — orders first',pr:{Orders:1,Roast:2,QC:3,Bar:4,Money:5,Green:6,Tasks:7,Customers:8}},
@@ -417,7 +428,7 @@ function renderChips(){
   var r=myRole(),sts={},tot=0;
   ITEMS.forEach(function(i){if(!i.pin&&i.roles.indexOf(r)>-1){sts[i.st]=(sts[i.st]||0)+1;tot++;}});
   var h='<button class="chip'+(filter==='all'?' on':'')+'" data-f="all">All '+tot+'</button>';
-  Object.keys(sts).forEach(function(k){h+='<button class="chip'+(filter===k?' on':'')+'" data-f="'+k+'">'+k+' '+sts[k]+'</button>';});
+  Object.keys(sts).forEach(function(k){h+='<button class="chip'+(filter===k?' on':'')+'" data-f="'+k+'"><span style="color:'+(STCOLOR[k]||'#8A837C')+'">●</span> '+k+' '+sts[k]+'</button>';});
   el.innerHTML=h;
   el.querySelectorAll('.chip').forEach(function(c){c.addEventListener('click',function(){filter=c.dataset.f;render();});});
 }
@@ -429,11 +440,16 @@ function renderFeed(){
   if(!list.length){m.innerHTML='<div class="empty">All clear — nothing needs you right now ☕<br><a href="'+CLASSIC+'" style="color:var(--accent)">Open the classic app</a></div>';return;}
   m.innerHTML='<div class="note" id="ctxline">'+CTXS[ctxIdx].label+' · swipe right = do · left = later</div>'
     +list.map(function(i){
-      return '<div class="card'+(i.hot?' hot':'')+(i.pin?' brief':'')+'" id="c-'+esc(i.id)+'">'
-        +'<span class="tag'+(i.hot?' warn':'')+'">'+esc(i.st)+'</span>'
-        +'<div class="t">'+i.t+'</div><div class="s">'+i.s+'</div>'
-        +'<button class="act" data-do="'+esc(i.id)+'">'+esc(i.act)+'</button>'
-        +'<button class="more" data-more="'+esc(i.id)+'">details ▾</button></div>';
+      var cc=STCOLOR[i.st]||'#8A837C';
+      /* 左色條：急件 accent 紅、晨報反白卡隱形（同 inv 底色）、其餘照類別色 */
+      var bar=i.pin?'var(--inv)':(i.hot?'var(--accent)':cc);
+      return '<div class="card feed'+(i.hot?' hot':'')+(i.pin?' brief':'')+'" style="border-left-color:'+bar+'" id="c-'+esc(i.id)+'">'
+        +'<span class="cattag"'+(i.pin?'':' style="color:'+cc+'"')+'>● '+esc(i.st)+(i.hot?' <span style="color:var(--accent)">· now</span>':'')+'</span>'
+        +'<div class="t" style="padding-right:92px">'+i.t+'</div><div class="s s1">'+i.s+'</div>'
+        +'<div class="cfoot">'
+        +'<button class="moresm" data-more="'+esc(i.id)+'">details ▾</button>'
+        +'<button class="actsm" data-do="'+esc(i.id)+'">'+esc(i.act)+'</button>'
+        +'</div></div>';
     }).join('')
     +(SNOOZED_SESSION?'<button class="more" id="unsnooze">'+SNOOZED_SESSION+' snoozed until tomorrow · undo</button>':'');
   var un=$('unsnooze');if(un)un.addEventListener('click',undoSnooze);
@@ -559,7 +575,7 @@ function closeDrawer(){$('drawer').classList.remove('show');$('dbg').classList.r
 $('dbg').addEventListener('click',closeDrawer);
 function openDetails(id){
   var i=item(id);if(!i)return;
-  openDrawerHTML('<span class="tag'+(i.hot?' warn':'')+'">'+esc(i.st)+'</span><div class="t" style="font-size:19px">'+i.t+'</div>'
+  openDrawerHTML('<span class="tag" style="color:'+(STCOLOR[i.st]||'var(--muted)')+'">● '+esc(i.st)+(i.hot?' <span style="color:var(--accent)">· now</span>':'')+'</span><div class="t" style="font-size:19px">'+i.t+'</div>'
     +'<div style="margin-top:10px">'+i.det.map(function(r){return '<div class="dl"><span>'+esc(r[0])+'</span><span>'+esc(r[1])+'</span></div>';}).join('')+'</div>'
     +'<button class="act" id="d-main">'+esc(i.act)+'</button>'
     +(i.det2?'<button class="dclose" id="d-sec">'+esc(i.det2)+'</button>':'')
