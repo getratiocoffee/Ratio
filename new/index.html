@@ -2049,8 +2049,10 @@ function cartTotal(){return cartGet().reduce(function(a,x){return a+(x.qty||1)*(
 function paintCartBar(){
   var el=$('cartbar');if(!el)return;
   var n=cartCount();
-  if(!n||!$('shopbody')){el.style.display='none';return;}
+  if(!n||!$('shopbody')){el.style.display='none';document.body.style.paddingBottom='';return;}
   el.style.display='flex';
+  /* 浮條出現＝頁底多墊 80px，捲到底時 Add to cart 完整露在浮條上方（老闆真機回報被蓋住） */
+  document.body.style.paddingBottom='250px';
   /* tabs 藏起來（只剩一類）時浮條貼底 */
   el.style.bottom=($('shoptabs').style.display==='flex')?'':'calc(env(safe-area-inset-bottom,0px) + 16px)';
   el.innerHTML='<span>'+n+' item'+(n>1?'s':'')+' · '+money(cartTotal())+'</span><span>View cart →</span>';
@@ -2186,12 +2188,13 @@ function shopCardsHTML(beans){
       +'<span class="t" style="font-size:22px">'+esc(b.name)+'</span>'
       +(s0.price!=null?'<span class="t shopprice" style="font-size:19px;white-space:nowrap">$'+Number(s0.price).toFixed(0)+'<span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif"> /'+esc(s0.label||((b.grams||250)+'g'))+'</span></span>':'')
       +'</div>'
-      +'<div class="dl" data-shopdetail style="margin-top:8px;cursor:pointer"><span>Details & brew guide</span><span style="text-align:right;color:var(--muted)">→</span></div>'
       +sizeSeg
       +'<div class="no-line" style="margin-top:12px;align-items:center">'
       +'<span class="qty"><button data-shopq="-1">−</button><span class="shopqty">1</span><button data-shopq="1">＋</button></span>'
       +'<button class="act" data-addcart style="flex:1;margin-top:0">Add to cart'+(s0.price!=null?' · $'+Number(s0.price).toFixed(0):'')+'</button>'
       +'</div>'
+      /* Details 放購買列之後：浮動購物車條蓋到的是次要資訊，不是消費動線 */
+      +'<div class="dl" data-shopdetail style="margin-top:10px;cursor:pointer;border-bottom:none"><span>Details & brew guide</span><span style="text-align:right;color:var(--muted)">→</span></div>'
       +'</div></div>';
   }).join('');
 }
