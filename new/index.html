@@ -2626,6 +2626,1065 @@ function loadScriptOnce(url){
   });
   return _loadedScripts[url];
 }
+
+
+/* ===== Menus（四種菜單 PDF，移植自 classic）=====
+   版面繪製函式【逐字拷貝】自 classic（jsPDF 同引擎＝版面照舊）；
+   資料層接新殼：BEANS/ROASTS/RETAIL_BEANS 轉接 DB.*，設定存 app_state（與 classic 同鑰匙互通） */
+var BEANS=[],ROASTS=[],RETAIL_BEANS=[];
+var MENU_SLOTS=['','','',''],SPECIAL_PICK=[],SPECIAL_PRICES={},TAKEAWAY=null,DINEIN=null;
+var MENUS_DATA={blends:[],grams:{},dots:{},loaded:false};
+function loadBlendDefs(){return MENUS_DATA.blends;}
+function blendNames(){return loadBlendDefs().map(function(b){return (b.name||'').trim();}).filter(Boolean);}
+function readyBlendNames(){return loadBlendDefs().filter(blendReady).map(function(b){return (b.name||'').trim();});}
+function blendDefByName(name){var n=String(name||'').trim().toLowerCase();if(!n)return null;return loadBlendDefs().filter(function(b){return String(b.name||'').trim().toLowerCase()===n;})[0]||null;}
+function loadGrams(){return MENUS_DATA.grams;}
+function loadDots(){return MENUS_DATA.dots;}
+function normDinein(o){
+  var d=diClone(DINEIN_DEFAULT);
+  if(!o||typeof o!=='object')return d;
+  if(Array.isArray(o.blends))o.blends.forEach(function(b,i){if(d.blends[i]&&b)for(var k in d.blends[i])if(b[k]!=null)d.blends[i][k]=b[k];});
+  if(o.prices)for(var k2 in d.prices)if(o.prices[k2]!=null)d.prices[k2]=o.prices[k2];
+  DINEIN_TXTKEYS.forEach(function(k){if(o[k]!=null)d[k]=o[k];});
+  if(Array.isArray(o.pours))o.pours.forEach(function(p,i){if(d.pours[i]&&p)for(var k in d.pours[i])if(p[k]!=null)d.pours[i][k]=p[k];});
+  return d;
+}
+async function menusEnsureData(force){
+  BEANS=DB.beans||[];ROASTS=DB.roasts||[];
+  var seen={};RETAIL_BEANS=[];
+  (DB.samples||[]).forEach(function(s){var k=(sampleDisp(s)||'').toLowerCase();if(!k||seen[k])return;seen[k]=1;RETAIL_BEANS.push(s);});
+  if(MENUS_DATA.loaded&&!force)return;
+  try{var b=await sb.from('blends').select('id,name,hname,parts,note,comment,brew').order('pos',{ascending:true});
+    MENUS_DATA.blends=(b.data||[]).map(function(x){return {id:x.id,name:x.name||'',hname:x.hname||'',parts:Array.isArray(x.parts)?x.parts:[],note:x.note||'',comment:x.comment||'',brew:(x.brew&&typeof x.brew==='object')?x.brew:{}};});}catch(e){}
+  try{
+    var r=await sb.from('app_state').select('key,value').in('key',['menu_slots','special_slots','special_prices','takeaway','dinein','rtl_g','rtl_dot']);
+    var m={};(r.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}m[x.key]=v;});
+    if(Array.isArray(m.menu_slots)&&m.menu_slots.length===4)MENU_SLOTS=m.menu_slots.map(function(x){return String(x||'');});
+    if(Array.isArray(m.special_slots))SPECIAL_PICK=m.special_slots.map(function(x){return String(x||'').trim();}).filter(Boolean);
+    if(m.special_prices&&typeof m.special_prices==='object'&&!Array.isArray(m.special_prices))SPECIAL_PRICES=m.special_prices;
+    if(Array.isArray(m.takeaway)&&m.takeaway.length===4)TAKEAWAY=m.takeaway.map(function(o){o=o||{};return {bean:o.bean||'',name:o.name||'',origin:o.origin||'',flavour:o.flavour||'',hot:o.hot||'',cold:o.cold||''};});
+    DINEIN=normDinein(m.dinein);
+    if(m.rtl_g&&typeof m.rtl_g==='object')MENUS_DATA.grams=m.rtl_g;
+    if(m.rtl_dot&&typeof m.rtl_dot==='object')MENUS_DATA.dots=m.rtl_dot;
+  }catch(e){}
+  if(!TAKEAWAY)TAKEAWAY=TAKEAWAY_DEFAULT.map(function(o){var n={};for(var k in o)n[k]=o[k];return n;});
+  if(!DINEIN)DINEIN=diClone(DINEIN_DEFAULT);
+  MENUS_DATA.loaded=true;
+}
+async function menusSave(key,val){try{await sb.from('app_state').upsert({key:key,value:val,updated_at:new Date().toISOString()},{onConflict:'key'});}catch(e){}}
+function saveMenuSlots(){menusSave('menu_slots',MENU_SLOTS);}
+function saveSpecialPick(){menusSave('special_slots',SPECIAL_PICK);}
+function saveSpecialPrices(){menusSave('special_prices',SPECIAL_PRICES);}
+function saveTakeaway(){menusSave('takeaway',TAKEAWAY);}
+function saveDinein(){menusSave('dinein',DINEIN);}
+
+  var TAKEAWAY_DEFAULT=[
+    {bean:'',name:'Danche vol.2',     origin:'Anaerobic Washed',  flavour:'Peach, Grapes, Bergamont',       hot:'10', cold:'11'},
+    {bean:'',name:'Alo Bona Village', origin:'Classic Natural',   flavour:'Floral, Mango, Berry',           hot:'10', cold:'11'},
+    {bean:'',name:'El Vergel',        origin:'Washed',            flavour:'Floral, Melon, Honey',           hot:'10', cold:'11'},
+    {bean:'',name:'Alo Village',      origin:'Cold Fermentation', flavour:'Winy, Grape Candy, Dried Fruit', hot:'15', cold:'16'}
+  ];
+  var DINEIN_DEFAULT={
+    blends:[
+      {bl:'',name:'DARK KNIGHT V4.0', sub:'complex flavour', notes:'Plum, Pecan, Chocolate', highlight:false},
+      {bl:'',name:'DANCER V3.0',      sub:'smooth flavour',  notes:'Floral, Berry, Nougat',  highlight:false}
+    ],
+    prices:{espresso:'5',small:'5',large:'6',fresh:'6',ice:'7',cold:'7',dirty:'9',altmilk:'50 cents',decaf:'1 dollar'},
+    dirtySub:'blend-based',
+    dirtyDesc:'Freeze-distilled milk topped with chilled espresso — a pudding-like cold drink.',
+    freshNote:'(Dark Knight V4.0 or Dancer V3.0 only)',
+    coldNote:'(Barista choice of the day)',
+    pours:[
+      {bean:'',name:'Danche Anaerobic Washed',       origin:'Anaerobic Washed',  flavour:'Peach, Grapes, Bergamot',        hot:'10', cold:'11', highlight:false, color:''},
+      {bean:'',name:'Gatitu AA',                     origin:'Washed',            flavour:'Plum, Blackberry, Toffee',       hot:'10', cold:'11', highlight:false, color:''},
+      {bean:'',name:'Alo Village White Honey',       origin:'White Honey',       flavour:'Bergamot, Stone Fruit, Longan',  hot:'15', cold:'16', highlight:false, color:''},
+      {bean:'',name:'Alo Village Cold Fermentation', origin:'Cold Fermentation', flavour:'Winey, Grape Candy, Dried Fruit', hot:'15', cold:'16', highlight:false, color:''}
+    ]
+  };
+  var DINEIN_TXTKEYS=['dirtySub','dirtyDesc','freshNote','coldNote'];
+  function sampleDisp(s){if(!s)return '';var n=(s.sample_id||'').trim();var p=(s.process||'').trim();return p?(n+' \u00b7 '+p):n;}
+  function beanById(id){if(!id)return null;return (BEANS||[]).find(function(b){return String(b.id)===String(id);})||null;}
+  function beanByNameProcess(name,process){
+    var nk=String(name||'').trim().toLowerCase();if(!nk)return null;
+    var pk=String(process||'').trim().toLowerCase();
+    var pool=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===nk;});
+    if(!pool.length)return null;
+    if(pk){var exact=pool.filter(function(x){return (x.process||'').trim().toLowerCase()===pk;})[0];if(exact)return exact;}
+    return pool[0];
+  }
+  function beanForSample(s){
+    if(!s)return null;
+    var b=s.bean_id?beanById(s.bean_id):null;
+    if(b)return b;
+    return beanByNameProcess((s.sample_id||''),(s.process||''))||null;
+  }
+  function retailByDisp(v){
+    v=String(v||'').trim().toLowerCase();if(!v)return null;
+    var hit=(RETAIL_BEANS||[]).filter(function(x){return sampleDisp(x).trim().toLowerCase()===v;})[0];
+    if(hit)return hit;
+    return (RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===v;})[0]||null;
+  }
+  function roastDateForSample(s){
+    if(!s)return null;
+    if(s.roast_date)return s.roast_date;
+    var rd=null;
+    if(s.bean_id){
+      (ROASTS||[]).forEach(function(r){if(rd==null&&r.bean_id&&String(r.bean_id)===String(s.bean_id))rd=r.roast_date||null;});
+      if(rd!=null)return rd;
+    }
+    (ROASTS||[]).forEach(function(r){if(rd==null&&(r.bean_name||'')===(s.sample_id||''))rd=r.roast_date||null;});
+    return rd;
+  }
+  function beanProcessFor(name){
+    var key=String(name||'').trim().toLowerCase();if(!key)return '';
+    var s=(RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===key;})[0];
+    if(s&&s.process)return s.process;
+    var b=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===key;})[0];
+    if(b&&b.process)return b.process;
+    return '';
+  }
+  function beanColorFor(name){
+    name=String(name||'').trim();if(!name)return '';
+    try{
+      var dm=loadDots();
+      var dotKey='';
+      if(dm[name])dotKey=dm[name];
+      if(!dotKey){
+        var lk=name.toLowerCase();
+        Object.keys(dm).forEach(function(k){if(!dotKey&&String(k).trim().toLowerCase()===lk)dotKey=dm[k];});
+      }
+      if(!dotKey){
+        var lk2=name.toLowerCase();
+        Object.keys(dm).forEach(function(k){
+          if(dotKey)return;
+          var kk=String(k).trim().toLowerCase();
+          if(kk&&(kk.indexOf(lk2)===0||lk2.indexOf(kk)===0))dotKey=dm[k];
+        });
+      }
+      return (dotKey&&RTL_DOTCOL[dotKey])||'';
+    }catch(e){return '';}
+  }
+  function blendTotal(bl){return bl.parts.reduce(function(s,p){var v=parseFloat(p.pct);return s+(isNaN(v)?0:v);},0);}
+  function blendReady(def){
+    if(!def||!(def.name||'').trim())return false;
+    var parts=def.parts||[];var filled=0;
+    for(var i=0;i<parts.length;i++){
+      var hasBean=!!String(parts[i].bean||'').trim();
+      var hasPct=String(parts[i].pct||'').trim()!=='';
+      if(hasBean!==hasPct)return false; /* partial part = not filled */
+      if(hasBean)filled++;
+    }
+    if(!filled)return false;
+    return blendTotal(def)===100;
+  }
+  function soReadyDM(base){
+    if(!base)return {d:'',m:''};
+    var bd=new Date(base+'T00:00:00');bd.setDate(bd.getDate()+21);
+    return {d:('0'+bd.getDate()).slice(-2),m:('0'+(bd.getMonth()+1)).slice(-2)};
+  }
+  function strLabel(v){return v>=3?'Strong':(v===2?'Medium':(v===1?'Light':''));}
+  function mnFit(doc,text,x,yy,maxW,base,min,align){
+    text=mnAsc(text);var s=base;doc.setFontSize(s);
+    while(s>min&&doc.getTextWidth(text)>maxW){s-=0.5;doc.setFontSize(s);}
+    doc.text(text,x,yy,align?{align:align}:undefined);
+    return s;
+  }
+  function strThumbPos(v){return ((2*v-1)/6*100).toFixed(2)+'%';}
+  function mnAsc(t){return String(t==null?'':t).replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...');}
+  function specialAllBeans(){
+    var seen={},out=[];
+    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;seen[k]=true;out.push(nm);});
+    return out;
+  }
+  function retailOnlyBeanList(){
+    var seen={},out=[];
+    var src=(RETAIL_BEANS||[]);  /* 移植：新殼沒有 RTL_ROWS，直接用 RETAIL_BEANS */
+    src.forEach(function(s){
+      var nm=(s.sample_id||'').trim();if(!nm)return;
+      var isBlend=false;try{isBlend=!!blendDefByName(nm);}catch(e){}
+      if(isBlend)return;
+      var disp=sampleDisp(s);var k=disp.toLowerCase();if(seen[k])return;
+      seen[k]=true;out.push(disp);
+    });
+    return out;
+  }
+  function takeawayOptionList(){
+    var seen={},out=[],blendSet={};
+    try{blendNames().forEach(function(n){blendSet[String(n).trim().toLowerCase()]=true;});}catch(e){}
+    (BEANS||[]).forEach(function(b){var nm=(b.name||'').trim();var k=nm.toLowerCase();if(!nm||seen[k]||blendSet[k])return;seen[k]=true;out.push(nm);});
+    (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k]||blendSet[k])return;seen[k]=true;out.push(nm);});
+    return out;
+  }
+  function takeawayAutofill(name){
+    name=String(name||'').trim();var key=name.toLowerCase();
+    var b=(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===key;})[0]||null;
+    var origin=b?String(b.process||'').trim():'';
+    if(!origin){var proc=beanProcessFor(name);origin=proc?String(proc).trim():'';}
+    var s=(RETAIL_BEANS||[]).filter(function(x){return (x.sample_id||'').trim().toLowerCase()===key;})[0]||null;
+    var flav=s?(s.features||[]).filter(Boolean).slice(0,3).join(', '):'';
+    return {name:name, origin:origin, flavour:flav};
+  }
+  function tkBlank(){return {bean:'',name:'',origin:'',flavour:'',hot:'',cold:''};}
+  function diClone(o){return JSON.parse(JSON.stringify(o));}
+  function dineinBlendAutofill(name){
+    var info=menuInfoFor(name);
+    return {name:String(name||'').trim(), notes:(info.flavour||[]).slice(0,3).join(', ')};
+  }
+  function specialPriceFor(name){var o=SPECIAL_PRICES[name];return {combo:(o&&o.combo)||'',hot:(o&&o.hot)||'',cold:(o&&o.cold)||'',dirty:(o&&o.dirty)||''};}
+  function menuInfoFor(name){
+    name=String(name||'').trim();
+    if(!name)return {name:'',flavour:[],recipe:[],strength:[],ready:'',net:'',comment:'',color:''};
+    var def=blendDefByName(name);
+    var s=retailByDisp(name);
+    /* picker value may be "Name · Process"; grams/dot maps are keyed by plain bean name */
+    var plain=(s?(s.sample_id||name):name).trim();
+    var key=plain.toLowerCase();
+    var feats=s?(s.features||[]).filter(Boolean):[];
+    var parts=def?(def.parts||[]).filter(function(p){return (p.bean||'').trim();}):[];
+    var recipe=parts.map(function(p){
+      var bn=(p.bean||'').trim();
+      var bb=beanByNameProcess(bn,p.process||'');
+      return {bean:bn, pct:((p.pct===0||p.pct)?String(p.pct):''),
+        country:bb?(bb.country||''):'', region:bb?(bb.region||''):'',
+        process:(p.process||'').trim()||(bb?(bb.process||''):''), variety:bb?(bb.variety||''):'',
+        altitude:(bb&&bb.altitude!=null&&bb.altitude!=='')?String(bb.altitude):''};
+    });
+    var rd=s?roastDateForSample(s):null;
+    if(rd==null){(ROASTS||[]).forEach(function(r){if(rd==null&&(r.bean_name||'')===plain)rd=r.roast_date||null;});}
+    var dm=soReadyDM(rd||(s&&s.cupping_date)||'');
+    var ready=(dm.d&&dm.m)?(dm.d+'/'+dm.m):'';
+    var g=loadGrams()[plain];
+    var cmt=(def&&(def.comment||'').trim())||(s&&s.comment)||'';
+    var SMAP={fragrance:'Aroma',acidity:'Acidity',sweetness:'Sweetness',body:'Body',aftertaste:'Aftertaste'};
+    var strength=[['fragrance',s&&s.fragrance],['acidity',s&&s.acidity],['sweetness',s&&s.sweetness],['body',s&&s.body],['aftertaste',s&&s.aftertaste]]
+      .filter(function(x){return x[1]!=null;})
+      .map(function(x){return {label:SMAP[x[0]],val:strLabel(x[1]),n:x[1]};})
+      .filter(function(o){return !!o.val;});
+    /* fixed 5-axis order for the cupping-strength radar chart — light(inner) to strong(outer); full words, same as SMAP */
+    var cupScores=['fragrance','acidity','sweetness','body','aftertaste'].map(function(k){
+      return {key:k,label:SMAP[k],n:(s&&s[k]!=null)?s[k]:null};
+    });
+    var dotKey='';try{var dm=loadDots();if(dm[plain])dotKey=dm[plain];else{var lk=key;Object.keys(dm).forEach(function(k){if(!dotKey&&String(k).trim().toLowerCase()===lk)dotKey=dm[k];});}}catch(e){}
+    var color=(dotKey&&RTL_DOTCOL[dotKey])||'';
+    var selfB=(s?beanForSample(s):null)||(BEANS||[]).filter(function(x){return (x.name||'').trim().toLowerCase()===key;})[0]||null;
+    var origin={process:'',variety:'',altitude:'',region:''};
+    if(selfB){
+      origin.process=selfB.process||'';
+      origin.variety=selfB.variety||'';
+      origin.altitude=(selfB.altitude!=null&&selfB.altitude!=='')?String(selfB.altitude):'';
+      origin.region=[selfB.region,selfB.country].filter(Boolean).join(', ');
+    }
+    var note=(def&&(def.note||'').trim())||'';
+    return {name:name, flavour:feats.slice(0,3), recipe:recipe, strength:strength, cupScores:cupScores, ready:ready, net:(g?String(g):''), comment:cmt, note:note, color:color, origin:origin};
+  }
+  function drawCuppingRadar(doc,cx,cy,R,scores,BERRY,MUTE){
+    var n=scores.length;if(!n)return;
+    function pt(i,r){var a=i*2*Math.PI/n;return [cx+r*Math.sin(a), cy-r*Math.cos(a)];}
+    function segsOf(pts){var s=[];for(var i=1;i<pts.length;i++)s.push([pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]]);return s;}
+    /* grid rings: Light / Medium / Strong */
+    doc.setLineWidth(0.5);doc.setDrawColor(30,26,25);
+    [1,2,3].forEach(function(lvl){var pts=[];for(var i=0;i<n;i++)pts.push(pt(i,R*lvl/3));doc.lines(segsOf(pts),pts[0][0],pts[0][1],[1,1],'S',true);});
+    /* spokes */
+    doc.setDrawColor(30,26,25);
+    for(var i=0;i<n;i++){var sp=pt(i,R);doc.line(cx,cy,sp[0],sp[1]);}
+    /* data polygon (0 = centre when a bean has no reading on that axis) */
+    var dpts=scores.map(function(o,i){var v=(o.n==null?0:o.n);return pt(i,R*(v/3));});
+    var dseg=segsOf(dpts);
+    var TINT=[Math.round(255-(255-BERRY[0])*0.20),Math.round(255-(255-BERRY[1])*0.20),Math.round(255-(255-BERRY[2])*0.20)];
+    doc.setFillColor(TINT[0],TINT[1],TINT[2]);
+    doc.lines(dseg,dpts[0][0],dpts[0][1],[1,1],'F',true);
+    doc.setDrawColor(BERRY[0],BERRY[1],BERRY[2]);doc.setLineWidth(1.1);
+    doc.lines(dseg,dpts[0][0],dpts[0][1],[1,1],'S',true);
+    doc.setFillColor(BERRY[0],BERRY[1],BERRY[2]);
+    dpts.forEach(function(p){doc.circle(p[0],p[1],1,'F');});
+    /* axis labels, anchored just outside each vertex */
+    doc.setFont('helvetica','bold');doc.setFontSize(5.6);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+    scores.forEach(function(o,i){
+      var lp=pt(i,R+7);
+      var align=(lp[0]<cx-2)?'right':(lp[0]>cx+2?'left':'center');
+      doc.text(o.label,lp[0],lp[1]+2,{align:align});
+    });
+  }
+  function drawSpecialBand(doc,x,y,w,h,row,logo){
+    var INK=[0,0,0],BROWN=[73,66,58],BERRY=[178,94,106],LABEL=[0,0,0],LINE=[30,26,25],SUB=[0,0,0],RED=[192,57,43],BLUE=[42,101,158];
+    row=row||{};var bean=row.bean||{},off=row.offer||{};
+    /* card outline */
+    doc.setDrawColor(30,26,25);doc.setLineWidth(0.8);
+    if(doc.roundedRect)doc.roundedRect(x,y,w,h,10,10,'S');else doc.rect(x,y,w,h,'S');
+    if(!bean.name){
+      doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(178,94,106);
+      doc.text('\u2014 empty \u2014',x+w/2,y+h/2,{align:'center'});
+      return;
+    }
+    var leftW=Math.min(232,w*0.56);
+    /* "Ratio" wordmark · centered above the right (offer) column */
+    {var lcx=x+leftW+(w-leftW)/2;doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);doc.text('Ratio Crows Nest',lcx,y+22.5,{align:'center'});}
+    var band=mnHexRgb(bean.color)||BROWN;
+    /* ---- TAB header (top-left, rounded top corners only) ---- */
+    var tabH=34,r=10;
+    doc.setFillColor(band[0],band[1],band[2]);
+    if(doc.roundedRect)doc.roundedRect(x,y,leftW,tabH,r,r,'F');else doc.rect(x,y,leftW,tabH,'F');
+    doc.rect(x,y+tabH-r,leftW,r,'F');           /* square off the tab's bottom */
+    var lum=(0.299*band[0]+0.587*band[1]+0.114*band[2]);
+    var tc=lum>165?[40,34,32]:[255,255,255];
+    doc.setFont('helvetica','bold');doc.setTextColor(tc[0],tc[1],tc[2]);
+    var nm=mnAsc(String(bean.name||'').toUpperCase()),ns=15;doc.setFontSize(ns);
+    while(ns>9&&doc.getTextWidth(nm)>leftW-24){ns-=0.5;doc.setFontSize(ns);}
+    doc.text(nm,x+14,y+tabH/2+ns*0.34);
+    /* column divider (continues down from the tab edge) */
+    doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.setLineWidth(0.8);
+    doc.line(x+leftW,y+tabH,x+leftW,y+h-14);
+
+    /* ================= LEFT · bean info ================= */
+    var lx=x+15,lw=leftW-30,cy=y+tabH+22;
+    function lab(t){doc.setFont('helvetica','bold');doc.setFontSize(6.6);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.text(t,lx,cy,{charSpace:1.1});cy+=13;}
+    var o=bean.origin||{},orows=[];
+    if(o.process)orows.push(['Process',o.process]);
+    if(o.variety)orows.push(['Variety',o.variety]);
+    if(o.altitude)orows.push(['Altitude',o.altitude+' MASL']);
+    if(o.region)orows.push(['Region',o.region]);
+    if(bean.recipe&&bean.recipe.length){
+      /* blend → pull its recipe (component beans + %) from Blending */
+      lab('RECIPE');
+      bean.recipe.forEach(function(cpt){
+        var pct=cpt.pct?(cpt.pct+'%'):'';
+        var ctry=(cpt.country||'').trim();
+        var proc=(cpt.process||'').trim();
+        var line=cpt.bean+[ctry,proc].filter(Boolean).map(function(v){return '  \u00b7  '+v;}).join('');
+        doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+        mnFit(doc,line,lx,cy,lw-30,8.5,6.5);
+        if(pct){doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);doc.setFontSize(8.5);doc.text(pct,lx+lw,cy,{align:'right'});}
+        cy+=12;
+      });
+      cy+=15;
+    }else if(orows.length){
+      lab('ORIGIN');
+      orows.forEach(function(rr){
+        doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);
+        doc.text(rr[0],lx,cy);
+        doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+        mnFit(doc,rr[1],lx+lw,cy,lw-58,8.5,7,'right');cy+=12;
+      });
+      cy+=15;
+    }
+    if(bean.cupScores&&bean.cupScores.some(function(o){return o.n!=null;})){
+      lab('CUPPING');
+      var rR=26,rCx=lx+lw/2,rCy=cy+9+rR;
+      drawCuppingRadar(doc,rCx,rCy,rR,bean.cupScores,band,[124,58,68]);
+      cy=rCy+rR+9+15;
+    }
+    /* FLAVOUR — one line, no wrap, font grown to fill the column width */
+    if(bean.flavour&&bean.flavour.length){
+      var flText=mnAsc(bean.flavour.join('  \u00b7  '));
+      doc.setFont('helvetica','bold');
+      var fs=24;doc.setFontSize(fs);
+      while(fs>9&&doc.getTextWidth(flText)>lw){fs-=0.5;doc.setFontSize(fs);}
+      var baseY=y+h-16,labY=baseY-fs*0.9-8;
+      doc.setFont('helvetica','bold');doc.setFontSize(6.6);doc.setTextColor(LABEL[0],LABEL[1],LABEL[2]);
+      doc.text('FLAVOUR',lx,labY,{charSpace:1.1});
+      doc.setFont('helvetica','bold');doc.setFontSize(fs);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(flText,lx,baseY);
+    }
+
+    /* ================= RIGHT · weekly offer ================= */
+    var rx0=x+leftW+16,rEnd=x+w-15,rw=rEnd-rx0,ry=y+tabH+16;
+    function money(v){v=String(v==null?'':v).trim().replace(/^\$+/,'');return '$'+(v||'\u2014');}
+    function rule(){doc.setDrawColor(30,26,25);doc.setLineWidth(0.8);doc.line(rx0,ry,rEnd,ry);}
+    var PSZ=12.5;      /* price size — matched to the item name for a flat, even look */
+    var ITEMSZ=12.5;   /* one item-name size for every drink */
+    var SUBSZ=9;       /* sub-line size (e.g. "Black and White") */
+    var SECGAP=18;     /* gap after a section's rule, before next category title */
+    var TITLEGAP=18;   /* baseline-to-baseline from a category title down to its first item
+                          (must exceed the price cap-height so the tall price never overlaps up into the title) */
+    function catTitle(t){doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(178,94,106);doc.text(t.toUpperCase(),rx0,ry,{charSpace:1});ry+=TITLEGAP;}
+    /* Draw one drink row with the item name (left) and price (right) sharing a
+       common baseline. The price is vertically centred to the item cap-height so
+       the two never look mismatched regardless of their differing font sizes. */
+    function drinkRow(label,labelCol,priceVal){
+      doc.setFont('helvetica','bold');doc.setFontSize(ITEMSZ);doc.setTextColor(labelCol[0],labelCol[1],labelCol[2]);
+      mnFit(doc,label,rx0,ry,rw-58,ITEMSZ,9);
+      doc.setFont('helvetica','bold');doc.setFontSize(PSZ);doc.setTextColor(labelCol[0],labelCol[1],labelCol[2]);
+      doc.text(money(priceVal),rEnd,ry-(PSZ-ITEMSZ)*0.34,{align:'right'});
+    }
+    /* Special of the Week — plain heading, aligned to the banner bottom */
+    doc.setFont('helvetica','bolditalic');doc.setFontSize(13);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Special of the Week',rx0,ry);ry+=28;
+    /* Espresso Based · 1+1 Combo */
+    catTitle('Espresso Based');
+    drinkRow('1+1 Combo',RED,off.combo);ry+=15;
+    doc.setFont('helvetica','italic');doc.setFontSize(SUBSZ);doc.setTextColor(0,0,0);
+    doc.text('Black and White',rx0,ry);ry+=16;
+    rule();ry+=SECGAP;
+    /* Signature · Dirty Ratio */
+    catTitle('Signature');
+    drinkRow('Dirty Ratio',BLUE,off.dirty);ry+=16;
+    rule();ry+=SECGAP;
+    /* Hand Pour - Filter Coffee · Hot / Cold */
+    catTitle('Hand Pour - Filter Coffee');
+    drinkRow('Hot',RED,off.hot);ry+=22;
+    drinkRow('Cold',BLUE,off.cold);
+  }
+  function drawSpecialMenu(doc,ox,w,h,rows,logo){
+    var padX=22,padTop=22,padBot=22,gap=16;
+    var x0=ox+padX, innerW=w-padX*2;
+    var bandH=(h-padTop-padBot-gap)/2;
+    drawSpecialBand(doc,x0,padTop,innerW,bandH,rows[0],logo);
+    drawSpecialBand(doc,x0,padTop+bandH+gap,innerW,bandH,rows[1],logo);
+  }
+  function buildSpecialPDF(rows,logo){
+    var JS=window.jspdf.jsPDF;
+    var doc=new JS({orientation:'landscape',unit:'pt',format:'a4'});
+    var W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
+    var pages=Math.max(1,Math.ceil(rows.length/2));
+    for(var pi=0;pi<pages;pi++){
+      if(pi>0)doc.addPage();
+      var pr=[rows[pi*2]||null, rows[pi*2+1]||null];
+      drawSpecialMenu(doc,0,W/2,H,pr,logo);
+      drawSpecialMenu(doc,W/2,W/2,H,pr,logo);
+      doc.setDrawColor(30,26,25);doc.setLineWidth(0.7);
+      if(doc.setLineDashPattern)doc.setLineDashPattern([4,4],0);
+      doc.line(W/2,18,W/2,H-18);
+      if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    }
+    doc.save('Ratio_Special_Menu.pdf');
+  }
+  function drawPourCell(doc,x,y,w,it,INK,SUB,HOT,COLD){
+    var name=mnAsc(it.name||'');
+    if(!name)return;
+    var hot=String(it.hot==null?'':it.hot).trim(), cold=String(it.cold==null?'':it.cold).trim();
+    /* reserve room for the price pair on the right */
+    doc.setFont('helvetica','bold');doc.setFontSize(11);
+    var pw=doc.getTextWidth((hot||'-')+'  /  '+(cold||'-'));
+    /* name */
+    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(INK[0],INK[1],INK[2]);
+    mnFit(doc,name,x,y+11,w-pw-14,12,8.5);
+    /* prices right-aligned: hot (pink) / cold (blue) */
+    doc.setFont('helvetica','bold');doc.setFontSize(11);
+    var rx=x+w;
+    doc.setTextColor(COLD[0],COLD[1],COLD[2]);doc.text(cold||'-',rx,y+11,{align:'right'});
+    var cwid=doc.getTextWidth(cold||'-');
+    doc.setTextColor(SUB[0],SUB[1],SUB[2]);doc.text('  /  ',rx-cwid,y+11,{align:'right'});
+    var swid=doc.getTextWidth('  /  ');
+    doc.setTextColor(HOT[0],HOT[1],HOT[2]);doc.text(hot||'-',rx-cwid-swid,y+11,{align:'right'});
+    /* origin */
+    if(it.origin){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+      mnFit(doc,it.origin,x,y+25,w,8.5,7);}
+    /* flavour */
+    if(it.flavour){doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(INK[0],INK[1],INK[2]);
+      mnFit(doc,it.flavour,x,y+40,w,10,8);}
+  }
+  function drawTakeawayMenu(doc,ox,w,h,data,logo){
+    var INK=[0,0,0], SUB=[0,0,0], MUTE=[124,58,68], LINE=[30,26,25];
+    var HOT=[214,0,108], COLD=[42,143,216];
+    var padX=24, x0=ox+padX, xEnd=ox+w-padX, innerW=w-padX*2;
+
+    /* ---------- header ---------- */
+    var hy=42;
+    if(logo){try{doc.addImage(logo,'PNG',x0,hy-26,26,26);}catch(e){}}
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+    doc.text('Ratio',x0+32,hy-13);doc.text('Coffee',x0+32,hy-4);
+    doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Blend Selection',x0+76,hy-6);
+    doc.setDrawColor(INK[0],INK[1],INK[2]);doc.setLineWidth(1);
+    doc.line(x0+76,hy+3,xEnd,hy+3);
+
+    /* ---------- two blends ---------- */
+    var by=hy+36, colCx=[x0+innerW*0.27, x0+innerW*0.74];
+    var blends=[
+      {name:'DARK KNIGHT 3', sub:'complex flavour', notes:'Plum, Walnut, Dark Choc'},
+      {name:'DANCER',        sub:'smooth flavour',  notes:'Floral, Red Apple, Toffee'}
+    ];
+    blends.forEach(function(bl,ci){
+      var cx=colCx[ci];
+      doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(bl.name,cx,by,{align:'center'});
+      doc.setFont('helvetica','italic');doc.setFontSize(8);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+      doc.text(bl.sub,cx,by+12,{align:'center'});
+      doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(bl.notes,cx,by+25,{align:'center'});
+    });
+    var midX=x0+innerW*0.5;
+    doc.setDrawColor(MUTE[0],MUTE[1],MUTE[2]);doc.setLineWidth(1);
+    doc.line(midX+7,by-11,midX-7,by+27);
+
+    /* ---------- espresso price list ---------- */
+    var py=by+52, rowH=23;
+    var rows=[
+      {main:'Espresso',    size:'',      price:'5'},
+      {main:'Small',       size:'6oz',   price:'5'},
+      {main:'Large',       size:'10 oz', price:'6'},
+      {main:'Fresh Batch', size:'10oz',  price:'6'},
+      {main:'On Ice',      size:'10oz',  price:'7'},
+      {main:'Cold Batch',  size:'10oz',  price:'7', note:'(Barista choice of the day)'}
+    ];
+    rows.forEach(function(r){
+      doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(r.main,x0,py);
+      var mw=doc.getTextWidth(r.main);
+      if(r.size){doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+        doc.text('  |  '+r.size,x0+mw+3,py);}
+      doc.setFont('helvetica','normal');doc.setFontSize(12);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(r.price,xEnd,py,{align:'right'});
+      if(r.note){doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
+        doc.text(r.note,x0,py+11);py+=11;}
+      py+=rowH;
+    });
+    py+=2;
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+    doc.text('alternative milk, extra shot',x0,py);doc.text('50 cents',xEnd,py,{align:'right'});py+=11;
+    doc.text('decaf',x0,py);doc.text('1 dollar',xEnd,py,{align:'right'});
+
+    /* ---------- Dirty Ratio dashed box ---------- */
+    var dy=py+16, dh=26;
+    doc.setDrawColor(30,26,25);doc.setLineWidth(0.8);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([3,3],0);
+    if(doc.roundedRect)doc.roundedRect(x0,dy,innerW,dh,13,13,'S');else doc.rect(x0,dy,innerW,dh,'S');
+    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Dirty Ratio',x0+14,dy+dh/2+4);
+    doc.text('9',xEnd-14,dy+dh/2+4,{align:'right'});
+
+    /* ---------- Pour Over Selection ---------- */
+    var poHeadY=dy+dh+34, cx=ox+w/2;
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Pour Over Selection',cx,poHeadY,{align:'center'});
+    var thw=doc.getTextWidth('Pour Over Selection');
+    doc.setDrawColor(INK[0],INK[1],INK[2]);doc.setLineWidth(0.8);
+    doc.line(cx-thw/2-8,poHeadY+6,cx+thw/2+8,poHeadY+6);
+
+    /* 2x2 grid */
+    var gTop=poHeadY+22, gBot=h-24, colGap=18, rowGap=16;
+    var cw=(innerW-colGap)/2, ch=(gBot-gTop-rowGap)/2;
+    var cellX=[x0, x0+cw+colGap, x0, x0+cw+colGap];
+    var cellY=[gTop, gTop, gTop+ch+rowGap, gTop+ch+rowGap];
+    doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.setLineWidth(0.8);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([2,3],0);
+    doc.line(x0+cw+colGap/2,gTop,x0+cw+colGap/2,gBot);
+    doc.line(x0,gTop+ch+rowGap/2,x0+innerW,gTop+ch+rowGap/2);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    for(var i=0;i<4;i++){drawPourCell(doc,cellX[i],cellY[i],cw,data[i]||{},INK,SUB,HOT,COLD);}
+  }
+  function buildTakeawayPDF(data,logo){
+    var JS=window.jspdf.jsPDF;
+    var doc=new JS({orientation:'landscape',unit:'pt',format:'a4'});
+    var W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
+    drawTakeawayMenu(doc,0,W/2,H,data,logo);
+    drawTakeawayMenu(doc,W/2,W/2,H,data,logo);
+    doc.setDrawColor(30,26,25);doc.setLineWidth(0.7);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([4,4],0);
+    doc.line(W/2,18,W/2,H-18);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    doc.save('Ratio_TakeAway_Menu.pdf');
+  }
+  function drawDineInMenu(doc,ox,w,h,cfg,logo){
+    var INK=[0,0,0], BERRY=[124,58,68], LINE=[30,26,25], MUTE=[120,112,108];
+    var HOT=[214,0,108], COLD=[42,143,216];
+    var padX=26, x0=ox+padX, xEnd=ox+w-padX, innerW=w-padX*2;
+    var P=cfg.prices||{};
+    function pv(k,d){var s=String(P[k]==null?'':P[k]).trim();return s||d||'';}
+
+    /* ---- unified type scale ---- */
+    var FS_TITLE=20, FS_KICKER=8, FS_SECTION=9.5, FS_ITEM=11, FS_PRICE=12, FS_META=8.5, FS_DESC=8.5;
+    /* ---- unified spacing ---- */
+    var ROW=17.5;      /* baseline-to-baseline for a standard priced item */
+    var META_LH=10;    /* line height for a meta/description line under an item */
+    var SEC_TOP=15;    /* space above a section rule */
+    var SEC_GAP=18;    /* space from section rule down to its first item */
+
+    var y=38;
+
+    /* ---------- title block ---------- */
+    doc.setFont('helvetica','bold');doc.setFontSize(FS_KICKER);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+    doc.text('DINE IN MENU',ox+w/2,y,{align:'center',charSpace:3});
+    doc.setFont('helvetica','bold');doc.setFontSize(FS_TITLE);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Ratio Crows Nest',ox+w/2,y+21,{align:'center'});
+    y+=21;
+
+    /* ---------- section header ---------- */
+    function section(label,sub){
+      y+=SEC_TOP;
+      doc.setFont('helvetica','bold');doc.setFontSize(FS_SECTION);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+      doc.text(label.toUpperCase(),x0,y,{charSpace:1.8});
+      if(sub){doc.setFont('helvetica','italic');doc.setFontSize(FS_META);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+        doc.text(mnAsc(sub),xEnd,y,{align:'right'});}
+      doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.setLineWidth(0.6);
+      doc.line(x0,y+6,xEnd,y+6);
+      y+=SEC_GAP;
+    }
+    /* ---------- price row (name | size .... price) ---------- */
+    function priceRow(name,size,price,note){
+      doc.setFont('helvetica','bold');doc.setFontSize(FS_ITEM);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(mnAsc(name),x0,y);
+      var nw=doc.getTextWidth(mnAsc(name));
+      if(size){doc.setFont('helvetica','normal');doc.setFontSize(FS_META);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+        doc.text('  |  '+size,x0+nw+3,y);}
+      if(price){doc.setFont('helvetica','bold');doc.setFontSize(FS_PRICE);doc.setTextColor(INK[0],INK[1],INK[2]);
+        doc.text(price,xEnd,y-(FS_PRICE-FS_ITEM)*0.34,{align:'right'});}
+      if(note){y+=META_LH;doc.setFont('helvetica','normal');doc.setFontSize(FS_META);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+        doc.text(mnAsc(note),x0,y);}
+      y+=ROW;
+    }
+    /* ---------- a plain meta line: label left, value right ---------- */
+    function metaRow(label,value){
+      doc.setFont('helvetica','normal');doc.setFontSize(FS_META);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+      doc.text(mnAsc(label),x0,y);
+      if(value)doc.text(mnAsc(value),xEnd,y,{align:'right'});
+      y+=META_LH+2;
+    }
+
+    /* ---------- two espresso blends ---------- */
+    var bl=cfg.blends||[], colCx=[x0+innerW*0.27, x0+innerW*0.73], by=y+30;
+    [0,1].forEach(function(ci){
+      var b=bl[ci]||{}, cx=colCx[ci], hl=!!b.highlight;
+      if(hl){doc.setFont('helvetica','bold');doc.setFontSize(FS_KICKER-1);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+        doc.text('STAFF PICK',cx,by-12,{align:'center',charSpace:1.2});}
+      doc.setFont('helvetica','bold');doc.setFontSize(13);
+      doc.setTextColor(hl?BERRY[0]:INK[0], hl?BERRY[1]:INK[1], hl?BERRY[2]:INK[2]);
+      doc.text(mnAsc((b.name||'').toUpperCase()),cx,by,{align:'center'});
+      if(b.sub){doc.setFont('helvetica','italic');doc.setFontSize(FS_META);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+        doc.text(mnAsc(b.sub),cx,by+12,{align:'center'});}
+      if(b.notes){doc.setFont('helvetica','bold');doc.setFontSize(FS_SECTION);doc.setTextColor(INK[0],INK[1],INK[2]);
+        doc.text(mnAsc(b.notes),cx,by+25,{align:'center'});}
+    });
+    var midX=x0+innerW*0.5;
+    doc.setDrawColor(BERRY[0],BERRY[1],BERRY[2]);doc.setLineWidth(1);
+    doc.line(midX+6,by-11,midX-6,by+27);
+    y=by+37;
+
+    /* ---------- ESPRESSO BASED ---------- */
+    section('Espresso Based');
+    priceRow('Espresso','',pv('espresso'));
+    priceRow('Small','6oz',pv('small'));
+    priceRow('Large','10oz',pv('large'));
+    priceRow('On Ice','10oz',pv('ice'));
+    metaRow('extra shot \u00b7 alternative milk',pv('altmilk','50 cents'));
+    metaRow('decaf',pv('decaf','1 dollar'));
+
+    /* ---------- SIGNATURE ---------- */
+    section('Signature');
+    doc.setFont('helvetica','bold');doc.setFontSize(FS_ITEM);doc.setTextColor(INK[0],INK[1],INK[2]);
+    doc.text('Dirty Ratio',x0,y);
+    var dnw=doc.getTextWidth('Dirty Ratio');
+    if(cfg.dirtySub){doc.setFont('helvetica','italic');doc.setFontSize(FS_META);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+      doc.text('  '+mnAsc(cfg.dirtySub),x0+dnw+4,y);}
+    if(pv('dirty')){doc.setFont('helvetica','bold');doc.setFontSize(FS_PRICE);doc.setTextColor(INK[0],INK[1],INK[2]);
+      doc.text(pv('dirty'),xEnd,y-(FS_PRICE-FS_ITEM)*0.34,{align:'right'});}
+    y+=META_LH+2;
+    if(cfg.dirtyDesc){doc.setFont('helvetica','normal');doc.setFontSize(FS_DESC);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+      doc.splitTextToSize(mnAsc(cfg.dirtyDesc),innerW).slice(0,2).forEach(function(ln){doc.text(ln,x0,y);y+=META_LH;});}
+    y+=4;
+
+    /* ---------- AUTOMATED BREWING ---------- */
+    section('Automated Brewing');
+    priceRow('Fresh Batch','10oz',pv('fresh'),cfg.freshNote);
+    priceRow('Cold Batch','10oz',pv('cold'),cfg.coldNote);
+
+    /* ---------- HAND POUR FILTER COFFEE ---------- */
+    section('Hand Pour Filter Coffee','hot or iced');
+    (cfg.pours||[]).slice(0,4).forEach(function(it){
+      var name=mnAsc(it.name||'');if(!name)return;
+      var hl=!!it.highlight;
+      var beanCol=mnHexRgb(beanColorFor(it.bean||it.name))||null;
+      var hot=String(it.hot==null?'':it.hot).trim(), cold=String(it.cold==null?'':it.cold).trim();
+      if(hl){doc.setFont('helvetica','bold');doc.setFontSize(FS_KICKER-1.5);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+        doc.text('STAFF PICK',x0,y,{charSpace:1.2});y+=10;}
+      /* right-aligned hot (pink) / cold (blue), vertically centred to the item name */
+      doc.setFont('helvetica','bold');doc.setFontSize(FS_PRICE);
+      var py=y-(FS_PRICE-FS_ITEM)*0.34, rx=xEnd;
+      doc.setTextColor(COLD[0],COLD[1],COLD[2]);doc.text(cold||'-',rx,py,{align:'right'});
+      var cwid=doc.getTextWidth(cold||'-');
+      doc.setTextColor(INK[0],INK[1],INK[2]);doc.text(' / ',rx-cwid,py,{align:'right'});
+      var swid=doc.getTextWidth(' / ');
+      doc.setTextColor(HOT[0],HOT[1],HOT[2]);doc.text(hot||'-',rx-cwid-swid,py,{align:'right'});
+      var priceW=cwid+swid+doc.getTextWidth(hot||'-');
+      /* name — bean's own retail colour shown as a small dot marker, not text tint */
+      var dotGap=11, nameX=x0+dotGap;
+      if(beanCol){doc.setFillColor(beanCol[0],beanCol[1],beanCol[2]);doc.circle(x0+3,y-3.5,3,'F');}
+      doc.setFont('helvetica','bold');doc.setFontSize(FS_ITEM);
+      doc.setTextColor(hl?BERRY[0]:INK[0], hl?BERRY[1]:INK[1], hl?BERRY[2]:INK[2]);
+      mnFit(doc,name,nameX,y,innerW-priceW-14-dotGap,FS_ITEM,8.5);
+      y+=META_LH+1.5;
+      if(it.origin){doc.setFont('helvetica','normal');doc.setFontSize(FS_META);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+        doc.text(mnAsc(it.origin),x0,y);y+=META_LH;}
+      if(it.flavour){doc.setFont('helvetica','bold');doc.setFontSize(FS_DESC+0.5);doc.setTextColor(INK[0],INK[1],INK[2]);
+        mnFit(doc,it.flavour,x0,y,innerW,FS_DESC+0.5,8);y+=META_LH;}
+      y+=6;
+    });
+  }
+  function buildDineinPDF(cfg,logo){
+    var JS=window.jspdf.jsPDF;
+    var doc=new JS({orientation:'landscape',unit:'pt',format:'a4'});
+    var W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
+    drawDineInMenu(doc,0,W/2,H,cfg,logo);
+    drawDineInMenu(doc,W/2,W/2,H,cfg,logo);
+    doc.setDrawColor(30,26,25);doc.setLineWidth(0.7);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([4,4],0);
+    doc.line(W/2,18,W/2,H-18);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    doc.save('Ratio_DineIn_Menu.pdf');
+  }
+  function drawCell(doc,x,y,w,h,info,INK,BROWN,BERRY,MUTE){
+    /* card outline */
+    doc.setDrawColor(30,26,25);doc.setLineWidth(0.8);
+    if(doc.roundedRect)doc.roundedRect(x,y,w,h,9,9,'S');else doc.rect(x,y,w,h,'S');
+    var px=x+15, pw=w-30;
+    if(!info||!info.name){
+      doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+      doc.text('— empty —',x+w/2,y+h/2,{align:'center'});
+      return;
+    }
+    /* ---- coloured banner header (name highlighted in its assigned colour) ---- */
+    var band=mnHexRgb(info.color)||BROWN;
+    var bandH=38;
+    doc.setFillColor(band[0],band[1],band[2]);
+    if(doc.roundedRect)doc.roundedRect(x,y,w,bandH,9,9,'F');else doc.rect(x,y,w,bandH,'F');
+    /* square off the bottom of the band so only the top corners stay rounded */
+    doc.rect(x,y+bandH-10,w,10,'F');
+    /* readable text colour on the band */
+    var lum=(0.299*band[0]+0.587*band[1]+0.114*band[2]);
+    var tc=lum>165?[40,34,32]:[255,255,255];
+    doc.setFont('helvetica','bold');doc.setTextColor(tc[0],tc[1],tc[2]);
+    var ns=18;doc.setFontSize(ns);
+    while(ns>11&&doc.getTextWidth(mnAsc(info.name))>pw){ns-=0.5;doc.setFontSize(ns);}
+    doc.text(mnAsc(info.name),px,y+bandH/2+ns*0.34,{maxWidth:pw});
+    var cy=y+bandH+20;
+    /* ===== NOTE — small highlighted title bar, centred under the name ===== */
+    if(info.note){
+      var nt=mnAsc(String(info.note));
+      doc.setFont('helvetica','bold');
+      var nsz=8.5;doc.setFontSize(nsz);
+      while(nsz>6&&doc.getTextWidth(nt)>w-16){nsz-=0.3;doc.setFontSize(nsz);}
+      while(doc.getTextWidth(nt)>w-14&&nt.length>4){nt=nt.slice(0,-2);}
+      if(nt!==mnAsc(String(info.note))){nt=nt.replace(/[\s\u2026.]+$/,'')+'\u2026';}
+      var barH=nsz+7,barTop=y+bandH;   /* flush under the name band, no white gap */
+      var lt=[Math.round(band[0]+(255-band[0])*0.80),Math.round(band[1]+(255-band[1])*0.80),Math.round(band[2]+(255-band[2])*0.80)];
+      doc.setFillColor(lt[0],lt[1],lt[2]);
+      doc.rect(x,barTop,w,barH,'F');   /* full-width highlight row */
+      var dk=[Math.round(band[0]*0.5),Math.round(band[1]*0.5),Math.round(band[2]*0.5)];
+      doc.setTextColor(dk[0],dk[1],dk[2]);
+      doc.text(nt,x+w/2,barTop+barH/2+nsz*0.34,{align:'center'});
+      cy=barTop+barH+14;
+    }
+    /* redraw a crisp cell border on top of the coloured name band + note bar,
+       so the black outline stays a clean unbroken line where the fills reach the edges */
+    doc.setDrawColor(30,26,25);doc.setLineWidth(0.8);
+    if(doc.roundedRect)doc.roundedRect(x,y,w,h,9,9,'S');else doc.rect(x,y,w,h,'S');
+    /* ===== FLAVOUR — primary focus (large) ===== */
+    if(info.flavour&&info.flavour.length){
+      doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+      doc.text('FLAVOUR',px,cy,{charSpace:1.1});cy+=14;
+      doc.setFont('helvetica','bold');doc.setTextColor(INK[0],INK[1],INK[2]);
+      mnFit(doc,info.flavour.join('  ·  '),px,cy,pw,12.5,8.5);cy+=12;
+    }
+    cy+=8;
+    /* footer + cupping placement, computed from the bottom up */
+    var by=y+h-13;
+    var hasC=false;   /* comment + net weight are no longer printed */
+    var commentY=by, netY=by;
+    var hasCup=!!(info.cupScores&&info.cupScores.some(function(o){return o.n!=null;}));
+    var RADAR_R=20,RADAR_HEAD=11,RADAR_PAD=9;
+    var cupBottom=(hasC?commentY-11:netY-5);
+    var cupTotal=hasCup?(RADAR_HEAD+RADAR_PAD+RADAR_R*2+RADAR_PAD):0;
+    var cupTop=cupBottom-cupTotal;
+    var recipeBottom=(hasCup?cupTop:(hasC?commentY:netY))-8;
+    /* ===== RECIPE — primary focus (large, spreads to fill) ===== */
+    if(info.recipe&&info.recipe.length){
+      doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
+      doc.text('RECIPE',px,cy,{charSpace:1.1});cy+=14;
+      var lineH=12;
+      var comps=info.recipe.map(function(c){
+        var pctTxt=c.pct?(c.pct+'%'):'';var nx=px+(pctTxt?34:0);
+        doc.setFont('helvetica','bold');doc.setFontSize(11);
+        var lines=doc.splitTextToSize(mnAsc(c.bean),pw-(nx-px));if(lines.length>2)lines=lines.slice(0,2);
+        return {pctTxt:pctTxt,nx:nx,lines:lines};
+      });
+      var totalLines=comps.reduce(function(s,o){return s+o.lines.length;},0);
+      var avail=recipeBottom-cy;
+      var gap=comps.length?Math.max(3,Math.min(22,(avail-totalLines*lineH)/comps.length)):0;
+      comps.forEach(function(o){
+        var sy=cy;
+        if(o.pctTxt){doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);doc.text(o.pctTxt,px,sy);}
+        doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(BROWN[0],BROWN[1],BROWN[2]);
+        o.lines.forEach(function(ln,i){doc.text(ln,o.nx,sy+i*lineH);});
+        cy=sy+o.lines.length*lineH+gap;
+      });
+    }
+    /* ===== cupping strength — radar chart (secondary, muted) — inner=Light, outer=Strong ===== */
+    if(hasCup){
+      var ccy=cupTop;
+      doc.setFont('helvetica','bold');doc.setFontSize(6.3);doc.setTextColor(178,94,106);
+      doc.text('CUPPING STRENGTH',px,ccy,{charSpace:1});ccy+=RADAR_HEAD;
+      var rCx=px+pw/2, rCy=ccy+RADAR_PAD+RADAR_R;
+      drawCuppingRadar(doc,rCx,rCy,RADAR_R,info.cupScores,band,[124,58,68]);
+    }
+  }
+  function drawMenu(doc,ox,w,h,info4,logo){
+    var INK=[0,0,0], BROWN=[73,66,58], BERRY=[178,94,106], MUTE=[124,58,68];
+    var padX=24, padTop=24, padBot=24;
+    var x0=ox+padX, innerW=w-padX*2;
+    /* full-bleed 2x2 grid — fills the whole half-page */
+    var gTop=padTop, gBot=h-padBot;
+    var colGap=14, rowGap=14;
+    var cw=(innerW-colGap)/2, ch=(gBot-gTop-rowGap)/2;
+    var cellX=[x0, x0+cw+colGap, x0, x0+cw+colGap];
+    var cellY=[gTop, gTop, gTop+ch+rowGap, gTop+ch+rowGap];
+    for(var i=0;i<4;i++){drawCell(doc,cellX[i],cellY[i],cw,ch,info4[i],INK,BROWN,BERRY,MUTE);}
+  }
+  function buildMenuPDF(info4,logo){
+    var JS=window.jspdf.jsPDF;
+    var doc=new JS({orientation:'landscape',unit:'pt',format:'a4'});
+    var W=doc.internal.pageSize.getWidth();   /* ~841.89 */
+    var H=doc.internal.pageSize.getHeight();  /* ~595.28 */
+    drawMenu(doc,0,W/2,H,info4,logo);
+    drawMenu(doc,W/2,W/2,H,info4,logo);
+    /* centre dashed cut line */
+    doc.setDrawColor(30,26,25);doc.setLineWidth(0.7);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([4,4],0);
+    doc.line(W/2,18,W/2,H-18);
+    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
+    doc.save('Ratio_Menu.pdf');
+  }
+
+/* PDF 引擎與 logo（jsPDF 同 classic 2.5.1；首次用才載） */
+async function menusPDF(buildFn){
+  await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  if(!(window.jspdf&&window.jspdf.jsPDF))throw new Error('PDF engine failed to load');
+  return new Promise(function(res){
+    var img=new Image();
+    img.onload=function(){res(buildFn(img));};
+    img.onerror=function(){res(buildFn(null));};
+    img.src='/logo.png';
+  });
+}
+async function genBlendMenuPDF(btn){
+  if(btn){btn.disabled=true;btn.textContent='Drawing…';}
+  try{
+    var info4=MENU_SLOTS.map(function(n){return menuInfoFor(n);});
+    await menusPDF(function(logo){buildMenuPDF(info4,logo);});
+    toast('Blend menu PDF ✓');
+  }catch(e){alert('PDF failed: '+(e&&e.message||e));}
+  if(btn){btn.disabled=false;btn.textContent='Generate PDF';}
+}
+async function genSpecialMenuPDF(btn){
+  if(!SPECIAL_PICK.length){toast('Pick at least one bean first');return;}
+  if(btn){btn.disabled=true;btn.textContent='Drawing…';}
+  try{
+    var rows=SPECIAL_PICK.map(function(nm){return {bean:menuInfoFor(nm),offer:specialPriceFor(nm)};});
+    await menusPDF(function(logo){buildSpecialPDF(rows,logo);});
+    toast('Special menu PDF ✓');
+  }catch(e){alert('PDF failed: '+(e&&e.message||e));}
+  if(btn){btn.disabled=false;btn.textContent='Generate PDF';}
+}
+async function genTakeawayPDF(btn){
+  if(btn){btn.disabled=true;btn.textContent='Drawing…';}
+  try{
+    var data=TAKEAWAY.map(function(o){o=o||{};return {name:o.name||'',origin:o.origin||'',flavour:o.flavour||'',hot:o.hot||'',cold:o.cold||''};});
+    await menusPDF(function(logo){buildTakeawayPDF(data,logo);});
+    toast('Take away menu PDF ✓');
+  }catch(e){alert('PDF failed: '+(e&&e.message||e));}
+  if(btn){btn.disabled=false;btn.textContent='Generate PDF';}
+}
+async function genDineinPDF(btn){
+  if(btn){btn.disabled=true;btn.textContent='Drawing…';}
+  try{
+    var cfg=diClone(DINEIN);
+    (cfg.pours||[]).forEach(function(p){if(!p.color)p.color=beanColorFor(p.name)||'';});
+    await menusPDF(function(logo){buildDineinPDF(cfg,logo);});
+    toast('Dine in menu PDF ✓');
+  }catch(e){alert('PDF failed: '+(e&&e.message||e));}
+  if(btn){btn.disabled=false;btn.textContent='Generate PDF';}
+}
+/* ===== Menus 設定抽屜（新殼 UI；欄位與 classic 一一對應，改了即存＝跨裝置互通）===== */
+function mnSelOpts(opts,cur){
+  return '<option value=""'+(cur?'':' selected')+'>— none —</option>'
+    +opts.map(function(n){return '<option value="'+esc(n)+'"'+(n===cur?' selected':'')+'>'+esc(n)+'</option>';}).join('');
+}
+async function openMenusSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Menus</div><div class="empty">Loading…</div>');
+  await menusEnsureData();
+  openDrawerHTML('<div class="t" style="font-size:19px">Menus</div>'
+    +'<div class="s" style="margin-top:2px">A4 · two identical copies with a centre cut line · settings shared with classic</div>'
+    +[['mblend','Blend Menu','4-blend cut sheet'],['mtake','Take Away Menu','blend block + 4 pour over cups'],['mdine','Dine In Menu','full menu with prices'],['mspec','Special Menu','any beans, one row each']].map(function(x){
+      return '<div class="dl" data-mn="'+x[0]+'" style="cursor:pointer;align-items:center"><span><b>'+x[1]+'</b><br><span style="color:var(--muted);font-size:13px">'+x[2]+'</span></span><span style="color:var(--muted)">set up →</span></div>';
+    }).join('')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  document.querySelectorAll('#drawer [data-mn]').forEach(function(el){el.addEventListener('click',function(){
+    var k=el.dataset.mn;
+    if(k==='mblend')openMenuBlendSheet();
+    if(k==='mtake')openMenuTakeawaySheet();
+    if(k==='mdine')openMenuDineinSheet();
+    if(k==='mspec')openMenuSpecialSheet();
+  });});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+function mnBackClose(gen){
+  return '<button class="act" id="mn-gen">Generate PDF</button>'
+    +'<button class="dclose" id="mn-back">‹ Back to menus</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
+}
+function mnWireTail(gen){
+  $('mn-gen').addEventListener('click',function(){gen(this);});
+  $('mn-back').addEventListener('click',openMenusSheet);
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+function openMenuBlendSheet(){
+  var ready=readyBlendNames();if(!ready.length)ready=blendNames();
+  var seen={},opts=[];
+  ready.concat(MENU_SLOTS).forEach(function(n){var k=String(n||'').trim();if(!k||seen[k.toLowerCase()])return;seen[k.toLowerCase()]=1;opts.push(k);});
+  var pos=['Top left','Top right','Bottom left','Bottom right'];
+  openDrawerHTML('<div class="t" style="font-size:19px">Blend Menu</div>'
+    +'<div class="s" style="margin-top:2px">choose 4 blends — flavour and recipe pulled live from Retail Info</div>'
+    +pos.map(function(p,i){
+      var cur=MENU_SLOTS[i]||'';
+      var info=cur?menuInfoFor(cur):null;
+      var pv=info&&info.flavour&&info.flavour.length?('<div class="s" style="margin-top:3px">'+esc(info.flavour.join(' · '))+'</div>'):'';
+      return '<div class="dlab">'+p+'</div><select class="din" data-ms="'+i+'" style="padding:12px">'+mnSelOpts(opts,cur)+'</select>'+pv;
+    }).join('')
+    +mnBackClose());
+  document.querySelectorAll('#drawer [data-ms]').forEach(function(el){el.addEventListener('change',function(){
+    MENU_SLOTS[+el.dataset.ms]=el.value;saveMenuSlots();openMenuBlendSheet();
+  });});
+  mnWireTail(genBlendMenuPDF);
+}
+function openMenuSpecialSheet(){
+  var source=specialAllBeans();
+  var picked={};SPECIAL_PICK.forEach(function(n){picked[n.toLowerCase()]=1;});
+  var avail=source.filter(function(n){return !picked[n.toLowerCase()];});
+  function pin(name,k,ph){return '<input class="din" data-sp="'+esc(name)+'" data-k="'+k+'" inputmode="decimal" placeholder="'+ph+'" value="'+esc(specialPriceFor(name)[k]||'')+'" style="margin-top:0">';}
+  openDrawerHTML('<div class="t" style="font-size:19px">Special Menu</div>'
+    +'<div class="s" style="margin-top:2px">pick any beans · set drink prices · one row per bean in the PDF</div>'
+    +'<div class="dlab">Add a bean</div>'
+    +'<select class="din" id="sp-add" style="padding:12px"'+(avail.length?'':' disabled')+'><option value="">'+(avail.length?'— choose a bean —':'— all beans added —')+'</option>'
+    +avail.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('')+'</select>'
+    +SPECIAL_PICK.map(function(nm){
+      var info=menuInfoFor(nm);
+      var fl=(info.flavour&&info.flavour.length)?info.flavour.join(' · '):'Special of the Week';
+      return '<div class="dl" style="align-items:center"><span><b>'+esc(nm)+'</b><br><span style="color:var(--muted);font-size:13px">'+esc(fl)+'</span></span>'
+        +'<button class="dclose" style="margin:0;width:auto;padding:8px 12px;color:var(--danger);border-color:var(--danger)" data-sprm="'+esc(nm)+'">✕</button></div>'
+        +'<div class="no-line" style="gap:8px;margin-top:6px"><span style="flex:1"><span class="dlab" style="margin:0 0 4px">1+1 Combo</span>'+pin(nm,'combo','0')+'</span>'
+        +'<span style="flex:1"><span class="dlab" style="margin:0 0 4px">Dirty</span>'+pin(nm,'dirty','0')+'</span></div>'
+        +'<div class="no-line" style="gap:8px;margin-top:6px"><span style="flex:1"><span class="dlab" style="margin:0 0 4px">Pour hot</span>'+pin(nm,'hot','0')+'</span>'
+        +'<span style="flex:1"><span class="dlab" style="margin:0 0 4px">Pour cold</span>'+pin(nm,'cold','0')+'</span></div>';
+    }).join('')
+    +mnBackClose());
+  var add=$('sp-add');
+  if(add)add.addEventListener('change',function(){
+    var v=add.value;if(!v)return;
+    if(SPECIAL_PICK.map(function(n){return n.toLowerCase();}).indexOf(v.toLowerCase())<0){SPECIAL_PICK.push(v);saveSpecialPick();}
+    openMenuSpecialSheet();
+  });
+  document.querySelectorAll('#drawer [data-sprm]').forEach(function(el){el.addEventListener('click',function(){
+    SPECIAL_PICK=SPECIAL_PICK.filter(function(n){return n!==el.dataset.sprm;});saveSpecialPick();openMenuSpecialSheet();
+  });});
+  document.querySelectorAll('#drawer [data-sp]').forEach(function(el){el.addEventListener('input',function(){
+    var nm=el.dataset.sp;
+    if(!SPECIAL_PRICES[nm])SPECIAL_PRICES[nm]={combo:'',hot:'',cold:'',dirty:''};
+    SPECIAL_PRICES[nm][el.dataset.k]=el.value;saveSpecialPrices();
+  });});
+  mnWireTail(genSpecialMenuPDF);
+}
+function openMenuTakeawaySheet(){
+  var opts=takeawayOptionList();
+  var pos=['Top left','Top right','Bottom left','Bottom right'];
+  openDrawerHTML('<div class="t" style="font-size:19px">Take Away Menu</div>'
+    +'<div class="s" style="margin-top:2px">4 pour-over cups with hot / cold prices — the blend block on top is fixed</div>'
+    +pos.map(function(p,i){
+      var v=TAKEAWAY[i]||tkBlank();
+      return '<div class="dlab">'+p+' · auto-fill from bean</div>'
+        +'<select class="din" data-tka="'+i+'" style="padding:12px">'+mnSelOpts(opts,v.bean)+'</select>'
+        +'<input class="din" data-tk="'+i+'" data-k="name" placeholder="Name" value="'+esc(v.name)+'">'
+        +'<input class="din" data-tk="'+i+'" data-k="origin" placeholder="Process" value="'+esc(v.origin)+'">'
+        +'<input class="din" data-tk="'+i+'" data-k="flavour" placeholder="Flavour" value="'+esc(v.flavour)+'">'
+        +'<div class="no-line" style="gap:8px;margin-top:6px">'
+        +'<span style="flex:1"><span class="dlab" style="margin:0 0 4px">Hot $</span><input class="din" data-tk="'+i+'" data-k="hot" inputmode="decimal" value="'+esc(v.hot)+'" style="margin-top:0"></span>'
+        +'<span style="flex:1"><span class="dlab" style="margin:0 0 4px">Cold $</span><input class="din" data-tk="'+i+'" data-k="cold" inputmode="decimal" value="'+esc(v.cold)+'" style="margin-top:0"></span>'
+        +'</div>';
+    }).join('')
+    +mnBackClose());
+  document.querySelectorAll('#drawer [data-tka]').forEach(function(el){el.addEventListener('change',function(){
+    var i=+el.dataset.tka,nm=el.value;
+    TAKEAWAY[i].bean=nm;
+    if(nm){var a=takeawayAutofill(nm);TAKEAWAY[i].name=a.name;if(a.origin)TAKEAWAY[i].origin=a.origin;if(a.flavour)TAKEAWAY[i].flavour=a.flavour;}
+    saveTakeaway();openMenuTakeawaySheet();
+  });});
+  document.querySelectorAll('#drawer [data-tk]').forEach(function(el){el.addEventListener('input',function(){
+    var i=+el.dataset.tk;if(!TAKEAWAY[i])TAKEAWAY[i]=tkBlank();
+    TAKEAWAY[i][el.dataset.k]=el.value;saveTakeaway();
+  });});
+  mnWireTail(genTakeawayPDF);
+}
+function openMenuDineinSheet(){
+  var blOpts=blendNames();
+  var poOpts=takeawayOptionList();
+  var PRICE_LABEL={espresso:'Espresso',small:'Small white',large:'Large white',fresh:'Fresh milk',ice:'Ice long black',cold:'Cold brew',dirty:'Dirty',altmilk:'Alt milk +',decaf:'Decaf +'};
+  function chk(sec,i,on){return '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);margin-top:6px"><input type="checkbox" data-dih="'+sec+':'+i+'"'+(on?' checked':'')+'> highlight</label>';}
+  openDrawerHTML('<div class="t" style="font-size:19px">Dine In Menu</div>'
+    +'<div class="s" style="margin-top:2px">blends, drink prices, notes and 4 pour overs — full menu on one card</div>'
+    +'<div class="dlab" style="font-size:12px">— Blends —</div>'
+    +DINEIN.blends.map(function(b,i){
+      return '<div class="dlab">Blend '+(i+1)+' · auto-fill</div>'
+        +'<select class="din" data-dib="'+i+'" style="padding:12px">'+mnSelOpts(blOpts,b.bl)+'</select>'
+        +'<input class="din" data-dibf="'+i+'" data-k="name" placeholder="Name" value="'+esc(b.name)+'">'
+        +'<input class="din" data-dibf="'+i+'" data-k="sub" placeholder="Subtitle" value="'+esc(b.sub)+'">'
+        +'<input class="din" data-dibf="'+i+'" data-k="notes" placeholder="Notes" value="'+esc(b.notes)+'">'
+        +chk('b',i,b.highlight);
+    }).join('')
+    +'<div class="dlab" style="font-size:12px;margin-top:14px">— Prices —</div>'
+    +Object.keys(PRICE_LABEL).map(function(k){
+      return '<div class="no-line" style="align-items:center;gap:10px;margin-top:6px"><span style="flex:0 0 110px;font-size:13px;color:var(--muted)">'+PRICE_LABEL[k]+'</span>'
+        +'<input class="din" data-dip="'+k+'" value="'+esc(DINEIN.prices[k]||'')+'" style="margin-top:0;flex:1"></div>';
+    }).join('')
+    +'<div class="dlab" style="font-size:12px;margin-top:14px">— Notes —</div>'
+    +[['dirtySub','Dirty subtitle'],['dirtyDesc','Dirty description'],['freshNote','Fresh milk note'],['coldNote','Cold brew note']].map(function(t){
+      return '<div class="dlab">'+t[1]+'</div><input class="din" data-dit="'+t[0]+'" value="'+esc(DINEIN[t[0]]||'')+'">';
+    }).join('')
+    +'<div class="dlab" style="font-size:12px;margin-top:14px">— Pour overs —</div>'
+    +DINEIN.pours.map(function(p,i){
+      return '<div class="dlab">Cup '+(i+1)+' · auto-fill</div>'
+        +'<select class="din" data-dipa="'+i+'" style="padding:12px">'+mnSelOpts(poOpts,p.bean)+'</select>'
+        +'<input class="din" data-dipf="'+i+'" data-k="name" placeholder="Name" value="'+esc(p.name)+'">'
+        +'<input class="din" data-dipf="'+i+'" data-k="origin" placeholder="Process" value="'+esc(p.origin)+'">'
+        +'<input class="din" data-dipf="'+i+'" data-k="flavour" placeholder="Flavour" value="'+esc(p.flavour)+'">'
+        +'<div class="no-line" style="gap:8px;margin-top:6px">'
+        +'<span style="flex:1"><span class="dlab" style="margin:0 0 4px">Hot $</span><input class="din" data-dipf="'+i+'" data-k="hot" inputmode="decimal" value="'+esc(p.hot)+'" style="margin-top:0"></span>'
+        +'<span style="flex:1"><span class="dlab" style="margin:0 0 4px">Cold $</span><input class="din" data-dipf="'+i+'" data-k="cold" inputmode="decimal" value="'+esc(p.cold)+'" style="margin-top:0"></span>'
+        +'</div>'
+        +chk('p',i,p.highlight);
+    }).join('')
+    +mnBackClose());
+  document.querySelectorAll('#drawer [data-dib]').forEach(function(el){el.addEventListener('change',function(){
+    var i=+el.dataset.dib,nm=el.value;
+    DINEIN.blends[i].bl=nm;
+    if(nm){var a=dineinBlendAutofill(nm);DINEIN.blends[i].name=a.name;if(a.notes)DINEIN.blends[i].notes=a.notes;}
+    saveDinein();openMenuDineinSheet();
+  });});
+  document.querySelectorAll('#drawer [data-dibf]').forEach(function(el){el.addEventListener('input',function(){
+    DINEIN.blends[+el.dataset.dibf][el.dataset.k]=el.value;saveDinein();
+  });});
+  document.querySelectorAll('#drawer [data-dip]').forEach(function(el){el.addEventListener('input',function(){
+    DINEIN.prices[el.dataset.dip]=el.value;saveDinein();
+  });});
+  document.querySelectorAll('#drawer [data-dit]').forEach(function(el){el.addEventListener('input',function(){
+    DINEIN[el.dataset.dit]=el.value;saveDinein();
+  });});
+  document.querySelectorAll('#drawer [data-dipa]').forEach(function(el){el.addEventListener('change',function(){
+    var i=+el.dataset.dipa,nm=el.value;
+    DINEIN.pours[i].bean=nm;
+    if(nm){var a=takeawayAutofill(nm);DINEIN.pours[i].name=a.name;if(a.origin)DINEIN.pours[i].origin=a.origin;if(a.flavour)DINEIN.pours[i].flavour=a.flavour;DINEIN.pours[i].color=beanColorFor(nm)||'';}
+    saveDinein();openMenuDineinSheet();
+  });});
+  document.querySelectorAll('#drawer [data-dipf]').forEach(function(el){el.addEventListener('input',function(){
+    DINEIN.pours[+el.dataset.dipf][el.dataset.k]=el.value;saveDinein();
+  });});
+  document.querySelectorAll('#drawer [data-dih]').forEach(function(el){el.addEventListener('change',function(){
+    var kv=el.dataset.dih.split(':');
+    if(kv[0]==='b')DINEIN.blends[+kv[1]].highlight=el.checked;
+    else DINEIN.pours[+kv[1]].highlight=el.checked;
+    saveDinein();
+  });});
+  mnWireTail(genDineinPDF);
+}
+
 /* ===== Tools ===== */
 function renderTools(){
   $('deck').style.display='none';
@@ -2648,9 +3707,9 @@ function renderTools(){
     +'<button class="tool" id="t-roast" style="border-color:var(--accent);color:var(--accent)">Log roast<small>green in · right here</small></button>'
     +'<button class="tool" id="t-stk" style="border-color:var(--accent);color:var(--accent)">Stocktake<small>weigh greens · right here</small></button>'
     +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
-    +[['Invoice','GST PDF · classic'],['Info card','IG asset · classic'],['Labels','bag / tin · classic'],['Menus','A4 PDF · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
+    +[['Invoice','GST PDF · classic'],['Info card','IG asset · classic'],['Labels','bag / tin · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
-    +[['Green stock','full list · right here','greens'],['Roasted Stock','FIFO shelf · right here','batches'],['Retail Info','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Delete a coffee','remove records · careful','delbean'],['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']].map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
+    +[['Green stock','full list · right here','greens'],['Roasted Stock','FIFO shelf · right here','batches'],['Retail Info','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Menus','4 menu PDFs · right here','menus'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Delete a coffee','remove records · careful','delbean'],['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']].map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div></div>';
   var inp=$('tsearch');
   function lookup(){
@@ -2703,6 +3762,7 @@ function renderTools(){
     if(k==='help'){openHelpSheet();return;}
     if(k==='retail'){openRetailSheet();return;}
     if(k==='infocards'){openInfoCardsSheet();return;}
+    if(k==='menus'){openMenusSheet();return;}
     if(k==='delbean'){openDeleteCoffeeSheet();return;}
     if(k==='signout'){
       if(!confirm('Sign out? The app returns to the public shop menu.'))return;
