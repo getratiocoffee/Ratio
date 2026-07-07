@@ -1141,7 +1141,7 @@ function shelfFreshness(nm){
   return {txt:'roasted '+age+'d — ageing'+(age>SHELF_STALE_DAYS?' · re-roast?':''),cls:'fr-yellow',days:age};
 }
 async function openRetailSheet(){
-  openDrawerHTML('<div class="t" style="font-size:19px">Retail shelf</div><div class="empty">Loading…</div>');
+  openDrawerHTML('<div class="t" style="font-size:19px">Retail Info</div><div class="empty">Loading…</div>');
   /* 價格/規格/售罄記憶（classic 同款 app_state 鑰匙） */
   var m={rtl_price:{},rtl_g:{},rtl_sizes:{},rtl_sold:{}};
   try{var r=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes','rtl_sold']);
@@ -1175,7 +1175,7 @@ async function openRetailSheet(){
   }).join('');
   var errs=(DB.syncs||[]).filter(function(x){return x.status&&x.status!=='synced';});
   var toList=ITEMS.filter(function(i){return i.kind==='list';});
-  openDrawerHTML('<div class="t" style="font-size:19px">Retail shelf</div>'
+  openDrawerHTML('<div class="t" style="font-size:19px">Retail Info</div>'
     +'<div class="s" style="margin-top:2px">'+live.length+' live on Square'+(soldN?' · <span class="red">'+soldN+' sold out</span>':'')+' · tap a coffee for flavour and dossier</div>'
     +(rows||'<div class="empty">Nothing on the shelf yet</div>')
     +(errs.length?'<div class="dlab">Sync problems</div>'+errs.map(function(x){return '<div class="dl"><span>'+esc(x.bean_id||'—')+'</span><span class="red">'+esc(x.status)+'</span></div>';}).join(''):'')
@@ -1221,7 +1221,7 @@ async function openShelfBeanDetail(nm,m){
     +'<button class="act" id="sb-edit">Edit listing…</button>'
     +'<button class="dclose" id="sb-sold">'+(sold?'Put back on sale':'Mark sold out')+'</button>'
     +'<button class="dclose" id="sb-card">Info card PDF</button>'
-    +'<button class="dclose" id="sb-back">‹ Back to shelf</button>'
+    +'<button class="dclose" id="sb-back">‹ Back to Retail Info</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('sb-edit').addEventListener('click',function(){openListSheet({ref:s});});
   $('sb-sold').addEventListener('click',async function(){
@@ -1482,7 +1482,7 @@ function openBatchesSheet(){
         +'<span class="k'+(old?' red':'')+'" style="font-size:15px">'+(Number(r.remaining_kg)||0)+' kg</span></div>';
     });
   });
-  openDrawerHTML('<div class="t" style="font-size:19px">Roast batches</div>'
+  openDrawerHTML('<div class="t" style="font-size:19px">Roasted Stock</div>'
     +'<div class="s" style="margin-top:2px">'+(bats.length?bats.length+' batches · '+(Math.round(totKg*100)/100)+' kg · oldest first — use it first · tap to log usage':'')+'</div>'
     +(h||'<div class="empty">No roasted batches in stock<br>Log the roasted-out kg when roasting — batches land here</div>')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
@@ -2650,7 +2650,7 @@ function renderTools(){
     +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
     +[['Invoice','GST PDF · classic'],['Info card','IG asset · classic'],['Labels','bag / tin · classic'],['Menus','A4 PDF · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
-    +[['Green stock','full list · right here','greens'],['Roast batches','FIFO shelf · right here','batches'],['Retail shelf','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Delete a coffee','remove records · careful','delbean'],['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']].map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
+    +[['Green stock','full list · right here','greens'],['Roasted Stock','FIFO shelf · right here','batches'],['Retail Info','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Delete a coffee','remove records · careful','delbean'],['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']].map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div></div>';
   var inp=$('tsearch');
   function lookup(){
