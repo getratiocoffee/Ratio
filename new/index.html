@@ -19,7 +19,9 @@ body{margin:0;background:transparent;color:var(--ink);font-family:'Inter',sans-s
   mask:url(/logo.png) no-repeat center 36% / min(110vw,500px)}
 @media(prefers-color-scheme:dark){:root:not(.light) .bglogo{opacity:.09}}
 :root.dark .bglogo{opacity:.09}
-header{background:var(--bg);color:var(--ink);border-bottom:1.5px solid var(--ink);padding:calc(env(safe-area-inset-top,0px) + 14px) 18px 12px;display:flex;justify-content:space-between;align-items:baseline;position:sticky;top:0;z-index:10}
+header{background:var(--bg);color:var(--ink);border-bottom:1.5px solid var(--ink);padding:calc(env(safe-area-inset-top,0px) + 10px) 18px 8px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10}
+/* 左上角 logo：mask 上色（跟 .bglogo 同招），夜版自動跟 --ink 變色 */
+.brandlogo{width:36px;height:36px;display:block;background:var(--ink);-webkit-mask:url(/logo.png) no-repeat center/contain;mask:url(/logo.png) no-repeat center/contain}
 .sbar{position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#1A1A1A;z-index:100;pointer-events:none}
 header .brand{font-family:'Fraunces',serif;font-size:21px;font-weight:700}
 header .cnt{font-size:14px;color:var(--muted)}
@@ -129,7 +131,7 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 </style></head><body>
 <div class="bglogo"></div>
 <div class="sbar"></div>
-<header><span class="brand" id="hbrand">Ratio</span><span class="cnt" id="hcnt">loading…</span></header>
+<header><span class="brand" id="hbrand"><span class="brandlogo" role="img" aria-label="Ratio"></span></span><span class="cnt" id="hcnt">loading…</span></header>
 <div class="chips" id="chips"></div>
 <div class="wrap" id="main"><div class="empty">Loading your day…</div></div>
 <div class="deck" id="deck" style="display:none"></div>
