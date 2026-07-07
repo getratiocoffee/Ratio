@@ -1621,11 +1621,19 @@ function openCupSheet(i){
   });
   var bean=(DB.beans||[]).find(function(b){return String(b.id)===String(r.bean_id);});
   /* 拉霸永遠有值：上次同豆分數帶入（clamp 1–3），沒有全 2＝Medium */
-  function cl(v){v=Number(v);if(isNaN(v)||v<=0)return 2;return Math.min(3,Math.max(1,v));}
-  var sc={};CUP_FIELDS.forEach(function(f){sc[f[0]]=cl(prev?prev[f[0]]:null);});
-  CUP={r:r,scores:sc,
+  var sc={};CUP_FIELDS.forEach(function(f){sc[f[0]]=cupClamp(prev?prev[f[0]]:null);});
+  CUP={r:r,editId:null,scores:sc,
     feats:(prev&&prev.features?prev.features.slice(0,3):[]),comment:'',
     process:(bean&&bean.process)||(prev&&prev.process)||''};
+  paintCupSheet();
+}
+function cupClamp(v){v=Number(v);if(isNaN(v)||v<=0)return 2;return Math.min(3,Math.max(1,v));}
+/* Re-cup（老闆點名「杯測需要 re-analysed」）：QC 佇列裡的批次重開杯測抽屜，帶原紀錄、存檔＝update 同一筆 */
+function openRecupSheet(q){
+  var sc={};CUP_FIELDS.forEach(function(f){sc[f[0]]=cupClamp(q.s[f[0]]);});
+  CUP={r:q.r,editId:q.s.id,scores:sc,
+    feats:(q.s.features||[]).slice(0,3),comment:String(q.s.comment||''),
+    process:q.s.process||''};
   paintCupSheet();
 }
 /* comment 留白時的規則組句（老闆拍板：本機組句不呼叫 AI）：風味詞＋高分感官，總長 ≤30 字元 */
@@ -1665,8 +1673,8 @@ function paintCupSheet(){
     return '<text x="'+q[0].toFixed(1)+'" y="'+(q[1]+4).toFixed(1)+'" text-anchor="'+anch+'" font-size="11.5" font-weight="600" fill="var(--muted)">'+k[1]+'</text>';
   }).join('');
   var dots=K.map(function(_,i){return '<circle id="cup-dot'+i+'" r="3.5" fill="var(--accent)"/>';}).join('');
-  openDrawerHTML('<div class="t" style="font-size:19px">Cup · '+esc(r.bean_name||'—')+'</div>'
-    +'<div class="s" style="margin-top:2px">'+(r.roast_date?'roasted '+fmtD(r.roast_date)+' · ':'')+'saves a cupping record and queues it for QC</div>'
+  openDrawerHTML('<div class="t" style="font-size:19px">'+(CUP.editId?'Re-cup':'Cup')+' · '+esc(r.bean_name||'—')+'</div>'
+    +'<div class="s" style="margin-top:2px">'+(r.roast_date?'roasted '+fmtD(r.roast_date)+' · ':'')+(CUP.editId?'updates the existing cupping record':'saves a cupping record and queues it for QC')+'</div>'
     +'<div style="border:1.5px solid var(--ink);border-radius:14px;padding:12px 10px;margin-top:12px;background:var(--surface)">'
     +'<svg viewBox="0 0 300 236" style="width:100%;max-width:300px;display:block;margin:0 auto">'+rings+spokes
     +'<polygon id="cup-poly" points="" fill="var(--accent)" fill-opacity=".18" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>'
@@ -1685,7 +1693,7 @@ function paintCupSheet(){
     +[0,1,2].map(function(ix){return '<input class="din" id="cup-f'+ix+'" maxlength="22" placeholder="e.g. Blueberry" value="'+esc(CUP.feats[ix]||'')+'">';}).join('')
     +'<div class="dlab">Comment · 30 chars · blank = auto</div>'
     +'<input class="din" id="cup-c" maxlength="30" placeholder="—" value="'+esc(CUP.comment)+'">'
-    +'<button class="act" id="cup-save">Save cupping</button>'
+    +'<button class="act" id="cup-save">'+(CUP.editId?'Update cupping':'Save cupping')+'</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
   function grab(){
     document.querySelectorAll('#drawer [data-cup]').forEach(function(el){CUP.scores[el.dataset.cup]=parseFloat(el.value)||2;});
@@ -1720,6 +1728,23 @@ async function saveCupSheet(){
   var feats=CUP.feats.filter(Boolean);
   var hasInfo=CUP_FIELDS.some(function(f){return sc[f[0]]>0;})||feats.length||CUP.comment;
   if(!hasInfo){toast('Add a score, flavour or note first');return;}
+  /* Re-cup：update 原紀錄（不動 no/日期、不再動 roasts、不查重複） */
+  if(CUP.editId){
+    var btn0=$('cup-save');if(btn0){btn0.disabled=true;btn0.textContent='Updating…';}
+    try{
+      var up={fragrance:sc.fragrance||null,acidity:sc.acidity||null,sweetness:sc.sweetness||null,body:sc.body||null,aftertaste:sc.aftertaste||null,
+        features:feats,comment:(CUP.comment||cupAutoComment(sc,feats))||null,cupper:WHO||null};
+      var uq=await sb.from('samples').update(up).eq('id',CUP.editId);
+      if(uq.error){var up2=Object.assign({},up);delete up2.features;delete up2.cupper;uq=await sb.from('samples').update(up2).eq('id',CUP.editId);}
+      if(uq.error)throw new Error(uq.error.message);
+      closeDrawer();toast('Cupping updated ✓');
+      await reload();
+    }catch(e){
+      if(btn0){btn0.disabled=false;btn0.textContent='Update cupping';}
+      alert('Update failed: '+(e&&e.message||e));
+    }
+    return;
+  }
   var today=todayStr();
   /* 防呆：同豆同日已有紀錄（同 classic submitCupping） */
   var isDup=(DB.samples||[]).some(function(x){return x.cupping_date===today&&String(x.sample_id||'').trim().toLowerCase()===name.toLowerCase();});
@@ -1981,9 +2006,11 @@ function renderQC(){
   m.querySelectorAll('[data-q]').forEach(function(r){r.addEventListener('click',function(){selQC=r.dataset.q;renderQC();});});
   var q=QCQ.find(function(x){return String(x.r.id)===String(selQC);});
   var deck=$('deck');deck.style.display='block';
-  deck.innerHTML='<div class="who">judging <b>'+esc(q.s.sample_id||'—')+(q.s.process?' · '+esc(q.s.process):'')+'</b></div>'
+  deck.innerHTML='<div class="who">judging <b>'+esc(q.s.sample_id||'—')+(q.s.process?' · '+esc(q.s.process):'')+'</b>'
+    +' · <button id="q-recup" style="background:none;border:none;color:var(--accent);font-size:inherit;font-family:inherit;font-weight:600;cursor:pointer;padding:0;text-decoration:underline">re-cup</button></div>'
     +'<div class="deck-btns"><button class="big" id="q-p">Pass</button>'
     +'<div class="pair"><button class="rr" id="q-r">Re-roast</button><button class="dn" id="q-d">Down</button></div></div>';
+  $('q-recup').addEventListener('click',function(){openRecupSheet(q);});
   $('q-p').addEventListener('click',function(){qcVerdict(q.r,'pass',null,'qc:'+q.r.id);});
   $('q-r').addEventListener('click',function(){qcVerdict(q.r,'reroast',null,'qc:'+q.r.id);});
   $('q-d').addEventListener('click',function(){qcVerdict(q.r,'downgrade',null,'qc:'+q.r.id);});
