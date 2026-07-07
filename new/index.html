@@ -437,7 +437,7 @@ var CTXS=[
 {id:'pay',label:'Pay chase — money first',pr:{Money:1,Orders:2,Roast:3,QC:4,Bar:5,Green:6,Tasks:7,Customers:8}}];
 var ctxIdx=(new Date().getHours()<11)?0:1;
 /* 權限地基：認得的四種員工角色照舊；其他（含 'customer'、沒設）一律當客戶——寧可少看不可多看 */
-function myRole(){return (ROLE==='director'||ROLE==='roaster'||ROLE==='retail'||ROLE==='staff')?ROLE:'customer';}
+function myRole(){return (ROLE==='director'||ROLE==='roaster'||ROLE==='retail'||ROLE==='staff'||ROLE==='wholesale')?ROLE:'customer';}
 function myItems(){
   var c=CTXS[ctxIdx],r=myRole();
   return ITEMS.filter(function(i){return i.roles.indexOf(r)>-1&&(filter==='all'||i.st===filter);})
@@ -3572,7 +3572,9 @@ function renderTools(){
     +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
     +[['Invoice','GST PDF · classic'],['Info card','IG asset · classic'],['Labels','bag / tin · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
-    +[['Green stock','full list · right here','greens'],['Roasted Stock','FIFO shelf · right here','batches'],['Retail Info','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Menus','4 menu PDFs · right here','menus'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Delete a coffee','remove records · careful','delbean'],['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']].map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
+    +[['Green stock','full list · right here','greens'],['Roasted Stock','FIFO shelf · right here','batches'],['Retail Info','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Menus','4 menu PDFs · right here','menus'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Delete a coffee','remove records · careful','delbean']]
+      .concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[])
+      .concat([['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']]).map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div></div>';
   var inp=$('tsearch');
   function lookup(){
@@ -3627,6 +3629,7 @@ function renderTools(){
     if(k==='infocards'){openInfoCardsSheet();return;}
     if(k==='menus'){openMenusSheet();return;}
     if(k==='delbean'){openDeleteCoffeeSheet();return;}
+    if(k==='wholesale'){openWholesaleSheet();return;}
     if(k==='signout'){
       if(!confirm('Sign out? The app returns to the public shop menu.'))return;
       (async function(){try{await sb.auth.signOut();}catch(e){}toast('Signed out');await boot();})();
@@ -3634,6 +3637,60 @@ function renderTools(){
     }
     inp.focus();toast('Type in the search box above');
   });});
+}
+/* ===== Wholesale 設定（director only）：全店折扣％＋批發帳號切換 =====
+   折扣存 app_state 'ws_discount' {pct:20}——單一 scalar，plain upsert 即可；
+   批發價一律 server 端（wholesale edge）用零售價 ×(1−pct/100) 現算，前端只是顯示 */
+async function openWholesaleSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Wholesale</div><div class="s" style="margin-top:6px">loading…</div>');
+  var pct=0,bank=null,profs=[];
+  try{
+    var r=await sb.from('app_state').select('key,value').in('key',['ws_discount','bank_details']);
+    (r.data||[]).forEach(function(x){if(x.key==='ws_discount')pct=Number((x.value||{}).pct)||0;if(x.key==='bank_details')bank=x.value||null;});
+    var p=await sb.from('profiles').select('id,name,role').in('role',['customer','wholesale']).order('name');
+    if(!p.error)profs=p.data||[];
+  }catch(e){}
+  openDrawerHTML('<div class="t" style="font-size:19px">Wholesale</div>'
+    +'<div class="s" style="margin-top:2px">one discount for every wholesale account — retail price changes flow through automatically</div>'
+    +'<div class="dlab">Discount off retail (%)</div><input class="din" id="ws-pct" inputmode="decimal" value="'+esc(pct?String(pct):'')+'" placeholder="e.g. 20">'
+    +'<button class="act" id="ws-save">Save discount</button>'
+    +'<div class="dlab" style="margin-top:16px">Terms shown to buyers</div>'
+    +'<div class="dl"><span>Minimum order</span><span>$150 — free delivery</span></div>'
+    +'<div class="dl"><span>Under $150</span><span>$20 delivery fee</span></div>'
+    +'<div class="dl"><span>Cut-off</span><span>Mon 5 pm → Wed dispatch</span></div>'
+    +(bank?'<div class="dlab" style="margin-top:16px">Bank details on order confirmations</div>'
+      +'<div class="dl"><span>Account</span><span>'+esc(bank.name||'')+'</span></div>'
+      +'<div class="dl"><span>BSB</span><span>'+esc(bank.bsb||'')+'</span></div>'
+      +'<div class="dl"><span>Number</span><span>'+esc(bank.account||'')+'</span></div>':'')
+    +'<div class="dlab" style="margin-top:16px">Accounts</div>'
+    +(profs.length?profs.map(function(p){
+      return '<div class="dl"><span>'+esc(p.name||'—')+(p.role==='wholesale'?' <span class="tag warn" style="margin-left:6px;margin-bottom:0">wholesale</span>':'')+'</span>'
+        +'<button class="qact" style="flex:0 0 auto;padding:9px 12px" data-wsp="'+esc(p.id)+'" data-wsr="'+(p.role==='wholesale'?'customer':'wholesale')+'">'+(p.role==='wholesale'?'Back to customer':'Make wholesale')+'</button></div>';
+    }).join(''):'<div class="empty" style="padding:20px">No customer accounts yet — add the user in Supabase Auth first, then flip it here</div>')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('ws-save').addEventListener('click',async function(){
+    var v=parseFloat($('ws-pct').value);
+    if(!(v>=0&&v<=90)){toast('Enter 0 to 90');return;}
+    v=Math.round(v*10)/10;
+    var btn=this;btn.disabled=true;btn.textContent='Saving…';
+    try{
+      var u=await sb.from('app_state').upsert({key:'ws_discount',value:{pct:v},updated_at:new Date().toISOString()},{onConflict:'key'});
+      if(u.error)throw new Error(u.error.message);
+      toast('Wholesale discount '+v+'% ✓');btn.disabled=false;btn.textContent='Save discount';
+    }catch(e){btn.disabled=false;btn.textContent='Save discount';alert('Save failed: '+(e&&e.message||e));}
+  });
+  document.querySelectorAll('[data-wsp]').forEach(function(b){b.addEventListener('click',async function(){
+    var to=b.dataset.wsr;
+    if(!confirm(to==='wholesale'?'Give this account wholesale pricing and self-service ordering?':'Turn this account back into a regular customer?'))return;
+    b.disabled=true;
+    try{
+      var u=await sb.from('profiles').update({role:to}).eq('id',b.dataset.wsp);
+      if(u.error)throw new Error(u.error.message);
+      toast(to==='wholesale'?'Account is wholesale ✓':'Back to customer ✓');
+      openWholesaleSheet();
+    }catch(e){b.disabled=false;alert('Change failed: '+(e&&e.message||e));}
+  });});
+  $('d-cl').addEventListener('click',closeDrawer);
 }
 /* ===== 推播訂閱（iPhone 要先加入主畫面再啟用）===== */
 function vapidBytes(){
@@ -3692,13 +3749,17 @@ async function loadShopMenu(){
     return (d&&d.ok&&d.beans)?d.beans:[];
   }catch(e){return [];}
 }
-/* ===== 購物車（匿名客人也能用：localStorage 保留；同規格再加＝數量累加；付款完成 ?checkout=done 清車）===== */
-function cartGet(){try{return JSON.parse(localStorage.getItem('r2_cart')||'[]');}catch(e){return [];}}
-function cartSet(c){try{localStorage.setItem('r2_cart',JSON.stringify(c));}catch(e){}paintCartBar();}
+/* ===== 購物車（匿名客人也能用：localStorage 保留；同規格再加＝數量累加；付款完成 ?checkout=done 清車）
+   批發模式（WS_MODE）：獨立車 r2_wcart（共用裝置不混零售車）＋數量上限 40；結帳走 wholesale edge ===== */
+var WS_MODE=false, WS_INFO=null; /* WS_INFO={pct,moq:{threshold,delivery_fee},bank} 來自 wholesale menu */
+function cartKey(){return WS_MODE?'r2_wcart':'r2_cart';}
+function cartMaxQty(){return WS_MODE?40:9;}
+function cartGet(){try{return JSON.parse(localStorage.getItem(cartKey())||'[]');}catch(e){return [];}}
+function cartSet(c){try{localStorage.setItem(cartKey(),JSON.stringify(c));}catch(e){}paintCartBar();}
 function cartAdd(item){
   var c=cartGet();
   var ex=c.find(function(x){return x.vid===item.vid;});
-  if(ex)ex.qty=Math.min(9,(ex.qty||1)+(item.qty||1));
+  if(ex)ex.qty=Math.min(cartMaxQty(),(ex.qty||1)+(item.qty||1));
   else c.push(item);
   cartSet(c);
 }
@@ -3709,7 +3770,7 @@ function mountCartIcon(){
   $('hcnt').innerHTML='<button class="hcart" id="hcart" aria-label="Cart">'
     +'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>'
     +'<b></b></button>';
-  $('hcart').addEventListener('click',openCartSheet);
+  $('hcart').addEventListener('click',function(){WS_MODE?openWsCartSheet():openCartSheet();});
   paintCartBar();
 }
 function paintCartBar(){
@@ -3741,7 +3802,7 @@ function openCartSheet(){
   document.querySelectorAll('#drawer [data-cq]').forEach(function(el){el.addEventListener('click',function(){
     var p=el.dataset.cq.split('|'),ix=+p[0],d=+p[1];
     var cc=cartGet();if(!cc[ix])return;
-    cc[ix].qty=Math.max(1,Math.min(9,(cc[ix].qty||1)+d));
+    cc[ix].qty=Math.max(1,Math.min(cartMaxQty(),(cc[ix].qty||1)+d));
     cartSet(cc);openCartSheet();
   });});
   document.querySelectorAll('#drawer [data-crm]').forEach(function(el){el.addEventListener('click',function(){
@@ -3757,6 +3818,95 @@ function openCartSheet(){
       throw new Error((res&&res.error)||'no checkout url');
     }catch(e){b.disabled=false;b.textContent='Checkout with Square';alert('Checkout failed: '+(e&&e.message||e));}
   });
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+/* ===== 批發走道：菜單（批發價，server 算）＋購物車（MOQ 進度/運費/截單提示）＋下單（wholesale edge）=====
+   價格永遠 server 端重算——checkout payload 只帶 {id,qty}，不帶價 */
+async function loadWholesaleMenu(){
+  try{
+    var d=await callFn('wholesale',{action:'menu'});
+    if(d&&d.ok){WS_INFO={pct:d.discount_pct||0,moq:d.moq||null,bank:d.bank||null};return d.beans||[];}
+  }catch(e){}
+  WS_INFO=null;return [];
+}
+function wsMoq(){return (WS_INFO&&WS_INFO.moq)||{threshold:150,delivery_fee:20};}
+function wsBankRows(bank,refNo){
+  if(!bank)return '';
+  return '<div class="dlab" style="margin-top:14px">Bank transfer</div>'
+    +'<div class="dl"><span>Account</span><span>'+esc(bank.name||'')+'</span></div>'
+    +'<div class="dl"><span>BSB</span><span>'+esc(bank.bsb||'')+'</span></div>'
+    +'<div class="dl"><span>Number</span><span>'+esc(bank.account||'')+'</span></div>'
+    +(refNo?'<div class="dl"><span>Reference</span><span>'+esc(refNo)+'</span></div>':'');
+}
+function openWsCartSheet(){
+  var c=cartGet();
+  if(!c.length){
+    openDrawerHTML('<div class="t" style="font-size:19px">Wholesale order</div>'
+      +'<div class="empty">Nothing here yet — add coffees from the shelf ☕</div>'
+      +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+    $('d-cl').addEventListener('click',closeDrawer);
+    return;
+  }
+  var moq=wsMoq(), sub=Math.round(cartTotal()*100)/100;
+  var fee=sub>=moq.threshold?0:moq.delivery_fee;
+  var gap=Math.round((moq.threshold-sub)*100)/100;
+  openDrawerHTML('<div class="t" style="font-size:19px">Wholesale order</div>'
+    +c.map(function(it,ix){
+      return '<div class="dl" style="align-items:center;gap:10px"><span style="flex:1;min-width:0"><b>'+esc(it.bean)+'</b>'
+        +(it.label?' <span style="color:var(--muted);font-size:13px">'+esc(it.label)+'</span>':'')
+        +'<br><span class="qty" style="margin-top:6px;display:inline-flex;align-items:center;gap:10px"><button data-wcq="'+ix+'|-1">−</button><span>'+it.qty+'</span><button data-wcq="'+ix+'|1">＋</button></span></span>'
+        +'<span style="white-space:nowrap">'+money((Number(it.price)||0)*it.qty)
+        +' <button data-wcrm="'+ix+'" style="border:none;background:none;color:var(--danger);font-size:18px;font-weight:700;cursor:pointer;font-family:inherit;padding:4px 2px 4px 8px">✕</button></span></div>';
+    }).join('')
+    +'<div class="dl"><span>Subtotal</span><span>'+money(sub)+'</span></div>'
+    +(fee?'<div class="dl"><span>Delivery fee (under $'+moq.threshold+')</span><span>'+money(fee)+'</span></div>':'')
+    +'<div class="dl" style="border-bottom:none"><span><b>Total</b></span><span><b>'+money(sub+fee)+'</b></span></div>'
+    +'<div class="s" style="margin-top:2px">'+(fee?money(gap)+' more for free delivery':'Free delivery ✓')+'</div>'
+    +'<div class="s" style="margin-top:6px">Order by Monday 5 pm for Wednesday dispatch — later orders are fulfilled from available stock</div>'
+    +'<div class="s" style="margin-top:6px">Pay by bank transfer, or by card (+2.2% surcharge) — details right after you place the order</div>'
+    +'<button class="act" id="wcart-go">Place order</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Keep browsing</button>');
+  document.querySelectorAll('#drawer [data-wcq]').forEach(function(el){el.addEventListener('click',function(){
+    var p=el.dataset.wcq.split('|'),ix=+p[0],d=+p[1];
+    var cc=cartGet();if(!cc[ix])return;
+    cc[ix].qty=Math.max(1,Math.min(cartMaxQty(),(cc[ix].qty||1)+d));
+    cartSet(cc);openWsCartSheet();
+  });});
+  document.querySelectorAll('#drawer [data-wcrm]').forEach(function(el){el.addEventListener('click',function(){
+    var cc=cartGet();cc.splice(+el.dataset.wcrm,1);cartSet(cc);openWsCartSheet();
+  });});
+  $('wcart-go').addEventListener('click',async function(){
+    var b=$('wcart-go');b.disabled=true;b.textContent='Placing order…';
+    try{
+      var res=await callFn('wholesale',{action:'checkout',items:cartGet().map(function(x){return {id:x.vid,qty:x.qty};})});
+      if(!(res&&res.ok))throw new Error((res&&res.error)||'order failed');
+      cartSet([]); /* 單已成立才清車；失敗保車 */
+      openWsOrderDoneSheet(res);
+    }catch(e){b.disabled=false;b.textContent='Place order';alert('Order failed: '+(e&&e.message||e));}
+  });
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+function openWsOrderDoneSheet(res){
+  var no='#'+String(res.order_no||'').padStart(4,'0');
+  openDrawerHTML('<div class="t" style="font-size:19px">Order placed ✓</div>'
+    +'<div class="s" style="margin-top:2px">'+no+' · a confirmation email with these details is on its way</div>'
+    +'<div class="dl" style="margin-top:8px"><span>Subtotal</span><span>'+money(res.subtotal)+'</span></div>'
+    +(res.delivery_fee?'<div class="dl"><span>Delivery fee</span><span>'+money(res.delivery_fee)+'</span></div>':'')
+    +'<div class="dl" style="border-bottom:none"><span><b>Total</b></span><span><b>'+money(res.total)+'</b></span></div>'
+    +'<div class="s" style="margin-top:2px">Orders are roasted and dispatched once payment is confirmed</div>'
+    +wsBankRows(res.bank,res.bank&&res.bank.reference||no)
+    +(res.pay_url?'<a class="act" href="'+esc(res.pay_url)+'" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none">Pay online by card (+2.2%)</a>':'')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Done</button>');
+  $('d-cl').addEventListener('click',async function(){closeDrawer();await boot();});
+}
+/* 未付批發單的付款資訊抽屜（門戶訂單卡點進來） */
+function openWsPaySheet(o){
+  var no='#'+String(o.order_no||'').padStart(4,'0');
+  openDrawerHTML('<div class="t" style="font-size:19px">Pay '+no+'</div>'
+    +'<div class="s" style="margin-top:2px">'+money(o.total)+' · roasted and dispatched once payment is confirmed</div>'
+    +wsBankRows(WS_INFO&&WS_INFO.bank,no)
+    +(o.payment_link?'<a class="act" href="'+esc(o.payment_link)+'" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none">Pay online by card (+2.2%)</a>':'')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);
 }
 /* 分類（老闆定的四格）：Blend＝有配方；Co-ferment＝culturing/co-ferment 類；Innovation＝實驗處理法；其餘 Classic */
@@ -3853,14 +4003,20 @@ function openShopDetailSheet(name){
   $('d-cl').addEventListener('click',closeDrawer);
 }
 /* C 規格書版（老闆挑的）v2：資訊卡圖滿版（白邊 CSS 裁掉）＋價格＋Details 抽屜列＋購買列 */
+/* 批發模式的價格行：批發價在前、零售價劃線在後（賣的就是那個折扣） */
+function shopPriceHTML(price,label,retail){
+  var strike=(WS_MODE&&retail!=null&&Number(retail)>Number(price))
+    ?' <s style="color:var(--muted);font-size:14px;font-weight:400">$'+Number(retail).toFixed(0)+'</s>':'';
+  return '$'+Number(price).toFixed(0)+strike+'<span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif"> /'+esc(label)+'</span>';
+}
 function shopCardsHTML(beans){
   if(!beans.length)return '<div class="empty">The shelf is being restocked — check back soon ☕</div>';
   return beans.map(function(b,bx){
-    var sizes=(b.sizes&&b.sizes.length)?b.sizes:(b.price!=null?[{id:'',label:(b.grams||250)+'g',price:b.price}]:[]);
+    var sizes=(b.sizes&&b.sizes.length)?b.sizes:(b.price!=null?[{id:'',label:(b.grams||250)+'g',price:b.price,retail:b.retail}]:[]);
     var s0=sizes[0]||{};
     var sizeSeg=sizes.length>1
       ?'<div class="pm-seg" style="margin-top:12px">'+sizes.map(function(s,si){
-          return '<button data-sz="'+si+'" data-vid="'+esc(s.id)+'" data-price="'+(s.price!=null?s.price:'')+'" data-label="'+esc(s.label)+'"'+(si===0?' class="on"':'')+'>'+esc(s.label)+(s.price!=null?' $'+Number(s.price).toFixed(0):'')+'</button>';
+          return '<button data-sz="'+si+'" data-vid="'+esc(s.id)+'" data-price="'+(s.price!=null?s.price:'')+'" data-retail="'+(s.retail!=null?s.retail:'')+'" data-label="'+esc(s.label)+'"'+(si===0?' class="on"':'')+'>'+esc(s.label)+(s.price!=null?' $'+Number(s.price).toFixed(0):'')+'</button>';
         }).join('')+'</div>'
       :'';
     return '<div class="card shopc" data-bean="'+esc(b.name)+'" data-vid="'+esc(s0.id||'')+'" data-price="'+(s0.price!=null?s0.price:'')+'" data-label="'+esc(s0.label||'')+'">'
@@ -3870,7 +4026,7 @@ function shopCardsHTML(beans){
       +(beans.length>1?'<div class="shopdots" style="margin:0 0 12px">'+beans.map(function(_,i){return '<span'+(i===bx?' class="on"':'')+'></span>';}).join('')+'</div>':'')
       +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">'
       +'<span class="t" style="font-size:22px">'+esc(b.name)+'</span>'
-      +(s0.price!=null?'<span class="t shopprice" style="font-size:19px;white-space:nowrap">$'+Number(s0.price).toFixed(0)+'<span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif"> /'+esc(s0.label||((b.grams||250)+'g'))+'</span></span>':'')
+      +(s0.price!=null?'<span class="t shopprice" style="font-size:19px;white-space:nowrap">'+shopPriceHTML(s0.price,s0.label||((b.grams||250)+'g'),s0.retail)+'</span>':'')
       +'</div>'
       +sizeSeg
       +'<div class="no-line" style="margin-top:12px;align-items:center">'
@@ -3896,11 +4052,11 @@ function wireShopCards(root){
       card.querySelectorAll('[data-sz]').forEach(function(x){x.classList.toggle('on',x===el);});
       card.dataset.vid=el.dataset.vid;card.dataset.price=el.dataset.price;card.dataset.label=el.dataset.label;
       var pp=card.querySelector('.shopprice');
-      if(pp&&el.dataset.price)pp.innerHTML='$'+Number(el.dataset.price).toFixed(0)+'<span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif"> /'+esc(el.dataset.label)+'</span>';
+      if(pp&&el.dataset.price)pp.innerHTML=shopPriceHTML(el.dataset.price,el.dataset.label,el.dataset.retail!==''?el.dataset.retail:null);
       paintBtn();
     });});
     card.querySelectorAll('[data-shopq]').forEach(function(el){el.addEventListener('click',function(){
-      var q=Math.max(1,Math.min(9,qty()+(+el.dataset.shopq)));
+      var q=Math.max(1,Math.min(cartMaxQty(),qty()+(+el.dataset.shopq)));
       card.querySelector('.shopqty').textContent=q;
       paintBtn();
     });});
@@ -3958,8 +4114,9 @@ async function renderPublicMenu(){
   paintShopBody();
   var st=$('pm-staff');if(st)st.addEventListener('click',openSignInSheet);
 }
-/* 客戶登入＝豆單在上、自己的訂單在下＋切員工登入鍵 */
+/* 客戶登入＝豆單在上、自己的訂單在下＋切員工登入鍵；wholesale 角色＝同門戶換批發菜單＋付款抽屜 */
 async function renderCustomerPortal(sess){
+  WS_MODE=(ROLE==='wholesale');
   var nav=document.querySelector('nav');if(nav)nav.style.display='none';
   $('chips').innerHTML='';
   mountCartIcon();
@@ -3967,31 +4124,37 @@ async function renderCustomerPortal(sess){
   m.innerHTML='<div class="empty">Loading the shelf…</div>';
   var email=(sess&&sess.user&&sess.user.email)||'';
   var orders=[],custName='';
-  var beansP=loadShopMenu();
+  var beansP=WS_MODE?loadWholesaleMenu():loadShopMenu();
   try{
     var cq=await sb.from('customers').select('id,name').ilike('email',email);
     var ids=(cq.data||[]).map(function(c){return c.id;});
     if(cq.data&&cq.data[0])custName=cq.data[0].name||'';
     if(ids.length){
-      var oq=await sb.from('orders').select('order_no,status,items,total,payment_status,tracking_no,created_at').in('customer_id',ids).neq('status','Cancelled').order('order_no',{ascending:false}).limit(20);
+      var oq=await sb.from('orders').select('order_no,status,items,total,payment_status,tracking_no,created_at,payment_link').in('customer_id',ids).neq('status','Cancelled').order('order_no',{ascending:false}).limit(20);
       orders=oq.data||[];
     }
   }catch(e){}
   SHOP_BEANS=await beansP;
-  m.innerHTML='<div class="card brief"><span class="tag">Welcome</span>'
+  var wsPct=WS_MODE&&WS_INFO?Number(WS_INFO.pct)||0:0;
+  m.innerHTML='<div class="card brief"><span class="tag">'+(WS_MODE?'Wholesale':'Welcome')+'</span>'
     +'<div class="t">'+esc(custName||'Hello')+'</div>'
-    +'<div class="s">Ratio Coffee · on the shelf today'+(email?' · '+esc(email):'')+'</div>'
+    +'<div class="s">'+(WS_MODE
+      ?('Wholesale account'+(wsPct?' · '+wsPct+'% off retail':'')+' · order by Mon 5 pm for Wed dispatch')
+      :('Ratio Coffee · on the shelf today'+(email?' · '+esc(email):'')))+'</div>'
     +'<button class="more" id="cp-fb" style="color:var(--inv-t)">Leave feedback</button></div>'
     +'<div id="shopbody"></div>'
-    +(orders.length?'<div class="note" style="margin-top:16px">Your orders</div>'+orders.map(function(o){
+    +(orders.length?'<div class="note" style="margin-top:16px">Your orders</div>'+orders.map(function(o,ox){
       var paid=o.payment_status==='paid';
       return '<div class="card"><span class="tag'+(o.status==='Dispatched'?'':' warn')+'">'+esc(o.status||'—')+'</span>'
         +'<div class="t">#'+String(o.order_no||'—').padStart(4,'0')+' · '+money(o.total)+'</div>'
-        +'<div class="s">'+esc(itemsLine(o)||'—')+(paid?'':' · awaiting payment')+(o.tracking_no?' · tracking '+esc(o.tracking_no):'')+'</div></div>';
+        +'<div class="s">'+esc(itemsLine(o)||'—')+(paid?'':' · awaiting payment')+(o.tracking_no?' · tracking '+esc(o.tracking_no):'')+'</div>'
+        +(WS_MODE&&!paid?'<button class="more" data-wspay="'+ox+'">Payment details →</button>':'')
+        +'</div>';
     }).join(''):'')
     +'<button class="more" id="cp-staff" style="margin-top:18px">Staff sign in — switch account</button>';
   renderShopTabs();
   paintShopBody();
+  m.querySelectorAll('[data-wspay]').forEach(function(b){b.addEventListener('click',function(){openWsPaySheet(orders[+b.dataset.wspay]);});});
   $('cp-fb').addEventListener('click',function(){location.href='/?fb=store';});
   /* 更高權限入口：登出這個客戶 → 原地開登入抽屜換帳號，全程不離開 /new */
   $('cp-staff').addEventListener('click',async function(){
@@ -4013,6 +4176,7 @@ async function boot(){
   var nav=document.querySelector('nav');if(nav)nav.style.display='';
   $('shoptabs').style.display='none';
   $('chips').innerHTML='';
+  WS_MODE=false;WS_INFO=null; /* 批發模式只在 wholesale 門戶內開；員工/店面一律零售車 */
   paintCartBar();
   var g=await sb.auth.getSession();
   if(!(g&&g.data&&g.data.session)){
@@ -4025,7 +4189,7 @@ async function boot(){
     var p=await sb.from('profiles').select('name,role').eq('id',g.data.session.user.id).single();
     if(p&&p.data){ROLE=p.data.role||'customer';WHO=p.data.name||'';}
   }catch(e){}
-  if(myRole()==='customer'){await renderCustomerPortal(g.data.session);return;}
+  if(myRole()==='customer'||myRole()==='wholesale'){await renderCustomerPortal(g.data.session);return;}
   view='feed';filter='all';
   await reload();
 }
