@@ -42,7 +42,9 @@ header .cnt{font-size:14px;color:var(--muted)}
 .shopwrap{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:14px;margin:0 -22px;padding:0 22px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .shopwrap::-webkit-scrollbar{display:none}
 .shopwrap .shopc{flex:0 0 92%;scroll-snap-align:center;touch-action:pan-x pan-y}
-.cartbar{position:fixed;left:20px;right:20px;bottom:calc(env(safe-area-inset-bottom,0px) + 82px);max-width:480px;margin:0 auto;background:var(--inv);color:var(--inv-t);border:none;border-radius:14px;padding:15px 18px;display:none;justify-content:space-between;align-items:center;z-index:31;cursor:pointer;font-weight:700;font-size:15px;font-family:inherit}
+/* 購物車＝右上角小 icon（取代浮動 cartbar，老闆指定）；徽章顯示件數 */
+.hcart{position:relative;background:none;border:none;cursor:pointer;padding:6px;color:var(--ink);display:inline-flex;vertical-align:middle}
+.hcart b{position:absolute;top:0;right:-2px;background:var(--accent);color:#fff;font-size:10.5px;border-radius:999px;min-width:16px;height:16px;line-height:16px;text-align:center;font-weight:700;font-style:normal;display:none;padding:0 3px;box-sizing:border-box}
 .shopdots{display:flex;justify-content:center;gap:7px;margin:12px 0 6px}
 .shopdots span{width:7px;height:7px;border-radius:50%;background:var(--line2)}
 .shopdots span.on{background:var(--accent)}
@@ -133,7 +135,6 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 <button id="nav-tools">Tools</button>
 <button id="nav-refresh">Refresh</button>
 </nav>
-<button class="cartbar" id="cartbar"></button>
 <div class="shoptabs" id="shoptabs" style="display:none"></div>
 <div class="drawer-bg" id="dbg"></div>
 <div class="drawer" id="drawer"></div>
@@ -2020,7 +2021,6 @@ function maybeAutoRefresh(){
   if(Date.now()-LAST_LOAD>60000)reload();
 }
 document.addEventListener('visibilitychange',maybeAutoRefresh);
-$('cartbar').addEventListener('click',openCartSheet);
 $('nav-feed').addEventListener('click',function(){view='feed';render();});
 $('nav-qc').addEventListener('click',function(){view='qc';render();});
 $('nav-tools').addEventListener('click',function(){view='tools';render();});
@@ -2046,16 +2046,18 @@ function cartAdd(item){
 }
 function cartCount(){return cartGet().reduce(function(a,x){return a+(x.qty||1);},0);}
 function cartTotal(){return cartGet().reduce(function(a,x){return a+(x.qty||1)*(Number(x.price)||0);},0);}
+/* 右上角購物車 icon：掛在 #hcnt（商店/客戶頁呼叫；其他分頁寫回文字自然蓋掉） */
+function mountCartIcon(){
+  $('hcnt').innerHTML='<button class="hcart" id="hcart" aria-label="Cart">'
+    +'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>'
+    +'<b></b></button>';
+  $('hcart').addEventListener('click',openCartSheet);
+  paintCartBar();
+}
 function paintCartBar(){
-  var el=$('cartbar');if(!el)return;
-  var n=cartCount();
-  if(!n||!$('shopbody')){el.style.display='none';document.body.style.paddingBottom='';return;}
-  el.style.display='flex';
-  /* 浮條出現＝頁底多墊 80px，捲到底時 Add to cart 完整露在浮條上方（老闆真機回報被蓋住） */
-  document.body.style.paddingBottom='250px';
-  /* tabs 藏起來（只剩一類）時浮條貼底 */
-  el.style.bottom=($('shoptabs').style.display==='flex')?'':'calc(env(safe-area-inset-bottom,0px) + 16px)';
-  el.innerHTML='<span>'+n+' item'+(n>1?'s':'')+' · '+money(cartTotal())+'</span><span>View cart →</span>';
+  var el=$('hcart');if(!el)return;
+  var n=cartCount(),b=el.querySelector('b');
+  if(b){b.style.display=n?'block':'none';b.textContent=n>9?'9+':String(n);}
 }
 function openCartSheet(){
   var c=cartGet();
@@ -2126,17 +2128,9 @@ function paintShopBody(){
   document.querySelectorAll('#shoptabs [data-sct]').forEach(function(b){b.classList.toggle('on',b.dataset.sct===SHOP_CAT);});
   var list=SHOP_BEANS.filter(function(b){return shopCategory(b)===SHOP_CAT;});
   if(!list.length){host.innerHTML='<div class="empty">Nothing in this corner right now ☕</div>';return;}
-  host.innerHTML='<div class="shopwrap" id="shopwrap">'+shopCardsHTML(list)+'</div>'
-    +(list.length>1?'<div class="shopdots" id="shopdots">'+list.map(function(_,i){return '<span class="'+(i===0?'on':'')+'"></span>';}).join('')+'</div>':'');
+  host.innerHTML='<div class="shopwrap" id="shopwrap">'+shopCardsHTML(list)+'</div>';
   wireShopCards(host);
   paintCartBar();
-  var w=$('shopwrap');
-  if(w)w.addEventListener('scroll',function(){
-    var sw=w.children[0]?(w.children[0].offsetWidth+14):w.clientWidth;
-    var i=Math.round(w.scrollLeft/sw);
-    var ds=$('shopdots');if(!ds)return;
-    Array.prototype.forEach.call(ds.children,function(d,ix){d.classList.toggle('on',ix===i);});
-  },{passive:true});
 }
 /* 規格明細列（Blend 或 Process/Origin/Variety/Cup/Bag/Roasted）——主卡瘦身後只在明細抽屜用 */
 function shopSpecsFor(b){
@@ -2184,6 +2178,8 @@ function shopCardsHTML(beans){
     return '<div class="card shopc" data-bean="'+esc(b.name)+'" data-vid="'+esc(s0.id||'')+'" data-price="'+(s0.price!=null?s0.price:'')+'" data-label="'+esc(s0.label||'')+'">'
       +(b.image?'<div class="shopimghold"><img class="shopimg" src="'+esc(b.image)+'" alt="'+esc(b.name)+'" loading="'+(bx===0?'eager':'lazy')+'"></div>':'')
       +'<div class="shopin">'
+      /* 翻頁圓點在圖與價之間：每張卡自帶一排、亮自己那顆（滑到哪張看到的就是哪張的點，不用捲動監聽） */
+      +(beans.length>1?'<div class="shopdots" style="margin:0 0 12px">'+beans.map(function(_,i){return '<span'+(i===bx?' class="on"':'')+'></span>';}).join('')+'</div>':'')
       +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">'
       +'<span class="t" style="font-size:22px">'+esc(b.name)+'</span>'
       +(s0.price!=null?'<span class="t shopprice" style="font-size:19px;white-space:nowrap">$'+Number(s0.price).toFixed(0)+'<span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif"> /'+esc(s0.label||((b.grams||250)+'g'))+'</span></span>':'')
@@ -2263,7 +2259,7 @@ function openSignInSheet(){
 async function renderPublicMenu(){
   var nav=document.querySelector('nav');if(nav)nav.style.display='none';
   $('chips').innerHTML='';
-  $('hcnt').textContent='on the shelf';
+  mountCartIcon();
   var m=$('main');
   m.innerHTML='<div class="empty">Loading the shelf…</div>';
   SHOP_BEANS=await loadShopMenu();
@@ -2279,7 +2275,7 @@ async function renderPublicMenu(){
 async function renderCustomerPortal(sess){
   var nav=document.querySelector('nav');if(nav)nav.style.display='none';
   $('chips').innerHTML='';
-  $('hcnt').textContent='customer';
+  mountCartIcon();
   var m=$('main');
   m.innerHTML='<div class="empty">Loading the shelf…</div>';
   var email=(sess&&sess.user&&sess.user.email)||'';
