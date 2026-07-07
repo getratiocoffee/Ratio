@@ -1005,6 +1005,8 @@ function openHelpSheet(){
     +P('<b>Make</b>: new orders, roast logging (single origin or blend), stocktake and green deliveries — all saved to the same books as the classic app. <b>Look up</b>: search anything, browse green stock, roast batches, customers, orders and team notes. Anything marked <b>classic</b> jumps to the desktop app.')
     +'<div class="dlab">Notifications</div>'
     +P('iPhone: open this page in Safari → Share → <b>Add to Home Screen</b> → open from the icon → Tools → <b>Enable here</b>. New orders and payments ding instantly, and a morning brief arrives at 6:30 every day. Deleting the icon stops notifications.')
+    +'<div class="dlab">Sign in and out</div>'
+    +P('Signed out, the app is the public shop menu — customers browse and order without seeing any of this. <b>Sign in</b> from the bottom of the menu unlocks your view: staff land here, customer accounts see their own orders. <b>Sign out</b> lives in Tools and hands the app back to the shop menu.')
     +'<div class="dlab">Good to know</div>'
     +P('The feed refreshes itself when you come back to the app. Snoozes are shared — if someone snoozes a card, it rests for the whole team until tomorrow. Roast logging deducts green stock and stocktake fixes any drift, so weigh and type whenever numbers look off.')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
@@ -1894,7 +1896,7 @@ function renderTools(){
     +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
     +[['Invoice','GST PDF · classic'],['Info card','IG asset · classic'],['Labels','bag / tin · classic'],['Menus','A4 PDF · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
-    +[['Green stock','full list · right here','greens'],['Roast batches','FIFO shelf · right here','batches'],['Retail shelf','live on Square','retail'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Classic app','full interface','classic'],['How it works','gestures and cards','help']].map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
+    +[['Green stock','full list · right here','greens'],['Roast batches','FIFO shelf · right here','batches'],['Retail shelf','live on Square','retail'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']].map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div></div>';
   var inp=$('tsearch');
   function lookup(){
@@ -1946,6 +1948,11 @@ function renderTools(){
     if(k==='customers'){openCustomersSheet();return;}
     if(k==='help'){openHelpSheet();return;}
     if(k==='retail'){openRetailSheet();return;}
+    if(k==='signout'){
+      if(!confirm('Sign out? The app returns to the public shop menu.'))return;
+      (async function(){try{await sb.auth.signOut();}catch(e){}toast('Signed out');await boot();})();
+      return;
+    }
     inp.focus();toast('Type in the search box above');
   });});
 }
@@ -2030,7 +2037,36 @@ function wireShopBuy(root){
     }catch(e){el.disabled=false;el.textContent='Order';alert('Could not start checkout — please try again.');}
   });});
 }
-/* 沒登入＝店面：豆單直接開門見山（員工從底部小連結去登入） */
+/* ===== 登入抽屜（帳號＝打開其他功能的鑰匙；照 classic submit 的 signInWithPassword，只登入不註冊）===== */
+function openSignInSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Sign in</div>'
+    +'<div class="s" style="margin-top:2px">staff and account holders — unlocks your view of the app</div>'
+    +'<div class="dlab">Email</div><input class="din" id="si-email" type="email" autocomplete="email" placeholder="you@example.com">'
+    +'<div class="dlab">Password</div><input class="din" id="si-pass" type="password" autocomplete="current-password" placeholder="••••••••">'
+    +'<div class="s" id="si-msg" style="margin-top:8px"></div>'
+    +'<button class="act" id="si-go">Sign in</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  async function go(){
+    var email=($('si-email').value||'').trim();
+    var pass=$('si-pass').value||'';
+    var msg=$('si-msg');
+    if(!email||!pass){msg.innerHTML='<span class="red">Enter email and password</span>';return;}
+    var b=$('si-go');b.disabled=true;b.textContent='Signing in…';
+    var r=await sb.auth.signInWithPassword({email:email,password:pass});
+    if(r.error){
+      b.disabled=false;b.textContent='Sign in';
+      msg.innerHTML='<span class="red">'+esc(r.error.message||'Sign in failed')+'</span>';
+      return;
+    }
+    closeDrawer();toast('Signed in ✓');
+    await boot();
+  }
+  $('si-go').addEventListener('click',go);
+  $('si-pass').addEventListener('keydown',function(e){if(e.key==='Enter')go();});
+  $('si-email').addEventListener('keydown',function(e){if(e.key==='Enter')go();});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+/* 沒登入＝店面：豆單直接開門見山（員工從底部小連結登入） */
 async function renderPublicMenu(){
   var nav=document.querySelector('nav');if(nav)nav.style.display='none';
   $('chips').innerHTML='';
@@ -2043,7 +2079,7 @@ async function renderPublicMenu(){
     +'<div class="note" style="margin-top:16px"><a href="/?fb=store" style="color:var(--accent)">Tried it? Tell us what you think →</a></div>'
     +'<button class="more" id="pm-staff">Staff sign in</button>';
   wireShopBuy(m);
-  var st=$('pm-staff');if(st)st.addEventListener('click',function(){location.href=CLASSIC;});
+  var st=$('pm-staff');if(st)st.addEventListener('click',openSignInSheet);
 }
 /* 客戶登入＝豆單在上、自己的訂單在下＋切員工登入鍵 */
 async function renderCustomerPortal(sess){
@@ -2079,27 +2115,33 @@ async function renderCustomerPortal(sess){
     +'<button class="more" id="cp-staff" style="margin-top:18px">Staff sign in — switch account</button>';
   wireShopBuy(m);
   $('cp-fb').addEventListener('click',function(){location.href='/?fb=store';});
-  /* 更高權限入口：登出這個客戶 → 去 classic 用員工帳號登入 → 回來就是員工視角 */
+  /* 更高權限入口：登出這個客戶 → 原地開登入抽屜換帳號，全程不離開 /new */
   $('cp-staff').addEventListener('click',async function(){
     if(!confirm('Sign out of this account and switch to a staff sign-in?'))return;
     try{await sb.auth.signOut();}catch(e){}
-    location.href=CLASSIC;
+    await boot();
+    openSignInSheet();
   });
 }
-(async function init(){
+/* 三層路由：沒登入＝豆單店面／customer＝客戶門戶／員工四角色＝操作台。
+   登入、登出後都重呼叫一次即可換視角（nav/chips 先復位，因為店面與門戶會藏 nav） */
+async function boot(){
+  var nav=document.querySelector('nav');if(nav)nav.style.display='';
+  $('chips').innerHTML='';
   var g=await sb.auth.getSession();
   if(!(g&&g.data&&g.data.session)){
-    /* 沒登入＝客戶店面（老闆定調：進來直接看到豆單）；員工從底部 Staff sign in 進 classic 登入 */
     await renderPublicMenu();
     return;
   }
-  /* 沒 profile 或沒角色＝客戶（舊版預設 director，開放客戶登入前必須翻過來） */
-  ROLE='customer';
+  /* 沒 profile 或沒角色＝客戶（開放客戶登入前的安全預設） */
+  ROLE='customer';WHO='';
   try{
     var p=await sb.from('profiles').select('name,role').eq('id',g.data.session.user.id).single();
     if(p&&p.data){ROLE=p.data.role||'customer';WHO=p.data.name||'';}
   }catch(e){}
-  if(myRole()==='customer'){renderCustomerPortal(g.data.session);return;}
+  if(myRole()==='customer'){await renderCustomerPortal(g.data.session);return;}
+  view='feed';filter='all';
   await reload();
-})();
+}
+(async function init(){await boot();})();
 </script></body></html>
