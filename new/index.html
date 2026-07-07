@@ -367,7 +367,8 @@ var CTXS=[
 {id:'day',label:'Daytime sort — orders first',pr:{Orders:1,Roast:2,QC:3,Bar:4,Money:5,Green:6,Tasks:7,Customers:8}},
 {id:'pay',label:'Pay chase — money first',pr:{Money:1,Orders:2,Roast:3,QC:4,Bar:5,Green:6,Tasks:7,Customers:8}}];
 var ctxIdx=(new Date().getHours()<11)?0:1;
-function myRole(){return (ROLE==='director')?'director':(ROLE==='roaster'?'roaster':(ROLE==='retail'?'retail':'staff'));}
+/* 權限地基：認得的四種員工角色照舊；其他（含 'customer'、沒設）一律當客戶——寧可少看不可多看 */
+function myRole(){return (ROLE==='director'||ROLE==='roaster'||ROLE==='retail'||ROLE==='staff')?ROLE:'customer';}
 function myItems(){
   var c=CTXS[ctxIdx],r=myRole();
   return ITEMS.filter(function(i){return i.roles.indexOf(r)>-1&&(filter==='all'||i.st===filter);})
@@ -1953,6 +1954,46 @@ $('nav-feed').addEventListener('click',function(){view='feed';render();});
 $('nav-qc').addEventListener('click',function(){view='qc';render();});
 $('nav-tools').addEventListener('click',function(){view='tools';render();});
 $('nav-refresh').addEventListener('click',async function(){this.textContent='…';await reload();this.textContent='Refresh';toast('Refreshed');});
+/* ===== 客戶門戶（權限地基第一塊磚：客戶登入只看自己的單＋商店＋回饋；一鍵切員工登入）
+   ⚠ 目前只是 UI 隔離——RLS 還是小團隊信任模型，真開放客戶帳號前要先鎖資料庫政策（設定階段） ===== */
+async function renderCustomerPortal(sess){
+  var nav=document.querySelector('nav');if(nav)nav.style.display='none';
+  $('chips').innerHTML='';
+  $('hcnt').textContent='customer';
+  var m=$('main');
+  m.innerHTML='<div class="empty">Loading your orders…</div>';
+  var email=(sess&&sess.user&&sess.user.email)||'';
+  var orders=[],custName='';
+  try{
+    var cq=await sb.from('customers').select('id,name').ilike('email',email);
+    var ids=(cq.data||[]).map(function(c){return c.id;});
+    if(cq.data&&cq.data[0])custName=cq.data[0].name||'';
+    if(ids.length){
+      var oq=await sb.from('orders').select('order_no,status,items,total,payment_status,tracking_no,created_at').in('customer_id',ids).neq('status','Cancelled').order('order_no',{ascending:false}).limit(20);
+      orders=oq.data||[];
+    }
+  }catch(e){}
+  m.innerHTML='<div class="card brief"><span class="tag">Welcome</span>'
+    +'<div class="t">'+esc(custName||'Hello')+'</div>'
+    +'<div class="s">Your orders with Ratio Coffee'+(email?' · '+esc(email):'')+'</div>'
+    +'<button class="act" id="cp-shop">Order coffee — open the shop</button>'
+    +'<button class="more" id="cp-fb">Leave feedback</button></div>'
+    +(orders.length?orders.map(function(o){
+      var paid=o.payment_status==='paid';
+      return '<div class="card"><span class="tag'+(o.status==='Dispatched'?'':' warn')+'">'+esc(o.status||'—')+'</span>'
+        +'<div class="t">#'+String(o.order_no||'—').padStart(4,'0')+' · '+money(o.total)+'</div>'
+        +'<div class="s">'+esc(itemsLine(o)||'—')+(paid?'':' · awaiting payment')+(o.tracking_no?' · tracking '+esc(o.tracking_no):'')+'</div></div>';
+    }).join(''):'<div class="empty">No orders yet — the shop is one tap away ☕</div>')
+    +'<button class="more" id="cp-staff" style="margin-top:18px">Staff sign in — switch account</button>';
+  $('cp-shop').addEventListener('click',function(){location.href='/?shop';});
+  $('cp-fb').addEventListener('click',function(){location.href='/?fb=store';});
+  /* 更高權限入口：登出這個客戶 → 去 classic 用員工帳號登入 → 回來就是員工視角 */
+  $('cp-staff').addEventListener('click',async function(){
+    if(!confirm('Sign out of this account and switch to a staff sign-in?'))return;
+    try{await sb.auth.signOut();}catch(e){}
+    location.href=CLASSIC;
+  });
+}
 (async function init(){
   var g=await sb.auth.getSession();
   if(!(g&&g.data&&g.data.session)){
@@ -1960,10 +2001,13 @@ $('nav-refresh').addEventListener('click',async function(){this.textContent='…
     $('main').innerHTML='<div class="empty">Sign in once in the classic app, then come back.<br><br><a href="'+CLASSIC+'" style="color:var(--accent);font-weight:700">Open the classic app to sign in →</a></div>';
     return;
   }
+  /* 沒 profile 或沒角色＝客戶（舊版預設 director，開放客戶登入前必須翻過來） */
+  ROLE='customer';
   try{
     var p=await sb.from('profiles').select('name,role').eq('id',g.data.session.user.id).single();
-    if(p&&p.data){ROLE=p.data.role||'director';WHO=p.data.name||'';}
+    if(p&&p.data){ROLE=p.data.role||'customer';WHO=p.data.name||'';}
   }catch(e){}
+  if(myRole()==='customer'){renderCustomerPortal(g.data.session);return;}
   await reload();
 })();
 </script></body></html>
