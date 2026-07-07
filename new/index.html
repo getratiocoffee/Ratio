@@ -1192,20 +1192,23 @@ async function openShelfBeanDetail(nm,m){
   var sc={fragrance:s.fragrance,acidity:s.acidity,sweetness:s.sweetness,body:s.body,aftertaste:s.aftertaste};
   var fr=shelfFreshness(nm);
   var price=m.rtl_price[nm],g=m.rtl_g[nm]||250,szc=m.rtl_sizes[nm]||{},sold=!!m.rtl_sold[nm];
+  var rdate=null;try{rdate=shelfLatestRoast(nm);}catch(e){}
+  /* 順序照老闆定：名字 → 烘豆日＋天數/熟成 → 規格價格 → 雷達 → 風味 → 履歷 */
   openDrawerHTML('<span class="tag" style="color:'+col+'">● Shelf'+(sold?' · <span class="red">sold out</span>':'')+'</span>'
-    +'<div class="t" style="font-size:19px">'+esc(nm)+'</div>'
-    +'<div class="s" style="margin-top:2px">'+(s.process?esc(s.process)+' · ':'')
-    +'<span class="'+fr.cls+'"'+(fr.cls?'':' style="color:var(--muted)"')+'>'+esc(fr.txt)+'</span>'
+    +'<div class="t" style="font-size:19px">'+esc(nm)
+    +(s.process?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif;font-weight:400">'+esc(s.process)+'</span>':'')+'</div>'
+    +'<div class="s" style="margin-top:2px">'+(rdate?'roasted '+fmtD(rdate)+' · ':'')
+    +'<span class="'+fr.cls+'"'+(fr.cls?'':' style="color:var(--muted)"')+'>'+esc(fr.days!=null?fr.days+'d — '+fr.txt.split('— ')[1]:fr.txt)+'</span>'
     +(s.flavour_locked?'':' · flavour unlocked')+'</div>'
     +'<div style="margin-top:10px">'
     +(price!=null?'<div class="dl"><span>'+g+'g</span><span>'+money(price)+'</span></div>':'<div class="dl"><span>Price</span><span class="red">not recorded</span></div>')
     +(szc.g500?'<div class="dl"><span>500g</span><span>'+money(szc.g500)+'</span></div>':'')
     +(szc.g1000?'<div class="dl"><span>1kg</span><span>'+money(szc.g1000)+'</span></div>':'')
     +'</div>'
+    +(hasScores?'<img src="'+printRadarPNG(sc,col)+'" style="width:72%;max-width:250px;display:block;margin:12px auto 0" alt="cup profile">':'')
     +'<div class="dlab" style="color:'+col+'">Tasting notes</div>'
     +(feats.length?'<div style="margin-top:2px">'+feats.map(function(f){return '<span class="shop-chip">'+esc(f)+'</span>';}).join('')+'</div>':'')
     +(s.comment?'<div class="s" style="font-style:italic;margin-top:6px">“'+esc(s.comment)+'”</div>':'')
-    +(hasScores?'<img src="'+printRadarPNG(sc,col)+'" style="width:72%;max-width:250px;display:block;margin:6px auto 0" alt="cup profile">':'')
     +(!feats.length&&!s.comment&&!hasScores?'<div class="s" style="margin-top:4px">No cupping record yet — cup it in QC first</div>':'')
     +(info.length?'<div class="dlab" style="color:'+col+'">The coffee</div>'
       +info.map(function(r){return '<div class="dl"><span>'+esc(r[0])+'</span><span style="text-align:right">'+esc(String(r[1]))+'</span></div>';}).join(''):'')
