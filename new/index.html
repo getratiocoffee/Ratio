@@ -1280,7 +1280,14 @@ function allRetailCoffees(){
     if(!seen[k]){seen[k]={name:nm,cups:0,roasts:0};out.push(seen[k]);}
     seen[k].roasts++;
   });
-  out.forEach(function(e){e.synced=!!(DB.syncs||[]).find(function(x){return x.status==='synced'&&String(x.bean_id||'').trim().toLowerCase()===e.name.toLowerCase();});});
+  /* 純上架孤兒也要列（只在 product_sync、0 杯測 0 烘豆——老闆的 Danche 殘留就是這種漏網魚） */
+  (DB.syncs||[]).forEach(function(x){
+    var nm=String(x.bean_id||'').trim();if(!nm)return;
+    var k=nm.toLowerCase();
+    if(!seen[k]){seen[k]={name:nm,cups:0,roasts:0};out.push(seen[k]);}
+  });
+  /* synced 含 paused（售罄也是上架中）——刪除時才會連 Square 商品一起拆 */
+  out.forEach(function(e){e.synced=!!(DB.syncs||[]).find(function(x){return (x.status==='synced'||x.status==='paused')&&String(x.bean_id||'').trim().toLowerCase()===e.name.toLowerCase();});});
   return out.sort(function(a,b){return a.name.localeCompare(b.name);});
 }
 function openDeleteCoffeeSheet(){
