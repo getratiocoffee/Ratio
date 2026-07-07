@@ -1218,12 +1218,38 @@ async function openShelfBeanDetail(nm,m){
     +(!feats.length&&!s.comment&&!hasScores?'<div class="s" style="margin-top:4px">No cupping record yet — cup it in QC first</div>':'')
     +(info.length?'<div class="dlab" style="color:'+col+'">The coffee</div>'
       +info.map(function(r){return '<div class="dl"><span>'+esc(r[0])+'</span><span style="text-align:right">'+esc(String(r[1]))+'</span></div>';}).join(''):'')
-    +'<button class="act" id="sb-card">Info card PDF</button>'
+    +'<button class="act" id="sb-edit">Edit listing…</button>'
+    +'<button class="dclose" id="sb-sold">'+(sold?'Put back on sale':'Mark sold out')+'</button>'
+    +'<button class="dclose" id="sb-card">Info card PDF</button>'
     +'<button class="dclose" id="sb-back">‹ Back to shelf</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('sb-edit').addEventListener('click',function(){openListSheet({ref:s});});
+  $('sb-sold').addEventListener('click',async function(){
+    var btn=this;btn.disabled=true;btn.textContent=sold?'Putting back…':'Marking…';
+    try{
+      await setShelfSold(nm,!sold);
+      toast(!sold?'Sold out on Square ✓':'Back on sale ✓');
+      openRetailSheet();
+    }catch(e){
+      btn.disabled=false;btn.textContent=sold?'Put back on sale':'Mark sold out';
+      alert('Update failed: '+(e&&e.message||e));
+    }
+  });
   $('sb-card').addEventListener('click',function(){openInfoCardPrint(s);});
   $('sb-back').addEventListener('click',openRetailSheet);
   $('d-cl').addEventListener('click',closeDrawer);
+}
+/* 售罄切換：Square availability（照 classic syncSquareAvailability）＋ rtl_sold 記憶 read-modify-write */
+async function setShelfSold(nm,sold){
+  await callFn('sync-to-square',{action:'availability',sample_id:nm,sold_out:!!sold});
+  var r=await sb.from('app_state').select('value').eq('key','rtl_sold').maybeSingle();
+  var v=(r&&r.data&&r.data.value)||{};
+  if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v={};}}
+  if(!v||typeof v!=='object')v={};
+  Object.keys(v).forEach(function(k){if(String(k).trim().toLowerCase()===nm.toLowerCase()&&k!==nm)delete v[k];});
+  if(sold)v[nm]=true;else delete v[nm];
+  var u=await sb.from('app_state').upsert({key:'rtl_sold',value:v,updated_at:new Date().toISOString()},{onConflict:'key'});
+  if(u.error)throw new Error(u.error.message);
 }
 /* ===== 客戶名冊（照 classic 客戶站：最後下單排序、Cancelled 不計金額——DB.orders 本就排除、沒單標 new 沉底）===== */
 function openCustomersSheet(){
@@ -1609,20 +1635,22 @@ async function openListSheet(i){
   }catch(e){}
   var sc=mem.rtl_sizes[nm]||{};
   LST={s:s,name:nm,grams:mem.rtl_g[nm]||250,price:mem.rtl_price[nm]!=null?String(mem.rtl_price[nm]):'',
-    p500:sc.g500!=null?String(sc.g500):'',p1k:sc.g1000!=null?String(sc.g1000):'',lock:!s.flavour_locked};
+    p500:sc.g500!=null?String(sc.g500):'',p1k:sc.g1000!=null?String(sc.g1000):'',lock:!s.flavour_locked,
+    /* 已上架＝更新模式（Retail shelf 的 Edit listing 走這裡；push 對 Square 是 upsert，同一條管線） */
+    upd:!!((DB.syncs||[]).find(function(x){return x.status==='synced'&&String(x.bean_id||'').trim().toLowerCase()===nm.toLowerCase();}))};
   paintListSheet();
 }
 function paintListSheet(){
   var s=LST.s;
-  openDrawerHTML('<div class="t" style="font-size:19px">List · '+esc(LST.name)+'</div>'
-    +'<div class="s" style="margin-top:2px">draws a fresh info card and pushes to Square</div>'
+  openDrawerHTML('<div class="t" style="font-size:19px">'+(LST.upd?'Update':'List')+' · '+esc(LST.name)+'</div>'
+    +'<div class="s" style="margin-top:2px">'+(LST.upd?'re-pushes prices, sizes and a fresh info card to Square':'draws a fresh info card and pushes to Square')+'</div>'
     +'<div class="dlab">Bag size</div>'
     +'<div class="pm-seg">'+[100,150,200,250].map(function(g){return '<button data-g="'+g+'"'+(LST.grams===g?' class="on"':'')+'>'+g+'g</button>';}).join('')+'</div>'
     +'<div class="dlab">Price (AUD)</div><input class="din" id="ls-p" inputmode="decimal" placeholder="e.g. 25" value="'+esc(LST.price)+'">'
     +'<div class="dlab">500g price · blank = skip</div><input class="din" id="ls-p5" inputmode="decimal" placeholder="—" value="'+esc(LST.p500)+'">'
     +'<div class="dlab">1kg price · blank = skip</div><input class="din" id="ls-p1" inputmode="decimal" placeholder="—" value="'+esc(LST.p1k)+'">'
     +(s.flavour_locked?'':'<div class="pm-seg" style="margin-top:14px"><button id="ls-lk"'+(LST.lock?' class="on"':'')+'>'+(LST.lock?'✓ ':'')+'Lock flavour description</button></div>')
-    +'<button class="act" id="ls-push">Push to Square</button>'
+    +'<button class="act" id="ls-push">'+(LST.upd?'Push update to Square':'Push to Square')+'</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
   function grab(){LST.price=$('ls-p').value;LST.p500=$('ls-p5').value;LST.p1k=$('ls-p1').value;}
   document.querySelectorAll('#drawer [data-g]').forEach(function(el){el.addEventListener('click',function(){grab();LST.grams=+el.dataset.g;paintListSheet();});});
@@ -1669,10 +1697,10 @@ async function pushListToSquare(){
       for(var k in m)await sb.from('app_state').upsert({key:k,value:m[k],updated_at:new Date().toISOString()},{onConflict:'key'});
     }catch(e){console.error('price memory',e);}
     if(!s.flavour_locked&&LST.lock){try{await sb.from('samples').update({flavour_locked:true}).eq('id',s.id);}catch(e){}}
-    closeDrawer();toast('Live on Square ✓');
+    closeDrawer();toast(LST.upd?'Updated on Square ✓':'Live on Square ✓');
     await reload();
   }catch(e){
-    if(btn){btn.disabled=false;btn.textContent='Push to Square';}
+    if(btn){btn.disabled=false;btn.textContent=LST.upd?'Push update to Square':'Push to Square';}
     alert('Push failed: '+(e&&e.message||e));
   }
 }
