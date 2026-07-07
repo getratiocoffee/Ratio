@@ -1149,7 +1149,8 @@ async function openRetailSheet(){
   }catch(e){}
   var dots={};try{dots=await cardDots();}catch(e){}
   /* 排序照老闆定：烘豆日從舊到新（最老的在上＝先賣先清）；沒烘豆日的沉底按名字排 */
-  var live=(DB.syncs||[]).filter(function(x){return x.status==='synced'&&String(x.bean_id||'').trim();})
+  /* paused＝售罄不是故障（sync-to-square 的 availability 把 status 設成 paused）——照樣上架列表，別丟去 Sync problems */
+  var live=(DB.syncs||[]).filter(function(x){return (x.status==='synced'||x.status==='paused')&&String(x.bean_id||'').trim();})
     .map(function(x){var nm=String(x.bean_id).trim();var d=null;try{d=shelfLatestRoast(nm);}catch(e){}return {x:x,nm:nm,d:d};})
     .sort(function(a,b){
       if(!!a.d!==!!b.d)return a.d?-1:1;
@@ -1161,7 +1162,7 @@ async function openRetailSheet(){
   var rows=live.map(function(x){
     var nm=String(x.bean_id).trim();
     var price=m.rtl_price[nm],g=m.rtl_g[nm]||250;
-    var sold=!!m.rtl_sold[nm];if(sold)soldN++;
+    var sold=!!m.rtl_sold[nm]||x.status==='paused';if(sold)soldN++;
     var fr=shelfFreshness(nm);
     var rep=shelfSampleFor(nm);
     var col=dotColorFor(nm,dots);
@@ -1172,7 +1173,7 @@ async function openRetailSheet(){
       +' · <span class="'+fr.cls+'"'+(fr.cls?'':' style="color:var(--muted)"')+'>'+esc(fr.txt)+'</span></div></span>'
       +'<span class="k'+(sold?' red':'')+'">'+(sold?'Sold out':'On sale')+'</span></div>';
   }).join('');
-  var errs=(DB.syncs||[]).filter(function(x){return x.status&&x.status!=='synced';});
+  var errs=(DB.syncs||[]).filter(function(x){return x.status&&x.status!=='synced'&&x.status!=='paused';});
   var toList=ITEMS.filter(function(i){return i.kind==='list';});
   openDrawerHTML('<div class="t" style="font-size:19px">Retail Info</div>'
     +'<div class="s" style="margin-top:2px">'+live.length+' live on Square'+(soldN?' · <span class="red">'+soldN+' sold out</span>':'')+' · tap a coffee for flavour and dossier</div>'
@@ -1196,7 +1197,9 @@ async function openShelfBeanDetail(nm,m){
   var hasScores=['fragrance','acidity','sweetness','body','aftertaste'].some(function(k){return s[k]!=null;});
   var sc={fragrance:s.fragrance,acidity:s.acidity,sweetness:s.sweetness,body:s.body,aftertaste:s.aftertaste};
   var fr=shelfFreshness(nm);
-  var price=m.rtl_price[nm],g=m.rtl_g[nm]||250,szc=m.rtl_sizes[nm]||{},sold=!!m.rtl_sold[nm];
+  var syncRow=(DB.syncs||[]).find(function(x){return String(x.bean_id||'').trim().toLowerCase()===nm.toLowerCase();});
+  var price=m.rtl_price[nm],g=m.rtl_g[nm]||250,szc=m.rtl_sizes[nm]||{},
+      sold=!!m.rtl_sold[nm]||(syncRow&&syncRow.status==='paused');
   var rdate=null;try{rdate=shelfLatestRoast(nm);}catch(e){}
   /* 順序照老闆定：名字 → 烘豆日＋天數/熟成 → 規格價格 → 雷達 → 風味 → 履歷 */
   openDrawerHTML('<span class="tag" style="color:'+col+'">● Shelf'+(sold?' · <span class="red">sold out</span>':'')+'</span>'
