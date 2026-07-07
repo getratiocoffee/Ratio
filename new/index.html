@@ -1219,10 +1219,32 @@ async function openShelfBeanDetail(nm,m){
       +info.map(function(r){return '<div class="dl"><span>'+esc(r[0])+'</span><span style="text-align:right">'+esc(String(r[1]))+'</span></div>';}).join(''):'')
     +'<button class="act" id="sb-edit">Edit listing…</button>'
     +'<button class="dclose" id="sb-sold">'+(sold?'Put back on sale':'Mark sold out')+'</button>'
+    +'<button class="dclose" id="sb-requeue">Send back to QC…</button>'
     +'<button class="dclose" id="sb-card">Info card PDF</button>'
     +'<button class="dclose" id="sb-back">‹ Back to Retail Info</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('sb-edit').addEventListener('click',function(){openListSheet({ref:s});});
+  /* 放錯資訊退回 QC 重審（老闆點名）：清最近判定＋解鎖風味 → 重杯修正 → Pass 重鎖；Square 上架不動 */
+  $('sb-requeue').addEventListener('click',async function(){
+    var r=(DB.roasts||[]).find(function(x){
+      if(!x.qc)return false;
+      if(s.bean_id&&x.bean_id)return String(x.bean_id)===String(s.bean_id);
+      return String(x.bean_name||'').trim().toLowerCase()===nm.toLowerCase();
+    });
+    if(!r){alert('No judged batch found for "'+nm+'".');return;}
+    if(!confirm('Send "'+nm+'" back to the QC queue?\n\nThe batch verdict ('+r.qc+') is cleared and the flavour unlocks — re-cup to fix the notes, then Pass it again.\nThe Square listing stays live meanwhile.'))return;
+    var btn=this;btn.disabled=true;btn.textContent='Sending…';
+    try{
+      var u=await sb.from('roasts').update({qc:null}).eq('id',r.id);
+      if(u.error)throw new Error(u.error.message);
+      if(s.id){try{await sb.from('samples').update({flavour_locked:false}).eq('id',s.id);}catch(e){}}
+      closeDrawer();toast('"'+nm+'" is back in the QC queue ✓');
+      await reload();
+    }catch(e){
+      btn.disabled=false;btn.textContent='Send back to QC…';
+      alert('Failed: '+(e&&e.message||e));
+    }
+  });
   $('sb-sold').addEventListener('click',async function(){
     var btn=this;btn.disabled=true;btn.textContent=sold?'Putting back…':'Marking…';
     try{
