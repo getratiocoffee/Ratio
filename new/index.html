@@ -2611,7 +2611,7 @@ function loadScriptOnce(url){
    版面繪製函式【逐字拷貝】自 classic（jsPDF 同引擎＝版面照舊）；
    資料層接新殼：BEANS/ROASTS/RETAIL_BEANS 轉接 DB.*，設定存 app_state（與 classic 同鑰匙互通） */
 var BEANS=[],ROASTS=[],RETAIL_BEANS=[];
-var MENU_SLOTS=['','','',''],SPECIAL_PICK=[],SPECIAL_PRICES={},TAKEAWAY=null,DINEIN=null;
+var MENU_SLOTS=['','','',''],SPECIAL_PICK=[],SPECIAL_PRICES={},DINEIN=null;
 var MENUS_DATA={blends:[],grams:{},loaded:false};
 function loadBlendDefs(){return MENUS_DATA.blends;}
 function blendNames(){return loadBlendDefs().map(function(b){return (b.name||'').trim();}).filter(Boolean);}
@@ -2636,17 +2636,15 @@ async function menusEnsureData(force){
   try{var b=await sb.from('blends').select('id,name,hname,parts,note,comment,brew').order('pos',{ascending:true});
     MENUS_DATA.blends=(b.data||[]).map(function(x){return {id:x.id,name:x.name||'',hname:x.hname||'',parts:Array.isArray(x.parts)?x.parts:[],note:x.note||'',comment:x.comment||'',brew:(x.brew&&typeof x.brew==='object')?x.brew:{}};});}catch(e){}
   try{
-    var r=await sb.from('app_state').select('key,value').in('key',['menu_slots','special_slots','special_prices','takeaway','dinein','rtl_g','rtl_dot']);
+    var r=await sb.from('app_state').select('key,value').in('key',['menu_slots','special_slots','special_prices','dinein','rtl_g','rtl_dot']);
     var m={};(r.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}m[x.key]=v;});
     if(Array.isArray(m.menu_slots)&&m.menu_slots.length===4)MENU_SLOTS=m.menu_slots.map(function(x){return String(x||'');});
     if(Array.isArray(m.special_slots))SPECIAL_PICK=m.special_slots.map(function(x){return String(x||'').trim();}).filter(Boolean);
     if(m.special_prices&&typeof m.special_prices==='object'&&!Array.isArray(m.special_prices))SPECIAL_PRICES=m.special_prices;
-    if(Array.isArray(m.takeaway)&&m.takeaway.length===4)TAKEAWAY=m.takeaway.map(function(o){o=o||{};return {bean:o.bean||'',name:o.name||'',origin:o.origin||'',flavour:o.flavour||'',hot:o.hot||'',cold:o.cold||''};});
     DINEIN=normDinein(m.dinein);
     if(m.rtl_g&&typeof m.rtl_g==='object')MENUS_DATA.grams=m.rtl_g;
     if(m.rtl_dot&&typeof m.rtl_dot==='object')_dotsMap=m.rtl_dot;
   }catch(e){}
-  if(!TAKEAWAY)TAKEAWAY=TAKEAWAY_DEFAULT.map(function(o){var n={};for(var k in o)n[k]=o[k];return n;});
   if(!DINEIN)DINEIN=diClone(DINEIN_DEFAULT);
   MENUS_DATA.loaded=true;
 }
@@ -2654,15 +2652,8 @@ async function menusSave(key,val){try{await sb.from('app_state').upsert({key:key
 function saveMenuSlots(){menusSave('menu_slots',MENU_SLOTS);}
 function saveSpecialPick(){menusSave('special_slots',SPECIAL_PICK);}
 function saveSpecialPrices(){menusSave('special_prices',SPECIAL_PRICES);}
-function saveTakeaway(){menusSave('takeaway',TAKEAWAY);}
 function saveDinein(){menusSave('dinein',DINEIN);}
 
-  var TAKEAWAY_DEFAULT=[
-    {bean:'',name:'Danche vol.2',     origin:'Anaerobic Washed',  flavour:'Peach, Grapes, Bergamont',       hot:'10', cold:'11'},
-    {bean:'',name:'Alo Bona Village', origin:'Classic Natural',   flavour:'Floral, Mango, Berry',           hot:'10', cold:'11'},
-    {bean:'',name:'El Vergel',        origin:'Washed',            flavour:'Floral, Melon, Honey',           hot:'10', cold:'11'},
-    {bean:'',name:'Alo Village',      origin:'Cold Fermentation', flavour:'Winy, Grape Candy, Dried Fruit', hot:'15', cold:'16'}
-  ];
   var DINEIN_DEFAULT={
     blends:[
       {bl:'',name:'DARK KNIGHT V4.0', sub:'complex flavour', notes:'Plum, Pecan, Chocolate', highlight:false},
@@ -2790,7 +2781,6 @@ function saveDinein(){menusSave('dinein',DINEIN);}
     var flav=s?(s.features||[]).filter(Boolean).slice(0,3).join(', '):'';
     return {name:name, origin:origin, flavour:flav};
   }
-  function tkBlank(){return {bean:'',name:'',origin:'',flavour:'',hot:'',cold:''};}
   function diClone(o){return JSON.parse(JSON.stringify(o));}
   function dineinBlendAutofill(name){
     var info=menuInfoFor(name);
@@ -3013,134 +3003,6 @@ function saveDinein(){menusSave('dinein',DINEIN);}
       if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
     }
     doc.save('Ratio_Special_Menu.pdf');
-  }
-  function drawPourCell(doc,x,y,w,it,INK,SUB,HOT,COLD){
-    var name=mnAsc(it.name||'');
-    if(!name)return;
-    var hot=String(it.hot==null?'':it.hot).trim(), cold=String(it.cold==null?'':it.cold).trim();
-    /* reserve room for the price pair on the right */
-    doc.setFont('helvetica','bold');doc.setFontSize(11);
-    var pw=doc.getTextWidth((hot||'-')+'  /  '+(cold||'-'));
-    /* name */
-    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(INK[0],INK[1],INK[2]);
-    mnFit(doc,name,x,y+11,w-pw-14,12,8.5);
-    /* prices right-aligned: hot (pink) / cold (blue) */
-    doc.setFont('helvetica','bold');doc.setFontSize(11);
-    var rx=x+w;
-    doc.setTextColor(COLD[0],COLD[1],COLD[2]);doc.text(cold||'-',rx,y+11,{align:'right'});
-    var cwid=doc.getTextWidth(cold||'-');
-    doc.setTextColor(SUB[0],SUB[1],SUB[2]);doc.text('  /  ',rx-cwid,y+11,{align:'right'});
-    var swid=doc.getTextWidth('  /  ');
-    doc.setTextColor(HOT[0],HOT[1],HOT[2]);doc.text(hot||'-',rx-cwid-swid,y+11,{align:'right'});
-    /* origin */
-    if(it.origin){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-      mnFit(doc,it.origin,x,y+25,w,8.5,7);}
-    /* flavour */
-    if(it.flavour){doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(INK[0],INK[1],INK[2]);
-      mnFit(doc,it.flavour,x,y+40,w,10,8);}
-  }
-  function drawTakeawayMenu(doc,ox,w,h,data,logo){
-    var INK=[0,0,0], SUB=[0,0,0], MUTE=[124,58,68], LINE=[30,26,25];
-    var HOT=[214,0,108], COLD=[42,143,216];
-    var padX=24, x0=ox+padX, xEnd=ox+w-padX, innerW=w-padX*2;
-
-    /* ---------- header ---------- */
-    var hy=42;
-    if(logo){try{doc.addImage(logo,'PNG',x0,hy-26,26,26);}catch(e){}}
-    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-    doc.text('Ratio',x0+32,hy-13);doc.text('Coffee',x0+32,hy-4);
-    doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(INK[0],INK[1],INK[2]);
-    doc.text('Blend Selection',x0+76,hy-6);
-    doc.setDrawColor(INK[0],INK[1],INK[2]);doc.setLineWidth(1);
-    doc.line(x0+76,hy+3,xEnd,hy+3);
-
-    /* ---------- two blends ---------- */
-    var by=hy+36, colCx=[x0+innerW*0.27, x0+innerW*0.74];
-    var blends=[
-      {name:'DARK KNIGHT 3', sub:'complex flavour', notes:'Plum, Walnut, Dark Choc'},
-      {name:'DANCER',        sub:'smooth flavour',  notes:'Floral, Red Apple, Toffee'}
-    ];
-    blends.forEach(function(bl,ci){
-      var cx=colCx[ci];
-      doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(INK[0],INK[1],INK[2]);
-      doc.text(bl.name,cx,by,{align:'center'});
-      doc.setFont('helvetica','italic');doc.setFontSize(8);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
-      doc.text(bl.sub,cx,by+12,{align:'center'});
-      doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(INK[0],INK[1],INK[2]);
-      doc.text(bl.notes,cx,by+25,{align:'center'});
-    });
-    var midX=x0+innerW*0.5;
-    doc.setDrawColor(MUTE[0],MUTE[1],MUTE[2]);doc.setLineWidth(1);
-    doc.line(midX+7,by-11,midX-7,by+27);
-
-    /* ---------- espresso price list ---------- */
-    var py=by+52, rowH=23;
-    var rows=[
-      {main:'Espresso',    size:'',      price:'5'},
-      {main:'Small',       size:'6oz',   price:'5'},
-      {main:'Large',       size:'10 oz', price:'6'},
-      {main:'Fresh Batch', size:'10oz',  price:'6'},
-      {main:'On Ice',      size:'10oz',  price:'7'},
-      {main:'Cold Batch',  size:'10oz',  price:'7', note:'(Barista choice of the day)'}
-    ];
-    rows.forEach(function(r){
-      doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(INK[0],INK[1],INK[2]);
-      doc.text(r.main,x0,py);
-      var mw=doc.getTextWidth(r.main);
-      if(r.size){doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-        doc.text('  |  '+r.size,x0+mw+3,py);}
-      doc.setFont('helvetica','normal');doc.setFontSize(12);doc.setTextColor(INK[0],INK[1],INK[2]);
-      doc.text(r.price,xEnd,py,{align:'right'});
-      if(r.note){doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(SUB[0],SUB[1],SUB[2]);
-        doc.text(r.note,x0,py+11);py+=11;}
-      py+=rowH;
-    });
-    py+=2;
-    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
-    doc.text('alternative milk, extra shot',x0,py);doc.text('50 cents',xEnd,py,{align:'right'});py+=11;
-    doc.text('decaf',x0,py);doc.text('1 dollar',xEnd,py,{align:'right'});
-
-    /* ---------- Dirty Ratio dashed box ---------- */
-    var dy=py+16, dh=26;
-    doc.setDrawColor(30,26,25);doc.setLineWidth(0.8);
-    if(doc.setLineDashPattern)doc.setLineDashPattern([3,3],0);
-    if(doc.roundedRect)doc.roundedRect(x0,dy,innerW,dh,13,13,'S');else doc.rect(x0,dy,innerW,dh,'S');
-    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
-    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(INK[0],INK[1],INK[2]);
-    doc.text('Dirty Ratio',x0+14,dy+dh/2+4);
-    doc.text('9',xEnd-14,dy+dh/2+4,{align:'right'});
-
-    /* ---------- Pour Over Selection ---------- */
-    var poHeadY=dy+dh+34, cx=ox+w/2;
-    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(INK[0],INK[1],INK[2]);
-    doc.text('Pour Over Selection',cx,poHeadY,{align:'center'});
-    var thw=doc.getTextWidth('Pour Over Selection');
-    doc.setDrawColor(INK[0],INK[1],INK[2]);doc.setLineWidth(0.8);
-    doc.line(cx-thw/2-8,poHeadY+6,cx+thw/2+8,poHeadY+6);
-
-    /* 2x2 grid */
-    var gTop=poHeadY+22, gBot=h-24, colGap=18, rowGap=16;
-    var cw=(innerW-colGap)/2, ch=(gBot-gTop-rowGap)/2;
-    var cellX=[x0, x0+cw+colGap, x0, x0+cw+colGap];
-    var cellY=[gTop, gTop, gTop+ch+rowGap, gTop+ch+rowGap];
-    doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.setLineWidth(0.8);
-    if(doc.setLineDashPattern)doc.setLineDashPattern([2,3],0);
-    doc.line(x0+cw+colGap/2,gTop,x0+cw+colGap/2,gBot);
-    doc.line(x0,gTop+ch+rowGap/2,x0+innerW,gTop+ch+rowGap/2);
-    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
-    for(var i=0;i<4;i++){drawPourCell(doc,cellX[i],cellY[i],cw,data[i]||{},INK,SUB,HOT,COLD);}
-  }
-  function buildTakeawayPDF(data,logo){
-    var JS=window.jspdf.jsPDF;
-    var doc=new JS({orientation:'landscape',unit:'pt',format:'a4'});
-    var W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
-    drawTakeawayMenu(doc,0,W/2,H,data,logo);
-    drawTakeawayMenu(doc,W/2,W/2,H,data,logo);
-    doc.setDrawColor(30,26,25);doc.setLineWidth(0.7);
-    if(doc.setLineDashPattern)doc.setLineDashPattern([4,4],0);
-    doc.line(W/2,18,W/2,H-18);
-    if(doc.setLineDashPattern)doc.setLineDashPattern([],0);
-    doc.save('Ratio_TakeAway_Menu.pdf');
   }
   function drawDineInMenu(doc,ox,w,h,cfg,logo){
     var INK=[0,0,0], BERRY=[124,58,68], LINE=[30,26,25], MUTE=[120,112,108];
@@ -3441,15 +3303,6 @@ async function genSpecialMenuPDF(btn){
   }catch(e){alert('PDF failed: '+(e&&e.message||e));}
   if(btn){btn.disabled=false;btn.textContent='Generate PDF';}
 }
-async function genTakeawayPDF(btn){
-  if(btn){btn.disabled=true;btn.textContent='Drawing…';}
-  try{
-    var data=TAKEAWAY.map(function(o){o=o||{};return {name:o.name||'',origin:o.origin||'',flavour:o.flavour||'',hot:o.hot||'',cold:o.cold||''};});
-    await menusPDF(function(logo){buildTakeawayPDF(data,logo);});
-    toast('Take away menu PDF ✓');
-  }catch(e){alert('PDF failed: '+(e&&e.message||e));}
-  if(btn){btn.disabled=false;btn.textContent='Generate PDF';}
-}
 async function genDineinPDF(btn){
   if(btn){btn.disabled=true;btn.textContent='Drawing…';}
   try{
@@ -3470,14 +3323,13 @@ async function openMenusSheet(){
   await menusEnsureData();
   openDrawerHTML('<div class="t" style="font-size:19px">Menus</div>'
     +'<div class="s" style="margin-top:2px">A4 · two identical copies with a centre cut line · settings shared with classic</div>'
-    +[['mblend','Blend Menu','4-blend cut sheet'],['mtake','Take Away Menu','blend block + 4 pour over cups'],['mdine','Dine In Menu','full menu with prices'],['mspec','Special Menu','any beans, one row each']].map(function(x){
+    +[['mblend','Blend Menu','4-blend cut sheet'],['mdine','Dine In Menu','full menu with prices'],['mspec','Special Menu','any beans, one row each']].map(function(x){
       return '<div class="dl" data-mn="'+x[0]+'" style="cursor:pointer;align-items:center"><span><b>'+x[1]+'</b><br><span style="color:var(--muted);font-size:13px">'+x[2]+'</span></span><span style="color:var(--muted)">set up →</span></div>';
     }).join('')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   document.querySelectorAll('#drawer [data-mn]').forEach(function(el){el.addEventListener('click',function(){
     var k=el.dataset.mn;
     if(k==='mblend')openMenuBlendSheet();
-    if(k==='mtake')openMenuTakeawaySheet();
     if(k==='mdine')openMenuDineinSheet();
     if(k==='mspec')openMenuSpecialSheet();
   });});
@@ -3548,36 +3400,6 @@ function openMenuSpecialSheet(){
     SPECIAL_PRICES[nm][el.dataset.k]=el.value;saveSpecialPrices();
   });});
   mnWireTail(genSpecialMenuPDF);
-}
-function openMenuTakeawaySheet(){
-  var opts=takeawayOptionList();
-  var pos=['Top left','Top right','Bottom left','Bottom right'];
-  openDrawerHTML('<div class="t" style="font-size:19px">Take Away Menu</div>'
-    +'<div class="s" style="margin-top:2px">4 pour-over cups with hot / cold prices — the blend block on top is fixed</div>'
-    +pos.map(function(p,i){
-      var v=TAKEAWAY[i]||tkBlank();
-      return '<div class="dlab">'+p+' · auto-fill from bean</div>'
-        +'<select class="din" data-tka="'+i+'" style="padding:12px">'+mnSelOpts(opts,v.bean)+'</select>'
-        +'<input class="din" data-tk="'+i+'" data-k="name" placeholder="Name" value="'+esc(v.name)+'">'
-        +'<input class="din" data-tk="'+i+'" data-k="origin" placeholder="Process" value="'+esc(v.origin)+'">'
-        +'<input class="din" data-tk="'+i+'" data-k="flavour" placeholder="Flavour" value="'+esc(v.flavour)+'">'
-        +'<div class="no-line" style="gap:8px;margin-top:6px">'
-        +'<span style="flex:1"><span class="dlab" style="margin:0 0 4px">Hot $</span><input class="din" data-tk="'+i+'" data-k="hot" inputmode="decimal" value="'+esc(v.hot)+'" style="margin-top:0"></span>'
-        +'<span style="flex:1"><span class="dlab" style="margin:0 0 4px">Cold $</span><input class="din" data-tk="'+i+'" data-k="cold" inputmode="decimal" value="'+esc(v.cold)+'" style="margin-top:0"></span>'
-        +'</div>';
-    }).join('')
-    +mnBackClose());
-  document.querySelectorAll('#drawer [data-tka]').forEach(function(el){el.addEventListener('change',function(){
-    var i=+el.dataset.tka,nm=el.value;
-    TAKEAWAY[i].bean=nm;
-    if(nm){var a=takeawayAutofill(nm);TAKEAWAY[i].name=a.name;if(a.origin)TAKEAWAY[i].origin=a.origin;if(a.flavour)TAKEAWAY[i].flavour=a.flavour;}
-    saveTakeaway();openMenuTakeawaySheet();
-  });});
-  document.querySelectorAll('#drawer [data-tk]').forEach(function(el){el.addEventListener('input',function(){
-    var i=+el.dataset.tk;if(!TAKEAWAY[i])TAKEAWAY[i]=tkBlank();
-    TAKEAWAY[i][el.dataset.k]=el.value;saveTakeaway();
-  });});
-  mnWireTail(genTakeawayPDF);
 }
 function openMenuDineinSheet(){
   var blOpts=blendNames();
