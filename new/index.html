@@ -2278,6 +2278,32 @@ async function openInfoCardsSheet(){
     if(s)openInfoCardPrint(s);
   });});
 }
+/* 印刷卡雷達：html2canvas **不畫行內 SVG**（老闆真機 PDF 雷達整個消失的破圖根因）
+   → 用 canvas 畫成 PNG 嵌 <img>，4 倍超取樣夠印刷 */
+function printRadarPNG(sc,color){
+  var S=4;
+  var cv=document.createElement('canvas');cv.width=372*S;cv.height=244*S;
+  var x=cv.getContext('2d');x.scale(S,S);x.translate(36,-4); /* 對齊 SVG viewBox -36 4 372 244 */
+  var K=[['fragrance','Aroma'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
+  var cx=150,cy=128,R=88;
+  function pt(i,rad){var a=i*2*Math.PI/5;return [cx+rad*Math.sin(a),cy-rad*Math.cos(a)];}
+  x.lineWidth=1;x.strokeStyle='#D9D2CB';
+  [1,2,3].forEach(function(l){x.beginPath();for(var i=0;i<=5;i++){var q=pt(i%5,R*l/3);if(i)x.lineTo(q[0],q[1]);else x.moveTo(q[0],q[1]);}x.stroke();});
+  for(var i=0;i<5;i++){var q=pt(i,R);x.beginPath();x.moveTo(cx,cy);x.lineTo(q[0],q[1]);x.stroke();}
+  var pts=K.map(function(k,i){return pt(i,R*(Number(sc[k[0]])||0)/3);});
+  x.beginPath();pts.forEach(function(p,i){if(i)x.lineTo(p[0],p[1]);else x.moveTo(p[0],p[1]);});x.closePath();
+  x.globalAlpha=.15;x.fillStyle=color;x.fill();x.globalAlpha=1;
+  x.lineWidth=2.5;x.strokeStyle=color;x.lineJoin='round';x.stroke();
+  x.fillStyle=color;
+  pts.forEach(function(p){x.beginPath();x.arc(p[0],p[1],4.5,0,6.3);x.fill();});
+  x.fillStyle='#8A837C';x.font='600 14px Inter, sans-serif';
+  K.forEach(function(k,i){
+    var q=pt(i,R+21);
+    x.textAlign=q[0]<cx-4?'right':(q[0]>cx+4?'left':'center');
+    x.fillText(k[1],q[0],q[1]+4);
+  });
+  return cv.toDataURL('image/png');
+}
 /* 印刷頁雷達：獨立文件用，純字串 SVG（實色不吃 CSS 變數） */
 function printRadarSVG(sc,color,mm){
   var K=[['fragrance','Aroma'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
@@ -2348,7 +2374,7 @@ async function openInfoCardPrint(s){
     +feats.map(function(f){return '<div class="serif" style="font-size:13.5pt;font-weight:600;line-height:1.5;color:'+col+'">'+esc(f)+'</div>';}).join('')
     +(full.comment?'<div style="font-size:8pt;font-style:italic;color:#5A534C;margin-top:2.5mm;line-height:1.5">“'+esc(full.comment)+'”</div>':'')
     +'</div>'
-    +'<div style="flex:0 0 46mm">'+printRadarSVG(sc,col,46)+'</div>'
+    +'<div style="flex:0 0 46mm"><img src="'+printRadarPNG(sc,col)+'" style="width:46mm;display:block" alt=""></div>'
     +'</div></div>';
   var backCard='<div class="cardp" style="display:flex;gap:5mm">'
     +'<div style="flex:1;min-width:0">'
@@ -2402,7 +2428,8 @@ async function openInfoCardPrint(s){
     await html2pdf().set({
       filename:'infocard-'+beanSlug(nm)+'.pdf',
       image:{type:'jpeg',quality:.95},
-      html2canvas:{scale:3.3,useCORS:true,backgroundColor:'#ffffff'},
+      /* scale 2.6：兩頁疊一張大 canvas，3.3 會爆 iPhone 的 16.7MP canvas 上限（真機全白破圖的另一根因） */
+      html2canvas:{scale:2.6,useCORS:true,backgroundColor:'#ffffff'},
       jsPDF:{unit:'mm',format:[297,210],orientation:'landscape'},
       pagebreak:{mode:['css']}
     }).from(host.firstChild).save();
