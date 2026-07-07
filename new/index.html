@@ -2295,7 +2295,7 @@ function printRadarSVG(sc,color,mm){
     var q=pt(i,R+20);var anch=q[0]<cx-4?'end':(q[0]>cx+4?'start':'middle');
     return '<text x="'+q[0].toFixed(1)+'" y="'+(q[1]+4).toFixed(1)+'" text-anchor="'+anch+'" font-size="13" font-weight="600" fill="#8A837C" font-family="Inter,sans-serif">'+k[1]+'</text>';
   }).join('');
-  return '<svg viewBox="0 0 300 250" style="width:'+mm+'mm;display:block">'+rings+spokes
+  return '<svg viewBox="-32 0 364 250" style="width:'+mm+'mm;display:block">'+rings+spokes
     +'<polygon points="'+poly+'" fill="'+color+'" fill-opacity=".15" stroke="'+color+'" stroke-width="2.5" stroke-linejoin="round"/>'+dts+labels+'</svg>';
 }
 async function openInfoCardPrint(s){
