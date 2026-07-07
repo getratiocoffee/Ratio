@@ -45,6 +45,10 @@ header .cnt{font-size:14px;color:var(--muted)}
 /* 購物車＝右上角小 icon（取代浮動 cartbar，老闆指定）；徽章顯示件數 */
 .hcart{position:relative;background:none;border:none;cursor:pointer;padding:6px;color:var(--ink);display:inline-flex;vertical-align:middle}
 .hcart b{position:absolute;top:0;right:-2px;background:var(--accent);color:#fff;font-size:10.5px;border-radius:999px;min-width:16px;height:16px;line-height:16px;text-align:center;font-weight:700;font-style:normal;display:none;padding:0 3px;box-sizing:border-box}
+/* 毛玻璃導滑箭頭：貼螢幕左右緣、垂直置中在圖片區；到頭的那側自動藏 */
+.shoparr{position:fixed;top:42%;z-index:25;width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(128,128,128,.22);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:var(--ink);display:none;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:0 2px 10px rgba(0,0,0,.10)}
+.shoparr.l{left:7px}.shoparr.r{right:7px}
+.shoparr svg{display:block}
 .shopdots{display:flex;justify-content:center;gap:7px;margin:12px 0 6px}
 .shopdots span{width:7px;height:7px;border-radius:50%;background:var(--line2)}
 .shopdots span.on{background:var(--accent)}
@@ -2128,9 +2132,39 @@ function paintShopBody(){
   document.querySelectorAll('#shoptabs [data-sct]').forEach(function(b){b.classList.toggle('on',b.dataset.sct===SHOP_CAT);});
   var list=SHOP_BEANS.filter(function(b){return shopCategory(b)===SHOP_CAT;});
   if(!list.length){host.innerHTML='<div class="empty">Nothing in this corner right now ☕</div>';return;}
-  host.innerHTML='<div class="shopwrap" id="shopwrap">'+shopCardsHTML(list)+'</div>';
+  host.innerHTML='<div class="shopwrap" id="shopwrap">'+shopCardsHTML(list)+'</div>'
+    /* 玻璃箭頭放 shopbody 裡：離開商店畫面（innerHTML 換掉）就自動消失 */
+    +(list.length>1
+      ?'<button class="shoparr l" id="sharr-l" aria-label="Previous coffee"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>'
+      +'<button class="shoparr r" id="sharr-r" aria-label="Next coffee"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>'
+      :'');
   wireShopCards(host);
   paintCartBar();
+  var w=$('shopwrap');
+  if(w&&list.length>1){
+    var slideW=function(){return w.children[0]?(w.children[0].offsetWidth+14):w.clientWidth;};
+    var arrPaint=function(){
+      var i=Math.round(w.scrollLeft/slideW());
+      var l=$('sharr-l'),r=$('sharr-r');if(!l||!r)return;
+      l.style.display=i>0?'flex':'none';
+      r.style.display=i<list.length-1?'flex':'none';
+    };
+    /* smooth scrollBy 在 scroll-snap 容器會被吃掉（實測不動）→ rAF 手動滑，結尾 snap 自己吸正 */
+    var glide=function(dx){
+      var from=w.scrollLeft,t0=null;
+      var step=function(ts){
+        if(t0==null)t0=ts;
+        var p=Math.min(1,(ts-t0)/260);p=1-Math.pow(1-p,3);
+        w.scrollLeft=from+dx*p;
+        if(p<1)requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    };
+    $('sharr-l').addEventListener('click',function(){glide(-slideW());});
+    $('sharr-r').addEventListener('click',function(){glide(slideW());});
+    w.addEventListener('scroll',arrPaint,{passive:true});
+    arrPaint();
+  }
 }
 /* 規格明細列（Blend 或 Process/Origin/Variety/Cup/Bag/Roasted）——主卡瘦身後只在明細抽屜用 */
 function shopSpecsFor(b){
@@ -2263,8 +2297,7 @@ async function renderPublicMenu(){
   var m=$('main');
   m.innerHTML='<div class="empty">Loading the shelf…</div>';
   SHOP_BEANS=await loadShopMenu();
-  m.innerHTML='<div class="note">Freshly roasted in Crows Nest · swipe for the next coffee</div>'
-    +'<div id="shopbody"></div>'
+  m.innerHTML='<div id="shopbody"></div>'
     +'<div class="note" style="margin-top:16px"><a href="/?fb=store" style="color:var(--accent)">Tried it? Tell us what you think →</a></div>'
     +'<button class="more" id="pm-staff">Staff sign in</button>';
   renderShopTabs();
