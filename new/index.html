@@ -2310,37 +2310,26 @@ async function openInfoCardPrint(s){
   var dots={};try{dots=await cardDots();}catch(e){}
   var col=dotColorFor(full.sample_id,dots)||'#B25E6A';
   var nm=String(full.sample_id||'').trim();
-  var brew={};
+  /* 內左＝豆子詳細資訊（老闆定稿版型）：產區/品種/海拔/處理法/烘豆日——同 cardDataFor 的生豆查法 */
+  var gb=null;
   try{
-    var bq=await sb.from('blends').select('id,name,brew');
-    var bl=(bq.data||[]).find(function(b){return String(b.name||'').trim().toLowerCase()===nm.toLowerCase();});
-    if(bl&&bl.brew&&typeof bl.brew==='object')brew=bl.brew;
-    else{
-      var bean=null;
-      if(full.bean_id)bean=(DB.beans||[]).find(function(b){return String(b.id)===String(full.bean_id);});
-      if(!bean){var proc=String(full.process||'').trim().toLowerCase();var pool=(DB.beans||[]).filter(function(b){return String(b.name||'').trim().toLowerCase()===nm.toLowerCase();});bean=(proc?pool.find(function(b){return String(b.process||'').trim().toLowerCase()===proc;}):null)||pool[0]||null;}
-      if(bean){var fr=await sb.from('beans').select('brew').eq('id',bean.id).maybeSingle();
-        if(fr.data&&fr.data.brew&&typeof fr.data.brew==='object')brew=fr.data.brew;}
-    }
+    var gq=await sb.from('beans').select('process,variety,altitude,region,country').ilike('name',nm);
+    var pool=gq.data||[];
+    var proc=String(full.process||'').trim().toLowerCase();
+    gb=(proc?pool.find(function(b){return String(b.process||'').trim().toLowerCase()===proc;}):null)||pool[0]||null;
   }catch(e){}
+  var info=[];
+  var region=gb?[gb.region,gb.country].filter(Boolean).join(', '):'';
+  if(region)info.push(['Origin',region]);
+  if(gb&&gb.variety)info.push(['Variety',gb.variety]);
+  if(gb&&gb.altitude!=null&&gb.altitude!=='')info.push(['Altitude',gb.altitude+' MASL']);
+  var proc2=full.process||(gb&&gb.process)||'';
+  if(proc2)info.push(['Process',proc2]);
+  var rd=full.roast_date||(matchRoast(full)||{}).roast_date;
+  if(rd)info.push(['Roasted',fmtD(rd)]);
   var beanUrl='https://ratio-theta.vercel.app/?bean='+encodeURIComponent(beanSlug(nm));
   var feats=(full.features||[]).filter(Boolean).slice(0,3);
   var sc={fragrance:full.fragrance,acidity:full.acidity,sweetness:full.sweetness,body:full.body,aftertaste:full.aftertaste};
-  var BREW_LABEL={temp:'Water temperature',ppm:'Water PPM',grind:'Grind',dose:'Dose',water:'Water',yield:'Yield',time:'Time',ice_ratio:'Ice ratio'};
-  function brewRows(v){
-    return Object.keys(BREW_LABEL).filter(function(k){return v&&String(v[k]||'').trim()!=='';})
-      .map(function(k){return '<div class="br"><span>'+BREW_LABEL[k]+'</span><b>'+esc(String(v[k]))+'</b></div>';}).join('');
-  }
-  function ratioStr(v){
-    var d=parseFloat(v&&v.dose),w=parseFloat(v&&(v.water||v.yield));
-    if(!(d>0&&w>0))return '';
-    var r=Math.round((w/d)*10)/10;
-    return '1 : '+(r%1===0?String(Math.round(r)):String(r));
-  }
-  var imm=(brew.immersion&&typeof brew.immersion==='object')?brew.immersion:null;
-  var others=[['espresso','Espresso'],['infusion','Infusion'],['ice','Ice filter']].filter(function(m){
-    var v=brew[m[0]];return v&&Object.keys(v).some(function(k){return String(v[k]||'').trim()!=='';});
-  });
   var html='<div class="icroot">'
     +'<style>'
     +'.icroot{font-family:Inter,sans-serif;color:#1E1A19}'
@@ -2352,44 +2341,38 @@ async function openInfoCardPrint(s){
     +'.icroot .panel{width:148.5mm;height:105mm;padding:11mm 13mm;position:relative}'
     +'.icroot .lab{font-size:7.5pt;font-weight:700;letter-spacing:.22em;color:#8A837C;text-transform:uppercase}'
     +'.icroot .serif{font-family:\'Fraunces\',serif}'
-    +'.icroot .br{display:flex;justify-content:space-between;border-bottom:.2mm solid #E8E2DB;padding:2.4mm 0;font-size:10pt}'
-    +'.icroot .br b{font-weight:600}'
+    +'.icroot .br{display:flex;justify-content:space-between;gap:6mm;border-bottom:.2mm solid #E8E2DB;padding:2.6mm 0;font-size:10pt}'
+    +'.icroot .br span{color:#8A837C}'
+    +'.icroot .br b{font-weight:600;text-align:right}'
     +'</style>'
     /* ===== 第 1 面（外）：左＝背面 QR/聯絡，右＝封面 ===== */
     +'<div class="side pb"><div class="fold"></div>'
     +'<div class="panel" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">'
-    +'<img src="https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl)+'" style="width:34mm;height:34mm" alt="QR">'
-    +'<div class="lab" style="margin-top:5mm">Scan for the full brew guide</div>'
-    +'<div style="font-size:9pt;color:#5A534C;margin-top:6mm;line-height:1.9">Instagram @ratio.crowsnest<br>caffeine@coffeeratio.com · 0403 037 369<br>Roasted in Crows Nest, Sydney</div>'
+    +'<img src="https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl)+'" style="width:36mm;height:36mm" alt="QR">'
+    +'<div class="lab" style="margin-top:5mm">Scan for this coffee — flavour, brew guide, story</div>'
+    +'<div style="font-size:8.5pt;color:#5A534C;margin-top:5mm;line-height:1.9">@ratio.crowsnest · caffeine@coffeeratio.com · 0403 037 369<br>Roasted in Crows Nest, Sydney</div>'
     +'</div>'
     +'<div class="panel" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">'
     +'<img src="/logo.png" style="width:20mm;height:20mm" alt="Ratio">'
     +'<div class="serif" style="font-size:26pt;font-weight:700;margin-top:6mm">Ratio Coffee</div>'
     +'<div class="lab" style="margin-top:3mm">Specialty Coffee Lab</div>'
-    +'<div style="position:absolute;bottom:11mm;left:0;right:0;text-align:center;font-size:9.5pt;color:#5A534C">'+esc(nm)+(full.process?' · '+esc(full.process):'')+'</div>'
+    +'<div style="position:absolute;bottom:11mm;left:0;right:0;text-align:center;font-size:9.5pt;color:#5A534C">'+esc(nm)+'</div>'
     +'</div></div>'
-    /* ===== 第 2 面（內）：左＝風味描述，右＝沖煮參數 ===== */
+    /* ===== 第 2 面（內，老闆定稿）：左＝豆子詳細資訊，右＝風味＋雷達 ===== */
     +'<div class="side"><div class="fold"></div>'
     +'<div class="panel">'
-    +'<div class="lab" style="color:'+col+'">Tasting notes</div>'
+    +'<div class="lab" style="color:'+col+'">The coffee</div>'
     +'<div class="serif" style="font-size:17pt;font-weight:700;margin-top:2mm">'+esc(nm)+'</div>'
-    +(full.process?'<div style="font-size:9.5pt;color:#8A837C;margin-top:1mm">'+esc(full.process)+'</div>':'')
-    +'<div style="display:flex;align-items:center;gap:6mm;margin-top:5mm">'
+    +'<div style="margin-top:4mm">'+info.map(function(r){return '<div class="br"><span>'+esc(r[0])+'</span><b>'+esc(String(r[1]))+'</b></div>';}).join('')+'</div>'
+    +'</div>'
+    +'<div class="panel">'
+    +'<div class="lab" style="color:'+col+'">Tasting notes</div>'
+    +'<div style="display:flex;align-items:center;gap:5mm;margin-top:4mm">'
     +'<div style="flex:1">'
-    +feats.map(function(f){return '<div class="serif" style="font-size:16.5pt;font-weight:600;line-height:1.55;color:'+col+'">'+esc(f)+'</div>';}).join('')
+    +feats.map(function(f){return '<div class="serif" style="font-size:17pt;font-weight:600;line-height:1.55;color:'+col+'">'+esc(f)+'</div>';}).join('')
     +(full.comment?'<div style="font-size:9.5pt;font-style:italic;color:#5A534C;margin-top:4mm;line-height:1.5">“'+esc(full.comment)+'”</div>':'')
     +'</div>'
-    +printRadarSVG(sc,col,46)
-    +'</div></div>'
-    +'<div class="panel">'
-    +'<div class="lab" style="color:'+col+'">Brew guide</div>'
-    +(imm?'<div class="serif" style="font-size:13pt;font-weight:700;margin-top:2.5mm">Immersion'+(ratioStr(imm)?' <span style="font-size:9.5pt;color:#8A837C;font-family:Inter,sans-serif;font-weight:400">· '+ratioStr(imm)+'</span>':'')+'</div>'
-      +'<div style="margin-top:2mm">'+brewRows(imm)+'</div>'
-      :'<div style="font-size:10pt;color:#8A837C;margin-top:3mm">Immersion recipe coming soon — scan the QR for updates.</div>')
-    +others.map(function(m){
-      return '<div class="serif" style="font-size:11pt;font-weight:700;margin-top:4mm">'+m[1]+' <span style="font-size:8.5pt;color:#8A837C;font-family:Inter,sans-serif;font-weight:400">· by our baristas'+(ratioStr(brew[m[0]])?' · '+ratioStr(brew[m[0]]):'')+'</span></div>'
-        +'<div style="margin-top:1mm">'+brewRows(brew[m[0]])+'</div>';
-    }).join('')
+    +printRadarSVG(sc,col,50)
     +'</div></div>'
     +'</div>';
   /* 老闆指定：不開列印框，直接產 PDF 檔下載（html2pdf 首次用時才載，兩頁 297×105mm）
