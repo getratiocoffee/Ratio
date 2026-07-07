@@ -167,6 +167,7 @@ const CLASSIC='/index.html';
 const ESP_STALE_DAYS=7, GREEN_LOW_KG=5, ORD_OVERDUE_DAYS=7;
 const VAPID_PUBLIC='BFPC3UdlUFbYeowrMvVn-eJWjES_PHYuy34_7v7XbgPSb88CRdG5pjyT30Ht-1Ok4C0dj25Ut-ahokw-9STRY9o';
 var view='feed', filter='all', selQC=null, ITEMS=[], QCQ=[], ROLE='director', WHO='';
+var QCLOCK=true; /* 鎖風味的決定在 QC 當下（老闆定調）：pass＝判定＋鎖風味，判定板可關 */
 /* 黑白頁手動切換：auto=跟系統、light/dark=強制；記在本機（顯示偏好本來就該一台一台設） */
 function themeGet(){try{return localStorage.getItem('r2_theme')||'auto';}catch(e){return 'auto';}}
 function applyTheme(t){
@@ -491,7 +492,7 @@ async function runAction(id,btn){
       if(u.error)throw new Error(u.error.message);
       dropCard(id);toast('Task done ✓');return;
     }
-    if(i.kind==='qcpass'){await qcVerdict(i.ref.r,'pass',btn,id);return;}
+    if(i.kind==='qcpass'){await qcVerdict(i.ref.r,'pass',btn,id,i.ref.s);return;}
     if(i.kind==='pack'){openPackSheet(i);return;}
     if(i.kind==='fb'){
       if(i.ref.email){openReplySheet(i);}
@@ -536,11 +537,17 @@ async function acceptOrder(i,btn){
     alert('Accept failed: '+(e&&e.message||e));
   }
 }
-async function qcVerdict(r,v,btn,cardId){
+async function qcVerdict(r,v,btn,cardId,s){
   if(btn){btn.disabled=true;btn.textContent='Saving…';}
   var u=await sb.from('roasts').update({qc:v}).eq('id',r.id);
   if(u.error){if(btn){btn.disabled=false;}alert('QC failed: '+u.error.message);return;}
-  r.qc=v;toast('QC '+v+' ✓');
+  r.qc=v;
+  /* pass＋開關開＝杯測紀錄就地鎖風味（資訊卡/上架直接用這筆）；鎖失敗不擋判定，Lock 卡會接住 */
+  var locked=false;
+  if(v==='pass'&&s&&QCLOCK&&!s.flavour_locked){
+    try{var lu=await sb.from('samples').update({flavour_locked:true}).eq('id',s.id);if(!lu.error){s.flavour_locked=true;locked=true;}}catch(e){}
+  }
+  toast('QC '+v+' ✓'+(locked?' · flavours locked':''));
   if(cardId)dropCard(cardId);
   QCQ=QCQ.filter(function(x){return x.r.id!==r.id;});
   if(view==='qc')renderQC();
@@ -2024,12 +2031,17 @@ function renderQC(){
   var deck=$('deck');deck.style.display='block';
   deck.innerHTML='<div class="who">judging <b>'+esc(q.s.sample_id||'—')+(q.s.process?' · '+esc(q.s.process):'')+'</b>'
     +' · <button id="q-recup" style="background:none;border:none;color:var(--accent);font-size:inherit;font-family:inherit;font-weight:600;cursor:pointer;padding:0;text-decoration:underline">re-cup</button></div>'
+    /* 鎖風味的決定在判定當下：pass＝判定＋鎖（開關可關；已鎖的豆顯示已鎖不重複問） */
+    +(q.s.flavour_locked
+      ?'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:2px 0 6px">flavours already locked ✓</div>'
+      :'<button id="q-lock" style="display:block;margin:2px auto 6px;background:none;border:1px solid '+(QCLOCK?'var(--accent)':'var(--line2)')+';color:'+(QCLOCK?'var(--accent)':'var(--muted)')+';border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer">'+(QCLOCK?'✓ ':'')+'Lock flavours on pass</button>')
     +'<div class="deck-btns"><button class="big" id="q-p">Pass</button>'
     +'<div class="pair"><button class="rr" id="q-r">Re-roast</button><button class="dn" id="q-d">Down</button></div></div>';
   $('q-recup').addEventListener('click',function(){openRecupSheet(q);});
-  $('q-p').addEventListener('click',function(){qcVerdict(q.r,'pass',null,'qc:'+q.r.id);});
-  $('q-r').addEventListener('click',function(){qcVerdict(q.r,'reroast',null,'qc:'+q.r.id);});
-  $('q-d').addEventListener('click',function(){qcVerdict(q.r,'downgrade',null,'qc:'+q.r.id);});
+  var ql=$('q-lock');if(ql)ql.addEventListener('click',function(){QCLOCK=!QCLOCK;renderQC();});
+  $('q-p').addEventListener('click',function(){qcVerdict(q.r,'pass',null,'qc:'+q.r.id,q.s);});
+  $('q-r').addEventListener('click',function(){qcVerdict(q.r,'reroast',null,'qc:'+q.r.id,q.s);});
+  $('q-d').addEventListener('click',function(){qcVerdict(q.r,'downgrade',null,'qc:'+q.r.id,q.s);});
 }
 /* QC 補豆：舊烘豆補登（roasts 補一筆，不扣生豆庫存）——有杯測紀錄直接進 QC 佇列，沒有就長 Cup 卡 */
 function openBackfillSheet(){
