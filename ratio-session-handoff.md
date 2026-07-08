@@ -8,8 +8,45 @@
 - **新表**：tasks（團隊待辦）/ push_subs（推播訂閱）/ secrets_kv（**零政策＝service-role only**，放 VAPID 鑰匙——advisor 的 INFO 是刻意設計）
 - **安全**：messages 匿名讀已鎖＋登入重載；handle_new_user execute 已再次 revoke（2026-07-07 驗證 404）；always-true 政策群＝小團隊信任模型（刻意）；mail-assets 可列目錄（低風險留觀）
 - **等老闆做**：**Wholesale 開帳號**（見 2026-07-08 補記：清 customers 重複列→Auth 開帳號→Tools→Wholesale 切角色＋設折扣％→密碼長度調 12→Happy Sip 試一單；Leaked password protection 實測 Pro 限定不開了）、上架剩餘豆（classic Beans 站照佇列按）、新殼 Dispatch 首次真單看卡片、清 #0021/#0022 測試單＋註銷殘留連結 tDABzmGt（見 07-08 第二 session 補記；Chrome 桌機 07-08 傍晚再查仍登出，代跑不了）、~~iPhone 推播訂閱~~ ✅ 2026-07-08 老闆 iPhone 已訂閱（push_subs=1，send test 收到），晨報/新單/收款推播鏈路全通
-- **等老闆拍板**：staff 帳號開放（新殼角色過濾已就緒）、語音快錄/BOOKOO 秤（第三級）、賣生豆/教學（停車場）；~~wholesale~~ ✅ 2026-07-08 全鏈完成
+- **進行中**：**Timesheet 2.0**（排班/薪資進新殼）——Stage A 錢庫 ✅，B 排班 UI→D 薪資/PDF→C 員工帳號照藍圖做（見專節；**C 一定最後**）；~~staff 帳號開放~~ ✅ 拍板全開 8 人（在 Timesheet 2.0 Stage C 內執行）
+- **等老闆拍板**：語音快錄/BOOKOO 秤（第三級）、賣生豆/教學（停車場）；~~wholesale~~ ✅ 2026-07-08 全鏈完成；**Timesheet 等補**：finance 掛誰、八員工 email、每人費率數字、Dani 帳號（Hung）不明原因變 director 要不要降回、批發折扣 50% 是否正式值
 - **開發環境備忘**：push 用 GitHub Desktop（終端機無 Git 認證）；無 Node，jscheck 用 osascript；本機預覽 launch.json 指向 scratchpad/serve 複本（**改完檔案要 cp 過去**）；Chrome MCP 可開 ratio-theta（老闆登入態可代跑 callSquareFn 等）；Claude Code CLI 已裝在老闆 Mac（design-login 已授權，重推設計系統用終端機 claude）
+
+## 〇、Timesheet 2.0 — 排班/薪資搬進新殼（2026-07-08 老闆定案，Stage A 完工，B/C/D 藍圖在此照抄施工）
+
+### 需求定案（老闆四拍板）
+- **finance 新角色**：cash/on-book＋薪資只有 director+finance 可見；finance 掛誰等老闆指定（人選傾向 Nina）
+- **費率**：每人兩種＝平日費率＋週末費率（週六日同價）；薪水＝平日時數×平日價＋週末時數×週末價
+- **PDF**：時數＋金額都列，寄 email 給 finance（走 send-email 管線留紀錄）
+- **員工帳號**：八人全開（Yi/Manami/Joshua/Juwa/Daniel/Samuel/Nina/Lovey）——email 等老闆提供
+- **班型模板**（老闆口述；⚠ 現行 DB 週一至五 A 班實排 05:45，模板照老闆新寫的 06:15 做、做成可編輯）：
+  週一–五＝A 06:15–14:15（**br:true 半小時無薪休息**）＋B 08:15–14:15；週六＝A 06:15–15:15＋B 08:15–16:15＋C 09:15–16:15；週日＝A1 06:15–08:15＋A2 08:15–15:15＋B 08:15–16:15＋C 09:15–16:15（週六日暫無 break）
+- 已自動不用做：週日結束自動進 history（history＝week_start<本週一，天生自動）
+
+### Stage A ✅ 完工（migration `timesheet_money_vault`＋`profiles_update_director_only`，2026-07-08）
+- **函式**：is_staff() 補 'finance'；新 `is_money()`（director+finance）、`my_profile_name()`（回呼叫者名字）、`is_director()`——全 SECURITY DEFINER（advisors 會多幾條 WARN＝設計如此，同 is_staff 條目，**不可 revoke**）
+- **新表四張**：`staff_members`（名冊 8 人 seeded，sort 排序；team 可讀/money 可寫）、`staff_rates`（費率，**money-only 全鎖**，費率值等老闆填）、`pay_weeks`（week_start text PK＋cash jsonb＋sent_at；**money-only**；已從 rosters.cash 搬入 2 週資料）、`staff_na`（N/A：team 可讀；insert/update/delete＝money 或 name=my_profile_name()——員工只能動自己的）
+- **rosters.cash 暫留原地**（classic getCashSet/setCashSet 還在用）——**Stage D 把 classic 改讀 pay_weeks＋清空 rosters.cash，之後才准做 Stage C 開員工帳號**（不然員工讀 rosters 就看到誰領現金）
+- **封洞**：profiles update 政策原本 is_staff()（員工帳號一開就能自改 role 升權進錢庫）→ 換 `is_director()` 專屬（finance 也不給——只看錢不管人事）
+- **滲透測試**：批發帳號四表全 0＋update 0 列＋自升 director 0 列；匿名全 0；老闆視角名冊 8/薪務 2 週/費率可改/可代填他人 N/A/可管角色——全過（測試寫入全 rollback）。⚠ **staff 角色的「只能動自己 N/A」實測要等 Stage C 有真員工帳號**（政策條件已寫好）
+- **順手發現**：Dani 測試帳號（Hung，wu110681）**不知何時變成 director**（中午還是 wholesale）——等老闆發落要不要降回
+
+### Stage B 藍圖（下一輪，Opus 照抄；新殼 new/index.html）
+1. Tools 磁貼「Timesheet」（data-t 'roster'，director only 先）→ `openRosterSheet()`：頂部週切換 seg〔This week｜Next week｜Week after〕（週一＝mondayStr()＋0/7/14 天）；每天一段（Mon–Sun＋日期），列該日 shifts（名字＋start–end＋hrs＋br 標記），點列開編輯（改人/改時間/br 勾/刪除），「＋ Add shift」選人（**staff_members** active 按 sort；查詢空陣列 fallback classic STAFF_NAMES 八人）＋時間
+2. **Apply template 鈕**（整週）：模板存 app_state key `ts_templates`（read-modify-write 照 rtl_dot 慣例），形狀 `{monfri:[{start,end,br}...],sat:[...],sun:[...]}`；code 內建預設值＝上面老闆班型；週已有班先 confirm 才覆蓋；另做「Edit templates…」子抽屜改模板時間/br
+3. **N/A 撞班警告**：讀 staff_na 與該週重疊的列；shift 的名字當天在 N/A 內 → 列尾黃字「⚠ unavailable」；選人清單同標
+4. **存檔照抄 classic saveRosterRow**：upsert rosters `{week_start,shifts,deleted:false,updated_at}`；**shifts 項目形狀絕不能改**＝`{day:'mon',name,start,end,br?}`（morning-brief v4/今日流晨報卡/classic 都在讀）；hrs 計算＝時距−(br?0.5:0)
+5. 驗證：jscheck；preview stub——模板整週填=17 列（週一五 2×5＋六 3＋日 4）、N/A 黃字、編輯/刪除、upsert payload 逐欄、晨報卡 regression；真機部署後老闆排下週班
+### Stage D 藍圖（Stage B 後做，**先於 C**）
+1. Timesheet 抽屜加 History 分頁：週列表（rosters week_start<本週一、非 deleted 有 shifts）→ 摺疊週：每人平日/週六/週日時數（照抄 classic effectiveWeek 的算法）＋班表明細
+2. **錢區塊只在 ROLE director/finance 渲染**（⚠ 新殼 myRole() 第 ~473 行要補 'finance'；boot 角色分流 finance 走 staff 版今日流＋看得到錢磁貼）：每人「wd h×$wd＋we h×$we＝$總額」＋Cash/Bank 切換（upsert pay_weeks）＋「Rates…」子抽屜（staff_rates 讀寫）
+3. **PDF**：jsPDF loadScriptOnce（照 Menus 慣例）；內容＝週範圍＋每人 時數(wd/we)/費率/金額/Cash|Bank＋總計；下載＋「Email to finance」鈕 → **send-email 新 action `timesheet_pdf`**｛week_start, pdf_b64｝→ resend attachments（bufToB64/attachments 現成）寄給 finance（profiles role='finance' 的 email，沒有就 NOTIFY_EMAIL）→ 回寫 pay_weeks.sent_at；⚠ send-email 授權要放行 finance（現在只認 director）
+4. **classic 收尾**：getCashSet/setCashSet 改讀寫 pay_weeks；SQL 清空 rosters.cash（欄留著防 classic realtime payload 形狀壞）
+### Stage C 藍圖（最後做；D 完成為前提）
+1. 老闆 Supabase Auth 建 8 帳號（同批發開法，email 老闆給）→ handle_new_user 自動 customer profile
+2. Tools「Team」抽屜（director only）：列 profiles（名字/email/角色）＋改名欄（**profiles.name 必須跟 staff_members.name 一字不差**——N/A 自填與「我的班」靠它配對）＋角色 chips（customer/staff/wholesale/finance；**不給 director 選項防誤點**）
+3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢
+4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常
 
 ## 〇、補記 — 2026-07-08 第二 session（小收尾打掃）
 - **老闆回報兩問題（co-ferment 消失＋售罄沒掛牌）診斷與修**：①**co-ferment 在批發不見**＝全店唯一 co-ferment（Finca Milan，process April Culturing）已售罄（paused），wholesale 舊版菜單只收 synced 把它濾掉 → 分類沒豆不出 tab。修＝**wholesale v3**（catalogForSynced 收 synced+paused＋pausedItemIds 排除 allowedVarIds，menu 帶 sold_out、checkout 擋，鏡像 public-shop v8）；browser director JWT 實測 menu 13 支、Finca sold_out:true ✓ ②**售罄沒掛牌**＝**前端 commit 4e92b12（售罄卡 UI）還沒 push**，線上跑舊前端 → app/web/wholesale 都不顯示。老闆 GitHub Desktop Push 即解（資料端 public-shop v8/wholesale v3 已就緒）③**Square 端售罄沒生效（深層待辦）**：inspect Finca Milan＝`ecom_visibility:VISIBLE`，重下 availability(sold_out) 回 ok/paused 但再 inspect 仍 VISIBLE——**Square 不吃 ecom_visibility=UNAVAILABLE**（疑售罄看庫存數或 site/channel 覆蓋）。**但 Ratio 自家店面（public-shop/門戶/批發）售罄讀 product_sync.status==='paused' 不依賴 Square**，故自家店 push 後正常；只 Square 自己的線上店櫥窗沒跟上，待深挖或老闆 Square 後台手動標
