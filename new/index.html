@@ -1840,8 +1840,12 @@ async function openListSheet(i){
       if(v&&typeof v==='object')mem[x.key]=v;});
   }catch(e){}
   var sc=mem.rtl_sizes[nm]||{};
+  /* 送修空窗防呆（老闆踩過）：豆子還在 QC 重審（佇列或待杯測）→ push 不自動鎖風味——
+     沒經過重杯就鎖回（可能還是錯的）描述；鎖定交給 QC Pass 那一刻 */
+  var rq=(QCQ||[]).some(function(q){return String(q.s.sample_id||'').trim().toLowerCase()===nm.toLowerCase();})
+    ||toCupList().some(function(r){return String(r.bean_name||'').trim().toLowerCase()===nm.toLowerCase();});
   LST={s:s,name:nm,grams:mem.rtl_g[nm]||250,price:mem.rtl_price[nm]!=null?String(mem.rtl_price[nm]):'',
-    p500:sc.g500!=null?String(sc.g500):'',p1k:sc.g1000!=null?String(sc.g1000):'',lock:!s.flavour_locked,
+    p500:sc.g500!=null?String(sc.g500):'',p1k:sc.g1000!=null?String(sc.g1000):'',lock:rq?false:!s.flavour_locked,requeue:rq,
     /* 已上架＝更新模式（Retail shelf 的 Edit listing 走這裡；push 對 Square 是 upsert，同一條管線） */
     upd:!!((DB.syncs||[]).find(function(x){return x.status==='synced'&&String(x.bean_id||'').trim().toLowerCase()===nm.toLowerCase();}))};
   paintListSheet();
@@ -1855,7 +1859,8 @@ function paintListSheet(){
     +'<div class="dlab">Price (AUD)</div><input class="din" id="ls-p" inputmode="decimal" placeholder="e.g. 25" value="'+esc(LST.price)+'">'
     +'<div class="dlab">500g price · blank = skip</div><input class="din" id="ls-p5" inputmode="decimal" placeholder="—" value="'+esc(LST.p500)+'">'
     +'<div class="dlab">1kg price · blank = skip</div><input class="din" id="ls-p1" inputmode="decimal" placeholder="—" value="'+esc(LST.p1k)+'">'
-    +(s.flavour_locked?'':'<div class="pm-seg" style="margin-top:14px"><button id="ls-lk"'+(LST.lock?' class="on"':'')+'>'+(LST.lock?'✓ ':'')+'Lock flavour description</button></div>')
+    +(LST.requeue?'<div class="s fr-yellow" style="margin-top:12px">Re-checking in QC — the flavour description stays unlocked until it passes QC again</div>'
+      :(s.flavour_locked?'':'<div class="pm-seg" style="margin-top:14px"><button id="ls-lk"'+(LST.lock?' class="on"':'')+'>'+(LST.lock?'✓ ':'')+'Lock flavour description</button></div>'))
     +'<button class="act" id="ls-push">'+(LST.upd?'Push update to Square':'Push to Square')+'</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
   function grab(){LST.price=$('ls-p').value;LST.p500=$('ls-p5').value;LST.p1k=$('ls-p1').value;}
@@ -1870,7 +1875,8 @@ async function pushListToSquare(){
   if(!price||price<=0){toast('Enter a price first');return;}
   var p500=Number(String(LST.p500).replace(/[^0-9.]/g,''))||0;
   var p1k=Number(String(LST.p1k).replace(/[^0-9.]/g,''))||0;
-  if(!s.flavour_locked&&!LST.lock&&!confirm('Flavour description is not locked — push anyway?'))return;
+  /* 重審中 push 不再彈「沒鎖要推嗎」——抽屜黃字已講明鎖定等 QC Pass */
+  if(!s.flavour_locked&&!LST.lock&&!LST.requeue&&!confirm('Flavour description is not locked — push anyway?'))return;
   var btn=$('ls-push');if(btn){btn.disabled=true;btn.textContent='Drawing card…';}
   try{
     /* 資訊卡：同出貨信管線（flavour_locked 紀錄優先） */
