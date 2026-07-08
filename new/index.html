@@ -177,6 +177,39 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 const SUPABASE_URL='https://kjhudxzvidhynpabnalp.supabase.co';
 const SUPABASE_KEY='sb_publishable_vt7hUK07u-veHOb4mXGGhQ_wX06qDeQ';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+/* ── Read-only 護欄：只有 manager（lead）與 director 能寫；其他角色整個 /new 唯讀 ──
+   總閘門＝在 sb.from 源頭包一層 Proxy：select 等讀取照舊，insert/update/upsert/delete 一律擋，
+   回傳一個「解析成 {error} 的可鏈式 thenable」讓現有 await/.then 不會炸、只是靜默失敗。
+   canWrite() 於呼叫當下才判定（boot 設好 ROLE/LEAD 之後才會有使用者動作，安全）。 */
+function canWrite(){return isLead();}
+var _roToastAt=0;
+function roToast(){var n=Date.now();if(n-_roToastAt<2500)return;_roToastAt=n;try{toast('Read-only — ask a manager to make changes');}catch(e){}}
+function _roBuilder(){
+  var res={data:null,error:{message:'Read-only'}};
+  var p=new Proxy(function(){},{
+    get:function(t,prop){
+      if(prop==='then')return function(resolve){return Promise.resolve(res).then(resolve);};
+      if(prop==='catch'||prop==='finally')return function(){return p;};
+      return function(){return p;};
+    },
+    apply:function(){return p;}
+  });
+  return p;
+}
+var _sbFrom=sb.from.bind(sb);
+/* sbRaw＝繞過唯讀護欄的原生寫入，只給「個人手機設定」用（訂閱推播）——非店裡資料 */
+function sbRaw(table){return _sbFrom(table);}
+sb.from=function(table){
+  var qb=_sbFrom(table);
+  if(canWrite())return qb;
+  return new Proxy(qb,{get:function(target,prop){
+    if(prop==='insert'||prop==='update'||prop==='upsert'||prop==='delete'){
+      return function(){roToast();return _roBuilder();};
+    }
+    var v=target[prop];
+    return (typeof v==='function')?v.bind(target):v;
+  }});
+};
 const CLASSIC='/index.html';
 const ESP_STALE_DAYS=7, GREEN_LOW_KG=5, ORD_OVERDUE_DAYS=7;
 const VAPID_PUBLIC='BFPC3UdlUFbYeowrMvVn-eJWjES_PHYuy34_7v7XbgPSb88CRdG5pjyT30Ht-1Ok4C0dj25Ut-ahokw-9STRY9o';
@@ -212,6 +245,7 @@ function snoozePush(){
     .then(function(r){if(r&&r.error)console.error('snooze push:',r.error.message||r.error);});}catch(e){}
 }
 function addSnooze(id){
+  if(!canWrite()){roToast();return;} /* 貪睡是共用寫入，唯讀不動 */
   var today=todayKey(),m=snoozeMap();m[id]=1;
   SNOOZE_ALL={};SNOOZE_ALL[today]=m; /* 只留今天＝順手清掉舊日期 */
   SNOOZED_SESSION++;
@@ -219,7 +253,8 @@ function addSnooze(id){
 }
 function undoSnooze(){SNOOZE_ALL={};SNOOZED_SESSION=0;snoozePush();buildItems();render();toast('Brought back');}
 
-async function callFn(name,payload){
+async function callFn(name,payload,roOk){
+  if(!roOk&&!canWrite()){roToast();throw new Error('Read-only');}
   var g=await sb.auth.getSession();var sess=g&&g.data&&g.data.session;
   if(!sess)throw new Error('Signed out');
   var res=await fetch(SUPABASE_URL+'/functions/v1/'+name,{method:'POST',
@@ -545,6 +580,7 @@ function dropCard(id,left){
 }
 /* ===== 真動作 ===== */
 async function runAction(id,btn){
+  if(!canWrite()){roToast();return;}
   var i=item(id);if(!i)return;
   try{
     if(i.kind==='dismiss'){addSnooze(id);dropCard(id);return;}
@@ -615,6 +651,7 @@ async function acceptOrder(i,btn){
   }
 }
 async function qcVerdict(r,v,btn,cardId,s){
+  if(!canWrite()){roToast();return;}
   if(btn){btn.disabled=true;btn.textContent='Saving…';}
   var u=await sb.from('roasts').update({qc:v}).eq('id',r.id);
   if(u.error){if(btn){btn.disabled=false;}alert('QC failed: '+u.error.message);return;}
@@ -2504,6 +2541,7 @@ async function saveRoastSheet(){
 }
 /* ===== 滑卡 ===== */
 function attachSwipe(el,id){
+  if(!canWrite())return; /* read-only：不綁滑卡（右做左睡都是寫入/共用貪睡） */
   /* 誤觸防護：①方向鎖——先確認是「明確的橫向」才開始滑（斜滑/直捲直接放棄）
      ②門檻加大——要滑過卡片寬度的 35%（做）/ 45%（貪睡）才觸發 */
   var x0=null,y0=0,dx=0,locked=false,dead=false;
@@ -4392,15 +4430,17 @@ function renderTools(){
     +'<div class="gsec">Appearance</div><div class="pm-seg">'
     +[['auto','Auto'],['light','Light'],['dark','Dark']].map(function(x){return '<button data-th="'+x[0]+'"'+(themeGet()===x[0]?' class="on"':'')+'>'+x[1]+'</button>';}).join('')
     +'</div>'
-    +'<div class="gsec">Make</div><div class="tgrid">'
+    +(canWrite()?('<div class="gsec">Make</div><div class="tgrid">'
     +'<button class="tool" id="t-neworder" style="border-color:var(--accent);color:var(--accent)">New order<small>right here</small></button>'
     +'<button class="tool" id="t-roast" style="border-color:var(--accent);color:var(--accent)">Log roast<small>green in · right here</small></button>'
     +'<button class="tool" id="t-stk" style="border-color:var(--accent);color:var(--accent)">Stocktake<small>weigh greens · right here</small></button>'
     +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
     +'<button class="tool" id="t-task" style="border-color:var(--accent);color:var(--accent)">New task<small>'+(isLead()?'assign · right here':'for the team · right here')+'</small></button>'
     +[['Invoice','GST PDF · classic'],['IG asset','1200×1200 card · classic'],['Labels','bag / tin · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1" disabled style="opacity:.4;cursor:not-allowed">'+x[0]+'<small>'+x[1]+' · off</small></button>';}).join('')
-    +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
-    +[['Green stock','full list · right here','greens'],['Roasted Stock','FIFO shelf · right here','batches'],['Retail Info','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Menus','4 menu PDFs · right here','menus'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Delete a coffee','remove records · careful','delbean']]
+    +'</div>'):'')
+    +'<div class="gsec">Look up · right here</div><div class="tgrid">'
+    +[['Green stock','full list · right here','greens'],['Roasted Stock','FIFO shelf · right here','batches'],['Retail Info','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Menus','4 menu PDFs · right here','menus'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes']]
+      .concat(canWrite()?[['Delete a coffee','remove records · careful','delbean']]:[])
       .concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[])
       .concat(isLead()?[['Team','who’s on · assign','team']]:[])
       .concat((ROLE==='director'||ROLE==='finance'||LEAD)?[['Timesheet','roster · hours'+(rsMoney()?' · pay':''),'roster']]:[])
@@ -4441,7 +4481,7 @@ function renderTools(){
   var tn=$('t-notif');if(tn)tn.addEventListener('click',function(){enablePush(tn);});
   var tp=$('t-ptest');if(tp)tp.addEventListener('click',async function(){
     tp.disabled=true;
-    try{var r=await callFn('push-send',{title:'Test from Ratio',body:'Push notifications are working ☕',url:'/new/'});
+    try{var r=await callFn('push-send',{title:'Test from Ratio',body:'Push notifications are working ☕',url:'/new/'},true);
       toast('Sent to '+(r.sent||0)+' device'+(r.sent===1?'':'s'));}
     catch(e){alert('Test failed: '+(e&&e.message||e));}
     tp.disabled=false;
@@ -4541,7 +4581,7 @@ async function enablePush(btn){
     if(perm!=='granted'){toast('Permission not granted');return;}
     var sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidBytes()});
     var j=sub.toJSON();
-    var u=await sb.from('push_subs').upsert({endpoint:j.endpoint,keys:{p256dh:j.keys.p256dh,auth:j.keys.auth},who:WHO||null},{onConflict:'endpoint'});
+    var u=await sbRaw('push_subs').upsert({endpoint:j.endpoint,keys:{p256dh:j.keys.p256dh,auth:j.keys.auth},who:WHO||null},{onConflict:'endpoint'});
     if(u.error)throw new Error(u.error.message);
     toast('Notifications on ✓');
     if(btn){var s=btn.querySelector('small');if(s)s.textContent='enabled on this phone ✓';}
