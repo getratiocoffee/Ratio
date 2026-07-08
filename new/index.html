@@ -4581,7 +4581,9 @@ function dbgUpdate(){
   function bb(x){if(!x||getComputedStyle(x).display==='none')return 'hidden';var r=x.getBoundingClientRect();return Math.round(r.top)+'-'+Math.round(r.bottom);}
   var safeB=pr?Math.round(pr.getBoundingClientRect().height):'?';
   var navGap=nav?Math.round(window.innerHeight-nav.getBoundingClientRect().bottom):'-';
-  el.textContent='view:'+window.view+'  safeB:'+safeB
+  var saNav=(navigator.standalone===true?'YES':(navigator.standalone===false?'no':'?'));
+  var saMM=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)?'standalone':'browser';
+  el.textContent='view:'+window.view+'  safeB:'+safeB+'  STANDALONE:'+saNav+'/'+saMM
     +'\ninnerH:'+window.innerHeight+'  vvH:'+(vv?Math.round(vv.height):'-')+'  vvTop:'+(vv?Math.round(vv.offsetTop):'-')
     +'\nnav:'+bb(nav)+'  gapBelow:'+navGap
     +'\ndeck:'+bb(deck)
