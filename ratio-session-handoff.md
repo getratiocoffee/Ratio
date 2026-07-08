@@ -12,6 +12,8 @@
 - **開發環境備忘**：push 用 GitHub Desktop（終端機無 Git 認證）；無 Node，jscheck 用 osascript；本機預覽 launch.json 指向 scratchpad/serve 複本（**改完檔案要 cp 過去**）；Chrome MCP 可開 ratio-theta（老闆登入態可代跑 callSquareFn 等）；Claude Code CLI 已裝在老闆 Mac（design-login 已授權，重推設計系統用終端機 claude）
 
 ## 〇、補記 — 2026-07-08 第二 session（小收尾打掃）
+- **新豆通知搬進新殼＝一份內容三發到齊（Phase 4 第二刀）**（new/index.html）：貨架豆明細抽屜 Social post kit 下加「**Announce by email — new coffee**」→ `announceShelfBean()` 照抄 classic announceCoffee：QC 閘門（matchRoast 判 reroast/downgrade 擋死；沒 pass/沒鎖風味只 Heads up 警告）→ customers 有 email 人數 confirm → `uploadCardForBean()`（同 classic uploadCardFor：full row flavour_locked 優先→cardDataFor→makeSquareCard **Square 安全白邊版**——信件卡跟 classic 一致，不是 IG tight 版→ mail-assets `card-<slug>.png` upsert＋cache-bust）→ send-email `announce_coffee`（payload name/card_url/flavour/note 與 classic 一字不差，edge 零改動）。至此手機一個抽屜完成三發：信＋IG＋小紅書。驗證：jscheck ✓；preview stub 四情境——正常鎖定豆（confirm 人數只算有 email 的 3 位、卡 105KB card-kiama-aa.png upsert、send-email payload 逐欄對、toast「Sent to 3 of 3」）／未鎖＋沒判定出 Heads up／reroast 擋死／零 email 客戶擋，console 零錯誤。⚠ 真發信等老闆下支新豆上架時按
+- **順手發現：待辦區「Retail Info 改版」其實早就完工**（classic index.html 7622–7656：Blends/Single Origin 分頁、三態 Square 膠囊、迷你 Announce 鍵全在，該待辦自帶的驗證紀錄也寫全過）——漏劃已補劃
 - **Tools 同名磁貼改名**（new/index.html）：舊「Info card · IG asset · classic」→「**IG asset** · 1200×1200 card · classic」——跟新的「Info cards · A4 · 2 fold cards」不再撞名，data-classic 跳轉照舊
 - **新殼豆子明細抽屜加「Analysed by」**（new/index.html）：①loadAll samples select 補 `cupper` 欄 ②openShelfBeanDetail 的 comment 行後顯示 `Analysed by <cupper>`（沒記錄不顯示，措辭同 classic）。順帶發現 classic 的 Analysed by 三處（8200/8488/9184）早就做完，「三、待辦」漏劃已補劃
 - 驗證：jscheck ✓；preview stub 假資料——Tools 24 磁貼無同名、IG asset 新副標 ✓；明細抽屜有 cupper 顯示在 comment 後、無 cupper 不顯示 ✓；console 零錯誤
@@ -373,7 +375,7 @@
 - 四內容支柱：新豆上市 / 過程隨手拍 / 沖煮教學（Brew guide 現成）/ 選豆思路
 - 頻率：IG 週 2 貼+3-4 限動、小紅書週 1-2、Google Post 週 1
 - 在地：包裹小卡 QR、供豆下家立牌、季度市集
-- **Phase 4 新增規格**：~~上架自動產 IG/小紅書素材（資訊卡+中英文案草稿）~~ ✅ 2026-07-08 Social post kit 完成（見〇補記）、新豆通知一份內容三發、回購提醒附評論連結
+- **Phase 4 新增規格**：~~上架自動產 IG/小紅書素材（資訊卡+中英文案草稿）~~ ✅ 2026-07-08 Social post kit 完成（見〇補記）、~~新豆通知一份內容三發~~ ✅ 2026-07-08 新殼豆子抽屜 Announce by email 完成（見〇補記，三發同一抽屜）、回購提醒附評論連結（依賴老闆先貼 Google 評論連結）
 
 **資料收集小工具（Beans 2.0 各站的資料入口，待排期）**
 - ~~烘焙師：T1 烘焙快錄；T2 烘焙 profile 文字筆記~~ ✅ T1、T2 都完成（見〇補記）
@@ -396,7 +398,7 @@
 - ~~資料補齊：杯測 comment、blend note、Dancer 烘焙日~~ ✅ 完成（2026-07-06：7 筆 comment 由 Claude 起草＋老闆核准寫入；April/May Project note 補上；重複的 Dreamer 無烘焙日列已刪、留 06/08 那筆；Dancer 15/06 老闆確認無誤）
 - ~~**杯測卡＋Retail Info 卡加「Analysed by」**（老闆需求 2026-07-06）：rtSampleCard 副標、retailCard 的 Roasted 行下方各顯示 `Analysed by <cupper>`（samples.cupper = 登入者名字，沒記錄就不顯示）~~ ✅ classic 早已完成（index.html 8200/8488/9184 三處，待辦漏劃）；新殼豆子明細抽屜 2026-07-08 補上（見補記）
 - 剩：4 支上架（Dancer/Dreamer/April/May/June Project — 現在資料齊了，QC Pass + Lock flavour + Push to Square 即可）
-- **Retail Info 改版**（老闆需求 2026-07-06）：
+- ~~**Retail Info 改版**~~（老闆需求 2026-07-06）✅ 早已完成（classic 7622–7656 都在），漏劃 2026-07-08 補劃：
   - **Blends / Single Origin 分頁**（lbl-seg 樣式，預設 Blends；以 blendDefByName 判定歸屬）；Blend 泡泡（rtl-blend-tag）移除
   - **收合列右側顯示 Square 狀態膠囊**（Live 綠 / Error 紅 / Not listed 灰）+ **迷你 Announce 鍵**（喇叭圖示，走原 announceCoffee 含上架閘門與人數確認）；展開後兩者隱藏（body 本來就有完整 Square/Announce 列）
   - 驗證：preview 假資料實測兩分頁篩選/計數、泡泡移除、三態膠囊、迷你鍵數量與綁定、展開收合切換，全過
