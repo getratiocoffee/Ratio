@@ -456,7 +456,8 @@
 ## 四、基礎設施速查
 - Supabase kjhudxzvidhynpabnalp（Sydney）；Edge：send-email **v12** / sync-to-square **v14**（+payment_link_delete、payment_link 存 square_order_id）/ square-webhook **v9**（payment_link 自動標 paid）
 - orders 欄位新增：tracking_no, dispatch_email_at, confirm_email_at, payment_link, payment_link_id, pack_state, square_order_id
-- beans.brew / blends.brew jsonb（method-keyed）；mail-assets bucket
+- beans.brew / blends.brew jsonb（method-keyed）；mail-assets bucket（public，卡片 PNG，advisor 唸可列目錄＝低風險留觀）
+- **design-assets bucket**（2026-07-08 老闆為未來設計部門要求）：public、25MB/檔、只收 image/*＋pdf；**四政策全 is_staff()**（列目錄/上傳/改/刪都要員工登入）——**故意不開廣泛 public SELECT**，個別圖走 public URL 可嵌網站/信件但外人無法列目錄（比 mail-assets 嚴，advisor 無新 listing 警告）。上傳：Supabase Dashboard→Storage→design-assets 拖檔，或未來做 app 內上傳鈕/Make 自動化 Drive→此桶。定位＝設計部門「上線圖」，工作原始檔仍放 Google Drive（免費僅 1GB）。⚠ advisor 新增 is_money/my_profile_name/is_director 三條 SECURITY DEFINER 警告＝Timesheet Stage A 的 RLS 助手，**不可 revoke**（同 is_staff 家族，已知接受）
 - Square item ids：Alo Village=CFGKRBQ5EAWGB5UAUV35NOP5、Dark Knight=JZVP5ICULJ7TQJGL7VWW6XE2；ratio_ref 定義=MV5EOCK2W3XXFQPHILKQWKOQ
 - Chrome MCP：Ratio tab id 1489018982
 - 開場模板：先抓 https://raw.githubusercontent.com/getratiocoffee/Ratio/main/index.html + 讀本檔
