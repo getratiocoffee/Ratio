@@ -3987,7 +3987,7 @@ async function openPayrollSheet(){
       (rt.data||[]).forEach(function(x){PAY_RATES[x.name]={wd:x.weekday_rate,we:x.weekend_rate};});
       var pw=await sb.from('pay_weeks').select('week_start,cash,sent_at');
       (pw.data||[]).forEach(function(x){PAY_META[x.week_start]={cash:x.cash||[],sent_at:x.sent_at||null};});
-      try{var fe=await sb.from('app_state').select('value').eq('key','finance_email').maybeSingle();FIN_EMAIL=String((fe.data&&fe.data.value&&fe.data.value.email)||'');}catch(e){}
+      try{var fe=await sb.from('app_state').select('value').eq('key','finance_email').maybeSingle();var fv=(fe.data&&fe.data.value)||{};FIN_EMAIL=String(fv.email||'');FIN_CC=String(fv.cc||'');}catch(e){}
     }
   }catch(e){console.error('payroll load',e);}
   if(PAY_WK.length&&PAY_OPEN==null)PAY_OPEN=PAY_WK[0].ws;
@@ -4021,6 +4021,7 @@ function renderPayroll(){
   openDrawerHTML('<div class="t" style="font-size:19px">Past weeks &amp; pay</div>'
     +'<div class="s" style="margin-top:2px">'+(money?'hours, wages and cash / bank per week':'hours per week')+'</div>'
     +(money?'<button class="dclose" id="pay-rates" style="margin-top:10px">Edit pay rates…</button>':'')
+    +(money?'<div style="margin-top:10px"><div class="dlab" style="margin:0 0 4px">Finance email · payroll is sent here, a copy comes to you</div><div style="display:flex;gap:8px"><input class="din" id="fin-email" style="margin:0;flex:1" inputmode="email" value="'+esc(FIN_EMAIL)+'" placeholder="name@email.com"><button class="chip" id="fin-save" style="white-space:nowrap">Save</button></div></div>':'')
     +'<div style="margin-top:4px">'+body+'</div>'
     +'<button class="dclose" id="pay-back" style="border:none;background:none;color:var(--muted)">‹ Back to timesheet</button>');
   document.querySelectorAll('#drawer [data-payw]').forEach(function(b){b.addEventListener('click',function(){PAY_OPEN=(PAY_OPEN===b.dataset.payw)?null:b.dataset.payw;renderPayroll();});});
@@ -4028,6 +4029,7 @@ function renderPayroll(){
   document.querySelectorAll('#drawer [data-paypdf]').forEach(function(b){b.addEventListener('click',function(){genPayPDF(b.dataset.paypdf,b);});});
   document.querySelectorAll('#drawer [data-payemail]').forEach(function(b){b.addEventListener('click',function(){emailPayPDF(b.dataset.payemail,b);});});
   var pr=$('pay-rates');if(pr)pr.addEventListener('click',openRatesSheet);
+  var fss=$('fin-save');if(fss)fss.addEventListener('click',function(){saveFinanceEmail(fss);});
   $('pay-back').addEventListener('click',openRosterSheet);
 }
 async function togglePayCash(key){
@@ -4149,7 +4151,18 @@ function payTotals(w){
   return {staff:ppl.length,totWd:Math.round(totWd*10)/10,totWe:Math.round(totWe*10)/10,totWage:Math.round(totWage*100)/100};
 }
 /* Email 這週薪務單給財務（PDF 當附件，副本備份給老闆；edge 動作 timesheet_pdf）*/
-var FIN_EMAIL='';
+var FIN_EMAIL='', FIN_CC='';
+async function saveFinanceEmail(btn){
+  var el=$('fin-email');if(!el)return;var v=String(el.value||'').trim();
+  btn.disabled=true;btn.textContent='Saving…';
+  try{
+    var val={email:v,cc:FIN_CC||'ratiocoffee2473@gmail.com'};
+    var u=await sb.from('app_state').upsert({key:'finance_email',value:val},{onConflict:'key'});
+    if(u.error)throw new Error(u.error.message);
+    FIN_EMAIL=v;FIN_CC=val.cc;toast('Finance email saved ✓');
+  }catch(e){alert('Save failed: '+(e&&e.message||e));}
+  btn.disabled=false;btn.textContent='Save';
+}
 async function emailPayPDF(ws,btn){
   var w=null;PAY_WK.forEach(function(x){if(x.ws===ws)w=x;});
   if(!w)return;

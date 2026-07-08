@@ -2870,11 +2870,14 @@ fill="#6F4A36" stroke="none">
   }
   /* cash-payment selection per week (persisted on this device; seeded from backup) */
   let tsHistOpen={}, tsDelW=null;
-  function getCashSet(w){
-    var r=ROSTERS[w.weekStart];if(r&&r.cash)return new Set(r.cash);
-    return new Set(w.cash||[]);
+  /* Timesheet 2.0: cash marks live in the money-only `pay_weeks` table now (not rosters.cash — that
+     column is shared with staff-visible roster data). classic reads/writes PAYWK; the new shell owns
+     the same table. director sees it; non-money logins get RLS-blocked → empty set (fail-safe). */
+  function getCashSet(w){return new Set(PAYWK[w.weekStart]||[]);}
+  function setCashSet(w,set){
+    var arr=Array.from(set);PAYWK[w.weekStart]=arr;
+    if(sb)sb.from('pay_weeks').upsert({week_start:w.weekStart,cash:arr,updated_at:new Date().toISOString()},{onConflict:'week_start'}).then(function(res){if(res.error)console.error('[Ratio] pay_weeks save:',res.error.message||res.error);});
   }
-  function setCashSet(w,set){var r=rosterRow(w.weekStart);r.cash=Array.from(set);saveRosterRow(w.weekStart);}
   function chevSVG(){return '<span class="rd-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>';}
   function naTopHdr(){return '<div class="ts-tophdr"><button class="na-pill" id="ts-na">N/A</button><span class="ts-tophint">Tap a date to expand · PDF / delete on the right</span></div>';}
   function wireNAPill(){var b=document.getElementById('ts-na');if(b)b.addEventListener('click',function(){var cu=window.CURRENT_USER;naDraft={name:(cu&&STAFF_NAMES.indexOf(cu)>-1?cu:null),start:'',end:''};renderNAForm();});}
@@ -3268,10 +3271,21 @@ fill="#6F4A36" stroke="none">
   function dayLabelOf(monIso,i){var a=new Date(monIso+'T00:00:00');a.setDate(a.getDate()+i);return TS_DAYLBL[TS_ORDER[i]]+' · '+TS_MON[a.getMonth()]+' '+a.getDate();}
   /* ---- roster data layer: static seed + Supabase `rosters` (cached in ROSTERS) ---- */
   const ROSTERS={}; let rostersLoaded=false;
+  const PAYWK={}; /* week_start -> [names paid cash]; mirrors money-only pay_weeks table (see getCashSet) */
   function rosterRow(ws){return ROSTERS[ws]||(ROSTERS[ws]={shifts:[],cash:[],deleted:false});}
   function saveRosterRow(ws){
     if(!sb)return;var r=rosterRow(ws);
-    sb.from('rosters').upsert({week_start:ws,shifts:r.shifts||[],cash:r.cash||[],deleted:!!r.deleted,updated_at:new Date().toISOString()},{onConflict:'week_start'}).then(function(res){if(res.error)console.error('[Ratio] roster save:',res.error.message||res.error);});
+    /* Timesheet 2.0: never write cash into rosters again (staff will read this table) — always [] */
+    sb.from('rosters').upsert({week_start:ws,shifts:r.shifts||[],cash:[],deleted:!!r.deleted,updated_at:new Date().toISOString()},{onConflict:'week_start'}).then(function(res){if(res.error)console.error('[Ratio] roster save:',res.error.message||res.error);});
+  }
+  async function loadPayWeeks(){
+    if(!sb)return;
+    try{
+      var res=await sb.from('pay_weeks').select('week_start,cash');
+      if(res.error)return; /* money-only RLS: non-director just gets no cash marks (fail-safe) */
+      (res.data||[]).forEach(function(r){PAYWK[r.week_start]=r.cash||[];});
+      refreshTimesheetIfOpen();
+    }catch(e){}
   }
   async function loadRosters(){
     if(!sb)return;
@@ -3293,6 +3307,7 @@ fill="#6F4A36" stroke="none">
   function submitRoster(ws,shifts){var r=rosterRow(ws);r.shifts=shifts;r.deleted=false;saveRosterRow(ws);}
   if(sb){
     loadRosters();
+    loadPayWeeks();
     appStatePull();
     try{sb.channel('rosters-feed').on('postgres_changes',{event:'*',schema:'public',table:'rosters'},function(p){
       var r=p.new||p.old;if(!r||!r.week_start)return;
