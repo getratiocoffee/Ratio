@@ -178,7 +178,7 @@ const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const CLASSIC='/index.html';
 const ESP_STALE_DAYS=7, GREEN_LOW_KG=5, ORD_OVERDUE_DAYS=7;
 const VAPID_PUBLIC='BFPC3UdlUFbYeowrMvVn-eJWjES_PHYuy34_7v7XbgPSb88CRdG5pjyT30Ht-1Ok4C0dj25Ut-ahokw-9STRY9o';
-var view='feed', filter='all', selQC=null, ITEMS=[], QCQ=[], ROLE='director', WHO='';
+var view='feed', filter='all', selQC=null, ITEMS=[], QCQ=[], ROLE='director', WHO='', LEAD=false;
 var QCLOCK=true; /* 鎖風味的決定在 QC 當下（老闆定調）：pass＝判定＋鎖風味，判定板可關 */
 /* 黑白頁手動切換：auto=跟系統、light/dark=強制；記在本機（顯示偏好本來就該一台一台設） */
 function themeGet(){try{return localStorage.getItem('r2_theme')||'auto';}catch(e){return 'auto';}}
@@ -431,9 +431,13 @@ function buildItems(){
       det2:'Open classic app',roles:['director','roaster'],kind:'dismiss',ref:b});
   });
   DB.tasks.forEach(function(t){
-    out.push({id:'tk:'+t.id,st:'Tasks',hot:0,t:esc(t.title),
-      s:[(t.created_by||''),fmtD(t.created_at)].filter(Boolean).join(' · ')||'team task',
-      act:'Done',det:[['Added by',t.created_by||'—'],['Added',fmtD(t.created_at)||'—']],
+    /* 派工層：assigned_to＝派給誰（null＝共用）；自己的任務 mine 置頂（晨報後第一批）＋紅邊；全隊透明都看得到 */
+    var mine=!!(t.assigned_to&&WHO&&t.assigned_to===WHO);
+    var who=t.assigned_to?(mine?'For you':'→ '+esc(t.assigned_to)):'';
+    var due=t.due_date?('due '+fmtD(t.due_date)):'';
+    out.push({id:'tk:'+t.id,st:'Tasks',hot:mine?1:0,mine:mine?1:0,t:esc(t.title),
+      s:[who,due,(t.created_by||''),fmtD(t.created_at)].filter(Boolean).join(' · ')||'team task',
+      act:'Done',det:[['For',t.assigned_to||'whole team'],['Due',fmtD(t.due_date)||'—'],['Added by',t.created_by||'—'],['Added',fmtD(t.created_at)||'—']],
       det2:'Later',roles:['director','roaster','retail','staff'],kind:'task',ref:t});
   });
   (DB.feedback||[]).forEach(function(f){
@@ -485,12 +489,14 @@ var CTXS=[
 var ctxIdx=(new Date().getHours()<11)?0:1;
 /* 權限地基：認得的四種員工角色照舊；其他（含 'customer'、沒設）一律當客戶——寧可少看不可多看 */
 function myRole(){return (ROLE==='director'||ROLE==='roaster'||ROLE==='retail'||ROLE==='staff'||ROLE==='wholesale'||ROLE==='finance')?ROLE:'customer';}
+/* lead＝主管能力（與角色正交，profiles.lead）：派工＋隊伍看板＋排班；錢照樣看不到（rsMoney 不含 lead，RLS 又擋一層） */
+function isLead(){return ROLE==='director'||LEAD===true;}
 function myItems(){
   var c=CTXS[ctxIdx],r=myRole();
   return ITEMS.filter(function(i){return i.roles.indexOf(r)>-1&&(filter==='all'||i.st===filter);})
     .sort(function(a,b){
-      var ka=(a.pin?-99:0)+(c.pr[a.st]||8)+(a.hot?0:.5);
-      var kb=(b.pin?-99:0)+(c.pr[b.st]||8)+(b.hot?0:.5);
+      var ka=(a.pin?-99:0)+(a.mine?-50:0)+(c.pr[a.st]||8)+(a.hot?0:.5);
+      var kb=(b.pin?-99:0)+(b.mine?-50:0)+(c.pr[b.st]||8)+(b.hot?0:.5);
       return ka-kb;});
 }
 function renderChips(){
@@ -4251,6 +4257,123 @@ async function emailPayPDF(ws,btn){
   }catch(e){alert('Email failed: '+(e&&e.message||e));}
   if(btn){btn.disabled=false;btn.textContent='Email to finance';}
 }
+/* ===== 派工層：New task（全員可加，isLead 才能指派＋推播叮人）＋ Team 看板（isLead；director 加帳號/角色/lead 管理＝Stage C Team 抽屜）===== */
+async function rsEnsureStaff(){
+  if(RS_STAFF.length)return;
+  try{var sm=await sb.from('staff_members').select('name,active,sort').order('sort');
+    RS_STAFF=(sm.data||[]).filter(function(x){return x.active!==false;}).map(function(x){return x.name;});}catch(e){}
+  if(!RS_STAFF.length)RS_STAFF=['Yi','Manami','Joshua','Juwa','Daniel','Samuel','Nina','Lovey'];
+}
+var TK_SEL=null, TK_DUE=null, TK_TITLE='';
+function tkDateStr(off){var d=new Date();d.setDate(d.getDate()+off);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+async function openTaskAdd(presel){
+  openDrawerHTML('<div class="t" style="font-size:19px">New task</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  if(isLead())await rsEnsureStaff();
+  TK_TITLE='';TK_DUE=null;
+  TK_SEL=(presel&&RS_STAFF.indexOf(presel)>-1)?presel:null;
+  renderTaskAdd();
+}
+function renderTaskAdd(){
+  var who=isLead()
+    ? '<div class="dlab">For</div><div style="display:flex;flex-wrap:wrap;gap:8px">'
+      +'<button class="chip" data-tkw=""'+(TK_SEL==null?' style="border-color:var(--accent);color:var(--accent)"':'')+'>Whole team</button>'
+      +RS_STAFF.map(function(n){return '<button class="chip" data-tkw="'+esc(n)+'"'+(TK_SEL===n?' style="border-color:var(--accent);color:var(--accent)"':'')+'>'+esc(n)+'</button>';}).join('')+'</div>'
+    : '';
+  var due='<div class="dlab">Due</div><div style="display:flex;gap:8px">'
+    +[['','No date'],[tkDateStr(0),'Today'],[tkDateStr(1),'Tomorrow']].map(function(x){
+      return '<button class="chip" data-tkd="'+x[0]+'"'+(((TK_DUE||'')===x[0])?' style="border-color:var(--accent);color:var(--accent)"':'')+'>'+x[1]+'</button>';}).join('')+'</div>';
+  openDrawerHTML('<div class="t" style="font-size:19px">New task</div>'
+    +'<div class="s" style="margin-top:2px">'+(isLead()?'assign it to someone and their phone gets a ping':'goes on the team board for everyone')+'</div>'
+    +'<div class="dlab">Task</div><input class="din" id="tk-title" style="margin:0" value="'+esc(TK_TITLE)+'" placeholder="e.g. Restock 250g bags">'
+    +who+due
+    +'<button class="act" id="tk-save">'+(TK_SEL?'Add & ping '+esc(TK_SEL):'Add task')+'</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  $('tk-title').addEventListener('input',function(){TK_TITLE=this.value;});
+  document.querySelectorAll('#drawer [data-tkw]').forEach(function(b){b.addEventListener('click',function(){TK_SEL=b.dataset.tkw||null;renderTaskAdd();});});
+  document.querySelectorAll('#drawer [data-tkd]').forEach(function(b){b.addEventListener('click',function(){TK_DUE=b.dataset.tkd||null;renderTaskAdd();});});
+  $('tk-save').addEventListener('click',saveTaskAdd);
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+async function saveTaskAdd(){
+  var t=String(($('tk-title')&&$('tk-title').value)||'').trim();
+  if(!t){toast('Type the task first');return;}
+  var btn=$('tk-save');btn.disabled=true;btn.textContent='Adding…';
+  try{
+    var rec={title:t,created_by:WHO||null,assigned_to:TK_SEL||null,due_date:TK_DUE||null};
+    var u=await sb.from('tasks').insert(rec);
+    if(u.error)throw new Error(u.error.message);
+    /* 派給別人→叮對方手機（fire-and-forget：對方沒訂閱裝置或推播失敗都不擋任務本身） */
+    var pinged=true;
+    if(rec.assigned_to&&rec.assigned_to!==WHO){try{await callFn('push-send',{title:'New task from '+(WHO||'Ratio'),body:t,url:'/new/',to:rec.assigned_to});}catch(e){pinged=false;}}
+    TK_TITLE='';TK_SEL=null;TK_DUE=null;
+    closeDrawer();
+    toast(rec.assigned_to?('Task for '+rec.assigned_to+' ✓'+(pinged?'':' — ping failed')):'Task added ✓');
+    await reload();
+  }catch(e){btn.disabled=false;btn.textContent='Add task';alert('Add failed: '+(e&&e.message||e));}
+}
+async function openTeamSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Team</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  await rsEnsureStaff();
+  var profs=[];
+  if(ROLE==='director'){try{var p=await sb.from('profiles').select('id,name,role,lead').order('name');if(!p.error)profs=p.data||[];}catch(e){}}
+  var sh=todayShifts();
+  var rows=RS_STAFF.map(function(n){
+    var tm=sh.filter(function(s){return s.name===n;}).map(function(s){return String(s.start||'').replace(/^0/,'')+'–'+String(s.end||'').replace(/^0/,'');}).join(' · ');
+    var cnt=(DB.tasks||[]).filter(function(x){return x.assigned_to===n;}).length;
+    return '<div class="hit" data-tm="'+esc(n)+'"><span><div class="t">'+esc(n)+'</div>'
+      +'<div class="s">'+(tm?('on today · '+esc(tm)):'off today')+'</div></span>'
+      +'<span class="k">'+cnt+' task'+(cnt===1?'':'s')+'</span></div>';
+  }).join('');
+  var dir='';
+  if(ROLE==='director'){
+    dir='<div class="dlab" style="margin-top:18px">Accounts · director only</div>'
+      +(profs.length?profs.map(function(p){
+        var canEdit=(p.role!=='director');
+        var chips=['customer','staff','wholesale','finance'].map(function(r){
+          return '<button class="chip" data-tmr="'+p.id+'|'+r+'"'+(p.role===r?' style="border-color:var(--accent);color:var(--accent)"':'')+'>'+r+'</button>';}).join('');
+        return '<div style="margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:12px">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
+          +'<b>'+esc(p.name||'—')+' <button class="chip" data-tmn="'+p.id+'|'+esc(p.name||'')+'" style="padding:4px 9px">✎</button></b>'
+          +(canEdit
+            ?'<button class="chip" data-tml="'+p.id+'|'+(p.lead?'0':'1')+'"'+(p.lead?' style="border-color:var(--accent);color:var(--accent)"':'')+'>'+(p.lead?'Lead ✓':'Make lead')+'</button>'
+            :'<span class="tag">director</span>')
+          +'</div>'
+          +(canEdit?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+chips+'</div>':'')
+          +'</div>';
+      }).join(''):'<div class="empty" style="padding:16px 0">No accounts yet — add users in Supabase Auth first, they appear here</div>')
+      +'<div class="s" style="margin-top:8px">Staff names must match the staff list word for word — roster, tasks and unavailability all match people by name.</div>';
+  }
+  openDrawerHTML('<div class="t" style="font-size:19px">Team</div>'
+    +'<div class="s" style="margin-top:2px">tap a person to assign a task'+(ROLE==='director'?' · accounts below':'')+'</div>'
+    +'<div class="dlab">Today</div>'+(rows||'<div class="empty">No staff on the books</div>')
+    +dir
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  document.querySelectorAll('#drawer [data-tm]').forEach(function(b){b.addEventListener('click',function(){openTaskAdd(b.dataset.tm);});});
+  document.querySelectorAll('#drawer [data-tmr]').forEach(function(b){b.addEventListener('click',async function(){
+    var p=b.dataset.tmr.split('|');
+    if(!confirm('Set this account to '+p[1]+'?'))return;
+    b.disabled=true;
+    try{var u=await sb.from('profiles').update({role:p[1]}).eq('id',p[0]);if(u.error)throw new Error(u.error.message);toast('Role set: '+p[1]+' ✓');openTeamSheet();}
+    catch(e){b.disabled=false;alert('Change failed: '+(e&&e.message||e));}
+  });});
+  document.querySelectorAll('#drawer [data-tml]').forEach(function(b){b.addEventListener('click',async function(){
+    var p=b.dataset.tml.split('|'),on=p[1]==='1';
+    if(!confirm(on?'Make this person a lead? Leads assign tasks, see the team board and edit the roster. They still cannot see pay.':'Remove lead?'))return;
+    b.disabled=true;
+    try{var u=await sb.from('profiles').update({lead:on}).eq('id',p[0]);if(u.error)throw new Error(u.error.message);toast(on?'Lead ✓':'Lead removed');openTeamSheet();}
+    catch(e){b.disabled=false;alert('Change failed: '+(e&&e.message||e));}
+  });});
+  document.querySelectorAll('#drawer [data-tmn]').forEach(function(b){b.addEventListener('click',async function(){
+    var p=b.dataset.tmn.split('|'),cur=p.slice(1).join('|');
+    var v=prompt('Name — must match the staff list word for word (roster and tasks match by name):',cur);
+    if(v==null)return;v=String(v).trim();
+    if(!v){toast('Name cannot be empty');return;}
+    if(RS_STAFF.indexOf(v)<0&&!confirm('"'+v+'" is not on the staff list — roster and tasks will not match this person. Save anyway?'))return;
+    try{var u=await sb.from('profiles').update({name:v}).eq('id',p[0]);if(u.error)throw new Error(u.error.message);toast('Name saved ✓');openTeamSheet();}
+    catch(e){alert('Save failed: '+(e&&e.message||e));}
+  });});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
 function renderTools(){
   $('deck').style.display='none';
   $('hcnt').textContent='find and make';
@@ -4272,11 +4395,13 @@ function renderTools(){
     +'<button class="tool" id="t-roast" style="border-color:var(--accent);color:var(--accent)">Log roast<small>green in · right here</small></button>'
     +'<button class="tool" id="t-stk" style="border-color:var(--accent);color:var(--accent)">Stocktake<small>weigh greens · right here</small></button>'
     +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
+    +'<button class="tool" id="t-task" style="border-color:var(--accent);color:var(--accent)">New task<small>'+(isLead()?'assign · right here':'for the team · right here')+'</small></button>'
     +[['Invoice','GST PDF · classic'],['IG asset','1200×1200 card · classic'],['Labels','bag / tin · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
     +[['Green stock','full list · right here','greens'],['Roasted Stock','FIFO shelf · right here','batches'],['Retail Info','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Menus','4 menu PDFs · right here','menus'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Delete a coffee','remove records · careful','delbean']]
       .concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[])
-      .concat((ROLE==='director'||ROLE==='finance')?[['Timesheet','roster · hours · pay','roster']]:[])
+      .concat(isLead()?[['Team','who’s on · assign','team']]:[])
+      .concat((ROLE==='director'||ROLE==='finance'||LEAD)?[['Timesheet','roster · hours'+(rsMoney()?' · pay':''),'roster']]:[])
       .concat([['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']]).map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div></div>';
   var inp=$('tsearch');
@@ -4309,6 +4434,7 @@ function renderTools(){
   var tr=$('t-roast');if(tr)tr.addEventListener('click',function(){openRoastSheet(null);});
   var ts=$('t-stk');if(ts)ts.addEventListener('click',openStocktakeSheet);
   var tv=$('t-recv');if(tv)tv.addEventListener('click',openReceiveSheet);
+  var tt=$('t-task');if(tt)tt.addEventListener('click',function(){openTaskAdd(null);});
   m.querySelectorAll('[data-th]').forEach(function(b){b.addEventListener('click',function(){applyTheme(b.dataset.th);renderTools();});});
   var tn=$('t-notif');if(tn)tn.addEventListener('click',function(){enablePush(tn);});
   var tp=$('t-ptest');if(tp)tp.addEventListener('click',async function(){
@@ -4333,6 +4459,7 @@ function renderTools(){
     if(k==='menus'){openMenusSheet();return;}
     if(k==='delbean'){openDeleteCoffeeSheet();return;}
     if(k==='wholesale'){openWholesaleSheet();return;}
+    if(k==='team'){openTeamSheet();return;}
     if(k==='roster'){openRosterSheet();return;}
     if(k==='signout'){
       if(!confirm('Sign out? The app returns to the public shop menu.'))return;
@@ -4910,10 +5037,10 @@ async function boot(){
     return;
   }
   /* 沒 profile 或沒角色＝客戶（開放客戶登入前的安全預設） */
-  ROLE='customer';WHO='';
+  ROLE='customer';WHO='';LEAD=false;
   try{
-    var p=await sb.from('profiles').select('name,role').eq('id',g.data.session.user.id).single();
-    if(p&&p.data){ROLE=p.data.role||'customer';WHO=p.data.name||'';}
+    var p=await sb.from('profiles').select('name,role,lead').eq('id',g.data.session.user.id).single();
+    if(p&&p.data){ROLE=p.data.role||'customer';WHO=p.data.name||'';LEAD=!!p.data.lead;}
   }catch(e){}
   if(myRole()==='customer'||myRole()==='wholesale'){await renderCustomerPortal(g.data.session);return;}
   view='feed';filter='all';
