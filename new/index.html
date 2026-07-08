@@ -4098,8 +4098,8 @@ function buildPayPDF(w,logo){
   var W=doc.internal.pageSize.getWidth();   /* ~595 */
   var xR=W-48, x0=48;
   var INK=[30,26,25], MUTE=[120,116,112], LINE=[221,216,212], ACC=[150,52,70];
-  /* 欄位錨點（數字欄右對齊到 right edge） */
-  var cWd=x0+282, cWe=x0+352, cRate=x0+362, cWage=xR-64, cPaid=xR-52;
+  /* 欄位錨點（數字欄右對齊到 right edge；欄距經 getTextWidth 校過不重疊，含四位數金額） */
+  var cWd=x0+252, cWe=x0+307, cRate=x0+317, cWage=xR-77, cPaid=xR-62;
   var y=64;
   if(logo){try{var lw=30,lh=logo.height*(lw/logo.width);doc.addImage(logo,'PNG',x0,y-22,lw,lh);}catch(e){}}
   var tx=logo?x0+40:x0;
