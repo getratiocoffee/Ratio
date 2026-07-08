@@ -705,17 +705,25 @@ function openDispatch(i){
     g.fillStyle=color;g.fillRect(0,0,w,h);
     return c;
   }
-  async function makeSquareCard(card){
+  async function makeSquareCard(card,opts){
     try{await document.fonts.ready;}catch(e){}
     var icons=null;try{icons=await _loadCardIcons();}catch(e){}
     var W=1200,H=1200,cv=document.createElement('canvas');cv.width=W;cv.height=H;
     var x=cv.getContext('2d');
     var INK='#1E1A19',BERRY='#B25E6A';
-    /* square card with asymmetric safe margins — Square Online portrait hero
-       crops ~150px off each side, so sides get 150px margin, top/bottom 64px */
-    var CX=217,CY=64,CW=W-434,CH=H-128,CR=28;
-    /* text-safe zone: mobile portrait hero crops ~200px+ per side, so all text lives in the centre 760px */
-    var TSX=275,TEX=W-275,TW2=TEX-TSX;
+    var CX,CY,CW,CH,CR=28,TSX,TEX;
+    if(opts&&opts.tight){
+      /* tight mode（同 classic Print Centre 下載版——IG/小紅書貼文用）：沒有平台裁切，四邊留窄框即可 */
+      CX=40;CY=40;CW=W-80;CH=H-80;
+      TSX=CX+58;TEX=W-CX-58;
+    }else{
+      /* square card with asymmetric safe margins — Square Online portrait hero
+         crops ~150px off each side, so sides get 150px margin, top/bottom 64px */
+      CX=217;CY=64;CW=W-434;CH=H-128;
+      /* text-safe zone: mobile portrait hero crops ~200px+ per side, so all text lives in the centre 760px */
+      TSX=275;TEX=W-275;
+    }
+    var TW2=TEX-TSX;
     x.fillStyle='#ffffff';x.fillRect(0,0,W,H);
     var band=mnHexRgb(card.color)||[73,66,58];
     var lum=.299*band[0]+.587*band[1]+.114*band[2];
@@ -1236,6 +1244,7 @@ async function openShelfBeanDetail(nm,m){
     +'<button class="dclose" id="sb-sold">'+(sold?'Put back on sale':'Mark sold out')+'</button>'
     +'<button class="dclose" id="sb-requeue">Send back to QC…</button>'
     +'<button class="dclose" id="sb-card">Info card PDF</button>'
+    +'<button class="dclose" id="sb-promo">Social post kit — IG &amp; RED</button>'
     +'<button class="dclose" id="sb-back">‹ Back to Retail Info</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('sb-edit').addEventListener('click',function(){openListSheet({ref:s});});
@@ -1272,8 +1281,89 @@ async function openShelfBeanDetail(nm,m){
     }
   });
   $('sb-card').addEventListener('click',function(){openInfoCardPrint(s);});
+  $('sb-promo').addEventListener('click',function(){openPromoSheet(s,m);});
   $('sb-back').addEventListener('click',openRetailSheet);
   $('d-cl').addEventListener('click',closeDrawer);
+}
+/* ===== Social post kit（社群曝光 Phase 4 第一刀：貨架豆一鍵出 IG/小紅書素材）=====
+   卡片＝同 Square/信件設計但走 tight 白邊（IG 貼文沒有平台裁切，同 classic Print Centre 下載版）；
+   文案照 cupAutoComment 慣例本機模板組句（不呼叫 AI），是草稿——老闆貼上前自行修 */
+var PROC_ZH={washed:'水洗',natural:'日曬',honey:'蜜處理',anaerobic:'厭氧',
+  'anaerobic natural':'厭氧日曬','anaerobic washed':'厭氧水洗','wet hulled':'濕刨','carbonic maceration':'二氧化碳浸漬'};
+function promoCaptions(nm,info,feats,comment,price,g,proc){
+  function get(lab){var r=(info||[]).find(function(x){return x[0]===lab;});return r?String(r[1]):'';}
+  var origin=get('Origin'),variety=get('Variety');
+  proc=String(proc||'').trim();
+  var procZh=PROC_ZH[proc.toLowerCase()]||'';
+  var priceLine=(price!=null)?('$'+centAmt(price)+' / '+g+'g'):'';
+  var en='NEW ON THE SHELF — '+nm+'\n';
+  var line2=[origin,proc?proc+' process':'',variety].filter(Boolean).join(' · ');
+  if(line2)en+=line2+'\n';
+  if(feats.length)en+='Cupping notes: '+feats.join(', ')+'\n';
+  if(comment)en+='“'+comment+'”\n';
+  en+='\n'+(priceLine?priceLine+' · ':'')+'roasted fresh in Crows Nest, Sydney.\n'
+    +'Order through the link in bio, or come say hi at the lab.\n\n'
+    +'#specialtycoffee #sydneycoffee #crowsnest #coffeeroaster #freshlyroasted';
+  var zh='☕ 新豆上架｜'+nm+'\n';
+  var zp=[];
+  if(origin)zp.push('產地 '+origin);
+  if(proc)zp.push(procZh?procZh+'處理':proc+' process');
+  if(zp.length)zh+=zp.join('，')+'\n';
+  if(feats.length)zh+='杯測風味：'+feats.join('、')+'\n';
+  if(comment)zh+='「'+comment+'」\n';
+  zh+='\n'+(priceLine?priceLine+'，':'')+'雪梨 Crows Nest 本地新鮮烘焙。\n'
+    +'歡迎私訊訂購，或來店裡喝一杯 🤎\n\n'
+    +'#雪梨咖啡 #悉尼咖啡 #精品咖啡 #咖啡豆推薦 #北岸咖啡';
+  return {en:en,zh:zh};
+}
+async function openPromoSheet(s,m){
+  m=m||{rtl_price:{},rtl_g:{},rtl_sizes:{},rtl_sold:{}};
+  var nm=String(s.sample_id||'').trim();
+  openDrawerHTML('<div class="t" style="font-size:19px">Social post kit</div>'
+    +'<div class="s" style="margin-top:2px">'+esc(nm)+' · square card + caption drafts for Instagram and RED</div>'
+    +'<div class="empty" id="pk-card">Drawing card…</div>'
+    +'<div id="pk-body"></div>'
+    +'<button class="dclose" id="pk-back">‹ Back to the coffee</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('pk-back').addEventListener('click',function(){openShelfBeanDetail(nm,m);});
+  $('d-cl').addEventListener('click',closeDrawer);
+  try{
+    /* full row（flavour_locked 優先）＋顏色＋blend 配方——同 openCardPreview 管線 */
+    var full=s;
+    try{
+      var fq=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',nm)
+        .order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
+      if(fq.data&&fq.data[0])full=fq.data[0];
+    }catch(e){}
+    var dots={};try{dots=await cardDots();}catch(e){}
+    var blendMap={};
+    try{var bq=await sb.from('blends').select('name,parts,note');
+      (bq.data||[]).forEach(function(b){if(b.name)blendMap[String(b.name).trim().toLowerCase()]={parts:b.parts||[],note:b.note||''};});}catch(e){}
+    var info=[];try{info=await beanInfoRows(full);}catch(e){}
+    var b64=await makeSquareCard(await cardDataFor(full,blendMap,dots),{tight:true});
+    var feats=(full.features||[]).filter(Boolean).slice(0,3);
+    var cap=promoCaptions(nm,info,feats,full.comment||'',m.rtl_price[nm],m.rtl_g[nm]||250,full.process||'');
+    var host=$('pk-card');
+    if(host)host.outerHTML='<img src="data:image/png;base64,'+b64+'" alt="post card" style="width:100%;display:block;margin-top:10px;border:1px solid var(--line);border-radius:12px">';
+    var body=$('pk-body');
+    if(body)body.innerHTML=
+      '<a class="dclose" style="display:block;text-align:center;text-decoration:none" download="ig-'+beanSlug(nm)+'.png" href="data:image/png;base64,'+b64+'">Download image</a>'
+      +'<div class="dlab">Instagram caption</div>'
+      +'<textarea class="dta" id="pk-en" style="min-height:180px">'+esc(cap.en)+'</textarea>'
+      +'<button class="dclose" data-copy="pk-en">Copy English caption</button>'
+      +'<div class="dlab">RED caption (小紅書)</div>'
+      +'<textarea class="dta" id="pk-zh" style="min-height:180px">'+esc(cap.zh)+'</textarea>'
+      +'<button class="dclose" data-copy="pk-zh">Copy Chinese caption</button>';
+    document.querySelectorAll('#drawer [data-copy]').forEach(function(btn){btn.addEventListener('click',async function(){
+      var ta=$(btn.dataset.copy);if(!ta)return;
+      var ok=false;
+      try{await navigator.clipboard.writeText(ta.value);ok=true;}
+      catch(e){try{ta.focus();ta.select();ok=document.execCommand('copy');}catch(e2){}}
+      var orig=btn.dataset.copy==='pk-en'?'Copy English caption':'Copy Chinese caption';
+      btn.textContent=ok?'Copied ✓':'Copy failed — long-press the text instead';
+      setTimeout(function(){btn.textContent=orig;},1600);
+    });});
+  }catch(e){var h2=$('pk-card');if(h2)h2.textContent='Kit failed: '+(e&&e.message||e);}
 }
 /* ===== 刪除咖啡豆（老闆點名：清打錯名/重複的零售豆）=====
    刪 samples（Ratio Coffee 杯測紀錄）＋roasts（烘豆批次）＋product_sync＋app_state 記憶鍵；

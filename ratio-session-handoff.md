@@ -15,6 +15,7 @@
 - **Tools 同名磁貼改名**（new/index.html）：舊「Info card · IG asset · classic」→「**IG asset** · 1200×1200 card · classic」——跟新的「Info cards · A4 · 2 fold cards」不再撞名，data-classic 跳轉照舊
 - **新殼豆子明細抽屜加「Analysed by」**（new/index.html）：①loadAll samples select 補 `cupper` 欄 ②openShelfBeanDetail 的 comment 行後顯示 `Analysed by <cupper>`（沒記錄不顯示，措辭同 classic）。順帶發現 classic 的 Analysed by 三處（8200/8488/9184）早就做完，「三、待辦」漏劃已補劃
 - 驗證：jscheck ✓；preview stub 假資料——Tools 24 磁貼無同名、IG asset 新副標 ✓；明細抽屜有 cupper 顯示在 comment 後、無 cupper 不顯示 ✓；console 零錯誤
+- **Social post kit（社群曝光 Phase 4 第一刀：IG/小紅書素材）**（new/index.html）：貨架豆明細抽屜加「Social post kit — IG & RED」鈕 → `openPromoSheet(s,m)`：①卡片＝openCardPreview 同管線（samples full row flavour_locked 優先→cardDataFor→makeSquareCard），**新殼 makeSquareCard 補上 classic 的 tight 模式**（{tight:true} 四邊 40px、文字內縮 58px——IG 貼文沒有平台裁切；Square/信件卡走預設白邊完全不動，像素驗證過）＋`<a download="ig-<slug>.png">` 直接下載 ②中英文案草稿＝`promoCaptions()` 本機模板組句（照 cupAutoComment 慣例不呼叫 AI）：豆名/產地/處理法（PROC_ZH 八種常見處理法中譯，沒對上保留英文）/品種/風味/comment/價格（centAmt）＋固定 hashtag，缺哪項自動跳過該行；textarea 可改＋Copy 鈕（navigator.clipboard→execCommand fallback）。驗證：jscheck ✓；preview 假資料——鈕在 Info card PDF 下、卡 173KB、檔名 ig-kiama-aa.png、中英文案逐行對、tight(100,100)=頭帶色 vs 預設=白、缺資料豆無 undefined、console 零錯誤。⚠ Copy 鈕在 headless 拿不到剪貼簿權限（環境限制），**真機點按驗**；文案是草稿，老闆貼上前自行修（小紅書文案用繁中，要簡體自己轉）
 - **順手檢查結果（三件等老闆）**：①**#0021/#0022 Dani $1 測試單還在**（Dispatched＋pending_payment＋帶連結）——且**單號 21 撞號**：Dani 測試單（07-06）跟 Mingjia Xie 真單（07-07，$85 已付）都是 order_no 21，要不要清測試單請發落 ②**殘留 Square 測試連結 square.link/u/tDABzmGt（link_id `HQMQG24UFJKI4YLK`，$76.65）還活著**——Chrome 桌機 session 仍登出狀態代跑不了，老闆登入後 console 跑 `callSquareFn({action:'payment_link_delete',link_id:'HQMQG24UFJKI4YLK'})` 即註銷 ③El Ver/El Verge 三胞胎可用新殼 Tools→Delete a coffee 自清（工具已上線）
 
 ## 〇、補記 — 2026-07-08 session（Wholesale 走道：批發商自助下單全鏈）
@@ -370,7 +371,7 @@
 - 四內容支柱：新豆上市 / 過程隨手拍 / 沖煮教學（Brew guide 現成）/ 選豆思路
 - 頻率：IG 週 2 貼+3-4 限動、小紅書週 1-2、Google Post 週 1
 - 在地：包裹小卡 QR、供豆下家立牌、季度市集
-- **Phase 4 新增規格**：上架自動產 IG/小紅書素材（資訊卡+中英文案草稿）、新豆通知一份內容三發、回購提醒附評論連結
+- **Phase 4 新增規格**：~~上架自動產 IG/小紅書素材（資訊卡+中英文案草稿）~~ ✅ 2026-07-08 Social post kit 完成（見〇補記）、新豆通知一份內容三發、回購提醒附評論連結
 
 **資料收集小工具（Beans 2.0 各站的資料入口，待排期）**
 - ~~烘焙師：T1 烘焙快錄；T2 烘焙 profile 文字筆記~~ ✅ T1、T2 都完成（見〇補記）
