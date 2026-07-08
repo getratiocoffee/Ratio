@@ -4109,7 +4109,7 @@ async function renderPublicMenu(){
   SHOP_BEANS=await loadShopMenu();
   m.innerHTML='<div id="shopbody"></div>'
     +'<div class="note" style="margin-top:16px"><a href="/?fb=store" style="color:var(--accent)">Tried it? Tell us what you think →</a></div>'
-    +'<button class="more" id="pm-staff">Staff sign in</button>';
+    +'<button class="more" id="pm-staff">Wholesale &amp; staff sign in</button>';
   renderShopTabs();
   paintShopBody();
   var st=$('pm-staff');if(st)st.addEventListener('click',openSignInSheet);
@@ -4151,14 +4151,14 @@ async function renderCustomerPortal(sess){
         +(WS_MODE&&!paid?'<button class="more" data-wspay="'+ox+'">Payment details →</button>':'')
         +'</div>';
     }).join(''):'')
-    +'<button class="more" id="cp-staff" style="margin-top:18px">Staff sign in — switch account</button>';
+    +'<button class="more" id="cp-staff" style="margin-top:18px">Sign in with another account</button>';
   renderShopTabs();
   paintShopBody();
   m.querySelectorAll('[data-wspay]').forEach(function(b){b.addEventListener('click',function(){openWsPaySheet(orders[+b.dataset.wspay]);});});
   $('cp-fb').addEventListener('click',function(){location.href='/?fb=store';});
   /* 更高權限入口：登出這個客戶 → 原地開登入抽屜換帳號，全程不離開 /new */
   $('cp-staff').addEventListener('click',async function(){
-    if(!confirm('Sign out of this account and switch to a staff sign-in?'))return;
+    if(!confirm('Sign out and sign in with another account?'))return;
     try{await sb.auth.signOut();}catch(e){}
     await boot();
     openSignInSheet();
