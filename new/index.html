@@ -481,13 +481,13 @@ function buildItems(){
   });
   payQ.forEach(function(o){
     var c=custById(o.customer_id);var od=o.payment_status==='overdue';
-    out.push({id:'pay:'+o.id,st:'Money',hot:od?1:0,u:1,t:money(o.total)+' · '+((c&&c.name)||'Walk-in'),
+    out.push({id:'pay:'+o.id,st:'Transaction',hot:od?1:0,u:1,t:money(o.total)+' · '+((c&&c.name)||'Walk-in'),
       s:'#'+String(o.order_no||'—').padStart(4,'0')+' · '+(od?'<span class=red>'+daysSince(o.created_at)+'d overdue</span>':daysSince(o.created_at)+'d waiting'),
       act:'Mark paid',det:[['Order','#'+String(o.order_no||'—').padStart(4,'0')],['Total',money(o.total)],['Age',daysSince(o.created_at)+' days'],['Status',o.payment_status]],
       det2:'Send reminder email',roles:['director'],kind:'paid',ref:o});
   });
   stale.forEach(function(x){
-    out.push({id:'di:'+x.name,st:'Bar',hot:0,t:'Dial in · '+esc(x.name),
+    out.push({id:'di:'+x.name,st:'Recipe',hot:0,t:'Dial in · '+esc(x.name),
       s:x.last==null?'<span class=red>never dialled in</span>':'<span class=red>'+x.last+'d since last dial-in</span>',
       act:'Dial in…',det:[['Coffee',x.name],['Last dial-in',x.last==null?'never':x.last+' days ago']],
       det2:'Not today',roles:['director','retail','staff'],kind:'dialin',ref:x});
@@ -503,7 +503,7 @@ function buildItems(){
     var mine=!!(t.assigned_to&&WHO&&t.assigned_to===WHO);
     var who=t.assigned_to?(mine?'For you':'→ '+esc(t.assigned_to)):'';
     var due=t.due_date?('due '+fmtD(t.due_date)):'';
-    out.push({id:'tk:'+t.id,st:'Tasks',hot:mine?1:0,mine:mine?1:0,t:esc(t.title),
+    out.push({id:'tk:'+t.id,st:'Daily Task',hot:mine?1:0,mine:mine?1:0,t:esc(t.title),
       s:[who,due,(t.created_by||''),fmtD(t.created_at)].filter(Boolean).join(' · ')||'team task',
       act:'Done',det:[['For',t.assigned_to||'whole team'],['Due',fmtD(t.due_date)||'—'],['Added by',t.created_by||'—'],['Added',fmtD(t.created_at)||'—']],
       det2:'Later',roles:['director','roaster','retail','staff'],kind:'task',ref:t});
@@ -549,11 +549,11 @@ function buildItems(){
   ITEMS=out.filter(function(i){return !sn[i.id];});
 }
 /* 類別色表：低飽和塵彩配紙白玫瑰；色條＋右上角分類＋chips 色點共用 */
-var STCOLOR={Orders:'#B25E6A',QC:'#5B7DB1',Roast:'#A87436',Money:'#6E8B4E',Shelf:'#8A6FA8',Bar:'#4E8B83',Green:'#7A8450',Tasks:'#8A837C',Customers:'#C07A5B'};
+var STCOLOR={Orders:'#B25E6A',QC:'#5B7DB1',Roast:'#A87436',Transaction:'#6E8B4E',Shelf:'#8A6FA8',Recipe:'#4E8B83',Green:'#7A8450','Daily Task':'#8A837C',Customers:'#C07A5B'};
 var CTXS=[
-{id:'morning',label:'Morning sort — bar first',pr:{Bar:1,Orders:2,Roast:3,QC:4,Money:5,Green:6,Tasks:7,Customers:8}},
-{id:'day',label:'Daytime sort — orders first',pr:{Orders:1,Roast:2,QC:3,Bar:4,Money:5,Green:6,Tasks:7,Customers:8}},
-{id:'pay',label:'Pay chase — money first',pr:{Money:1,Orders:2,Roast:3,QC:4,Bar:5,Green:6,Tasks:7,Customers:8}}];
+{id:'morning',label:'Morning sort — recipe first',pr:{Recipe:1,Orders:2,Roast:3,QC:4,Transaction:5,Green:6,'Daily Task':7,Customers:8}},
+{id:'day',label:'Daytime sort — orders first',pr:{Orders:1,Roast:2,QC:3,Recipe:4,Transaction:5,Green:6,'Daily Task':7,Customers:8}},
+{id:'pay',label:'Pay chase — transaction first',pr:{Transaction:1,Orders:2,Roast:3,QC:4,Recipe:5,Green:6,'Daily Task':7,Customers:8}}];
 var ctxIdx=(new Date().getHours()<11)?0:1;
 /* 權限地基：認得的四種員工角色照舊；其他（含 'customer'、沒設）一律當客戶——寧可少看不可多看 */
 function myRole(){return (ROLE==='director'||ROLE==='roaster'||ROLE==='retail'||ROLE==='staff'||ROLE==='wholesale'||ROLE==='finance')?ROLE:'customer';}
