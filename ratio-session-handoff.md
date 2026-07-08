@@ -44,11 +44,13 @@
 3. **N/A 撞班警告**：讀 staff_na 與該週重疊的列；shift 的名字當天在 N/A 內 → 列尾黃字「⚠ unavailable」；選人清單同標
 4. **存檔照抄 classic saveRosterRow**：upsert rosters `{week_start,shifts,deleted:false,updated_at}`；**shifts 項目形狀絕不能改**＝`{day:'mon',name,start,end,br?}`（morning-brief v4/今日流晨報卡/classic 都在讀）；hrs 計算＝時距−(br?0.5:0)
 5. 驗證：jscheck；preview stub——模板整週填=17 列（週一五 2×5＋六 3＋日 4）、N/A 黃字、編輯/刪除、upsert payload 逐欄、晨報卡 regression；真機部署後老闆排下週班
-### Stage D 藍圖（Stage B 後做，**先於 C**）
-1. Timesheet 抽屜加 History 分頁：週列表（rosters week_start<本週一、非 deleted 有 shifts）→ 摺疊週：每人平日/週六/週日時數（照抄 classic effectiveWeek 的算法）＋班表明細
-2. **錢區塊只在 ROLE director/finance 渲染**（⚠ 新殼 myRole() 第 ~473 行要補 'finance'；boot 角色分流 finance 走 staff 版今日流＋看得到錢磁貼）：每人「wd h×$wd＋we h×$we＝$總額」＋Cash/Bank 切換（upsert pay_weeks）＋「Rates…」子抽屜（staff_rates 讀寫）
-3. **PDF**：jsPDF loadScriptOnce（照 Menus 慣例）；內容＝週範圍＋每人 時數(wd/we)/費率/金額/Cash|Bank＋總計；下載＋「Email to finance」鈕 → **send-email 新 action `timesheet_pdf`**｛week_start, pdf_b64｝→ resend attachments（bufToB64/attachments 現成）寄給 finance（profiles role='finance' 的 email，沒有就 NOTIFY_EMAIL）→ 回寫 pay_weeks.sent_at；⚠ send-email 授權要放行 finance（現在只認 director）
-4. **classic 收尾**：getCashSet/setCashSet 改讀寫 pay_weeks；SQL 清空 rosters.cash（欄留著防 classic realtime payload 形狀壞）
+### Stage D 進行中（Stage B 後、先於 C）——核心 ✅，PDF/寄信/classic 收尾待下輪
+- **✅ 已完工（new/index.html，2026-07-08 Opus）**：①`myRole()` 白名單補 'finance'（原本 finance 會被當 customer 踢去購物頁）②Timesheet 磁貼門檻改 director+finance ③排班抽屜底加「Past weeks & pay →」→ `openPayrollSheet`：往週列表（rosters week_start<本週一、非 deleted、有指派名字的班；lt+order desc+limit 16）、可折疊、週表頭總平日/總週末時數；每人「平日 h · 週末 h」＋（**rsMoney＝director/finance 才畫**）薪水＝平日h×平日費率＋週末h×週末費率＋Cash/Bank 切換（upsert pay_weeks，sent_at 保留）；沒費率顯示紅字 set rate。`rsWeekHours` 拆分同 classic（mon-fri 平日/sat+sun 週末）④「Edit pay rates…」→ openRatesSheet：每人平日/週末兩格（$ 前綴，預填現值），upsert staff_rates（onConflict name）⑤**錢的牆**：前端 rsMoney 只是不畫；真牆是 RLS（staff_rates/pay_weeks money-only，staff 查回空）——雙保險。驗證：preview stub——2 週列/折疊/Yi 15h平日9h週末=$765(15×30+9×35)/Manami set rate/週表頭 21h wd 9h we/Cash 切換 upsert{cash:['Yi'],onConflict week_start}/**staff 視圖無 $ 無 cash 鈕無費率鈕但保留時數**/費率編輯預填 30 存 upsert onConflict name ✓＋截圖，console 零錯誤（測試中兩條 limit 報錯＝第一版 stub 漏 .limit，真 PostgREST 有，第二版已補）
+- **⬜ 待下輪（PDF＋寄財務＋classic 收尾）**：
+1. **PDF**：jsPDF loadScriptOnce（照 Menus 慣例）；內容＝週範圍＋每人 時數(wd/we)/費率/金額/Cash|Bank＋總計（總平日 h、總週末 h、總薪）；payroll 週卡加「PDF」下載鈕（rsMoney 才出）
+2. **Email to finance 鈕** → **send-email 新 action `timesheet_pdf`**｛week_start, pdf_b64｝→ resend attachments（bufToB64/attachments 現成）寄給 finance（profiles role='finance' 的 email，沒有就 NOTIFY_EMAIL）→ 回寫 pay_weeks.sent_at（payroll 週表頭已預留「· sent」顯示）；⚠ **send-email 授權要放行 finance**（現在只認 director——這段做時提醒老闆，雖 RLS 已擋但改 edge 授權要看清楚）
+3. **classic 收尾**：getCashSet/setCashSet 改讀寫 pay_weeks；SQL 清空 rosters.cash（欄留著防 classic realtime payload 形狀壞）
+4. ⚠ finance 帳號的今日流目前空（cards roles 無 finance）——finance 建帳號時（Stage C）補個導向卡或讓 finance 進 app 直接看得到 Timesheet 磁貼即可
 ### Stage C 藍圖（最後做；D 完成為前提）
 1. 老闆 Supabase Auth 建 8 帳號（同批發開法，email 老闆給）→ handle_new_user 自動 customer profile
 2. Tools「Team」抽屜（director only）：列 profiles（名字/email/角色）＋改名欄（**profiles.name 必須跟 staff_members.name 一字不差**——N/A 自填與「我的班」靠它配對）＋角色 chips（customer/staff/wholesale/finance；**不給 director 選項防誤點**）

@@ -480,7 +480,7 @@ var CTXS=[
 {id:'pay',label:'Pay chase — money first',pr:{Money:1,Orders:2,Roast:3,QC:4,Bar:5,Green:6,Tasks:7,Customers:8}}];
 var ctxIdx=(new Date().getHours()<11)?0:1;
 /* 權限地基：認得的四種員工角色照舊；其他（含 'customer'、沒設）一律當客戶——寧可少看不可多看 */
-function myRole(){return (ROLE==='director'||ROLE==='roaster'||ROLE==='retail'||ROLE==='staff'||ROLE==='wholesale')?ROLE:'customer';}
+function myRole(){return (ROLE==='director'||ROLE==='roaster'||ROLE==='retail'||ROLE==='staff'||ROLE==='wholesale'||ROLE==='finance')?ROLE:'customer';}
 function myItems(){
   var c=CTXS[ctxIdx],r=myRole();
   return ITEMS.filter(function(i){return i.roles.indexOf(r)>-1&&(filter==='all'||i.st===filter);})
@@ -3834,8 +3834,10 @@ function renderRoster(){
     +seg+modeSeg+tplRow
     +'<div style="margin-top:4px">'+body+'</div>'
     +'<button class="act" id="rs-save">Save '+['this week','next week','week after'][RS_WK]+'</button>'
+    +'<button class="dclose" id="rs-hist">Past weeks &amp; pay →</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   document.querySelectorAll('#drawer [data-rswk]').forEach(function(b){b.addEventListener('click',function(){RS_WK=+b.dataset.rswk;renderRoster();});});
+  $('rs-hist').addEventListener('click',openPayrollSheet);
   document.querySelectorAll('#drawer [data-rsmode]').forEach(function(b){b.addEventListener('click',function(){RS_VIEW=b.dataset.rsmode;renderRoster();});});
   document.querySelectorAll('#drawer [data-rsedit]').forEach(function(b){b.addEventListener('click',function(){openShiftEdit(ws,+b.dataset.rsedit);});});
   document.querySelectorAll('#drawer [data-rsadd]').forEach(function(b){b.addEventListener('click',function(){addRosterShift(ws,b.dataset.rsadd);});});
@@ -3957,6 +3959,121 @@ function renderTemplateEdit(){
     catch(e){btn.disabled=false;btn.textContent='Save template';alert('Save failed: '+(e&&e.message||e));}});
   $('te-back').addEventListener('click',renderRoster);
 }
+/* ===== Timesheet 2.0 Stage D：往週薪務（時數平日/週末拆分＋薪水＋Cash/Bank＋費率）=====
+   錢的顯示只給 director/finance（rsMoney）——但真正的牆是 RLS：staff_rates/pay_weeks 資料庫層 money-only，
+   員工帳號查回全空，前端這層只是不畫。時數拆分同 classic weekFromShifts（mon-fri=平日，sat+sun=週末） */
+function rsMoney(){return ROLE==='director'||ROLE==='finance';}
+function rsWeekHours(shifts){
+  var order=['mon','tue','wed','thu','fri','sat','sun'],wd={},we={},names=[];
+  (shifts||[]).forEach(function(s){
+    var nm=(s.name&&String(s.name).trim())?String(s.name).trim():'';if(!nm)return;
+    var i=order.indexOf(s.day),h=rsHrs(s.start,s.end,s.br);
+    if(names.indexOf(nm)<0)names.push(nm);
+    if(i>=0&&i<5)wd[nm]=(wd[nm]||0)+h;else we[nm]=(we[nm]||0)+h;
+  });
+  names.sort(function(a,b){var ia=RS_STAFF.indexOf(a),ib=RS_STAFF.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
+  return names.map(function(nm){return {name:nm,wd:Math.round((wd[nm]||0)*10)/10,we:Math.round((we[nm]||0)*10)/10};});
+}
+var PAY_WK=[], PAY_RATES={}, PAY_META={}, PAY_OPEN=null;
+async function openPayrollSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Past weeks &amp; pay</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  PAY_WK=[];PAY_RATES={};PAY_META={};
+  try{
+    if(!RS_STAFF.length){var sm=await sb.from('staff_members').select('name,active,sort').order('sort');RS_STAFF=(sm.data||[]).filter(function(x){return x.active!==false;}).map(function(x){return x.name;});if(!RS_STAFF.length)RS_STAFF=['Yi','Manami','Joshua','Juwa','Daniel','Samuel','Nina','Lovey'];}
+    var rq=await sb.from('rosters').select('week_start,shifts,deleted').lt('week_start',mondayStr()).order('week_start',{ascending:false}).limit(16);
+    PAY_WK=(rq.data||[]).filter(function(r){return !r.deleted&&Array.isArray(r.shifts)&&r.shifts.some(function(s){return s.name&&String(s.name).trim();});}).map(function(r){return {ws:r.week_start,shifts:r.shifts};});
+    if(rsMoney()){
+      var rt=await sb.from('staff_rates').select('name,weekday_rate,weekend_rate');
+      (rt.data||[]).forEach(function(x){PAY_RATES[x.name]={wd:x.weekday_rate,we:x.weekend_rate};});
+      var pw=await sb.from('pay_weeks').select('week_start,cash,sent_at');
+      (pw.data||[]).forEach(function(x){PAY_META[x.week_start]={cash:x.cash||[],sent_at:x.sent_at||null};});
+    }
+  }catch(e){console.error('payroll load',e);}
+  if(PAY_WK.length&&PAY_OPEN==null)PAY_OPEN=PAY_WK[0].ws;
+  renderPayroll();
+}
+function renderPayroll(){
+  var money=rsMoney();
+  var body=PAY_WK.length?PAY_WK.map(function(w){
+    var open=PAY_OPEN===w.ws,ppl=rsWeekHours(w.shifts),meta=PAY_META[w.ws]||{cash:[]};
+    var totWd=0,totWe=0;ppl.forEach(function(p){totWd+=p.wd;totWe+=p.we;});
+    var head='<button class="rs-day-h" data-payw="'+w.ws+'" style="width:100%;border:none;font-family:inherit;cursor:pointer;text-align:left">'
+      +'<span>'+rsDMY(rsDateFor(w.ws,0))+' – '+rsDMY(rsDateFor(w.ws,6))+(meta.sent_at?' · <span style="color:var(--accent)">sent</span>':'')+'</span>'
+      +'<span style="color:var(--muted);font-weight:500">'+rsHH(Math.round(totWd*10)/10)+' wd · '+rsHH(Math.round(totWe*10)/10)+' we '+(open?'▴':'▾')+'</span></button>';
+    var rows='';
+    if(open){
+      rows=ppl.map(function(p){
+        var isCash=(meta.cash||[]).indexOf(p.name)>-1,wageCell='';
+        if(money){
+          var r=PAY_RATES[p.name]||{};
+          if(r.wd!=null||r.we!=null){var amt=p.wd*(Number(r.wd)||0)+p.we*(Number(r.we)||0);wageCell='<b style="color:var(--ink)">$'+amt.toFixed(2)+'</b> <button class="chip" data-paycash="'+esc(p.name)+'|'+w.ws+'"'+(isCash?' style="border-color:var(--accent);color:var(--accent)"':'')+'>'+(isCash?'Cash':'Bank')+'</button>';}
+          else wageCell='<span style="color:var(--danger);font-size:13px">set rate</span> <button class="chip" data-paycash="'+esc(p.name)+'|'+w.ws+'"'+(isCash?' style="border-color:var(--accent);color:var(--accent)"':'')+'>'+(isCash?'Cash':'Bank')+'</button>';
+        }
+        return '<div class="rs-shift" style="cursor:default;align-items:center">'
+          +'<span class="rs-nm">'+esc(p.name)+'<br><span style="color:var(--muted);font-size:12px;font-weight:400">'+rsHH(p.wd)+' wd · '+rsHH(p.we)+' we</span></span>'
+          +'<span class="rs-tm" style="text-align:right">'+wageCell+'</span></div>';
+      }).join('');
+    }
+    return '<div class="rs-day">'+head+rows+'</div>';
+  }).join('') : '<div class="rs-none" style="border:1px solid var(--line);border-radius:12px">No past weeks yet</div>';
+  openDrawerHTML('<div class="t" style="font-size:19px">Past weeks &amp; pay</div>'
+    +'<div class="s" style="margin-top:2px">'+(money?'hours, wages and cash / bank per week':'hours per week')+'</div>'
+    +(money?'<button class="dclose" id="pay-rates" style="margin-top:10px">Edit pay rates…</button>':'')
+    +'<div style="margin-top:4px">'+body+'</div>'
+    +'<button class="dclose" id="pay-back" style="border:none;background:none;color:var(--muted)">‹ Back to timesheet</button>');
+  document.querySelectorAll('#drawer [data-payw]').forEach(function(b){b.addEventListener('click',function(){PAY_OPEN=(PAY_OPEN===b.dataset.payw)?null:b.dataset.payw;renderPayroll();});});
+  document.querySelectorAll('#drawer [data-paycash]').forEach(function(b){b.addEventListener('click',function(){togglePayCash(b.dataset.paycash);});});
+  var pr=$('pay-rates');if(pr)pr.addEventListener('click',openRatesSheet);
+  $('pay-back').addEventListener('click',openRosterSheet);
+}
+async function togglePayCash(key){
+  var p=key.split('|'),nm=p[0],ws=p[1];
+  var meta=PAY_META[ws]||(PAY_META[ws]={cash:[],sent_at:null});
+  var arr=(meta.cash||[]).slice(),ix=arr.indexOf(nm);
+  if(ix>-1)arr.splice(ix,1);else arr.push(nm);
+  meta.cash=arr;renderPayroll();
+  try{var u=await sb.from('pay_weeks').upsert({week_start:ws,cash:arr,sent_at:meta.sent_at||null,updated_at:new Date().toISOString()},{onConflict:'week_start'});if(u.error)throw new Error(u.error.message);}
+  catch(e){alert('Save failed: '+(e&&e.message||e));}
+}
+var RATE_DRAFT={};
+async function openRatesSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Pay rates</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  RATE_DRAFT={};
+  try{
+    var rt=await sb.from('staff_rates').select('name,weekday_rate,weekend_rate'),have={};
+    (rt.data||[]).forEach(function(x){have[x.name]={wd:x.weekday_rate,we:x.weekend_rate};});
+    RS_STAFF.forEach(function(n){var h=have[n]||{};RATE_DRAFT[n]={wd:(h.wd!=null?String(h.wd):''),we:(h.we!=null?String(h.we):'')};});
+  }catch(e){}
+  renderRatesSheet();
+}
+function renderRatesSheet(){
+  var rows=RS_STAFF.map(function(n){
+    var d=RATE_DRAFT[n]||{wd:'',we:''};
+    return '<div style="margin-top:12px"><div class="dlab" style="margin:0">'+esc(n)+'</div>'
+      +'<div class="pair" style="margin-top:6px;display:grid">'
+      +'<div style="position:relative"><span style="position:absolute;left:12px;top:15px;color:var(--muted)">$</span><input class="din" style="margin:0;padding-left:24px" inputmode="decimal" data-ratewd="'+esc(n)+'" value="'+esc(d.wd)+'" placeholder="weekday /h"></div>'
+      +'<div style="position:relative"><span style="position:absolute;left:12px;top:15px;color:var(--muted)">$</span><input class="din" style="margin:0;padding-left:24px" inputmode="decimal" data-ratewe="'+esc(n)+'" value="'+esc(d.we)+'" placeholder="weekend /h"></div></div></div>';
+  }).join('');
+  openDrawerHTML('<div class="t" style="font-size:19px">Pay rates</div>'
+    +'<div class="s" style="margin-top:2px">per hour · weekday and weekend · only directors and finance see this</div>'
+    +rows
+    +'<button class="act" id="rate-save">Save rates</button>'
+    +'<button class="dclose" id="rate-back" style="border:none;background:none;color:var(--muted)">‹ Back</button>');
+  document.querySelectorAll('#drawer [data-ratewd]').forEach(function(el){el.addEventListener('input',function(){RATE_DRAFT[el.dataset.ratewd].wd=el.value;});});
+  document.querySelectorAll('#drawer [data-ratewe]').forEach(function(el){el.addEventListener('input',function(){RATE_DRAFT[el.dataset.ratewe].we=el.value;});});
+  $('rate-save').addEventListener('click',async function(){
+    var btn=this;btn.disabled=true;btn.textContent='Saving…';
+    try{
+      var rows=RS_STAFF.map(function(n){var d=RATE_DRAFT[n]||{},wd=(d.wd===''||d.wd==null)?null:Number(d.wd),we=(d.we===''||d.we==null)?null:Number(d.we);
+        return {name:n,weekday_rate:(wd!=null&&isFinite(wd))?wd:null,weekend_rate:(we!=null&&isFinite(we))?we:null,updated_at:new Date().toISOString()};});
+      var u=await sb.from('staff_rates').upsert(rows,{onConflict:'name'});
+      if(u.error)throw new Error(u.error.message);
+      PAY_RATES={};rows.forEach(function(r){PAY_RATES[r.name]={wd:r.weekday_rate,we:r.weekend_rate};});
+      toast('Rates saved ✓');renderPayroll();
+    }catch(e){btn.disabled=false;btn.textContent='Save rates';alert('Save failed: '+(e&&e.message||e));}
+  });
+  $('rate-back').addEventListener('click',renderPayroll);
+}
 function renderTools(){
   $('deck').style.display='none';
   $('hcnt').textContent='find and make';
@@ -3981,7 +4098,8 @@ function renderTools(){
     +[['Invoice','GST PDF · classic'],['IG asset','1200×1200 card · classic'],['Labels','bag / tin · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
     +[['Green stock','full list · right here','greens'],['Roasted Stock','FIFO shelf · right here','batches'],['Retail Info','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Menus','4 menu PDFs · right here','menus'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Delete a coffee','remove records · careful','delbean']]
-      .concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale'],['Timesheet','roster this + next 2 weeks','roster']]:[])
+      .concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[])
+      .concat((ROLE==='director'||ROLE==='finance')?[['Timesheet','roster · hours · pay','roster']]:[])
       .concat([['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']]).map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div></div>';
   var inp=$('tsearch');
