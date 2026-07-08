@@ -36,6 +36,7 @@
 - 班型存 app_state `ts_templates`（openTemplateEdit：三日型 mon-fri/sat/sun 加減 slot＋改時間＋½；首次預設＝老闆班型 RS_TPL_DEFAULT，存過以 DB 為準）
 - helper rsHM/rsHrs（＝classic tsPaidBr：時距−br?0.5）/rsWeekStart（＝mondayStr＋i*7）/rsUnavailable（N/A 日期區間比對）
 - **順手防呆**：todayShifts() 過濾空名（未指派班不進今日流「今天誰上班」）
+- **By day / By person 切換**（老闆問「哪裡看個人班表」當場加）：RS_VIEW 全域＋抽屜頂 pm-seg；By person＝`rosterPersonHTML` 把該週班按名分組（每人本週總時數＋逐班 day/date/time/⚠；未指派另列一格「assign in By day」），順序照 RS_STAFF；person 模式藏套模板鈕；點任一班照樣進 openShiftEdit。驗證：preview stub——toggle 2 顆、Yi 24h(7.5+7.5+9)/Joshua 6h、未指派分組、撞班 ⚠×3、person 模式無套模板鈕、點班開編輯器 ✓＋截圖。**個人班表本身（員工自己看）仍是 Stage C**；這是給主管排班時對照用（重用同資料）
 - 驗證：jscheck ✓；preview stub 全流程——3 週 seg/7 天卡/套模板 17 班（週一五 2×5＋六 3＋日 4）/指派 Yi 撞 N/A 亮 ⚠＋黃字/改時間 15:15 break off=9h/存檔 payload（week_start、17 班、cash 保留 ["Daniel"]、onConflict week_start、shift 形狀對）/切下週空/模板加 slot 存 app_state/DB.roster 同步 17/console 零錯誤＋兩張截圖（週視圖＋班次編輯抽屜）。⚠ 真機＋真資料（跨裝置 realtime、晨報卡 regression）等老闆部署後掃
 ### Stage B 舊藍圖（已完成，保留供對照）
 1. Tools 磁貼「Timesheet」（data-t 'roster'，director only 先）→ `openRosterSheet()`：頂部週切換 seg〔This week｜Next week｜Week after〕（週一＝mondayStr()＋0/7/14 天）；每天一段（Mon–Sun＋日期），列該日 shifts（名字＋start–end＋hrs＋br 標記），點列開編輯（改人/改時間/br 勾/刪除），「＋ Add shift」選人（**staff_members** active 按 sort；查詢空陣列 fallback classic STAFF_NAMES 八人）＋時間

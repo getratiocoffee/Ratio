@@ -3765,7 +3765,7 @@ function openMenuDineinSheet(){
    shift 形狀嚴格照 classic＝{day,name,start,end,br}（morning-brief/今日流晨報卡都在讀）；
    寫入照 classic saveRosterRow upsert rosters（cash 欄原封帶回不動——薪務已搬 pay_weeks，但 classic 還讀 rosters.cash）；
    時數＝時距−(br?0.5:0)，同 classic tsPaidBr */
-var RS_WK=0, RS_DATA={}, RS_STAFF=[], RS_NA=[], RS_TPL=null, RS_TE=null;
+var RS_WK=0, RS_VIEW='day', RS_DATA={}, RS_STAFF=[], RS_NA=[], RS_TPL=null, RS_TE=null;
 var RS_DOW=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
 /* 老闆口述班型（週六日暫無 break）——存 app_state ts_templates 後以那份為準；這只是首次預設，抽屜可改 */
 var RS_TPL_DEFAULT={
@@ -3807,34 +3807,69 @@ function renderRoster(){
     return '<button data-rswk="'+i+'"'+(i===RS_WK?' class="on"':'')+'>'+['This week','Next week','Week after'][i]+'</button>';
   }).join('')+'</div>';
   var assigned=shifts.filter(function(s){return s.name&&String(s.name).trim();}).length;
-  var days=RS_DOW.map(function(dw,di){
-    var dObj=rsDateFor(ws,di);
-    var rows='';
-    shifts.forEach(function(s,idx){
-      if(s.day!==dw[0])return;
-      var has=!!(s.name&&String(s.name).trim());
-      var warn=has&&rsUnavailable(s.name,dObj);
-      rows+='<button class="rs-shift'+(has?'':' rs-empty')+'" data-rsedit="'+idx+'">'
-        +'<span class="rs-nm">'+(has?esc(s.name):'— tap to assign')+(warn?' <span class="fr-yellow">⚠</span>':'')+'</span>'
-        +'<span class="rs-tm">'+esc(s.start)+'–'+esc(s.end)+(s.br?' ·½':'')+' · '+rsHH(rsHrs(s.start,s.end,s.br))+'</span></button>';
-    });
-    return '<div class="rs-day"><div class="rs-day-h"><span>'+dw[1]+' '+rsDMY(dObj)+'</span><button class="rs-add" data-rsadd="'+dw[0]+'">+ shift</button></div>'
-      +(rows||'<div class="rs-none">no shifts</div>')+'</div>';
-  }).join('');
+  var modeSeg='<div class="pm-seg" style="margin-top:8px"><button data-rsmode="day"'+(RS_VIEW!=='person'?' class="on"':'')+'>By day</button><button data-rsmode="person"'+(RS_VIEW==='person'?' class="on"':'')+'>By person</button></div>';
+  var body,tplRow;
+  if(RS_VIEW==='person'){
+    tplRow='';
+    body=rosterPersonHTML(ws,shifts);
+  }else{
+    tplRow='<div style="display:flex;gap:8px;margin-top:10px"><button class="dclose" id="rs-tpl" style="flex:1;margin:0;padding:11px">Apply standard week</button><button class="dclose" id="rs-tpledit" style="flex:0 0 auto;margin:0;width:auto;padding:11px 16px">Edit…</button></div>';
+    body=RS_DOW.map(function(dw,di){
+      var dObj=rsDateFor(ws,di);
+      var rows='';
+      shifts.forEach(function(s,idx){
+        if(s.day!==dw[0])return;
+        var has=!!(s.name&&String(s.name).trim());
+        var warn=has&&rsUnavailable(s.name,dObj);
+        rows+='<button class="rs-shift'+(has?'':' rs-empty')+'" data-rsedit="'+idx+'">'
+          +'<span class="rs-nm">'+(has?esc(s.name):'— tap to assign')+(warn?' <span class="fr-yellow">⚠</span>':'')+'</span>'
+          +'<span class="rs-tm">'+esc(s.start)+'–'+esc(s.end)+(s.br?' ·½':'')+' · '+rsHH(rsHrs(s.start,s.end,s.br))+'</span></button>';
+      });
+      return '<div class="rs-day"><div class="rs-day-h"><span>'+dw[1]+' '+rsDMY(dObj)+'</span><button class="rs-add" data-rsadd="'+dw[0]+'">+ shift</button></div>'
+        +(rows||'<div class="rs-none">no shifts</div>')+'</div>';
+    }).join('');
+  }
   openDrawerHTML('<div class="t" style="font-size:19px">Timesheet</div>'
     +'<div class="s" style="margin-top:2px">'+rsDMY(d0)+' – '+rsDMY(d6)+' · '+assigned+' assigned</div>'
-    +seg
-    +'<div style="display:flex;gap:8px;margin-top:10px"><button class="dclose" id="rs-tpl" style="flex:1;margin:0;padding:11px">Apply standard week</button><button class="dclose" id="rs-tpledit" style="flex:0 0 auto;margin:0;width:auto;padding:11px 16px">Edit…</button></div>'
-    +'<div style="margin-top:4px">'+days+'</div>'
+    +seg+modeSeg+tplRow
+    +'<div style="margin-top:4px">'+body+'</div>'
     +'<button class="act" id="rs-save">Save '+['this week','next week','week after'][RS_WK]+'</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   document.querySelectorAll('#drawer [data-rswk]').forEach(function(b){b.addEventListener('click',function(){RS_WK=+b.dataset.rswk;renderRoster();});});
+  document.querySelectorAll('#drawer [data-rsmode]').forEach(function(b){b.addEventListener('click',function(){RS_VIEW=b.dataset.rsmode;renderRoster();});});
   document.querySelectorAll('#drawer [data-rsedit]').forEach(function(b){b.addEventListener('click',function(){openShiftEdit(ws,+b.dataset.rsedit);});});
   document.querySelectorAll('#drawer [data-rsadd]').forEach(function(b){b.addEventListener('click',function(){addRosterShift(ws,b.dataset.rsadd);});});
-  $('rs-tpl').addEventListener('click',function(){applyStandardWeek(ws);});
-  $('rs-tpledit').addEventListener('click',openTemplateEdit);
+  var tpl=$('rs-tpl');if(tpl)tpl.addEventListener('click',function(){applyStandardWeek(ws);});
+  var tple=$('rs-tpledit');if(tple)tple.addEventListener('click',openTemplateEdit);
   $('rs-save').addEventListener('click',function(){saveRosterWeek(ws,this);});
   $('d-cl').addEventListener('click',closeDrawer);
+}
+/* By person：同一週的班改按「人」分組（每人本週總時數＋逐班；未指派另列一格）。點班照樣進 openShiftEdit */
+function rosterPersonHTML(ws,shifts){
+  var byName={},order=[];
+  shifts.forEach(function(s,idx){
+    var nm=(s.name&&String(s.name).trim())?String(s.name).trim():'';
+    if(!nm)return;
+    if(!byName[nm]){byName[nm]={rows:[],total:0};order.push(nm);}
+    byName[nm].rows.push({s:s,idx:idx});
+    byName[nm].total+=rsHrs(s.start,s.end,s.br);
+  });
+  order.sort(function(a,b){var ia=RS_STAFF.indexOf(a),ib=RS_STAFF.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
+  var unassigned=shifts.filter(function(s){return !(s.name&&String(s.name).trim());}).length;
+  if(!order.length&&!unassigned)return '<div class="rs-none" style="border:1px solid var(--line);border-radius:12px">No shifts yet — switch to By day to add them</div>';
+  var dowKeys=RS_DOW.map(function(x){return x[0];});
+  var html=order.map(function(nm){
+    var p=byName[nm];
+    p.rows.sort(function(a,b){return dowKeys.indexOf(a.s.day)-dowKeys.indexOf(b.s.day)||(String(a.s.start)<String(b.s.start)?-1:1);});
+    var rows=p.rows.map(function(o){
+      var di=dowKeys.indexOf(o.s.day),dObj=rsDateFor(ws,di<0?0:di),warn=rsUnavailable(nm,dObj);
+      return '<button class="rs-shift" data-rsedit="'+o.idx+'"><span class="rs-nm" style="font-weight:500;font-size:13px">'+((RS_DOW[di]||['','?'])[1])+' '+rsDMY(dObj)+(warn?' <span class="fr-yellow">⚠</span>':'')+'</span>'
+        +'<span class="rs-tm">'+esc(o.s.start)+'–'+esc(o.s.end)+(o.s.br?' ·½':'')+' · '+rsHH(rsHrs(o.s.start,o.s.end,o.s.br))+'</span></button>';
+    }).join('');
+    return '<div class="rs-day"><div class="rs-day-h"><span>'+esc(nm)+'</span><span style="color:var(--accent)">'+rsHH(p.total)+' this week</span></div>'+rows+'</div>';
+  }).join('');
+  if(unassigned)html+='<div class="rs-day"><div class="rs-day-h"><span style="color:var(--muted)">Unassigned</span><span style="color:var(--muted)">'+unassigned+' shift'+(unassigned===1?'':'s')+' — assign in By day</span></div></div>';
+  return html;
 }
 function applyStandardWeek(ws){
   var cur=RS_DATA[ws].shifts;
