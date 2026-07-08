@@ -296,6 +296,8 @@ async function callFn(name,payload,roOk){
   return data;
 }
 function custById(id){return DB.customers.find(function(c){return c.id===id;})||null;}
+/* 批發單判定：訂單走 wholesale 通道，或客戶本身是 wholesale 型 → 歸到 Wholesale 站（否則照常 Orders/Transaction） */
+function whOrd(o,c){return (o&&o.channel==='wholesale')||(c&&String(c.type||'').toLowerCase()==='wholesale');}
 function itemsLine(o){return (Array.isArray(o.items)?o.items:[]).map(function(it){return (it.grams?it.grams+'g ':'')+(it.name||'')+(it.qty>1?(' ×'+it.qty):'');}).join(', ');}
 
 async function loadAll(){
@@ -430,7 +432,7 @@ function buildItems(){
   }
   newQ.forEach(function(o){
     var c=custById(o.customer_id);
-    out.push({id:'acc:'+o.id,st:'Orders',hot:1,t:'#'+String(o.order_no||'—').padStart(4,'0')+' · '+((c&&c.name)||'Walk-in'),
+    out.push({id:'acc:'+o.id,st:whOrd(o,c)?'Wholesale':'Orders',hot:1,t:'#'+String(o.order_no||'—').padStart(4,'0')+' · '+((c&&c.name)||'Walk-in'),
       s:esc(itemsLine(o))+' · '+money(o.total)+(c&&c.email?'':' · <span class=red>no email</span>'),
       act:'Accept',det:[['Items',itemsLine(o)||'—'],['Total',money(o.total)],['Payment',o.payment_method==='bank_transfer'?'Bank transfer':'Platform'],['Placed',fmtD(o.created_at)]],
       det2:'Decline order',roles:['director','retail','staff'],kind:'accept',ref:o});
@@ -467,21 +469,21 @@ function buildItems(){
   }
   packQ.forEach(function(o){
     var c=custById(o.customer_id);
-    out.push({id:'pack:'+o.id,st:'Orders',hot:0,t:'Pack #'+String(o.order_no||'—').padStart(4,'0')+' · '+((c&&c.name)||'Walk-in'),
+    out.push({id:'pack:'+o.id,st:whOrd(o,c)?'Wholesale':'Orders',hot:0,t:'Pack #'+String(o.order_no||'—').padStart(4,'0')+' · '+((c&&c.name)||'Walk-in'),
       s:esc(itemsLine(o))+(o.payment_status!=='paid'?' · <span class=red>unpaid</span>':''),
       act:'Pack…',det:[['Items',itemsLine(o)||'—'],['Status',o.status],['Payment',o.payment_status==='paid'?'paid':'awaiting']],
       det2:'Cancel order',roles:['director','retail','staff'],kind:'pack',ref:o});
   });
   shipQ.forEach(function(o){
     var c=custById(o.customer_id);
-    out.push({id:'ship:'+o.id,st:'Orders',hot:1,t:'Ship #'+String(o.order_no||'—').padStart(4,'0')+' · '+((c&&c.name)||'Walk-in'),
+    out.push({id:'ship:'+o.id,st:whOrd(o,c)?'Wholesale':'Orders',hot:1,t:'Ship #'+String(o.order_no||'—').padStart(4,'0')+' · '+((c&&c.name)||'Walk-in'),
       s:esc(itemsLine(o))+(o.payment_status!=='paid'?' · <span class=red>unpaid</span>':''),
       act:'Dispatch…',det:[['Items',itemsLine(o)||'—'],['Payment',o.payment_status==='paid'?'paid':'awaiting']],
       det2:'Cancel order',roles:['director','retail','staff'],kind:'ship',ref:o});
   });
   payQ.forEach(function(o){
     var c=custById(o.customer_id);var od=o.payment_status==='overdue';
-    out.push({id:'pay:'+o.id,st:'Transaction',hot:od?1:0,u:1,t:money(o.total)+' · '+((c&&c.name)||'Walk-in'),
+    out.push({id:'pay:'+o.id,st:whOrd(o,c)?'Wholesale':'Transaction',hot:od?1:0,u:1,t:money(o.total)+' · '+((c&&c.name)||'Walk-in'),
       s:'#'+String(o.order_no||'—').padStart(4,'0')+' · '+(od?'<span class=red>'+daysSince(o.created_at)+'d overdue</span>':daysSince(o.created_at)+'d waiting'),
       act:'Mark paid',det:[['Order','#'+String(o.order_no||'—').padStart(4,'0')],['Total',money(o.total)],['Age',daysSince(o.created_at)+' days'],['Status',o.payment_status]],
       det2:'Send reminder email',roles:['director'],kind:'paid',ref:o});
@@ -549,11 +551,11 @@ function buildItems(){
   ITEMS=out.filter(function(i){return !sn[i.id];});
 }
 /* 類別色表：低飽和塵彩配紙白玫瑰；色條＋右上角分類＋chips 色點共用 */
-var STCOLOR={Orders:'#B25E6A',QC:'#5B7DB1',Roast:'#A87436',Transaction:'#6E8B4E',Shelf:'#8A6FA8',Recipe:'#4E8B83',Green:'#7A8450','Daily Task':'#8A837C',Customers:'#C07A5B'};
+var STCOLOR={Orders:'#B25E6A',Wholesale:'#3E5A82',QC:'#5B7DB1',Roast:'#A87436',Transaction:'#6E8B4E',Shelf:'#8A6FA8',Recipe:'#4E8B83',Green:'#7A8450','Daily Task':'#8A837C',Customers:'#C07A5B'};
 var CTXS=[
-{id:'morning',label:'Morning sort — recipe first',pr:{Recipe:1,Orders:2,Roast:3,QC:4,Transaction:5,Green:6,'Daily Task':7,Customers:8}},
-{id:'day',label:'Daytime sort — orders first',pr:{Orders:1,Roast:2,QC:3,Recipe:4,Transaction:5,Green:6,'Daily Task':7,Customers:8}},
-{id:'pay',label:'Pay chase — transaction first',pr:{Transaction:1,Orders:2,Roast:3,QC:4,Recipe:5,Green:6,'Daily Task':7,Customers:8}}];
+{id:'morning',label:'Morning sort — recipe first',pr:{Recipe:1,Orders:2,Wholesale:3,Roast:4,QC:5,Transaction:6,Green:7,'Daily Task':8,Customers:9}},
+{id:'day',label:'Daytime sort — orders first',pr:{Orders:1,Wholesale:2,Roast:3,QC:4,Recipe:5,Transaction:6,Green:7,'Daily Task':8,Customers:9}},
+{id:'pay',label:'Pay chase — transaction first',pr:{Transaction:1,Wholesale:2,Orders:3,Roast:4,QC:5,Recipe:6,Green:7,'Daily Task':8,Customers:9}}];
 var ctxIdx=(new Date().getHours()<11)?0:1;
 /* 權限地基：認得的四種員工角色照舊；其他（含 'customer'、沒設）一律當客戶——寧可少看不可多看 */
 function myRole(){return (ROLE==='director'||ROLE==='roaster'||ROLE==='retail'||ROLE==='staff'||ROLE==='wholesale'||ROLE==='finance')?ROLE:'customer';}
