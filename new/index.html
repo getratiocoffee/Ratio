@@ -4398,13 +4398,13 @@ function renderTools(){
     +'<button class="tool" id="t-stk" style="border-color:var(--accent);color:var(--accent)">Stocktake<small>weigh greens · right here</small></button>'
     +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
     +'<button class="tool" id="t-task" style="border-color:var(--accent);color:var(--accent)">New task<small>'+(isLead()?'assign · right here':'for the team · right here')+'</small></button>'
-    +[['Invoice','GST PDF · classic'],['IG asset','1200×1200 card · classic'],['Labels','bag / tin · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
+    +[['Invoice','GST PDF · classic'],['IG asset','1200×1200 card · classic'],['Labels','bag / tin · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1" disabled style="opacity:.4;cursor:not-allowed">'+x[0]+'<small>'+x[1]+' · off</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
     +[['Green stock','full list · right here','greens'],['Roasted Stock','FIFO shelf · right here','batches'],['Retail Info','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Menus','4 menu PDFs · right here','menus'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Delete a coffee','remove records · careful','delbean']]
       .concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[])
       .concat(isLead()?[['Team','who’s on · assign','team']]:[])
       .concat((ROLE==='director'||ROLE==='finance'||LEAD)?[['Timesheet','roster · hours'+(rsMoney()?' · pay':''),'roster']]:[])
-      .concat([['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']]).map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
+      .concat([['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']]).map(function(x){var off=x[2]==='classic';return '<button class="tool" data-t="'+x[2]+'"'+(off?' disabled style="opacity:.4;cursor:not-allowed"':'')+'>'+x[0]+'<small>'+x[1]+(off?' · off':'')+'</small></button>';}).join('')
     +'</div></div>';
   var inp=$('tsearch');
   function lookup(){
