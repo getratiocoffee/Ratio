@@ -228,7 +228,7 @@ async function loadAll(){
     sb.from('tasks').select('*').eq('done',false).order('created_at',{ascending:false}),
     sb.from('dialins').select('coffee,created_at,grind,dose,yield,time_s,barista').order('created_at',{ascending:false}).limit(200),
     sb.from('product_sync').select('bean_id,status').eq('channel','square'),
-    sb.from('samples').select('id,sample_id,bean_id,process,roast_date,cupping_date,features,flavour_locked,fragrance,acidity,sweetness,body,aftertaste,comment').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
+    sb.from('samples').select('id,sample_id,bean_id,process,roast_date,cupping_date,features,flavour_locked,fragrance,acidity,sweetness,body,aftertaste,comment,cupper').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
     sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg,status,kind,remaining_kg,roasted_kg').order('roast_date',{ascending:false}),
     sb.from('beans').select('id,name,process,quantity,low_stock_kg,country,cost_per_kg,supplier'),
     sb.from('feedback').select('*').is('reply',null).order('created_at',{ascending:false}),
@@ -1228,6 +1228,7 @@ async function openShelfBeanDetail(nm,m){
     +'<div class="dlab" style="color:'+col+'">Tasting notes</div>'
     +(feats.length?'<div style="margin-top:2px">'+feats.map(function(f){return '<span class="shop-chip">'+esc(f)+'</span>';}).join('')+'</div>':'')
     +(s.comment?'<div class="s" style="font-style:italic;margin-top:6px">“'+esc(s.comment)+'”</div>':'')
+    +(s.cupper?'<div class="s" style="margin-top:4px">Analysed by '+esc(s.cupper)+'</div>':'')
     +(!feats.length&&!s.comment&&!hasScores?'<div class="s" style="margin-top:4px">No cupping record yet — cup it in QC first</div>':'')
     +(info.length?'<div class="dlab" style="color:'+col+'">The coffee</div>'
       +info.map(function(r){return '<div class="dl"><span>'+esc(r[0])+'</span><span style="text-align:right">'+esc(String(r[1]))+'</span></div>';}).join(''):'')
@@ -3570,7 +3571,7 @@ function renderTools(){
     +'<button class="tool" id="t-roast" style="border-color:var(--accent);color:var(--accent)">Log roast<small>green in · right here</small></button>'
     +'<button class="tool" id="t-stk" style="border-color:var(--accent);color:var(--accent)">Stocktake<small>weigh greens · right here</small></button>'
     +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
-    +[['Invoice','GST PDF · classic'],['Info card','IG asset · classic'],['Labels','bag / tin · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
+    +[['Invoice','GST PDF · classic'],['IG asset','1200×1200 card · classic'],['Labels','bag / tin · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
     +[['Green stock','full list · right here','greens'],['Roasted Stock','FIFO shelf · right here','batches'],['Retail Info','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Menus','4 menu PDFs · right here','menus'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Delete a coffee','remove records · careful','delbean']]
       .concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[])
