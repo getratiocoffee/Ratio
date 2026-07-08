@@ -14,6 +14,8 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{background:var(--bg)}
 body{margin:0;background:transparent;color:var(--ink);font-family:'Inter',sans-serif;font-size:16px;padding-bottom:170px}
+/* iOS standalone 怪癖：頁面捲不動時 innerHeight 縮一截→固定底部 bar 往上跳。強制內部 app 頁永遠可捲，innerHeight 才穩定，bar 貼底不跳（多出的高度藏在固定面板後） */
+body.appview{min-height:calc(100vh + 1px);min-height:calc(100lvh + 1px)}
 .bglogo{position:fixed;inset:0;z-index:-1;pointer-events:none;background:var(--ink);opacity:.055;transform:rotate(-12deg);
   -webkit-mask:url(/logo.png) no-repeat center 40% / min(96vw,440px);
   mask:url(/logo.png) no-repeat center 40% / min(96vw,440px)}
@@ -4553,6 +4555,7 @@ function render(){
   if(view==='feed')renderFeed();else if(view==='qc')renderQC();else renderTools();
   /* 判定板亮著時底部留白加大，清單最後一列才捲得出來（板＋nav 疊起來近 300px） */
   document.body.style.paddingBottom=($('deck').style.display==='block')?'330px':'';
+  document.body.classList.add('appview');
   $('nav-feed').classList.toggle('on',view==='feed');
   $('nav-qc').classList.toggle('on',view==='qc');
   $('nav-tools').classList.toggle('on',view==='tools');
@@ -4985,6 +4988,7 @@ function openSignInSheet(){
 }
 /* 沒登入＝店面：豆單直接開門見山（員工從底部小連結登入） */
 async function renderPublicMenu(){
+  document.body.classList.remove('appview');
   var nav=document.querySelector('nav');if(nav)nav.style.display='none';
   $('chips').innerHTML='';
   mountCartIcon();
@@ -5000,6 +5004,7 @@ async function renderPublicMenu(){
 }
 /* 客戶登入＝豆單在上、自己的訂單在下＋切員工登入鍵；wholesale 角色＝同門戶換批發菜單＋付款抽屜 */
 async function renderCustomerPortal(sess){
+  document.body.classList.remove('appview');
   WS_MODE=(ROLE==='wholesale');
   var nav=document.querySelector('nav');if(nav)nav.style.display='none';
   $('chips').innerHTML='';
