@@ -1692,9 +1692,11 @@ async function openGreenDetail(b){
     +'<div class="dl"><span>Low line</span><span>'+(t>0?t+' kg':'off (rotation bean)')+'</span></div>'
     +'<div class="dl"><span>Cost</span><span>'+(b.cost_per_kg!=null?money(b.cost_per_kg)+' / kg':'—')+'</span></div>'
     +'<div class="dl"><span>Supplier</span><span>'+esc(b.supplier||'—')+'</span></div>'
-    +'</div><div class="dlab">Recent stock moves</div><div id="gd-moves" class="empty" style="padding:14px 0">Loading…</div>'
+    +'</div><button class="act" id="gd-edit" style="margin-top:12px">Edit details</button>'
+    +'<div class="dlab">Recent stock moves</div><div id="gd-moves" class="empty" style="padding:14px 0">Loading…</div>'
     +'<button class="dclose" id="gd-back">‹ Back to list</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('gd-edit').addEventListener('click',function(){openGreenEdit(b);});
   $('gd-back').addEventListener('click',openGreensSheet);
   $('d-cl').addEventListener('click',closeDrawer);
   try{
@@ -1708,6 +1710,65 @@ async function openGreenDetail(b){
         +'<span>'+(d>0?'+':'')+d+' kg → '+(Number(m.after_kg)||0)+'</span></div>';
     }).join(''):'<div class="s">No moves recorded yet</div>';
   }catch(e){}
+}
+/* ===== 生豆明細編輯（照抄 classic saveBean：全欄位 + 改名連鎖，但庫存 kg 留在 Stocktake 走流水帳）===== */
+var GB_FIELDS=[['name','Name'],['country','Country'],['region','Region'],['station','Station'],['process','Process'],['variety','Variety'],['harvest','Harvest'],['altitude','Altitude'],['cost_per_kg','Cost per kg',1],['low_stock_kg','Low stock alert (kg)',1],['supplier','Supplier']];
+function greenDupExists(name,process,excludeId){
+  var n=String(name||'').trim().toLowerCase(),p=String(process||'').trim().toLowerCase();
+  if(!n)return false;
+  return (DB.beans||[]).some(function(b){
+    if(excludeId&&String(b.id)===String(excludeId))return false;
+    return String(b.name||'').trim().toLowerCase()===n&&String(b.process||'').trim().toLowerCase()===p;
+  });
+}
+function openGreenEdit(b){
+  var rows=GB_FIELDS.map(function(f){
+    var v=b[f[0]];v=(v==null?'':String(v));
+    return '<div style="margin-top:12px"><div class="dlab" style="margin:0 0 4px">'+esc(f[1])+'</div>'
+      +'<input class="din" style="margin:0" data-gf="'+f[0]+'"'+(f[2]?' inputmode="decimal"':'')+' value="'+esc(v)+'" placeholder="'+(f[0]==='name'?'required':'—')+'"></div>';
+  }).join('');
+  openDrawerHTML('<span class="tag">Green</span><div class="t" style="font-size:19px">Edit details</div>'
+    +'<div class="s" style="margin-top:2px">Stock kg is set in Stocktake so the history stays intact — this edits the bean’s details.</div>'
+    +rows
+    +'<div id="gb-msg" style="color:var(--danger);font-size:13px;margin-top:10px;min-height:16px"></div>'
+    +'<button class="act" id="gb-save">Save details</button>'
+    +'<button class="dclose" id="gb-back" style="border:none;background:none;color:var(--muted)">‹ Cancel</button>');
+  $('gb-save').addEventListener('click',function(){saveGreenBean(b,this);});
+  $('gb-back').addEventListener('click',function(){openGreenDetail(b);});
+}
+async function saveGreenBean(b,btn){
+  var upd={},msg=$('gb-msg');
+  document.querySelectorAll('#drawer [data-gf]').forEach(function(inp){
+    var f=inp.dataset.gf,v=String(inp.value||'').trim();
+    if(f==='cost_per_kg'||f==='low_stock_kg')upd[f]=(v===''||isNaN(parseFloat(v)))?null:parseFloat(v);
+    else upd[f]=v===''?null:v;
+  });
+  if(!upd.name){if(msg)msg.textContent='Name cannot be empty';return;}
+  if(greenDupExists(upd.name,upd.process,b.id)){if(msg)msg.textContent='"'+upd.name+'" + "'+(upd.process||'—')+'" already exists — use a different process for the same farm';return;}
+  var oldName=String(b.name||'').trim(),newName=String(upd.name||'').trim(),renamed=oldName&&newName&&oldName!==newName;
+  btn.disabled=true;btn.textContent='Saving…';if(msg)msg.textContent='';
+  try{
+    var u=await sb.from('beans').update(upd).eq('id',b.id);
+    if(u.error)throw new Error(u.error.message);
+    /* 改名連鎖：先靠 bean_id 精準改，再補 legacy 無 bean_id 靠舊名——杯測/烘焙紀錄不脫鉤 */
+    if(renamed){
+      btn.textContent='Relinking…';
+      var e1=(await sb.from('samples').update({sample_id:newName}).eq('bean_id',b.id)).error;
+      var e1b=(await sb.from('samples').update({sample_id:newName}).is('bean_id',null).eq('sample_id',oldName)).error;
+      var e2=(await sb.from('roasts').update({bean_name:newName}).eq('bean_id',b.id)).error;
+      var e2b=(await sb.from('roasts').update({bean_name:newName}).is('bean_id',null).eq('bean_name',oldName)).error;
+      var eAny=e1||e1b||e2||e2b;
+      if(eAny)throw new Error('bean renamed but relinking failed: '+eAny.message+' — please retry');
+      (DB.samples||[]).forEach(function(s){if(String(s.bean_id||'')===String(b.id)||(!s.bean_id&&String(s.sample_id||'')===oldName))s.sample_id=newName;});
+      (DB.roasts||[]).forEach(function(r){if(String(r.bean_id||'')===String(b.id)||(!r.bean_id&&String(r.bean_name||'')===oldName))r.bean_name=newName;});
+    }
+    var i=(DB.beans||[]).findIndex(function(x){return String(x.id)===String(b.id);});
+    var nb=Object.assign({},b,upd);
+    if(i>-1)DB.beans[i]=nb;
+    try{buildItems();}catch(e){}
+    toast('Saved ✓');
+    openGreenDetail(nb);
+  }catch(e){btn.disabled=false;btn.textContent='Save details';if(msg)msg.textContent=String(e&&e.message||e);}
 }
 /* ===== 熟豆批次清單（照 classic Batch stock：remaining>0、FIFO 最舊先用、>30 天紅、點批次記用量）===== */
 function openBatchesSheet(){
