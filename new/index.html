@@ -935,13 +935,19 @@ async function uploadCardsFor(o){
 /* ===== Pack 逐項打勾（每勾一項即存 pack_state；全勾才能按 Ready）===== */
 function openPackSheet(i){
   var o=i.ref;var items=Array.isArray(o.items)?o.items:[];
+  /* 批發單的 Delivery fee 是 items 假品項（grams:null，金額對帳用）——不用裝箱，打勾清單與全勾判定都跳過；
+     pack_state 照舊用原始 index 當鍵，跳過不影響舊資料 */
+  var packIdx=[];items.forEach(function(it,ix){
+    if(!it.grams&&/^delivery fee$/i.test(String(it.name||'').trim()))return;
+    packIdx.push(ix);
+  });
   var ps=(o.pack_state&&typeof o.pack_state==='object')?Object.assign({},o.pack_state):{};
-  function allOn(){return items.length>0&&items.every(function(_,ix){return !!ps[String(ix)];});}
+  function allOn(){return packIdx.length>0&&packIdx.every(function(ix){return !!ps[String(ix)];});}
   function paint(){
     openDrawerHTML('<div class="t" style="font-size:19px">'+i.t.replace('Pack ','Packing ')+'</div>'
       +'<div class="s" style="margin-top:2px">tap each item as it goes in the box</div>'
-      +items.map(function(it,ix){
-        var on=!!ps[String(ix)];
+      +packIdx.map(function(ix){
+        var it=items[ix],on=!!ps[String(ix)];
         return '<button class="pk-row'+(on?' on':'')+'" data-pk="'+ix+'">'+(on?'✓ ':'')+esc((it.grams?it.grams+'g ':'')+(it.name||'')+(it.qty>1?' ×'+it.qty:''))+'</button>';
       }).join('')
       +'<button class="act" id="pk-ready"'+(allOn()?'':' disabled')+'>All packed — move to Ready</button>'
