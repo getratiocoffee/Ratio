@@ -4559,38 +4559,6 @@ function render(){
   $('nav-feed').classList.toggle('on',view==='feed');
   $('nav-qc').classList.toggle('on',view==='qc');
   $('nav-tools').classList.toggle('on',view==='tools');
-  dbgRuler();
-}
-/* 暫時：真機底部 bar 診斷量尺（只在網址帶 ?debug 時顯示；量完拿掉）*/
-function dbgRuler(){
-  /* 暫時：director 或 ?debug 才顯示（裝成 app 的 standalone 加不了網址參數，所以 director 自動開）*/
-  if(ROLE!=='director'&&location.search.indexOf('debug')<0)return;
-  var el=document.getElementById('dbgruler');
-  if(!el){
-    el=document.createElement('div');el.id='dbgruler';
-    el.style.cssText='position:fixed;left:6px;top:calc(env(safe-area-inset-top,0px) + 58px);z-index:9999;background:rgba(0,0,0,.86);color:#0f0;font:11px/1.45 monospace;padding:6px 8px;border-radius:6px;pointer-events:none;white-space:pre';
-    document.body.appendChild(el);
-    var probe=document.createElement('div');probe.id='dbgprobe';probe.style.cssText='position:fixed;bottom:0;height:env(safe-area-inset-bottom,0px);width:1px;pointer-events:none;visibility:hidden';document.body.appendChild(probe);
-    window.addEventListener('scroll',dbgUpdate,{passive:true});
-    window.addEventListener('resize',dbgUpdate,{passive:true});
-    if(window.visualViewport){window.visualViewport.addEventListener('resize',dbgUpdate);window.visualViewport.addEventListener('scroll',dbgUpdate);}
-    setInterval(dbgUpdate,400);
-  }
-  dbgUpdate();
-}
-function dbgUpdate(){
-  var el=document.getElementById('dbgruler');if(!el)return;
-  var nav=document.querySelector('nav'),deck=document.querySelector('.deck'),pr=document.getElementById('dbgprobe'),vv=window.visualViewport;
-  function bb(x){if(!x||getComputedStyle(x).display==='none')return 'hidden';var r=x.getBoundingClientRect();return Math.round(r.top)+'-'+Math.round(r.bottom);}
-  var safeB=pr?Math.round(pr.getBoundingClientRect().height):'?';
-  var navGap=nav?Math.round(window.innerHeight-nav.getBoundingClientRect().bottom):'-';
-  var saNav=(navigator.standalone===true?'YES':(navigator.standalone===false?'no':'?'));
-  var saMM=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)?'standalone':'browser';
-  el.textContent='view:'+window.view+'  safeB:'+safeB+'  STANDALONE:'+saNav+'/'+saMM
-    +'\ninnerH:'+window.innerHeight+'  vvH:'+(vv?Math.round(vv.height):'-')+'  vvTop:'+(vv?Math.round(vv.offsetTop):'-')
-    +'\nnav:'+bb(nav)+'  gapBelow:'+navGap
-    +'\ndeck:'+bb(deck)
-    +'\nbodyPadB:'+getComputedStyle(document.body).paddingBottom;
 }
 var LAST_LOAD=0;
 async function reload(){await loadAll();LAST_LOAD=Date.now();render();}
