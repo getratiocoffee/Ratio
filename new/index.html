@@ -194,6 +194,7 @@ function todayKey(){var d=new Date();return d.getFullYear()+'-'+String(d.getMont
 /* 貪睡與晨報收起：存 localStorage，到明天自動失效 */
 /* 貪睡改存 app_state（key: new_snooze）＝跨裝置同步：手機睡掉的卡，電腦也不再冒出來；到明天自動失效（只認今天的 key）。全店共用——誰睡掉就是大家都先不看 */
 var SNOOZE_ALL={};
+var NUDGE_LOG={}; /* 回購提醒紀錄（app_state 'nudge_log'，扁平 {customer_id:'YYYY-MM-DD'}）——送過就記，這輪不再出卡 */
 function snoozeMap(){return SNOOZE_ALL[todayKey()]||{};}
 var SNOOZED_SESSION=0;
 function snoozePush(){
@@ -233,7 +234,8 @@ async function loadAll(){
     sb.from('beans').select('id,name,process,quantity,low_stock_kg,country,cost_per_kg,supplier'),
     sb.from('feedback').select('*').is('reply',null).order('created_at',{ascending:false}),
     sb.from('rosters').select('week_start,shifts,deleted').eq('week_start',mondayStr()),
-    sb.from('app_state').select('value').eq('key','new_snooze').maybeSingle()
+    sb.from('app_state').select('value').eq('key','new_snooze').maybeSingle(),
+    sb.from('app_state').select('value').eq('key','nudge_log').maybeSingle()
   ]);
   DB={orders:rs[0].data||[],customers:rs[1].data||[],tasks:rs[2].data||[],dialins:rs[3].data||[],
       syncs:rs[4].data||[],samples:rs[5].data||[],roasts:rs[6].data||[],beans:rs[7].data||[],
@@ -241,6 +243,9 @@ async function loadAll(){
   var sv=rs[10]&&rs[10].data&&rs[10].data.value;
   if(typeof sv==='string'){try{sv=JSON.parse(sv);}catch(e){sv=null;}}
   SNOOZE_ALL=(sv&&typeof sv==='object')?sv:{};
+  var nl=rs[11]&&rs[11].data&&rs[11].data.value;
+  if(typeof nl==='string'){try{nl=JSON.parse(nl);}catch(e){nl=null;}}
+  NUDGE_LOG=(nl&&typeof nl==='object')?nl:{};
   buildItems();
 }
 function mondayStr(){
@@ -427,6 +432,36 @@ function buildItems(){
       det:[['Rating',stars],['Comment',String(f.comment||'—').slice(0,200)],['From',f.name||'Anonymous'],['Email',f.email||'—'],['When',fmtD(f.created_at)||'—']],
       det2:'Later',roles:['director'],kind:'fb',ref:f});
   });
+  /* 回購提醒卡（社群曝光 Phase 4：回購提醒附評論連結）：零售客最後一單 28–120 天前 → 提醒卡；
+     一天最多 2 張（最久沒買的優先）；送過記 NUDGE_LOG（app_state），同一輪（沒有新單）60 天內不再出；
+     批發單/shop 客戶/沒 email 的不算 */
+  var lastOrd={};
+  DB.orders.forEach(function(o){
+    if(!o.customer_id||o.channel==='wholesale')return;
+    var d=String(o.created_at||'').slice(0,10);if(!d)return;
+    var k=String(o.customer_id);
+    if(!lastOrd[k]||d>lastOrd[k].d)lastOrd[k]={d:d,o:o};
+  });
+  var nudges=[];
+  DB.customers.forEach(function(c){
+    if(!c.email||c.type==='shop')return;
+    var le=lastOrd[String(c.id)];if(!le)return;
+    var days=Math.floor((Date.now()-new Date(le.d+'T00:00:00'))/864e5);
+    if(days<28||days>120)return;
+    var ng=NUDGE_LOG[String(c.id)];
+    if(ng&&ng>=le.d&&Math.floor((Date.now()-new Date(ng+'T00:00:00'))/864e5)<60)return;
+    nudges.push({c:c,days:days,o:le.o,d:le.d});
+  });
+  nudges.sort(function(a,b){return b.days-a.days;}).slice(0,2).forEach(function(n){
+    var wk=Math.round(n.days/7);
+    /* 「上次買了什麼」不列 Delivery fee 假品項（信裡 edge 也同樣排除） */
+    var goods={items:(Array.isArray(n.o.items)?n.o.items:[]).filter(function(it){return !(!it.grams&&/^delivery fee$/i.test(String(it.name||'').trim()));})};
+    out.push({id:'ng:'+n.c.id,st:'Customers',hot:0,t:'Fresh batch nudge — '+esc(n.c.name||'customer'),
+      s:'last order '+wk+'w ago · '+esc(itemsLine(goods).slice(0,60)||'—'),
+      act:'Send reminder',
+      det:[['Customer',n.c.name||'—'],['Email',n.c.email],['Last order',(fmtD(n.d)||'—')+' · '+wk+'w ago'],['They had',itemsLine(goods)||'—'],['Email carries','shop link + Google review link']],
+      det2:'Later',roles:['director'],kind:'nudge',ref:n});
+  });
   ITEMS=out.filter(function(i){return !sn[i.id];});
 }
 /* 類別色表：低飽和塵彩配紙白玫瑰；色條＋右上角分類＋chips 色點共用 */
@@ -515,6 +550,21 @@ async function runAction(id,btn){
       if(u3.error)throw new Error(u3.error.message);
       try{await callFn('send-email',{action:'payment_received',order_id:i.ref.id});}catch(e){toast('Paid ✓ but email failed');dropCard(id);return;}
       dropCard(id);toast('Paid ✓ receipt sent');return;
+    }
+    if(i.kind==='nudge'){
+      var nc=i.ref.c;
+      if(!confirm('Email a fresh-batch reminder to '+(nc.name||'this customer')+' ('+nc.email+')?\nIt carries the shop link and the Google review link.'))return;
+      if(btn){btn.disabled=true;btn.textContent='Sending…';}
+      await callFn('send-email',{action:'repurchase_nudge',customer_id:nc.id});
+      /* 提醒紀錄 read-modify-write 進 app_state（照 rtl_dot 慣例）；寫失敗不擋——頂多明天再看到卡 */
+      try{
+        var ngq=await sb.from('app_state').select('value').eq('key','nudge_log').maybeSingle();
+        var ngm=(ngq.data&&ngq.data.value&&typeof ngq.data.value==='object')?ngq.data.value:{};
+        ngm[String(nc.id)]=todayKey();
+        await sb.from('app_state').upsert({key:'nudge_log',value:ngm,updated_at:new Date().toISOString()},{onConflict:'key'});
+        NUDGE_LOG=ngm;
+      }catch(e){}
+      dropCard(id);toast('Reminder sent ✓');return;
     }
     if(i.kind==='dialin'){openDialinForm(i);return;}
     if(i.kind==='roastlog'){openRoastSheet(Array.isArray(i.ref)?i.ref:null);return;}

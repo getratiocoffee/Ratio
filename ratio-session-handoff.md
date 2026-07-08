@@ -4,7 +4,7 @@
 - **兩個 app 並行**：
   - **新殼 `/new`**（new/index.html，獨立檔案）＝日常營運主力：今日流（10 種卡：晨報含班表/接單/烘豆需求/備貨打勾/出貨含現畫資訊卡/收款/QC/調參/低庫存/任務/回饋回覆）＋QC 拇指工作台＋Tools（搜尋/開新單/傳送門）；滑卡（右做左睡＋undo）、時段排序、紙白玫瑰＋炭紙自動夜版、PWA 可裝＋**Web Push 推播**（新單/收款手機叮）、角色過濾（director/roaster/retail/staff）。與 classic 同網域共用登入
   - **classic `/`**（index.html 單檔）＝低頻功能：上架/印刷/盤點/庫存/財務儀表板等，12 站泡泡面板全亮；**完全沒被新殼改動**
-- **Edge 版本**：send-email **v20**（付款按鈕帶 surcharge 揭露）/ sync-to-square **v19**（付款連結走 Online 地點＋2.2% surcharge）/ square-webhook **v18**（＋推播）/ public-shop **v4**（結帳 service-charge surcharge）/ public-bean v1 / **push-send v1** / **morning-brief v1**（2026-07-07：pg_cron 每天 20:30 UTC＝雪梨 6:30 冬令自動呼叫，算晨報→push-send 廣播；x-cron-key 驗證，金鑰在 secrets_kv 'cron_key'；訂閱 0 時無聲）/ **wholesale v2**（2026-07-08：批發自助下單，見補記）。SURCHARGE_PCT secret 一處管四處（預設 2.2）
+- **Edge 版本**：send-email **v21**（2026-07-08：＋repurchase_nudge 回購提醒；v20 付款按鈕帶 surcharge 揭露）/ sync-to-square **v19**（付款連結走 Online 地點＋2.2% surcharge）/ square-webhook **v18**（＋推播）/ public-shop **v4**（結帳 service-charge surcharge）/ public-bean v1 / **push-send v1** / **morning-brief v1**（2026-07-07：pg_cron 每天 20:30 UTC＝雪梨 6:30 冬令自動呼叫，算晨報→push-send 廣播；x-cron-key 驗證，金鑰在 secrets_kv 'cron_key'；訂閱 0 時無聲）/ **wholesale v2**（2026-07-08：批發自助下單，見補記）。SURCHARGE_PCT secret 一處管四處（預設 2.2）
 - **新表**：tasks（團隊待辦）/ push_subs（推播訂閱）/ secrets_kv（**零政策＝service-role only**，放 VAPID 鑰匙——advisor 的 INFO 是刻意設計）
 - **安全**：messages 匿名讀已鎖＋登入重載；handle_new_user execute 已再次 revoke（2026-07-07 驗證 404）；always-true 政策群＝小團隊信任模型（刻意）；mail-assets 可列目錄（低風險留觀）
 - **等老闆做**：**Wholesale 開帳號**（見 2026-07-08 補記：清 customers 重複列→Auth 開帳號→Tools→Wholesale 切角色＋設折扣％→密碼長度調 12→Happy Sip 試一單；Leaked password protection 實測 Pro 限定不開了）、上架剩餘豆（classic Beans 站照佇列按）、新殼 Dispatch 首次真單看卡片、清 #0021/#0022 測試單＋註銷殘留連結 tDABzmGt（見 07-08 第二 session 補記）
@@ -13,6 +13,7 @@
 
 ## 〇、補記 — 2026-07-08 第二 session（小收尾打掃）
 - **新豆通知搬進新殼＝一份內容三發到齊（Phase 4 第二刀）**（new/index.html）：貨架豆明細抽屜 Social post kit 下加「**Announce by email — new coffee**」→ `announceShelfBean()` 照抄 classic announceCoffee：QC 閘門（matchRoast 判 reroast/downgrade 擋死；沒 pass/沒鎖風味只 Heads up 警告）→ customers 有 email 人數 confirm → `uploadCardForBean()`（同 classic uploadCardFor：full row flavour_locked 優先→cardDataFor→makeSquareCard **Square 安全白邊版**——信件卡跟 classic 一致，不是 IG tight 版→ mail-assets `card-<slug>.png` upsert＋cache-bust）→ send-email `announce_coffee`（payload name/card_url/flavour/note 與 classic 一字不差，edge 零改動）。至此手機一個抽屜完成三發：信＋IG＋小紅書。驗證：jscheck ✓；preview stub 四情境——正常鎖定豆（confirm 人數只算有 email 的 3 位、卡 105KB card-kiama-aa.png upsert、send-email payload 逐欄對、toast「Sent to 3 of 3」）／未鎖＋沒判定出 Heads up／reroast 擋死／零 email 客戶擋，console 零錯誤。⚠ 真發信等老闆下支新豆上架時按
+- **回購提醒附評論連結（Phase 4 第三刀＝三項全完工；老闆貼了 Google 評論連結觸發）**：①評論連結存進 app_state `google_review_url`（出貨信 CTA/QR 即刻生效；DB 原有 07-05 舊連結尾碼不同——VEBM vs 新 VEAE——實測兩條 302 到同一 placeid 的評論頁，等價，以新貼的為準）②**edge send-email v21**：新動作 `repurchase_nudge` {customer_id}——查客戶＋最近一單（排除 Cancelled；品項列名排除 Delivery fee）→ 信＝「Time for a fresh batch?」＋幾週前買了什麼＋「See what's on the shelf」鈕（APP_URL/?shop）＋Google 評論 CTA（同 dispatch reviewBlock 樣式）；誰/何時發由前端決定，edge 只組信寄出。部署後 401 煙霧測試 ✓ ③**新殼 Today 流「Fresh batch nudge」卡**（new/index.html）：buildItems 算每客最後一單（排除 wholesale 單/shop 客/無 email）→ 28–120 天窗內出卡，**一天最多 2 張**（最久沒買優先）；送過記 `NUDGE_LOG`（app_state `nudge_log` 扁平 {customer_id:'YYYY-MM-DD'}，loadAll rs[11] 新撈），同輪（沒有新單）60 天內不再出；卡副標/details 列上次品項（排除 Delivery fee）＋「Email carries: shop link + Google review link」；runAction kind 'nudge'＝confirm（列名字+email）→ callFn repurchase_nudge → nudge_log read-modify-write upsert（寫失敗不擋，頂多明天再看到卡）→ dropCard+toast；roles director only，det2 Later 照常可睡。驗證：jscheck ✓；preview stub 九客戶矩陣——只出 Amy(60d)+Bob(45d) 兩張（35d 的被擠掉、shop/無 email/10d/200d/已提醒 20d/純批發單全排除）、confirm 文案/payload {customer_id}/nudge_log 合併不蓋舊鍵/toast/卡消失 ✓、副標排除 Delivery fee ✓、console 零錯誤；**真 DB 試算＝目前 0 張卡會冒**（唯一合格池客人昨天才下單），四週後自然開始。⚠ 真信等第一張卡冒出來老闆按了看；nudge 卡只給 director
 - **備貨打勾清單跳過 Delivery fee（批發低消運費假品項收尾）**（new/index.html）：openPackSheet 先算 `packIdx`＝排除「grams 空＋名字正對 Delivery fee」的品項 → 清單只列實體品項、全勾判定只算 packIdx；**pack_state 照舊用原始 index 當鍵**（跳過不影響舊資料，舊單已存的勾照亮）。上輪備注的「備貨清單會列出（無害）」實際是打包的人得勾一個運費才能按 Ready——修掉。驗證：jscheck ✓；preview stub 三情境——批發單只列 2 實體列勾滿即解鎖 Ready（payload 鍵 0,1）／零售單行為不變／舊 pack_state 相容——console 零錯誤
 - **順手發現：待辦區「Retail Info 改版」其實早就完工**（classic index.html 7622–7656：Blends/Single Origin 分頁、三態 Square 膠囊、迷你 Announce 鍵全在，該待辦自帶的驗證紀錄也寫全過）——漏劃已補劃
 - **Tools 同名磁貼改名**（new/index.html）：舊「Info card · IG asset · classic」→「**IG asset** · 1200×1200 card · classic」——跟新的「Info cards · A4 · 2 fold cards」不再撞名，data-classic 跳轉照舊
@@ -372,11 +373,11 @@
 - 跨線：上架→接單（供貨）、Orders 烘豆需求→烘焙站（唯讀）、出貨→回饋→QC
 
 **社群曝光規劃（已定案）**
-- 優先序：~~Google 商家檔案（評論 QR 進出貨信/貼紙）~~ ✅ 管線完成，等老闆貼評論連結（見〇補記）> IG（v3 資訊卡 1200×1200 直接當貼文，Print Centre 已可下載）> 小紅書（中文+北岸華人，高 ROI）> TikTok/Reels（有餘力）
+- 優先序：~~Google 商家檔案（評論 QR 進出貨信/貼紙）~~ ✅ 全通（2026-07-08 老闆貼了評論連結，已存 app_state google_review_url——出貨信 CTA/QR 即刻生效；DB 原有一條 07-05 存的舊連結尾碼不同，實測兩條都指同一 placeid，以老闆新貼的為準）> IG（v3 資訊卡 1200×1200 直接當貼文，Print Centre 已可下載）> 小紅書（中文+北岸華人，高 ROI）> TikTok/Reels（有餘力）
 - 四內容支柱：新豆上市 / 過程隨手拍 / 沖煮教學（Brew guide 現成）/ 選豆思路
 - 頻率：IG 週 2 貼+3-4 限動、小紅書週 1-2、Google Post 週 1
 - 在地：包裹小卡 QR、供豆下家立牌、季度市集
-- **Phase 4 新增規格**：~~上架自動產 IG/小紅書素材（資訊卡+中英文案草稿）~~ ✅ 2026-07-08 Social post kit 完成（見〇補記）、~~新豆通知一份內容三發~~ ✅ 2026-07-08 新殼豆子抽屜 Announce by email 完成（見〇補記，三發同一抽屜）、回購提醒附評論連結（依賴老闆先貼 Google 評論連結）
+- **Phase 4 新增規格**：~~上架自動產 IG/小紅書素材（資訊卡+中英文案草稿）~~ ✅ 2026-07-08 Social post kit 完成（見〇補記）、~~新豆通知一份內容三發~~ ✅ 2026-07-08 新殼豆子抽屜 Announce by email 完成（見〇補記，三發同一抽屜）、~~回購提醒附評論連結~~ ✅ 2026-07-08 Fresh batch nudge 卡＋send-email v21 完成（見〇補記）——**Phase 4 三項全完工**
 
 **資料收集小工具（Beans 2.0 各站的資料入口，待排期）**
 - ~~烘焙師：T1 烘焙快錄；T2 烘焙 profile 文字筆記~~ ✅ T1、T2 都完成（見〇補記）
