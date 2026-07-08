@@ -553,7 +553,11 @@ async function qcVerdict(r,v,btn,cardId,s){
   if(v==='pass'&&s&&QCLOCK&&!s.flavour_locked){
     try{var lu=await sb.from('samples').update({flavour_locked:true}).eq('id',s.id);if(!lu.error){s.flavour_locked=true;locked=true;}else lockFail=true;}catch(e){lockFail=true;}
   }
-  toast('QC '+v+' ✓'+(locked?' · flavours locked':(lockFail?' · ⚠ flavour lock failed — lock it from Retail Info':'')));
+  /* 開關關著 pass＝沒鎖要講明（老闆踩過：以為壞掉，其實是膠囊被切掉了） */
+  var lockNote=locked?' · flavours locked'
+    :lockFail?' · ⚠ flavour lock failed — lock it from Retail Info'
+    :(v==='pass'&&s&&!s.flavour_locked&&!QCLOCK)?' · flavours not locked (toggle off)':'';
+  toast('QC '+v+' ✓'+lockNote);
   if(cardId)dropCard(cardId);
   /* 全量重算：pass 完 List 卡要立刻長出來（原本只濾 QCQ，Today 流舊資料害 List 卡等下次刷新才出現） */
   buildItems();
