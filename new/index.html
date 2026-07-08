@@ -321,7 +321,11 @@ function buildItems(){
   out.push({id:'brief',st:'Brief',pin:1,t:(new Date().getHours()<12?'Morning':'Today')+' brief',
     s:(rosterNames?'On: '+esc(rosterNames)+(briefBits.length?' · ':''):'')+(briefBits.length?briefBits.join(' · '):(rosterNames?'':'all clear')),act:'Got it',
     det:[['On shift',rosterLine||'no one rostered']].concat([['To accept',String(newQ.length)],['To pack',String(packQ.length)],['To ship',String(shipQ.length)],['QC waiting',String(QCQ.length)],['Dial-in stale',String(stale.length)],['Beans low',String(low.length)],['Open tasks',String(DB.tasks.length)]]),
-    roles:['director','roaster','retail','staff'],kind:'dismiss'});
+    roles:['director','roaster','retail','staff','finance'],kind:'dismiss'});
+  /* finance 常駐導向卡：finance 的今日流沒有營運卡（設計如此），這張帶她直達薪務；不進 snooze（pin） */
+  if(myRole()==='finance')out.push({id:'fin-pay',st:'Brief',pin:1,t:'Timesheet & payroll',
+    s:'hours, wages and weekly payroll email',act:'Open payroll',
+    det:[['Also in','Tools → Timesheet']],roles:['finance'],kind:'paynav'});
   /* 烘豆需求卡：Confirmed/Roasting 品項同名合併，**先看熟豆貨架只提差額**（老闆的生產線：接單→看熟豆庫存→沒貨才烘）；
      貨架＝roasts.remaining_kg 同名加總（QC 打槍的 reroast/downgrade 批不算可賣）；全夠貨＝不出卡 */
   var dem={},demOrder=[];
@@ -543,6 +547,7 @@ async function runAction(id,btn){
       dropCard(id);toast('Task done ✓');return;
     }
     if(i.kind==='qcnav'){view='qc';render();return;}
+    if(i.kind==='paynav'){openPayrollSheet();return;}
     if(i.kind==='pack'){openPackSheet(i);return;}
     if(i.kind==='fb'){
       if(i.ref.email){openReplySheet(i);}
