@@ -2854,9 +2854,11 @@ async function openInfoCardPrint(s){
     +'.icroot .br{display:flex;justify-content:space-between;gap:5mm;border-bottom:.2mm solid #E8E2DB;padding:1.9mm 0;font-size:9pt;align-items:baseline}'
     +'.icroot .br span{color:#8A837C;flex:0 0 auto;font-size:6.6pt;font-weight:700;letter-spacing:.14em;text-transform:uppercase}'
     +'.icroot .br b{font-weight:600;text-align:right;overflow-wrap:anywhere}'
+    /* 雙面短邊翻：整張背面相對正面轉 180°，故第 2 頁（內頁）內容預轉 180° 補償，印出對摺後內頁才正立 */
+    +'.icroot .flip{position:absolute;inset:0;transform:rotate(180deg)}'
     +'</style>'
     +'<div class="page pb"><div class="cuth"></div>'+outerStrip+outerStrip+'</div>'
-    +'<div class="page"><div class="cuth"></div>'+innerStrip+innerStrip+'</div>'
+    +'<div class="page"><div class="flip"><div class="cuth"></div>'+innerStrip+innerStrip+'</div></div>'
     +'</div>';
   /* 老闆指定：不開列印框，直接產 PDF 檔下載（html2pdf 首次用時才載，兩頁 297×105mm）
      ⚠ 兩個坑：①離螢幕定位不能寫在交給 html2pdf 的元素上（會被 clone 走→截到空白）——包殼藏、把乾淨的 .icroot 交出去
