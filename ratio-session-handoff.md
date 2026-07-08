@@ -31,7 +31,13 @@
 - **滲透測試**：批發帳號四表全 0＋update 0 列＋自升 director 0 列；匿名全 0；老闆視角名冊 8/薪務 2 週/費率可改/可代填他人 N/A/可管角色——全過（測試寫入全 rollback）。⚠ **staff 角色的「只能動自己 N/A」實測要等 Stage C 有真員工帳號**（政策條件已寫好）
 - **順手發現**：Dani 測試帳號（Hung，wu110681）**不知何時變成 director**（中午還是 wholesale）——等老闆發落要不要降回
 
-### Stage B 藍圖（下一輪，Opus 照抄；新殼 new/index.html）
+### Stage B ✅ 完工（new/index.html，2026-07-08 Opus）
+- Tools「Timesheet」磁貼（director only，在 Wholesale 旁）→ `openRosterSheet()`：本週/下週/週後 seg、每天卡（名字＋時間＋½標記＋時數，未指派顯示「— tap to assign」灰列）、「Apply standard week」套模板（confirm 覆蓋）＋「Edit…」改模板、「+ shift」加班、點列開 `openShiftEdit`（人員 chips＝staff_members 按 sort、time 起訖、½ break 切換、Remove）、N/A 撞班黃 ⚠（列＋chip＋編輯抽屜黃字）、「Save this/next/week after」upsert rosters（**cash 欄原封帶回**、shift 形狀 {day,name,start,end,br} 不動）；存當週同步 DB.roster+buildItems
+- 班型存 app_state `ts_templates`（openTemplateEdit：三日型 mon-fri/sat/sun 加減 slot＋改時間＋½；首次預設＝老闆班型 RS_TPL_DEFAULT，存過以 DB 為準）
+- helper rsHM/rsHrs（＝classic tsPaidBr：時距−br?0.5）/rsWeekStart（＝mondayStr＋i*7）/rsUnavailable（N/A 日期區間比對）
+- **順手防呆**：todayShifts() 過濾空名（未指派班不進今日流「今天誰上班」）
+- 驗證：jscheck ✓；preview stub 全流程——3 週 seg/7 天卡/套模板 17 班（週一五 2×5＋六 3＋日 4）/指派 Yi 撞 N/A 亮 ⚠＋黃字/改時間 15:15 break off=9h/存檔 payload（week_start、17 班、cash 保留 ["Daniel"]、onConflict week_start、shift 形狀對）/切下週空/模板加 slot 存 app_state/DB.roster 同步 17/console 零錯誤＋兩張截圖（週視圖＋班次編輯抽屜）。⚠ 真機＋真資料（跨裝置 realtime、晨報卡 regression）等老闆部署後掃
+### Stage B 舊藍圖（已完成，保留供對照）
 1. Tools 磁貼「Timesheet」（data-t 'roster'，director only 先）→ `openRosterSheet()`：頂部週切換 seg〔This week｜Next week｜Week after〕（週一＝mondayStr()＋0/7/14 天）；每天一段（Mon–Sun＋日期），列該日 shifts（名字＋start–end＋hrs＋br 標記），點列開編輯（改人/改時間/br 勾/刪除），「＋ Add shift」選人（**staff_members** active 按 sort；查詢空陣列 fallback classic STAFF_NAMES 八人）＋時間
 2. **Apply template 鈕**（整週）：模板存 app_state key `ts_templates`（read-modify-write 照 rtl_dot 慣例），形狀 `{monfri:[{start,end,br}...],sat:[...],sun:[...]}`；code 內建預設值＝上面老闆班型；週已有班先 confirm 才覆蓋；另做「Edit templates…」子抽屜改模板時間/br
 3. **N/A 撞班警告**：讀 staff_na 與該週重疊的列；shift 的名字當天在 N/A 內 → 列尾黃字「⚠ unavailable」；選人清單同標

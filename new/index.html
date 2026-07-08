@@ -130,6 +130,14 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .din{width:100%;border:1.5px solid var(--line2);border-radius:10px;padding:14px;font-size:17px;font-family:inherit;background:var(--surface);color:var(--ink);outline:none;margin-top:8px}
 .din:focus{border-color:var(--ink)}
 .dlab{font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-top:14px}
+.rs-day{border:1px solid var(--line);border-radius:12px;margin-top:9px;overflow:hidden}
+.rs-day-h{display:flex;justify-content:space-between;align-items:center;padding:9px 13px;background:var(--bg);font-size:13px;font-weight:700;color:var(--ink)}
+.rs-add{border:none;background:none;color:var(--accent);font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;padding:3px 4px}
+.rs-shift{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;border:none;border-top:1px solid var(--line);background:var(--surface);color:var(--ink);padding:11px 13px;font-family:inherit;cursor:pointer}
+.rs-shift .rs-nm{font-size:14px;font-weight:600}
+.rs-shift .rs-tm{font-size:13px;color:var(--muted);white-space:nowrap}
+.rs-shift.rs-empty .rs-nm{color:var(--muted);font-weight:500}
+.rs-none{padding:10px 13px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
 .toast{position:fixed;left:50%;transform:translateX(-50%) translateY(20px);bottom:150px;background:var(--inv);color:var(--inv-t);border-radius:999px;padding:11px 22px;font-size:15px;font-weight:600;opacity:0;transition:all .3s;z-index:60;pointer-events:none;white-space:nowrap;max-width:88vw;overflow:hidden;text-overflow:ellipsis}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .note{font-size:12.5px;color:var(--muted);text-align:center;margin:6px 14px 0;line-height:1.6}
@@ -255,7 +263,7 @@ function mondayStr(){
 function todayShifts(){
   var dk=['sun','mon','tue','wed','thu','fri','sat'][new Date().getDay()];
   var sh=(DB.roster&&Array.isArray(DB.roster.shifts))?DB.roster.shifts:[];
-  return sh.filter(function(s){return s.day===dk;}).sort(function(a,b){return String(a.start||'')<String(b.start||'')?-1:1;});
+  return sh.filter(function(s){return s.day===dk&&s.name&&String(s.name).trim();}).sort(function(a,b){return String(a.start||'')<String(b.start||'')?-1:1;});
 }
 /* 手上的豆（待杯測）：pending_cupping、沒判定、不在 QC 佇列——Today Cup 卡與 QC 頁 to-cup 區共用 */
 function toCupList(){
@@ -3753,6 +3761,167 @@ function openMenuDineinSheet(){
 }
 
 /* ===== Tools ===== */
+/* ===== Timesheet 2.0 Stage B：排班（本週＋下兩週；班型模板；N/A 撞班警告）=====
+   shift 形狀嚴格照 classic＝{day,name,start,end,br}（morning-brief/今日流晨報卡都在讀）；
+   寫入照 classic saveRosterRow upsert rosters（cash 欄原封帶回不動——薪務已搬 pay_weeks，但 classic 還讀 rosters.cash）；
+   時數＝時距−(br?0.5:0)，同 classic tsPaidBr */
+var RS_WK=0, RS_DATA={}, RS_STAFF=[], RS_NA=[], RS_TPL=null, RS_TE=null;
+var RS_DOW=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
+/* 老闆口述班型（週六日暫無 break）——存 app_state ts_templates 後以那份為準；這只是首次預設，抽屜可改 */
+var RS_TPL_DEFAULT={
+  monfri:[{start:'06:15',end:'14:15',br:true},{start:'08:15',end:'14:15',br:false}],
+  sat:[{start:'06:15',end:'15:15',br:false},{start:'08:15',end:'16:15',br:false},{start:'09:15',end:'16:15',br:false}],
+  sun:[{start:'06:15',end:'08:15',br:false},{start:'08:15',end:'15:15',br:false},{start:'08:15',end:'16:15',br:false},{start:'09:15',end:'16:15',br:false}]
+};
+function rsHM(s){var p=String(s||'').split(':');return (+p[0])*60+(+p[1]);}
+function rsHrs(start,end,br){if(!start||!end)return 0;var x=(rsHM(end)-rsHM(start))/60;if(x<0)x+=24;if(br)x-=0.5;return x<0?0:x;}
+function rsHH(x){x=Math.round(x*10)/10;return (x===Math.round(x)?String(x):String(x))+'h';}
+function rsWeekStart(i){var d=new Date();d.setDate(d.getDate()-((d.getDay()+6)%7)+i*7);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function rsDateFor(ws,dowIdx){var p=String(ws).split('-');var d=new Date(+p[0],+p[1]-1,+p[2]);d.setDate(d.getDate()+dowIdx);return d;}
+function rsDMY(d){return d.getDate()+'/'+(d.getMonth()+1);}
+function rsDIso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function rsUnavailable(name,dObj){if(!name)return false;var ds=rsDIso(dObj);return (RS_NA||[]).some(function(n){return String(n.name)===String(name)&&String(n.start_date)<=ds&&String(n.end_date)>=ds;});}
+function rsTpl(){return (RS_TPL&&RS_TPL.monfri)?RS_TPL:RS_TPL_DEFAULT;}
+async function openRosterSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Timesheet</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  RS_WK=0;RS_DATA={};RS_STAFF=[];RS_NA=[];RS_TPL=null;
+  var wks=[rsWeekStart(0),rsWeekStart(1),rsWeekStart(2)];
+  try{
+    var rq=await sb.from('rosters').select('week_start,shifts,cash,deleted').in('week_start',wks);
+    var byWk={};(rq.data||[]).forEach(function(r){byWk[r.week_start]=r;});
+    wks.forEach(function(w){var r=byWk[w];RS_DATA[w]={shifts:(r&&!r.deleted&&Array.isArray(r.shifts))?JSON.parse(JSON.stringify(r.shifts)):[],cash:(r&&r.cash)||[]};});
+    var sm=await sb.from('staff_members').select('name,active,sort').order('sort');
+    RS_STAFF=(sm.data||[]).filter(function(x){return x.active!==false;}).map(function(x){return x.name;});
+    if(!RS_STAFF.length)RS_STAFF=['Yi','Manami','Joshua','Juwa','Daniel','Samuel','Nina','Lovey'];
+    var na=await sb.from('staff_na').select('name,start_date,end_date');
+    RS_NA=na.data||[];
+    var tq=await sb.from('app_state').select('value').eq('key','ts_templates').maybeSingle();
+    if(tq.data&&tq.data.value&&tq.data.value.monfri)RS_TPL=tq.data.value;
+  }catch(e){console.error('roster load',e);}
+  renderRoster();
+}
+function renderRoster(){
+  var ws=rsWeekStart(RS_WK);var wk=RS_DATA[ws]||{shifts:[]};var shifts=wk.shifts;
+  var d0=rsDateFor(ws,0),d6=rsDateFor(ws,6);
+  var seg='<div class="pm-seg" style="margin-top:10px">'+[0,1,2].map(function(i){
+    return '<button data-rswk="'+i+'"'+(i===RS_WK?' class="on"':'')+'>'+['This week','Next week','Week after'][i]+'</button>';
+  }).join('')+'</div>';
+  var assigned=shifts.filter(function(s){return s.name&&String(s.name).trim();}).length;
+  var days=RS_DOW.map(function(dw,di){
+    var dObj=rsDateFor(ws,di);
+    var rows='';
+    shifts.forEach(function(s,idx){
+      if(s.day!==dw[0])return;
+      var has=!!(s.name&&String(s.name).trim());
+      var warn=has&&rsUnavailable(s.name,dObj);
+      rows+='<button class="rs-shift'+(has?'':' rs-empty')+'" data-rsedit="'+idx+'">'
+        +'<span class="rs-nm">'+(has?esc(s.name):'— tap to assign')+(warn?' <span class="fr-yellow">⚠</span>':'')+'</span>'
+        +'<span class="rs-tm">'+esc(s.start)+'–'+esc(s.end)+(s.br?' ·½':'')+' · '+rsHH(rsHrs(s.start,s.end,s.br))+'</span></button>';
+    });
+    return '<div class="rs-day"><div class="rs-day-h"><span>'+dw[1]+' '+rsDMY(dObj)+'</span><button class="rs-add" data-rsadd="'+dw[0]+'">+ shift</button></div>'
+      +(rows||'<div class="rs-none">no shifts</div>')+'</div>';
+  }).join('');
+  openDrawerHTML('<div class="t" style="font-size:19px">Timesheet</div>'
+    +'<div class="s" style="margin-top:2px">'+rsDMY(d0)+' – '+rsDMY(d6)+' · '+assigned+' assigned</div>'
+    +seg
+    +'<div style="display:flex;gap:8px;margin-top:10px"><button class="dclose" id="rs-tpl" style="flex:1;margin:0;padding:11px">Apply standard week</button><button class="dclose" id="rs-tpledit" style="flex:0 0 auto;margin:0;width:auto;padding:11px 16px">Edit…</button></div>'
+    +'<div style="margin-top:4px">'+days+'</div>'
+    +'<button class="act" id="rs-save">Save '+['this week','next week','week after'][RS_WK]+'</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  document.querySelectorAll('#drawer [data-rswk]').forEach(function(b){b.addEventListener('click',function(){RS_WK=+b.dataset.rswk;renderRoster();});});
+  document.querySelectorAll('#drawer [data-rsedit]').forEach(function(b){b.addEventListener('click',function(){openShiftEdit(ws,+b.dataset.rsedit);});});
+  document.querySelectorAll('#drawer [data-rsadd]').forEach(function(b){b.addEventListener('click',function(){addRosterShift(ws,b.dataset.rsadd);});});
+  $('rs-tpl').addEventListener('click',function(){applyStandardWeek(ws);});
+  $('rs-tpledit').addEventListener('click',openTemplateEdit);
+  $('rs-save').addEventListener('click',function(){saveRosterWeek(ws,this);});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+function applyStandardWeek(ws){
+  var cur=RS_DATA[ws].shifts;
+  if(cur.length&&!confirm('Replace this week with the standard shift times? Anyone you have assigned will be cleared.'))return;
+  var tpl=rsTpl(),out=[];
+  RS_DOW.forEach(function(dw){
+    var slots=dw[0]==='sat'?tpl.sat:dw[0]==='sun'?tpl.sun:tpl.monfri;
+    (slots||[]).forEach(function(sl){out.push({day:dw[0],name:'',start:sl.start,end:sl.end,br:!!sl.br});});
+  });
+  RS_DATA[ws].shifts=out;renderRoster();toast('Standard week applied — now assign people');
+}
+function addRosterShift(ws,dk){
+  var tpl=rsTpl(),slots=dk==='sat'?tpl.sat:dk==='sun'?tpl.sun:tpl.monfri,d=(slots&&slots[0])||{start:'08:15',end:'16:15',br:false};
+  RS_DATA[ws].shifts.push({day:dk,name:'',start:d.start,end:d.end,br:!!d.br});
+  openShiftEdit(ws,RS_DATA[ws].shifts.length-1);
+}
+function openShiftEdit(ws,idx){
+  var shifts=RS_DATA[ws].shifts,s=shifts[idx];if(!s){renderRoster();return;}
+  var di=RS_DOW.map(function(x){return x[0];}).indexOf(s.day),dObj=rsDateFor(ws,di);
+  var dowLbl=(RS_DOW[di]||['',''])[1]+' '+rsDMY(dObj);
+  function chips(){return RS_STAFF.map(function(n){var un=rsUnavailable(n,dObj),on=(s.name===n);
+    return '<button class="chip" data-rsn="'+esc(n)+'"'+(on?' style="border-color:var(--accent);color:var(--accent)"':'')+'>'+esc(n)+(un?' ⚠':'')+'</button>';}).join('');}
+  openDrawerHTML('<div class="t" style="font-size:19px">'+dowLbl+' · shift</div>'
+    +'<div class="dlab">Who</div><div id="rs-who" style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px">'+chips()+'</div>'
+    +'<div id="rs-warn" style="margin-top:8px"></div>'
+    +'<div class="pair" style="margin-top:12px;display:grid"><div><div class="dlab" style="margin-top:0">Start</div><input class="din" id="rs-st" type="time" value="'+esc(s.start)+'"></div><div><div class="dlab" style="margin-top:0">End</div><input class="din" id="rs-en" type="time" value="'+esc(s.end)+'"></div></div>'
+    +'<div class="dlab">Unpaid break</div><div class="pm-seg"><button id="rs-br0"'+(s.br?'':' class="on"')+'>None</button><button id="rs-br1"'+(s.br?' class="on"':'')+'>Half hour</button></div>'
+    +'<button class="act" id="rs-done">Done</button>'
+    +'<button class="dclose" id="rs-del" style="border-color:var(--danger);color:var(--danger)">Remove shift</button>'
+    +'<button class="dclose" id="rs-back" style="border:none;background:none;color:var(--muted)">‹ Back to week</button>');
+  function warn(){var w=$('rs-warn');if(w)w.innerHTML=(s.name&&rsUnavailable(s.name,dObj))?'<span class="fr-yellow" style="font-size:13px">⚠ '+esc(s.name)+' is marked unavailable on '+rsDMY(dObj)+'</span>':'';}
+  warn();
+  document.querySelectorAll('#rs-who [data-rsn]').forEach(function(b){b.addEventListener('click',function(){
+    s.name=(s.name===b.dataset.rsn)?'':b.dataset.rsn;
+    document.querySelectorAll('#rs-who [data-rsn]').forEach(function(x){var on=(s.name===x.dataset.rsn);x.style.borderColor=on?'var(--accent)':'';x.style.color=on?'var(--accent)':'';});
+    warn();
+  });});
+  $('rs-st').addEventListener('change',function(){s.start=this.value;});
+  $('rs-en').addEventListener('change',function(){s.end=this.value;});
+  $('rs-br0').addEventListener('click',function(){s.br=false;$('rs-br0').classList.add('on');$('rs-br1').classList.remove('on');});
+  $('rs-br1').addEventListener('click',function(){s.br=true;$('rs-br1').classList.add('on');$('rs-br0').classList.remove('on');});
+  $('rs-done').addEventListener('click',function(){s.start=$('rs-st').value||s.start;s.end=$('rs-en').value||s.end;renderRoster();});
+  $('rs-del').addEventListener('click',function(){RS_DATA[ws].shifts.splice(idx,1);renderRoster();});
+  $('rs-back').addEventListener('click',function(){s.start=$('rs-st').value||s.start;s.end=$('rs-en').value||s.end;renderRoster();});
+}
+async function saveRosterWeek(ws,btn){
+  var wk=RS_DATA[ws];if(!wk)return;
+  btn.disabled=true;btn.textContent='Saving…';
+  try{
+    var u=await sb.from('rosters').upsert({week_start:ws,shifts:wk.shifts,cash:wk.cash||[],deleted:false,updated_at:new Date().toISOString()},{onConflict:'week_start'});
+    if(u.error)throw new Error(u.error.message);
+    if(ws===mondayStr()){DB.roster={week_start:ws,shifts:wk.shifts.slice(),deleted:false};buildItems();}
+    toast('Timesheet saved ✓');
+  }catch(e){alert('Save failed: '+(e&&e.message||e));}
+  btn.disabled=false;btn.textContent='Save '+['this week','next week','week after'][RS_WK];
+}
+/* 班型模板編輯（存 app_state ts_templates；與 classic 不共用，classic 的 DAY_PRESETS 是硬編碼預設） */
+function openTemplateEdit(){RS_TE=JSON.parse(JSON.stringify(rsTpl()));renderTemplateEdit();}
+function renderTemplateEdit(){
+  var groups=[['monfri','Mon–Fri'],['sat','Saturday'],['sun','Sunday']];
+  var html='<div class="t" style="font-size:19px">Standard shift times</div>'
+    +'<div class="s" style="margin-top:2px">the skeleton Apply standard week fills in — set once, reuse every week</div>';
+  groups.forEach(function(g){
+    html+='<div class="dlab">'+g[1]+'</div>';
+    (RS_TE[g[0]]||[]).forEach(function(sl,i){
+      html+='<div style="display:flex;gap:6px;align-items:center;margin-top:8px">'
+        +'<input class="din" style="margin:0;flex:1;padding:11px" type="time" data-test="'+g[0]+':'+i+'" value="'+esc(sl.start)+'">'
+        +'<span style="color:var(--muted)">–</span>'
+        +'<input class="din" style="margin:0;flex:1;padding:11px" type="time" data-teen="'+g[0]+':'+i+'" value="'+esc(sl.end)+'">'
+        +'<button class="chip" data-tebr="'+g[0]+':'+i+'"'+(sl.br?' style="border-color:var(--accent);color:var(--accent)"':'')+' title="unpaid half-hour">½</button>'
+        +'<button class="chip" data-tedel="'+g[0]+':'+i+'" style="border-color:var(--danger);color:var(--danger)">✕</button></div>';
+    });
+    html+='<button class="dclose" data-teadd="'+g[0]+'" style="margin-top:8px;padding:9px;font-size:14px">+ add a '+g[1]+' shift</button>';
+  });
+  html+='<button class="act" id="te-save">Save template</button>'
+    +'<button class="dclose" id="te-back" style="border:none;background:none;color:var(--muted)">‹ Back to timesheet</button>';
+  openDrawerHTML(html);
+  document.querySelectorAll('#drawer [data-test]').forEach(function(el){el.addEventListener('change',function(){var p=el.dataset.test.split(':');RS_TE[p[0]][+p[1]].start=el.value;});});
+  document.querySelectorAll('#drawer [data-teen]').forEach(function(el){el.addEventListener('change',function(){var p=el.dataset.teen.split(':');RS_TE[p[0]][+p[1]].end=el.value;});});
+  document.querySelectorAll('#drawer [data-tebr]').forEach(function(el){el.addEventListener('click',function(){var p=el.dataset.tebr.split(':'),sl=RS_TE[p[0]][+p[1]];sl.br=!sl.br;renderTemplateEdit();});});
+  document.querySelectorAll('#drawer [data-tedel]').forEach(function(el){el.addEventListener('click',function(){var p=el.dataset.tedel.split(':');RS_TE[p[0]].splice(+p[1],1);renderTemplateEdit();});});
+  document.querySelectorAll('#drawer [data-teadd]').forEach(function(el){el.addEventListener('click',function(){var g=el.dataset.teadd;(RS_TE[g]=RS_TE[g]||[]).push({start:'08:15',end:'16:15',br:false});renderTemplateEdit();});});
+  $('te-save').addEventListener('click',async function(){var btn=this;btn.disabled=true;btn.textContent='Saving…';
+    try{var u=await sb.from('app_state').upsert({key:'ts_templates',value:RS_TE,updated_at:new Date().toISOString()},{onConflict:'key'});if(u.error)throw new Error(u.error.message);RS_TPL=JSON.parse(JSON.stringify(RS_TE));toast('Template saved ✓');renderRoster();}
+    catch(e){btn.disabled=false;btn.textContent='Save template';alert('Save failed: '+(e&&e.message||e));}});
+  $('te-back').addEventListener('click',renderRoster);
+}
 function renderTools(){
   $('deck').style.display='none';
   $('hcnt').textContent='find and make';
@@ -3777,7 +3946,7 @@ function renderTools(){
     +[['Invoice','GST PDF · classic'],['IG asset','1200×1200 card · classic'],['Labels','bag / tin · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div><div class="gsec">Look up · right here</div><div class="tgrid">'
     +[['Green stock','full list · right here','greens'],['Roasted Stock','FIFO shelf · right here','batches'],['Retail Info','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Menus','4 menu PDFs · right here','menus'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes'],['Delete a coffee','remove records · careful','delbean']]
-      .concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[])
+      .concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale'],['Timesheet','roster this + next 2 weeks','roster']]:[])
       .concat([['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']]).map(function(x){return '<button class="tool" data-t="'+x[2]+'">'+x[0]+'<small>'+x[1]+'</small></button>';}).join('')
     +'</div></div>';
   var inp=$('tsearch');
@@ -3834,6 +4003,7 @@ function renderTools(){
     if(k==='menus'){openMenusSheet();return;}
     if(k==='delbean'){openDeleteCoffeeSheet();return;}
     if(k==='wholesale'){openWholesaleSheet();return;}
+    if(k==='roster'){openRosterSheet();return;}
     if(k==='signout'){
       if(!confirm('Sign out? The app returns to the public shop menu.'))return;
       (async function(){try{await sb.auth.signOut();}catch(e){}toast('Signed out');await boot();})();
