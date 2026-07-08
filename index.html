@@ -2622,13 +2622,17 @@ fill="#6F4A36" stroke="none">
             var sub=[];
             if(b.recipe&&b.recipe.length)sub.push(b.recipe.map(function(p){return esc(p.bean)+' '+p.pct+'%';}).join(' · '));
             else if(b.process)sub.push(esc(b.process));
-            return '<div class="ps-item">'
-              +'<div class="ps-top"><div><div class="ps-name">'+esc(b.name)+'</div>'+(sub.length?'<div class="pb-sub">'+sub.join(' · ')+'</div>':'')+'</div>'
+            /* 售罄豆照樣列出（客人看得到貨在流動——老闆規則 2026-07-08），只是不能下單 */
+            var so=!!b.sold_out;
+            return '<div class="ps-item"'+(so?' style="opacity:.75"':'')+'>'
+              +'<div class="ps-top"><div><div class="ps-name">'+esc(b.name)
+              +(so?' <span style="font-size:10.5px;font-weight:700;color:#C0392B;letter-spacing:.08em;text-transform:uppercase;vertical-align:2px;margin-left:6px">Sold out</span>':'')
+              +'</div>'+(sub.length?'<div class="pb-sub">'+sub.join(' · ')+'</div>':'')+'</div>'
               +(b.price!=null?'<div class="ps-price">$'+Number(b.price).toFixed(0)+'<span class="ps-g"> /'+(b.grams||250)+'g</span></div>':'')+'</div>'
               +((b.flavour&&b.flavour.length)?'<div class="pb-flav" style="margin-top:9px">'+b.flavour.map(function(f){return '<span class="pb-chip">'+esc(f)+'</span>';}).join('')+'</div>':'')
               +(b.comment?'<div class="pb-sub" style="margin-top:9px">'+esc(b.comment)+'</div>':'')
               +'<div class="ps-actions"><a class="ps-more" href="?bean='+encodeURIComponent(b.slug)+'">Brew guide →</a>'
-              +'<button class="ps-buy" data-buy="'+esc(b.name)+'">Order</button></div>'
+              +(so?'<span class="ps-buy" style="opacity:.5;pointer-events:none">Sold out</span>':'<button class="ps-buy" data-buy="'+esc(b.name)+'">Order</button>')+'</div>'
               +'</div>';
           }).join('');
           ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div>'

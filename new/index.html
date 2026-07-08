@@ -4213,6 +4213,7 @@ function openShopDetailSheet(name){
   var chips=(b.flavour||[]).slice(0,3).map(function(f){return '<span class="shop-chip">'+esc(f)+'</span>';}).join('');
   var specs=shopSpecsFor(b);
   openDrawerHTML('<div class="t" style="font-size:19px">'+esc(b.name)+'</div>'
+    +(b.sold_out?'<div class="s" style="margin-top:4px;color:var(--danger)">Sold out — the next roast is on its way</div>':'')
     +(chips?'<div style="margin-top:10px">'+chips+'</div>':'')
     +'<div style="margin-top:6px">'+specs.map(function(r,ix){
       return '<div class="dl"'+(ix===specs.length-1?' style="border-bottom:none"':'')+'><span class="sl" style="flex:0 0 84px;text-transform:uppercase;font-size:11.5px;letter-spacing:.06em;padding-top:2px">'+r[0]+'</span><span style="text-align:right">'+r[1]+'</span></div>';
@@ -4233,25 +4234,30 @@ function shopCardsHTML(beans){
   return beans.map(function(b,bx){
     var sizes=(b.sizes&&b.sizes.length)?b.sizes:(b.price!=null?[{id:'',label:(b.grams||250)+'g',price:b.price,retail:b.retail}]:[]);
     var s0=sizes[0]||{};
-    var sizeSeg=sizes.length>1
+    /* 售罄豆留在菜單上（客人看得到貨在流動——老闆規則 2026-07-08）：圖降飽和＋Sold out 膠章，購買列收起 */
+    var so=!!b.sold_out;
+    var sizeSeg=(!so&&sizes.length>1)
       ?'<div class="pm-seg" style="margin-top:12px">'+sizes.map(function(s,si){
           return '<button data-sz="'+si+'" data-vid="'+esc(s.id)+'" data-price="'+(s.price!=null?s.price:'')+'" data-retail="'+(s.retail!=null?s.retail:'')+'" data-label="'+esc(s.label)+'"'+(si===0?' class="on"':'')+'>'+esc(s.label)+(s.price!=null?' $'+centAmt(s.price):'')+'</button>';
         }).join('')+'</div>'
       :'';
-    return '<div class="card shopc" data-bean="'+esc(b.name)+'" data-vid="'+esc(s0.id||'')+'" data-price="'+(s0.price!=null?s0.price:'')+'" data-label="'+esc(s0.label||'')+'">'
-      +(b.image?'<div class="shopimghold"><img class="shopimg" src="'+esc(b.image)+'" alt="'+esc(b.name)+'" loading="'+(bx===0?'eager':'lazy')+'"></div>':'')
+    return '<div class="card shopc" data-bean="'+esc(b.name)+'" data-vid="'+esc(so?'':(s0.id||''))+'" data-price="'+(s0.price!=null?s0.price:'')+'" data-label="'+esc(s0.label||'')+'">'
+      +(b.image?'<div class="shopimghold"><img class="shopimg" src="'+esc(b.image)+'" alt="'+esc(b.name)+'" loading="'+(bx===0?'eager':'lazy')+'"'+(so?' style="opacity:.55;filter:grayscale(.35)"':'')+'></div>':'')
       +'<div class="shopin">'
       /* 翻頁圓點在圖與價之間：每張卡自帶一排、亮自己那顆（滑到哪張看到的就是哪張的點，不用捲動監聽） */
       +(beans.length>1?'<div class="shopdots" style="margin:0 0 12px">'+beans.map(function(_,i){return '<span'+(i===bx?' class="on"':'')+'></span>';}).join('')+'</div>':'')
+      +(so?'<div style="margin:0 0 8px"><span style="display:inline-block;background:var(--tint);color:var(--danger);font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 11px;border-radius:999px">Sold out</span></div>':'')
       +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">'
       +'<span class="t" style="font-size:22px">'+esc(b.name)+'</span>'
-      +(s0.price!=null?'<span class="t shopprice" style="font-size:19px;white-space:nowrap">'+shopPriceHTML(s0.price,s0.label||((b.grams||250)+'g'),s0.retail)+'</span>':'')
+      +(s0.price!=null?'<span class="t shopprice" style="font-size:19px;white-space:nowrap'+(so?';color:var(--muted)':'')+'">'+shopPriceHTML(s0.price,s0.label||((b.grams||250)+'g'),s0.retail)+'</span>':'')
       +'</div>'
       +sizeSeg
-      +'<div class="no-line" style="margin-top:12px;align-items:center">'
-      +'<span class="qty"><button data-shopq="-1">−</button><span class="shopqty">1</span><button data-shopq="1">＋</button></span>'
-      +'<button class="act" data-addcart style="flex:1;margin-top:0">Add to cart'+(s0.price!=null?' · $'+centAmt(s0.price):'')+'</button>'
-      +'</div>'
+      +(so
+        ?'<div class="s" style="margin-top:12px;color:var(--muted)">Sold out — the next roast is on its way</div>'
+        :'<div class="no-line" style="margin-top:12px;align-items:center">'
+          +'<span class="qty"><button data-shopq="-1">−</button><span class="shopqty">1</span><button data-shopq="1">＋</button></span>'
+          +'<button class="act" data-addcart style="flex:1;margin-top:0">Add to cart'+(s0.price!=null?' · $'+centAmt(s0.price):'')+'</button>'
+          +'</div>')
       /* Details 放購買列之後：浮動購物車條蓋到的是次要資訊，不是消費動線 */
       +'<div class="dl" data-shopdetail style="margin-top:10px;cursor:pointer;border-bottom:none"><span>Details & brew guide</span><span style="text-align:right;color:var(--muted)">→</span></div>'
       +'</div></div>';
