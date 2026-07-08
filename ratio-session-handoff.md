@@ -4,18 +4,18 @@
 - **兩個 app 並行**：
   - **新殼 `/new`**（new/index.html，獨立檔案）＝日常營運主力：今日流（10 種卡：晨報含班表/接單/烘豆需求/備貨打勾/出貨含現畫資訊卡/收款/QC/調參/低庫存/任務/回饋回覆）＋QC 拇指工作台＋Tools（搜尋/開新單/傳送門）；滑卡（右做左睡＋undo）、時段排序、紙白玫瑰＋炭紙自動夜版、PWA 可裝＋**Web Push 推播**（新單/收款手機叮）、角色過濾（director/roaster/retail/staff）。與 classic 同網域共用登入
   - **classic `/`**（index.html 單檔）＝低頻功能：上架/印刷/盤點/庫存/財務儀表板等，12 站泡泡面板全亮；**完全沒被新殼改動**
-- **Edge 版本**：send-email **v21**（2026-07-08：＋repurchase_nudge 回購提醒；v20 付款按鈕帶 surcharge 揭露）/ sync-to-square **v19**（付款連結走 Online 地點＋2.2% surcharge）/ square-webhook **v18**（＋推播）/ public-shop **v8**（2026-07-08：售罄豆帶 sold_out 旗標上菜單、結帳擋售罄；v7 sizes/cart）/ public-bean v1 / **push-send v1** / **morning-brief v4**（2026-07-08：＋售罄滿 30 天自動下架；pg_cron 每天 **20:00/19:00 UTC 雙檔＝雪梨 6:00 整**（老闆改 6 點），算晨報→push-send 廣播；x-cron-key 驗證，金鑰在 secrets_kv 'cron_key'；訂閱 0 時無聲）/ **wholesale v3**（2026-07-08：批發自助下單；v3 售罄豆留在批發菜單帶 sold_out、checkout 擋，修 co-ferment 消失，見補記）。SURCHARGE_PCT secret 一處管四處（預設 2.2）
+- **Edge 版本**：send-email **v22**（2026-07-08：＋timesheet_pdf 薪資單寄財務＋cc 備份，finance 只放行此 action；v21 repurchase_nudge；v20 surcharge 揭露）/ sync-to-square **v19**（付款連結走 Online 地點＋2.2% surcharge）/ square-webhook **v18**（＋推播）/ public-shop **v8**（2026-07-08：售罄豆帶 sold_out 旗標上菜單、結帳擋售罄；v7 sizes/cart）/ public-bean v1 / **push-send v1** / **morning-brief v4**（2026-07-08：＋售罄滿 30 天自動下架；pg_cron 每天 **20:00/19:00 UTC 雙檔＝雪梨 6:00 整**（老闆改 6 點），算晨報→push-send 廣播；x-cron-key 驗證，金鑰在 secrets_kv 'cron_key'；訂閱 0 時無聲）/ **wholesale v3**（2026-07-08：批發自助下單；v3 售罄豆留在批發菜單帶 sold_out、checkout 擋，修 co-ferment 消失，見補記）。SURCHARGE_PCT secret 一處管四處（預設 2.2）
 - **新表**：tasks（團隊待辦）/ push_subs（推播訂閱）/ secrets_kv（**零政策＝service-role only**，放 VAPID 鑰匙——advisor 的 INFO 是刻意設計）
 - **安全**：messages 匿名讀已鎖＋登入重載；handle_new_user execute 已再次 revoke（2026-07-07 驗證 404）；always-true 政策群＝小團隊信任模型（刻意）；mail-assets 可列目錄（低風險留觀）
 - **等老闆做**：**Wholesale 開帳號**（見 2026-07-08 補記：清 customers 重複列→Auth 開帳號→Tools→Wholesale 切角色＋設折扣％→密碼長度調 12→Happy Sip 試一單；Leaked password protection 實測 Pro 限定不開了）、上架剩餘豆（classic Beans 站照佇列按）、新殼 Dispatch 首次真單看卡片、清 #0021/#0022 測試單＋註銷殘留連結 tDABzmGt（見 07-08 第二 session 補記；Chrome 桌機 07-08 傍晚再查仍登出，代跑不了）、~~iPhone 推播訂閱~~ ✅ 2026-07-08 老闆 iPhone 已訂閱（push_subs=1，send test 收到），晨報/新單/收款推播鏈路全通
 - **進行中**：**Timesheet 2.0**（排班/薪資進新殼）——Stage A 錢庫 ✅，B 排班 UI→D 薪資/PDF→C 員工帳號照藍圖做（見專節；**C 一定最後**）；~~staff 帳號開放~~ ✅ 拍板全開 8 人（在 Timesheet 2.0 Stage C 內執行）
-- **等老闆拍板**：語音快錄/BOOKOO 秤（第三級）、賣生豆/教學（停車場）；~~wholesale~~ ✅ 2026-07-08 全鏈完成；**Timesheet 等補**：finance 掛誰、八員工 email、每人費率數字、Dani 帳號（Hung）不明原因變 director 要不要降回、批發折扣 50% 是否正式值
+- **等老闆拍板**：語音快錄/BOOKOO 秤（第三級）、賣生豆/教學（停車場）；~~wholesale~~ ✅ 2026-07-08 全鏈完成；**Timesheet 等補**：~~finance 掛誰~~ ✅ Mimi Cheng lashesandmi@gmail.com（暫定，正式前確認）、八員工 email、每人費率數字（Edit pay rates 空著）、挑一週真寄一封薪資單給 Mimi 驗收、Dani 帳號（Hung）不明原因變 director 要不要降回、批發折扣 50% 是否正式值
 - **開發環境備忘**：push 用 GitHub Desktop（終端機無 Git 認證）；無 Node，jscheck 用 osascript；本機預覽 launch.json 指向 scratchpad/serve 複本（**改完檔案要 cp 過去**）；Chrome MCP 可開 ratio-theta（老闆登入態可代跑 callSquareFn 等）；Claude Code CLI 已裝在老闆 Mac（design-login 已授權，重推設計系統用終端機 claude）
 
 ## 〇、Timesheet 2.0 — 排班/薪資搬進新殼（2026-07-08 老闆定案，Stage A 完工，B/C/D 藍圖在此照抄施工）
 
 ### 需求定案（老闆四拍板）
-- **finance 新角色**：cash/on-book＋薪資只有 director+finance 可見；finance 掛誰等老闆指定（人選傾向 Nina）
+- **finance 新角色**：cash/on-book＋薪資只有 director+finance 可見；**財務＝Mimi Cheng lashesandmi@gmail.com（2026-07-08 暫定）**——薪資單寄她，副本備份給老闆 ratiocoffee2473@gmail.com；帳號 Stage C 才開，故 email 先存 app_state `finance_email`（edge 從此讀，不用等開帳號）
 - **費率**：每人兩種＝平日費率＋週末費率（週六日同價）；薪水＝平日時數×平日價＋週末時數×週末價
 - **PDF**：時數＋金額都列，寄 email 給 finance（走 send-email 管線留紀錄）
 - **員工帳號**：八人全開（Yi/Manami/Joshua/Juwa/Daniel/Samuel/Nina/Lovey）——email 等老闆提供
@@ -44,12 +44,12 @@
 3. **N/A 撞班警告**：讀 staff_na 與該週重疊的列；shift 的名字當天在 N/A 內 → 列尾黃字「⚠ unavailable」；選人清單同標
 4. **存檔照抄 classic saveRosterRow**：upsert rosters `{week_start,shifts,deleted:false,updated_at}`；**shifts 項目形狀絕不能改**＝`{day:'mon',name,start,end,br?}`（morning-brief v4/今日流晨報卡/classic 都在讀）；hrs 計算＝時距−(br?0.5:0)
 5. 驗證：jscheck；preview stub——模板整週填=17 列（週一五 2×5＋六 3＋日 4）、N/A 黃字、編輯/刪除、upsert payload 逐欄、晨報卡 regression；真機部署後老闆排下週班
-### Stage D 進行中（Stage B 後、先於 C）——核心 ✅，PDF/寄信/classic 收尾待下輪
+### Stage D 進行中（Stage B 後、先於 C）——核心 ✅＋PDF ✅＋寄財務 ✅，只剩 classic 收尾
 - **✅ 已完工（new/index.html，2026-07-08 Opus）**：①`myRole()` 白名單補 'finance'（原本 finance 會被當 customer 踢去購物頁）②Timesheet 磁貼門檻改 director+finance ③排班抽屜底加「Past weeks & pay →」→ `openPayrollSheet`：往週列表（rosters week_start<本週一、非 deleted、有指派名字的班；lt+order desc+limit 16）、可折疊、週表頭總平日/總週末時數；每人「平日 h · 週末 h」＋（**rsMoney＝director/finance 才畫**）薪水＝平日h×平日費率＋週末h×週末費率＋Cash/Bank 切換（upsert pay_weeks，sent_at 保留）；沒費率顯示紅字 set rate。`rsWeekHours` 拆分同 classic（mon-fri 平日/sat+sun 週末）④「Edit pay rates…」→ openRatesSheet：每人平日/週末兩格（$ 前綴，預填現值），upsert staff_rates（onConflict name）⑤**錢的牆**：前端 rsMoney 只是不畫；真牆是 RLS（staff_rates/pay_weeks money-only，staff 查回空）——雙保險。驗證：preview stub——2 週列/折疊/Yi 15h平日9h週末=$765(15×30+9×35)/Manami set rate/週表頭 21h wd 9h we/Cash 切換 upsert{cash:['Yi'],onConflict week_start}/**staff 視圖無 $ 無 cash 鈕無費率鈕但保留時數**/費率編輯預填 30 存 upsert onConflict name ✓＋截圖，console 零錯誤（測試中兩條 limit 報錯＝第一版 stub 漏 .limit，真 PostgREST 有，第二版已補）
-- **⬜ 待下輪（PDF＋寄財務＋classic 收尾）**：
-1. **PDF**：jsPDF loadScriptOnce（照 Menus 慣例）；內容＝週範圍＋每人 時數(wd/we)/費率/金額/Cash|Bank＋總計（總平日 h、總週末 h、總薪）；payroll 週卡加「PDF」下載鈕（rsMoney 才出）
-2. **Email to finance 鈕** → **send-email 新 action `timesheet_pdf`**｛week_start, pdf_b64｝→ resend attachments（bufToB64/attachments 現成）寄給 finance（profiles role='finance' 的 email，沒有就 NOTIFY_EMAIL）→ 回寫 pay_weeks.sent_at（payroll 週表頭已預留「· sent」顯示）；⚠ **send-email 授權要放行 finance**（現在只認 director——這段做時提醒老闆，雖 RLS 已擋但改 edge 授權要看清楚）
-3. **classic 收尾**：getCashSet/setCashSet 改讀寫 pay_weeks；SQL 清空 rosters.cash（欄留著防 classic realtime payload 形狀壞）
+- **✅ PDF 完工（new/index.html，2026-07-08 Opus）**：payroll 週卡展開後、**rsMoney 才出**的「Download PDF」鈕（data-paypdf）→ `genPayPDF(ws,btn)`（PAY_WK 查該週）→ **重用 `menusPDF(buildFn)` 載入器**（已含 jsPDF 2.5.1 CDN＋logo 載入，免重寫）→ `buildPayPDF(w,logo)`：portrait A4 pt，logo＋標題 Ratio Coffee/Payroll、右上週範圍＋generated 日期；表頭 STAFF｜WEEKDAY｜WEEKEND｜RATE(wd/we)｜WAGE｜PAID，每人一列（時數用 rsHH、費率 $wd/$we、金額 hasRate 才算否則 no rate/—、Cash 用 accent 色 Bank 用 muted），底部總計列（總平日 h／總週末 h／總薪，只加有費率者）；檔名 `Ratio_Payroll_<week_start>.pdf`。⚠ **jsPDF 2.5.1 的 `save` 掛在實例(level 0)不是 prototype**，攔測要包建構子（測試備忘）。驗證：preview 假資料——buildPayPDF 吐 7014 bytes/1 頁/檔名對、Yi 15wd×30+9we×35=$765 Joshua 6wd×28=$168 Manami no rate 總計21wd/16we/$933、director 出鈕 staff 不出、genPayPDF 端到端 5491 bytes 零錯誤＋截圖（$540.00 週卡帶鈕）。⚠ 真下載 PDF 檔面等老闆部署後手機按一張看排版
+- **✅ Email to finance 完工（new/index.html＋send-email v22＋app_state，2026-07-08 Opus）**：payroll 週卡「Email to finance」鈕（data-payemail，money 才出）→ `emailPayPDF(ws,btn)`：`payTotals()` 算 {staff,totWd,totWe,totWage}→confirm（帶財務 email，文案「backup copy goes to you too」）→ **重用 buildPayPDF**（已改成 return doc 不 save；下載路改自己 doc.save）→ `btoa(doc.output())` 轉 base64 → callFn send-email `timesheet_pdf`｛week_start, pdf_b64, summary｝→ 成功後本地 meta.sent_at 蓋章＋renderPayroll（週表頭「· sent」亮）。**send-email v22**：①`resend()` 加 `cc` 參數 ②新 action `timesheet_pdf`：財務 email 讀 **app_state `finance_email` {email,cc}**（沒有 fallback NOTIFY），寄 PDF 附件給 email、**cc 備份**、回寫 pay_weeks.sent_at ③授權重構＝抓 role，**finance 只放行 timesheet_pdf 這一個 action**（其他寄信仍 director/service-role；RLS 也已擋錢表，雙保險）。**app_state finance_email 已 seed**＝{email:lashesandmi@gmail.com（Mimi 暫定）, cc:ratiocoffee2473@gmail.com（老闆備份）}。驗證：jscheck ✓；preview 假資料——director 出 email+pdf 兩鈕 staff 全不出、callFn payload action/week/summary{staff2,7.5wd,16we,$540}/b64head `JVBERi0x`＝%PDF header/成功後 sent_at 蓋章、console 零錯誤；edge 煙霧測試 anon→401（閘門有效沒寄出）。⚠ **真寄一封還沒做**——等老闆挑一週按「Email to finance」（會真的寄給 Mimi＋副本給老闆）；Mimi email 是暫定，正式前老闆確認。若要改財務 email＝改 app_state finance_email（目前無 UI，SQL 或下輪補個欄）
+- **⬜ 待下輪（classic 收尾）**：
+1. **classic 收尾**：getCashSet/setCashSet 改讀寫 pay_weeks；SQL 清空 rosters.cash（欄留著防 classic realtime payload 形狀壞）
 4. ⚠ finance 帳號的今日流目前空（cards roles 無 finance）——finance 建帳號時（Stage C）補個導向卡或讓 finance 進 app 直接看得到 Timesheet 磁貼即可
 ### Stage C 藍圖（最後做；D 完成為前提）
 1. 老闆 Supabase Auth 建 8 帳號（同批發開法，email 老闆給）→ handle_new_user 自動 customer profile

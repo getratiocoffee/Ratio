@@ -3987,6 +3987,7 @@ async function openPayrollSheet(){
       (rt.data||[]).forEach(function(x){PAY_RATES[x.name]={wd:x.weekday_rate,we:x.weekend_rate};});
       var pw=await sb.from('pay_weeks').select('week_start,cash,sent_at');
       (pw.data||[]).forEach(function(x){PAY_META[x.week_start]={cash:x.cash||[],sent_at:x.sent_at||null};});
+      try{var fe=await sb.from('app_state').select('value').eq('key','finance_email').maybeSingle();FIN_EMAIL=String((fe.data&&fe.data.value&&fe.data.value.email)||'');}catch(e){}
     }
   }catch(e){console.error('payroll load',e);}
   if(PAY_WK.length&&PAY_OPEN==null)PAY_OPEN=PAY_WK[0].ws;
@@ -4013,6 +4014,7 @@ function renderPayroll(){
           +'<span class="rs-nm">'+esc(p.name)+'<br><span style="color:var(--muted);font-size:12px;font-weight:400">'+rsHH(p.wd)+' wd · '+rsHH(p.we)+' we</span></span>'
           +'<span class="rs-tm" style="text-align:right">'+wageCell+'</span></div>';
       }).join('');
+      if(money)rows+='<div style="text-align:right;padding:10px 6px 4px"><button class="chip" data-paypdf="'+w.ws+'">Download PDF</button> <button class="chip" data-payemail="'+w.ws+'">Email to finance</button></div>';
     }
     return '<div class="rs-day">'+head+rows+'</div>';
   }).join('') : '<div class="rs-none" style="border:1px solid var(--line);border-radius:12px">No past weeks yet</div>';
@@ -4023,6 +4025,8 @@ function renderPayroll(){
     +'<button class="dclose" id="pay-back" style="border:none;background:none;color:var(--muted)">‹ Back to timesheet</button>');
   document.querySelectorAll('#drawer [data-payw]').forEach(function(b){b.addEventListener('click',function(){PAY_OPEN=(PAY_OPEN===b.dataset.payw)?null:b.dataset.payw;renderPayroll();});});
   document.querySelectorAll('#drawer [data-paycash]').forEach(function(b){b.addEventListener('click',function(){togglePayCash(b.dataset.paycash);});});
+  document.querySelectorAll('#drawer [data-paypdf]').forEach(function(b){b.addEventListener('click',function(){genPayPDF(b.dataset.paypdf,b);});});
+  document.querySelectorAll('#drawer [data-payemail]').forEach(function(b){b.addEventListener('click',function(){emailPayPDF(b.dataset.payemail,b);});});
   var pr=$('pay-rates');if(pr)pr.addEventListener('click',openRatesSheet);
   $('pay-back').addEventListener('click',openRosterSheet);
 }
@@ -4073,6 +4077,93 @@ function renderRatesSheet(){
     }catch(e){btn.disabled=false;btn.textContent='Save rates';alert('Save failed: '+(e&&e.message||e));}
   });
   $('rate-back').addEventListener('click',renderPayroll);
+}
+/* ===== Payroll PDF（時數＋費率＋金額＋Cash/Bank＋總計；只有 director/finance 出鈕；jsPDF 引擎重用 menusPDF 載入器）===== */
+async function genPayPDF(ws,btn){
+  var w=null;PAY_WK.forEach(function(x){if(x.ws===ws)w=x;});
+  if(!w)return;
+  if(btn){btn.disabled=true;btn.textContent='Drawing…';}
+  try{
+    var doc=await menusPDF(function(logo){return buildPayPDF(w,logo);});
+    doc.save('Ratio_Payroll_'+w.ws+'.pdf');
+    toast('Payroll PDF ✓');
+  }catch(e){alert('PDF failed: '+(e&&e.message||e));}
+  if(btn){btn.disabled=false;btn.textContent='Download PDF';}
+}
+function buildPayPDF(w,logo){
+  var JS=window.jspdf.jsPDF;
+  var doc=new JS({orientation:'portrait',unit:'pt',format:'a4'});
+  var W=doc.internal.pageSize.getWidth();   /* ~595 */
+  var xR=W-48, x0=48;
+  var INK=[30,26,25], MUTE=[120,116,112], LINE=[221,216,212], ACC=[150,52,70];
+  /* 欄位錨點（數字欄右對齊到 right edge） */
+  var cWd=x0+282, cWe=x0+352, cRate=x0+362, cWage=xR-64, cPaid=xR-52;
+  var y=64;
+  if(logo){try{var lw=30,lh=logo.height*(lw/logo.width);doc.addImage(logo,'PNG',x0,y-22,lw,lh);}catch(e){}}
+  var tx=logo?x0+40:x0;
+  doc.setTextColor.apply(doc,INK);doc.setFont('helvetica','bold');doc.setFontSize(17);doc.text('Ratio Coffee',tx,y);
+  doc.setFont('helvetica','normal');doc.setFontSize(10.5);doc.setTextColor.apply(doc,MUTE);doc.text('Payroll',tx,y+15);
+  var wsD=rsDMY(rsDateFor(w.ws,0))+' – '+rsDMY(rsDateFor(w.ws,6))+' '+String(w.ws).slice(0,4);
+  doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor.apply(doc,INK);doc.text(wsD,xR,y,{align:'right'});
+  var now=new Date();
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor.apply(doc,MUTE);
+  doc.text('generated '+now.getDate()+'/'+(now.getMonth()+1)+'/'+now.getFullYear(),xR,y+15,{align:'right'});
+  y+=42;
+  /* 表頭 */
+  doc.setFontSize(8.5);doc.setTextColor.apply(doc,MUTE);doc.setFont('helvetica','bold');
+  doc.text('STAFF',x0,y);doc.text('WEEKDAY',cWd,y,{align:'right'});doc.text('WEEKEND',cWe,y,{align:'right'});
+  doc.text('RATE (wd / we)',cRate,y);doc.text('WAGE',cWage,y,{align:'right'});doc.text('PAID',cPaid,y);
+  y+=6;doc.setDrawColor.apply(doc,INK);doc.setLineWidth(0.8);doc.line(x0,y,xR,y);y+=18;
+  /* 每人一列 */
+  var ppl=rsWeekHours(w.shifts),totWd=0,totWe=0,totWage=0;
+  ppl.forEach(function(p){
+    var r=PAY_RATES[p.name]||{},meta=PAY_META[w.ws]||{cash:[]};
+    var hasRate=(r.wd!=null||r.we!=null),amt=p.wd*(Number(r.wd)||0)+p.we*(Number(r.we)||0);
+    var isCash=(meta.cash||[]).indexOf(p.name)>-1;
+    totWd+=p.wd;totWe+=p.we;if(hasRate)totWage+=amt;
+    doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor.apply(doc,INK);
+    doc.text(String(p.name),x0,y);
+    doc.setFontSize(10.5);
+    doc.text(rsHH(p.wd),cWd,y,{align:'right'});doc.text(rsHH(p.we),cWe,y,{align:'right'});
+    doc.setTextColor.apply(doc,MUTE);doc.setFontSize(9.5);
+    doc.text(hasRate?('$'+(r.wd!=null?r.wd:'—')+' / $'+(r.we!=null?r.we:'—')):'no rate',cRate,y);
+    doc.setFontSize(11);
+    if(hasRate){doc.setFont('helvetica','bold');doc.setTextColor.apply(doc,INK);doc.text('$'+amt.toFixed(2),cWage,y,{align:'right'});}
+    else{doc.setTextColor.apply(doc,MUTE);doc.text('—',cWage,y,{align:'right'});}
+    doc.setFont('helvetica','normal');doc.setFontSize(9.5);
+    if(isCash){doc.setTextColor.apply(doc,ACC);doc.text('Cash',cPaid,y);}else{doc.setTextColor.apply(doc,MUTE);doc.text('Bank',cPaid,y);}
+    y+=8;doc.setDrawColor.apply(doc,LINE);doc.setLineWidth(0.5);doc.line(x0,y,xR,y);y+=17;
+  });
+  /* 總計 */
+  y+=4;doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor.apply(doc,INK);
+  doc.text('Total',x0,y);
+  doc.text(rsHH(Math.round(totWd*10)/10),cWd,y,{align:'right'});
+  doc.text(rsHH(Math.round(totWe*10)/10),cWe,y,{align:'right'});
+  doc.text('$'+totWage.toFixed(2),cWage,y,{align:'right'});
+  return doc;
+}
+/* 週薪務加總（時數＋薪水＋人數；下載/寄信共用） */
+function payTotals(w){
+  var ppl=rsWeekHours(w.shifts),totWd=0,totWe=0,totWage=0;
+  ppl.forEach(function(p){var r=PAY_RATES[p.name]||{};totWd+=p.wd;totWe+=p.we;if(r.wd!=null||r.we!=null)totWage+=p.wd*(Number(r.wd)||0)+p.we*(Number(r.we)||0);});
+  return {staff:ppl.length,totWd:Math.round(totWd*10)/10,totWe:Math.round(totWe*10)/10,totWage:Math.round(totWage*100)/100};
+}
+/* Email 這週薪務單給財務（PDF 當附件，副本備份給老闆；edge 動作 timesheet_pdf）*/
+var FIN_EMAIL='';
+async function emailPayPDF(ws,btn){
+  var w=null;PAY_WK.forEach(function(x){if(x.ws===ws)w=x;});
+  if(!w)return;
+  var t=payTotals(w);
+  if(!confirm('Email this week’s payroll PDF to finance'+(FIN_EMAIL?(' ('+FIN_EMAIL+')'):'')+'? A backup copy goes to you too.'))return;
+  if(btn){btn.disabled=true;btn.textContent='Sending…';}
+  try{
+    var doc=await menusPDF(function(logo){return buildPayPDF(w,logo);});
+    var b64=btoa(doc.output());
+    await callFn('send-email',{action:'timesheet_pdf',week_start:ws,pdf_b64:b64,summary:t});
+    var meta=PAY_META[ws]||(PAY_META[ws]={cash:[],sent_at:null});meta.sent_at=new Date().toISOString();
+    toast('Payroll emailed ✓');renderPayroll();
+  }catch(e){alert('Email failed: '+(e&&e.message||e));}
+  if(btn){btn.disabled=false;btn.textContent='Email to finance';}
 }
 function renderTools(){
   $('deck').style.display='none';
