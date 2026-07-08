@@ -1265,7 +1265,10 @@ function openHelpSheet(){
 }
 /* ===== 貨架清單（在賣的豆：價格規格/售罄/鎖風味/烘焙新鮮度＋待上架佇列；唯讀）===== */
 /* 新鮮度規則（老闆定，2026-07-07）：<14 天紅（還在養豆）、14–28 天綠（最佳）、>28 天黃（老化）；>60 天晨報推警示 */
-var SHELF_FRESH_REST=14, SHELF_FRESH_PRIME=28, SHELF_STALE_DAYS=60;
+/* 新鮮度三段（老闆定，與 Labels 的 ready brew date 一致）：
+   烘後 <3週(21d)=aging（還沒好）｜3–6週(21–42d)=ready（最佳）｜>6週(42d)=fading（走下坡）。
+   一個門檻餵整個 app（貨架＋客戶店面）；>60 天再加「re-roast?」提示。 */
+var SHELF_FRESH_REST=21, SHELF_FRESH_PRIME=42, SHELF_STALE_DAYS=60;
 /* 上架代表樣品：鎖定的優先（同名多處理法時＝實際在賣的那個處理法，例如三個 Danche） */
 function shelfSampleFor(nm){
   var k=String(nm||'').trim().toLowerCase();
@@ -1294,9 +1297,9 @@ function shelfFreshness(nm){
   var d=shelfLatestRoast(nm);
   if(!d)return {txt:'no roast date',cls:'',days:null};
   var age=daysSince(d);
-  if(age<SHELF_FRESH_REST)return {txt:'roasted '+age+'d — resting',cls:'fr-red',days:age};
-  if(age<=SHELF_FRESH_PRIME)return {txt:'roasted '+age+'d — prime',cls:'fr-green',days:age};
-  return {txt:'roasted '+age+'d — ageing'+(age>SHELF_STALE_DAYS?' · re-roast?':''),cls:'fr-yellow',days:age};
+  if(age<SHELF_FRESH_REST)return {txt:'roasted '+age+'d — aging',cls:'fr-yellow',days:age};
+  if(age<=SHELF_FRESH_PRIME)return {txt:'roasted '+age+'d — ready',cls:'fr-green',days:age};
+  return {txt:'roasted '+age+'d — fading'+(age>SHELF_STALE_DAYS?' · re-roast?':''),cls:'fr-red',days:age};
 }
 async function openRetailSheet(){
   openDrawerHTML('<div class="t" style="font-size:19px">Retail Info</div><div class="empty">Loading…</div>');
@@ -5419,8 +5422,8 @@ function shopSpecsFor(b){
   specs.push(['Bag',(b.grams||250)+'g whole beans']);
   if(b.roast_date){
     var age=daysSince(b.roast_date);
-    /* 對客人講人話：<14 剛烘好、14–28 最佳賞味、>28 醒好豆（店內的紅綠黃是營運視角） */
-    var band=age<SHELF_FRESH_REST?'freshly roasted':(age<=SHELF_FRESH_PRIME?'prime window':'well rested');
+    /* 對客人講人話：<3週 aging（醒豆中）、3–6週 ready（最佳賞味）、>6週 fading（店內紅綠黃是營運視角） */
+    var band=age<SHELF_FRESH_REST?'aging':(age<=SHELF_FRESH_PRIME?'ready':'fading');
     specs.push(['Roasted',(fmtD(b.roast_date)||'')+' — '+band]);
   }
   return specs;
