@@ -131,6 +131,35 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .pm-seg button.on{border-color:var(--ink);color:var(--ink)}
 .din{width:100%;border:1.5px solid var(--line2);border-radius:10px;padding:14px;font-size:17px;font-family:inherit;background:var(--surface);color:var(--ink);outline:none;margin-top:8px}
 .din:focus{border-color:var(--ink)}
+/* Labels（袋標／罐標）表單樣式 */
+.lbl-seg{display:flex;gap:8px;margin-bottom:12px}
+.lbl-tab{flex:1;border:1.5px solid var(--line2);background:var(--surface);color:var(--muted);border-radius:10px;padding:11px 6px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer}
+.lbl-tab.on{border-color:var(--ink);color:var(--ink)}
+.smp-sec-h{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.smp-fields{display:flex;flex-direction:column;gap:10px}
+.smp-f{display:flex;flex-direction:column}
+.smp-f>span{font-size:13px;font-weight:600;color:var(--muted);margin-bottom:5px}
+.smp-f input{width:100%;border:1.5px solid var(--line2);border-radius:10px;padding:12px;font-size:16px;font-family:inherit;background:var(--surface);color:var(--ink);outline:none}
+.smp-f input:focus{border-color:var(--ink)}
+.smp-f2{display:flex;gap:8px}
+.lbl-namewrap{position:relative;display:flex;gap:6px;align-items:stretch}
+.lbl-namewrap>input{flex:1;min-width:0}
+.lbl-namebtn{flex:0 0 46px;border:1.5px solid var(--line2);border-radius:10px;background:var(--surface);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.lbl-namebtn svg{width:20px;height:20px}
+.lbl-namebtn.on{border-color:var(--ink);color:var(--ink)}
+.lbl-namemenu{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:30;background:var(--surface);border:1.5px solid var(--line2);border-radius:10px;max-height:240px;overflow:auto;box-shadow:0 10px 28px rgba(0,0,0,.16)}
+.lbl-namemenu.open{display:block}
+.lbl-nameopt{display:block;width:100%;text-align:left;border:none;background:none;padding:12px 14px;font-size:15px;font-family:inherit;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--line)}
+.lbl-nameopt:active{background:var(--tint)}
+.sempty{padding:12px 2px;color:var(--muted);font-size:14px}
+.gbtn{width:100%;border:none;border-radius:12px;background:var(--accent);color:#fff;padding:15px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer}
+.gbtn:disabled{opacity:.5}
+.gform-msg{font-size:14px;color:var(--muted);min-height:18px}
+.gform-msg.err{color:var(--danger)}
+.gform-msg.ok{color:var(--accent)}
+.rtl-recipe{display:flex;flex-wrap:wrap;gap:6px}
+.rtl-rchip{border:1.5px solid var(--line2);border-radius:999px;padding:6px 12px;font-size:14px;color:var(--ink)}
+.rtl-noflav{color:var(--muted);font-size:14px}
 .dlab{font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-top:14px}
 .rs-day{border:1px solid var(--line);border-radius:12px;margin-top:9px;overflow:hidden}
 .rs-day-h{display:flex;justify-content:space-between;align-items:center;padding:9px 13px;background:var(--bg);font-size:13px;font-weight:700;color:var(--ink)}
@@ -3879,6 +3908,522 @@ function openMenuDineinSheet(){
   mnWireTail(genDineinPDF);
 }
 
+/* ===== Labels（袋標／罐標 .lbx；移植自 classic）=====
+   資料層接新殼（RETAIL_BEANS／blends／grams 由 menusEnsureData 供，與 Menus 共用）；
+   .lbx 產生邏輯【逐字照抄】classic（Brother P-touch 範本 XML 就地改字＋自動縮放）；
+   範本檔在 repo 根＝/blend-label.lbx、/tin-label.lbx；JSZip 首次用才載；soReadyDM/RETAIL_BEANS 用既有的。 */
+function xmlEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+var _assetCache={};
+async function fetchAsset(path){
+  if(_assetCache[path])return _assetCache[path];
+  var r=await fetch(path+'?v=1');
+  if(!r.ok)throw new Error('Template file missing: '+path+' (HTTP '+r.status+')');
+  var buf=await r.arrayBuffer();_assetCache[path]=buf;return buf;
+}
+var LBL_MM2PT=72/25.4;
+var LBL_LEFT_PT=7*LBL_MM2PT;
+var LBL_RIGHT_PT=62*LBL_MM2PT;
+var LBL_WIDTH_PT=LBL_RIGHT_PT-LBL_LEFT_PT;
+function lblFitBlock(block,origLen){
+  var os=block.match(/<pt:objectStyle x="([\d.]+)pt" y="([\d.]+)pt" width="([\d.]+)pt" height="([\d.]+)pt"/);
+  if(!os)return block;
+  var ow=parseFloat(os[3]);
+  var fe=block.match(/size="([\d.]+)pt"/);var origSize=fe?parseFloat(fe[1]):0;
+  var nx=LBL_LEFT_PT,nw=LBL_WIDTH_PT;
+  block=block.replace(os[0],'<pt:objectStyle x="'+nx.toFixed(2)+'pt" y="'+os[2]+'pt" width="'+nw.toFixed(2)+'pt" height="'+os[4]+'pt"');
+  block=block.replace(/control="AUTOLEN"/,'control="LONGTEXTFIXED"');
+  block=block.replace(/(<text:textControl[^>]*?shrink=")\w+(")/,'$1true$2');
+  block=block.replace(/(<text:textControl[^>]*?autoLF=")\w+(")/,'$1false$2');
+  block=block.replace(/(<text:textControl[^>]*?clipFrame=")\w+(")/,'$1false$2');
+  var dm=block.match(/<pt:data>([\s\S]*?)<\/pt:data>/);
+  var newLen=((dm?dm[1]:'')||'').length||1;
+  if(origSize>0&&origLen>0&&ow>0){
+    var cw=ow/(origLen*origSize);
+    if(cw>0){
+      var maxSize=(nw*0.97)/(newLen*cw);
+      var ns=Math.min(origSize,maxSize);if(ns<3)ns=3;
+      block=block.replace(/size="([\d.]+)pt"/g,'size="'+(Math.round(ns*10)/10)+'pt"');
+    }
+  }
+  return block;
+}
+var LBL_FORM=[
+  {k:'name',label:'Bean name',ph:'Dark Knight'},
+  {k:'region1',label:'Region 1',ph:'Espigao'},
+  {k:'region2',label:'Region 2',ph:'Danche'},
+  {k:'region3',label:'Region 3',ph:'El Indio'},
+  {k:'comment',label:'Special comment',ph:'V3.0 Competition Blend'},
+  {k:'flavour1',label:'Flavour 1',ph:'Dried Fruit'},
+  {k:'flavour2',label:'Flavour 2',ph:'Walnut'},
+  {k:'flavour3',label:'Flavour 3',ph:'Chocolate'},
+  {k:'date_d',label:'Ready brew day',ph:'06'},
+  {k:'date_m',label:'Ready brew month',ph:'07'},
+  {k:'net',label:'Net weight (g)',ph:'250'}
+];
+var labelForm={name:'',region1:'',region2:'',region3:'',comment:'',flavour1:'',flavour2:'',flavour3:'',date_d:'',date_m:'',net:'250'};
+var SO_FORM=[
+  {k:'name',label:'Bean name',ph:'Dark Knight'},
+  {k:'process',label:'Process',ph:'Washed'},
+  {k:'variety',label:'Variety',ph:'Geisha'},
+  {k:'altitude',label:'Altitude',ph:'1800 masl'},
+  {k:'region',label:'Region',ph:'Huila, Colombia'},
+  {k:'flavour1',label:'Flavour 1',ph:'Dried Fruit'},
+  {k:'flavour2',label:'Flavour 2',ph:'Walnut'},
+  {k:'flavour3',label:'Flavour 3',ph:'Chocolate'},
+  {k:'date_d',label:'Ready brew day',ph:'06'},
+  {k:'date_m',label:'Ready brew month',ph:'07'},
+  {k:'net',label:'Net weight (g)',ph:'250'}
+];
+var soForm={name:'',process:'',variety:'',altitude:'',region:'',flavour1:'',flavour2:'',flavour3:'',date_d:'',date_m:'',net:'250'};
+var labelMode='blend';
+function joinTwo(a,b){a=(a||'').trim();b=(b||'').trim();if(a&&b)return a+' | '+b;return a||b||'';}
+function joinN(){var p=[];for(var i=0;i<arguments.length;i++){var v=(arguments[i]||'').trim();if(v)p.push(v);}return p.join(' | ');}
+function pad2(v){v=(v||'').trim();return /^\d$/.test(v)?'0'+v:v;}
+function compileLabelEntries(){
+  if(labelMode==='single'){
+    return [
+      {value:(soForm.name||'').toUpperCase(),orig:'DARK KNIGHT',pre:'',post:'',fit:1},
+      {value:joinTwo(soForm.process,soForm.variety),orig:'Espigao | Danche | El Indio',pre:'',post:'',fit:1},
+      {value:joinTwo((soForm.altitude||'').trim()?soForm.altitude.trim()+' MASL':'',soForm.region),orig:'V3.0 Competition Blend',pre:'',post:'',fit:1},
+      {value:joinN(soForm.flavour1,soForm.flavour2,soForm.flavour3),orig:'Dried Fruit | Walnut | Chocolate',pre:'',post:'',fit:1},
+      {value:joinTwo(pad2(soForm.date_d),pad2(soForm.date_m)),orig:'READY BREW DATE: 06 | 07',pre:'READY BREW DATE: ',post:'',fit:0},
+      {value:soForm.net,orig:'NET 250G',pre:'NET ',post:'G',fit:0}
+    ];
+  }
+  return [
+    {value:(labelForm.name||'').toUpperCase(),orig:'DARK KNIGHT',pre:'',post:'',fit:1},
+    {value:joinN(labelForm.region1,labelForm.region2,labelForm.region3),orig:'Espigao | Danche | El Indio',pre:'',post:'',fit:1},
+    {value:labelForm.comment,orig:'V3.0 Competition Blend',pre:'',post:'',fit:1},
+    {value:joinN(labelForm.flavour1,labelForm.flavour2,labelForm.flavour3),orig:'Dried Fruit | Walnut | Chocolate',pre:'',post:'',fit:1},
+    {value:joinTwo(pad2(labelForm.date_d),pad2(labelForm.date_m)),orig:'READY BREW DATE: 06 | 07',pre:'READY BREW DATE: ',post:'',fit:0},
+    {value:labelForm.net,orig:'NET 250G',pre:'NET ',post:'G',fit:0}
+  ];
+}
+function applyRetailToSO(s){
+  if(!s)return;
+  soForm.name=s.sample_id||soForm.name;
+  var feats=(s.features||[]).filter(Boolean);
+  soForm.flavour1=feats[0]||'';soForm.flavour2=feats[1]||'';soForm.flavour3=feats[2]||'';
+  var rd=roastDateForSample(s);
+  var dm=soReadyDM(rd||s.cupping_date||'');soForm.date_d=dm.d;soForm.date_m=dm.m;
+  var g=loadGrams()[s.sample_id||''];soForm.net=g?String(g):'';
+  soForm.process='';soForm.variety='';soForm.altitude='';soForm.region='';
+  var b=beanForSample(s);
+  if(b){
+    soForm.process=b.process||'';
+    soForm.variety=b.variety||'';
+    soForm.altitude=(b.altitude!=null&&b.altitude!=='')?String(b.altitude):'';
+    soForm.region=[b.region,b.country].filter(Boolean).join(', ');
+  }
+}
+function applyRetailToBlend(s){
+  if(!s)return;
+  labelForm.name=s.sample_id||labelForm.name;
+  var feats=(s.features||[]).filter(Boolean);
+  labelForm.flavour1=feats[0]||'';labelForm.flavour2=feats[1]||'';labelForm.flavour3=feats[2]||'';
+  var rd=roastDateForSample(s);
+  var dm=soReadyDM(rd||s.cupping_date||'');labelForm.date_d=dm.d;labelForm.date_m=dm.m;
+  var g=loadGrams()[s.sample_id||''];labelForm.net=g?String(g):'';
+  var def=blendDefByName(s.sample_id||'');
+  var parts=def?(def.parts||[]).filter(function(p){return (p.bean||'').trim();}):[];
+  labelForm.region1=parts[0]?parts[0].bean:'';
+  labelForm.region2=parts[1]?parts[1].bean:'';
+  labelForm.region3=parts[2]?parts[2].bean:'';
+  var bcmt=(def&&(def.comment||'').trim())||(s.comment||'');
+  if(bcmt)labelForm.comment=bcmt;
+}
+function syncBlendInputs(){
+  LBL_FORM.forEach(function(f){var i=document.getElementById('lf-'+f.k);if(i)i.value=labelForm[f.k]||'';});
+  var im=document.getElementById('lf-date_m');if(im)im.value=labelForm.date_m||'';
+}
+function syncSOInputs(){
+  SO_FORM.forEach(function(f){var i=document.getElementById('lf-'+f.k);if(i)i.value=soForm[f.k]||'';});
+  var im=document.getElementById('lf-date_m');if(im)im.value=soForm.date_m||'';
+}
+function labelBeanOptions(){
+  var bset={};loadBlendDefs().forEach(function(b){var n=(b.name||'').trim().toLowerCase();if(n)bset[n]=true;});
+  var seen={},opts='';
+  (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var disp=sampleDisp(s);var k=disp.toLowerCase();if(!nm||seen[k]||bset[nm.toLowerCase()])return;seen[k]=true;opts+='<option value="'+esc(disp)+'"></option>';});
+  return opts;
+}
+function labelBlendOptions(){
+  var bset={};loadBlendDefs().forEach(function(b){var n=(b.name||'').trim().toLowerCase();if(n)bset[n]=true;});
+  var seen={},opts='';
+  (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k]||!bset[k])return;seen[k]=true;opts+='<option value="'+esc(nm)+'"></option>';});
+  return opts;
+}
+function labelBeanNameList(){
+  var seen={},out=[],blendSet={};
+  loadBlendDefs().forEach(function(b){var n=(b.name||'').trim().toLowerCase();if(n)blendSet[n]=true;});
+  var wantBlend=(labelMode!=='single');
+  (RETAIL_BEANS||[]).forEach(function(s){
+    var nm=(s.sample_id||'').trim();if(!nm)return;
+    var isBlend=!!blendSet[nm.toLowerCase()];
+    if(wantBlend!==isBlend)return;
+    var disp=wantBlend?nm:sampleDisp(s);
+    var k=disp.toLowerCase();if(seen[k])return;
+    seen[k]=true;out.push(disp);
+  });
+  return out;
+}
+function labelApplyByName(name){
+  var s=retailByDisp(name);
+  if(!s)return;
+  if(labelMode==='single'){applyRetailToSO(s);syncSOInputs();}
+  else{applyRetailToBlend(s);syncBlendInputs();}
+}
+function renderLabel(msg){
+  var el=document.getElementById('lbl-body');if(!el)return;
+  var fields=labelMode==='single'?SO_FORM:LBL_FORM;
+  var data=labelMode==='single'?soForm:labelForm;
+  var rows=fields.map(function(f){
+    if(f.k==='date_m')return '';
+    if(f.k==='date_d'){
+      return '<div class="smp-f"><span>Ready brew date</span><div class="smp-f2">'
+        +'<input type="text" id="lf-date_d" value="'+esc(data.date_d||'')+'" placeholder="Day 06" style="flex:1;min-width:0" />'
+        +'<input type="text" id="lf-date_m" value="'+esc(data.date_m||'')+'" placeholder="Month 07" style="flex:1;min-width:0" />'
+        +'</div></div>';
+    }
+    if(f.k==='name'){
+      return '<div class="smp-f"><span>'+esc(f.label)+'</span>'
+        +'<div class="lbl-namewrap">'
+        +'<input type="text" id="lf-name" list="'+(labelMode==='single'?'lbl-beans':'lbl-blends')+'" autocomplete="off" value="'+esc(data.name||'')+'" placeholder="'+esc(f.ph)+'" />'
+        +'<button type="button" class="lbl-namebtn" id="lf-name-pick" aria-label="Choose bean"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>'
+        +'<div class="lbl-namemenu" id="lf-name-menu"></div>'
+        +'</div></div>';
+    }
+    return '<label class="smp-f"><span>'+esc(f.label)+'</span><input type="text" id="lf-'+f.k+'" value="'+esc(data[f.k]||'')+'" placeholder="'+esc(f.ph)+'" /></label>';
+  }).join('');
+  el.innerHTML='<div class="lbl-wrap">'
+    +'<div class="lbl-seg"><button class="lbl-tab'+(labelMode==='blend'?' on':'')+'" data-mode="blend">Blend</button><button class="lbl-tab'+(labelMode==='single'?' on':'')+'" data-mode="single">Single Origin</button></div>'
+    +'<div class="smp-sec-h" style="margin:2px 0 10px">Fill in &amp; generate</div>'
+    +'<div class="smp-fields">'+rows+'</div>'
+    +(labelMode==='single'?'<datalist id="lbl-beans">'+labelBeanOptions()+'</datalist>':'<datalist id="lbl-blends">'+labelBlendOptions()+'</datalist>')
+    +'<div class="gform-msg'+(msg&&msg.err?' err':(msg&&msg.ok?' ok':''))+'" id="lbx-msg" style="margin-top:12px">'+(msg?esc(msg.text):'')+'</div>'
+    +'<button class="gbtn" id="lbx-gen" style="margin-top:6px">Generate .lbx</button>'
+    +'</div>';
+  el.querySelectorAll('.lbl-tab').forEach(function(t){t.addEventListener('click',function(){var m=t.getAttribute('data-mode');if(m&&m!==labelMode){labelMode=m;renderLabel();}});});
+  fields.forEach(function(f){var inp=document.getElementById('lf-'+f.k);if(inp)inp.addEventListener('input',function(){data[f.k]=inp.value;});});
+  var nameInp=document.getElementById('lf-name');
+  if(nameInp)nameInp.addEventListener('input',function(){data.name=nameInp.value;labelApplyByName(nameInp.value);});
+  var pickBtn=document.getElementById('lf-name-pick');
+  var nameMenu=document.getElementById('lf-name-menu');
+  if(nameMenu){
+    var names=labelBeanNameList();
+    nameMenu.innerHTML=names.length?names.map(function(nm){return '<button type="button" class="lbl-nameopt" data-nm="'+esc(nm)+'">'+esc(nm)+'</button>';}).join(''):'<div class="sempty">No beans yet</div>';
+    nameMenu.querySelectorAll('.lbl-nameopt').forEach(function(o){o.addEventListener('click',function(){var nm=o.getAttribute('data-nm');if(nameInp)nameInp.value=nm;data.name=nm;labelApplyByName(nm);nameMenu.classList.remove('open');if(pickBtn)pickBtn.classList.remove('on');});});
+  }
+  if(pickBtn&&nameMenu){
+    pickBtn.addEventListener('click',function(e){e.stopPropagation();var open=nameMenu.classList.toggle('open');pickBtn.classList.toggle('on',open);});
+    if(window._lblDocClose)document.removeEventListener('click',window._lblDocClose);
+    window._lblDocClose=function(ev){if(!nameMenu.classList.contains('open'))return;var wrap=nameMenu.closest('.lbl-namewrap');if(wrap&&!wrap.contains(ev.target)){nameMenu.classList.remove('open');if(pickBtn)pickBtn.classList.remove('on');}};
+    document.addEventListener('click',window._lblDocClose);
+  }
+  var g=document.getElementById('lbx-gen');if(g)g.addEventListener('click',generateLabelLbx);
+}
+async function generateLabelLbx(){
+  var msg=document.getElementById('lbx-msg');var btn=document.getElementById('lbx-gen');
+  try{
+    if(!window.JSZip){if(msg){msg.textContent='Zip library still loading, try again';msg.className='gform-msg err';}return;}
+    if(btn)btn.disabled=true;if(msg){msg.textContent='Building .lbx…';msg.className='gform-msg';}
+    var zip=await JSZip.loadAsync(await fetchAsset('/blend-label.lbx'));
+    var xml=await zip.file('label.xml').async('string');
+    compileLabelEntries().forEach(function(f){
+      var v=(f.value||'').trim();
+      var empty=(v==='');
+      var newText=empty?'':((f.pre||'')+v+(f.post&&!(new RegExp(f.post+'$','i').test(v))?f.post:''));
+      var dataOld='<pt:data>'+xmlEsc(f.orig)+'</pt:data>';
+      var idx=xml.indexOf(dataOld);if(idx<0)return;
+      var bStart=xml.lastIndexOf('<text:text>',idx);var bEnd=xml.indexOf('</text:text>',idx)+12;
+      var block=xml.slice(bStart,bEnd),nb=block;
+      if(newText!==f.orig){
+        nb=nb.replace(/<pt:data>[\s\S]*?<\/pt:data>/,'<pt:data>'+xmlEsc(newText)+'</pt:data>')
+             .replace(/(<text:stringItem charLen=")\d+(")/,'$1'+newText.length+'$2');
+      }
+      if(f.fit&&!empty){nb=lblFitBlock(nb,f.orig.length);}
+      if(nb!==block){xml=xml.slice(0,bStart)+nb+xml.slice(bEnd);}
+    });
+    var srcName=(labelMode==='single'?soForm.name:labelForm.name)||'label';
+    var nm=srcName.replace(/[^A-Za-z0-9 _\-]/g,'').trim().replace(/\s+/g,'_')||'label';
+    zip.file('label.xml',xml);
+    var blob=await zip.generateAsync({type:'blob',mimeType:'application/octet-stream',compression:'DEFLATE'});
+    var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download=nm+'.lbx';document.body.appendChild(a);a.click();
+    setTimeout(function(){URL.revokeObjectURL(url);a.remove();},1500);
+    if(btn)btn.disabled=false;if(msg){msg.textContent='Done — '+nm+'.lbx downloaded';msg.className='gform-msg ok';}
+  }catch(e){if(btn)btn.disabled=false;if(msg){msg.textContent='Generate failed: '+(e&&e.message||e);msg.className='gform-msg err';}}
+}
+/* ---- Tin Label ---- */
+var TIN_FORM=[
+  {k:'country',label:'Country',ph:'Ethiopia'},
+  {k:'name',label:'Bean name',ph:'Danche vol.2'},
+  {k:'process',label:'Process',ph:'Anaerobic Washed'},
+  {k:'variety',label:'Variety',ph:'Heirloom'},
+  {k:'region',label:'Region',ph:'Sidama'},
+  {k:'altitude',label:'Altitude',ph:'2110 masl'}
+];
+var tinForm={country:'',name:'',process:'',variety:'',region:'',altitude:''};
+var tinSample=null;
+var tinMode='single';
+var tinBlend={name:'',parts:[]};
+function tinCompileEntries(){
+  if(tinMode==='blend'){
+    var parts=(tinBlend.parts||[]).filter(function(p){return (p.bean||'').trim();});
+    var pcts=parts.map(function(p){return (p.pct||p.pct===0)?(String(p.pct)+'%'):'';}).join('\n');
+    var beans=parts.map(function(p){return (p.bean||'').trim().toUpperCase();}).join('\n');
+    return [
+      {orig:'ETHIOPIA',value:(tinBlend.name||'').trim().toUpperCase()},
+      {orig:'DANCHE vol.2',value:'BLEND'},
+      {orig:'PROCESS:\nVARIETY:\nREGION:\nALTITUDE:',value:pcts},
+      {orig:'ANAEROBIC WASHED\nHEIRLOOM\nSIDAMA\n2110 MASL',value:beans}
+    ];
+  }
+  var alt=(tinForm.altitude||'').trim();
+  if(alt&&/^[\d.,\s]+$/.test(alt))alt=alt+' MASL';else alt=alt.toUpperCase();
+  var values=[(tinForm.process||'').trim().toUpperCase(),
+              (tinForm.variety||'').trim().toUpperCase(),
+              (tinForm.region||'').trim().toUpperCase(),
+              alt].join('\n');
+  return [
+    {orig:'ETHIOPIA',value:(tinForm.country||'').trim().toUpperCase()},
+    {orig:'DANCHE vol.2',value:(tinForm.name||'').trim()},
+    {orig:'ANAEROBIC WASHED\nHEIRLOOM\nSIDAMA\n2110 MASL',value:values}
+  ];
+}
+function tinStringItems(block,newText){
+  var m=block.match(/<text:stringItem charLen="\d+">([\s\S]*?)<\/text:stringItem>/);
+  var inner=m?m[1]:'';
+  var parts=newText.split('\n'),runs=[];
+  for(var i=0;i<parts.length;i++){
+    if(parts[i].length)runs.push(parts[i].length);
+    if(i<parts.length-1)runs.push(1);
+  }
+  if(!runs.length)runs.push(0);
+  return runs.map(function(len){return '<text:stringItem charLen="'+len+'">'+inner+'</text:stringItem>';}).join('');
+}
+function tinRetailByName(name){return retailByDisp(name);}
+function tinApplyByName(name){
+  var s=tinRetailByName(name);
+  tinForm.name=(s?(s.sample_id||name):name)||tinForm.name;
+  tinSample=s;
+  if(s){
+    tinForm.process=s.process||'';
+    var b=beanForSample(s);
+    if(b){
+      tinForm.country=b.country||'';
+      tinForm.variety=b.variety||'';
+      tinForm.region=b.region||'';
+      tinForm.altitude=(b.altitude!=null&&b.altitude!=='')?String(b.altitude):'';
+    }
+  }
+  syncTinInputs();
+}
+function tinApplyBlend(name){
+  tinBlend.name=name||'';
+  var def=null;try{def=blendDefByName(name);}catch(e){}
+  tinBlend.parts=def?(def.parts||[]).filter(function(p){return (p.bean||'').trim();}):[];
+  tinSample=tinRetailByName(name);
+}
+function tinCanvasToBmp(cv){
+  var w=cv.width,h=cv.height;
+  var data=cv.getContext('2d').getImageData(0,0,w,h).data;
+  var rowSize=w*4,dataSize=rowSize*h,fileSize=54+dataSize;
+  var buf=new ArrayBuffer(fileSize),dv=new DataView(buf),u=new Uint8Array(buf);
+  u[0]=0x42;u[1]=0x4D;
+  dv.setUint32(2,fileSize,true);dv.setUint32(6,0,true);dv.setUint32(10,54,true);
+  dv.setUint32(14,40,true);dv.setInt32(18,w,true);dv.setInt32(22,h,true);
+  dv.setUint16(26,1,true);dv.setUint16(28,32,true);dv.setUint32(30,0,true);
+  dv.setUint32(34,dataSize,true);dv.setInt32(38,2835,true);dv.setInt32(42,2835,true);
+  dv.setUint32(46,0,true);dv.setUint32(50,0,true);
+  var o=54;
+  for(var y=h-1;y>=0;y--){var r=y*w*4;for(var x=0;x<w;x++){var i=r+x*4;u[o++]=data[i+2];u[o++]=data[i+1];u[o++]=data[i];u[o++]=255;}}
+  return u;
+}
+function tinLogoBmp(){
+  return new Promise(function(resolve){
+    try{
+      var img=new Image();
+      img.onload=function(){
+        try{
+          var sz=320;var cv=document.createElement('canvas');cv.width=sz;cv.height=sz;
+          var ctx=cv.getContext('2d');if(!ctx){resolve(null);return;}
+          ctx.fillStyle='#FFFFFF';ctx.fillRect(0,0,sz,sz);
+          ctx.drawImage(img,0,0,sz,sz);
+          resolve(tinCanvasToBmp(cv));
+        }catch(e){resolve(null);}
+      };
+      img.onerror=function(){resolve(null);};
+      img.src='/logo.png';
+    }catch(e){resolve(null);}
+  });
+}
+function tinRadarBmp(s){
+  var axes=['fragrance','acidity','sweetness','body','aftertaste'];
+  var labels=['Fragrance','Acidity','Sweetness','Body','Aftertaste'];
+  if(!s||!axes.some(function(a){return s[a]!=null;}))return null;
+  var W=560,H=420;
+  var cv=document.createElement('canvas');cv.width=W;cv.height=H;
+  var ctx=cv.getContext('2d');if(!ctx)return null;
+  ctx.fillStyle='#FFFFFF';ctx.fillRect(0,0,W,H);
+  var cx=W/2,cy=H/2+6,R=130,n=5;
+  function pt(i,r){var a=i*2*Math.PI/n;return [cx+r*Math.sin(a),cy-r*Math.cos(a)];}
+  ctx.strokeStyle='#000000';ctx.lineJoin='round';
+  ctx.lineWidth=1.6;[1,2,3].forEach(function(l){ctx.beginPath();for(var i=0;i<n;i++){var p=pt(i,R*l/3);if(i===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1]);}ctx.closePath();ctx.stroke();});
+  ctx.lineWidth=1.2;for(var i=0;i<n;i++){var p=pt(i,R);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(p[0],p[1]);ctx.stroke();}
+  var dp=axes.map(function(a,i){var v=(s[a]==null?0:s[a]);return pt(i,R*(v/3));});
+  ctx.lineWidth=3.5;ctx.beginPath();dp.forEach(function(p,i){if(i===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1]);});ctx.closePath();ctx.stroke();
+  ctx.fillStyle='#000000';dp.forEach(function(p){ctx.beginPath();ctx.arc(p[0],p[1],4.5,0,2*Math.PI);ctx.fill();});
+  ctx.font='700 24px Arial, sans-serif';ctx.textBaseline='middle';
+  labels.forEach(function(t,i){var lp=pt(i,R+26);ctx.textAlign=(lp[0]<cx-4?'right':(lp[0]>cx+4?'left':'center'));ctx.fillText(t,lp[0],lp[1]);});
+  return tinCanvasToBmp(cv);
+}
+var TIN_RADAR_OBJ='<image:image><pt:objectStyle x="14.85pt" y="142pt" width="146pt" height="109.5pt" backColor="#FFFFFF" backPrintColorNumber="0" ropMode="COPYPEN" angle="0" anchor="TOPLEFT" flip="NONE"><pt:pen style="NULL" widthX="0.5pt" widthY="0.5pt" color="#000000" printColorNumber="1"></pt:pen><pt:brush style="NULL" color="#000000" printColorNumber="1" id="0"></pt:brush><pt:expanded objectName="Bitmap13" ID="0" lock="0" templateMergeTarget="LABELLIST" templateMergeType="NONE" templateMergeID="0" allowOutOfBoundsTransfer="false" linkStatus="NONE" linkID="0"></pt:expanded></pt:objectStyle><image:imageStyle originalName="radar.bmp" alignInText="NONE" firstMerge="true" IpName="" fileName="Object1.bmp"><image:transparent flag="false" color="#FFFFFF"></image:transparent><image:trimming flag="false" shape="RECTANGLE" trimOrgX="0pt" trimOrgY="0pt" trimOrgWidth="0pt" trimOrgHeight="0pt"></image:trimming><image:orgPos x="14.85pt" y="142pt" width="146pt" height="109.5pt"></image:orgPos><image:effect effect="MONO" brightness="50" contrast="50" photoIndex="4"></image:effect><image:mono operationKind="ERRORDIFFUSION" reverse="0" ditherKind="MESH" threshold="128" gamma="100" ditherEdge="0" rgbconvProportionRed="30" rgbconvProportionGreen="59" rgbconvProportionBlue="11" rgbconvProportionReversed="0"></image:mono></image:imageStyle></image:image>';
+var TIN_FLAV_OBJ='<text:text><pt:objectStyle x="8pt" y="253pt" width="159.7pt" height="24pt" backColor="#FFFFFF" backPrintColorNumber="0" ropMode="COPYPEN" angle="0" anchor="TOPLEFT" flip="NONE"><pt:pen style="NULL" widthX="0.5pt" widthY="0.5pt" color="#000000" printColorNumber="1"></pt:pen><pt:brush style="NULL" color="#000000" printColorNumber="1" id="0"></pt:brush><pt:expanded objectName="Text9" ID="0" lock="0" templateMergeTarget="LABELLIST" templateMergeType="NONE" templateMergeID="0" allowOutOfBoundsTransfer="false" linkStatus="NONE" linkID="0"></pt:expanded></pt:objectStyle><text:ptFontInfo><text:logFont name="DIN Condensed" width="0" italic="false" weight="700" charSet="0" pitchAndFamily="2"></text:logFont><text:fontExt effect="NOEFFECT" underline="0" strikeout="0" size="10pt" orgSize="28.8pt" textColor="#000000" textPrintColorNumber="1"></text:fontExt></text:ptFontInfo><text:textControl control="LONGTEXTFIXED" clipFrame="false" aspectNormal="true" shrink="true" autoLF="false" avoidImage="false"></text:textControl><text:textAlign horizontalAlignment="CENTER" verticalAlignment="CENTER" inLineAlignment="BASELINE"></text:textAlign><text:textStyle vertical="false" nullBlock="false" charSpace="10" lineSpace="0" orgPoint="10pt" combinedChars="false"></text:textStyle><text:transferSettings editOnPrintFormat="" editOnPrintOrder="0"></text:transferSettings><pt:data>__DATA__</pt:data><text:stringItem charLen="__LEN__"><text:ptFontInfo><text:logFont name="DIN Condensed" width="0" italic="false" weight="700" charSet="0" pitchAndFamily="2"></text:logFont><text:fontExt effect="NOEFFECT" underline="0" strikeout="0" size="10pt" orgSize="28.8pt" textColor="#000000" textPrintColorNumber="1"></text:fontExt></text:ptFontInfo></text:stringItem></text:text>';
+function tinBeanNameList(){
+  var seen={},out=[];
+  (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();if(!nm)return;var isB=false;try{isB=!!blendDefByName(nm);}catch(e){}if(isB)return;var disp=sampleDisp(s);var k=disp.toLowerCase();if(seen[k])return;seen[k]=true;out.push(disp);});
+  return out;
+}
+function tinBlendNameList(){
+  var seen={},out=[];
+  (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;var isB=false;try{isB=!!blendDefByName(nm);}catch(e){}if(!isB)return;seen[k]=true;out.push(nm);});
+  return out;
+}
+function syncTinInputs(){TIN_FORM.forEach(function(f){var i=document.getElementById('tf-'+f.k);if(i)i.value=tinForm[f.k]||'';});}
+function tinWireNameMenu(pickBtn,nameMenu){
+  if(!(pickBtn&&nameMenu))return;
+  pickBtn.addEventListener('click',function(e){e.stopPropagation();var open=nameMenu.classList.toggle('open');pickBtn.classList.toggle('on',open);});
+  if(window._tinDocClose)document.removeEventListener('click',window._tinDocClose);
+  window._tinDocClose=function(ev){if(!nameMenu.classList.contains('open'))return;var wrap=nameMenu.closest('.lbl-namewrap');if(wrap&&!wrap.contains(ev.target)){nameMenu.classList.remove('open');if(pickBtn)pickBtn.classList.remove('on');}};
+  document.addEventListener('click',window._tinDocClose);
+}
+function renderTinLabel(msg){
+  var el=document.getElementById('lbl-body');if(!el)return;
+  var tabBar='<div class="lbl-seg"><button class="lbl-tab'+(tinMode==='single'?' on':'')+'" data-tmode="single">Single Origin</button><button class="lbl-tab'+(tinMode==='blend'?' on':'')+'" data-tmode="blend">Blend</button></div>';
+  el.innerHTML='<div class="lbl-wrap">'+tabBar+(tinMode==='blend'?tinBlendFormHtml(msg):tinSingleFormHtml(msg))+'</div>';
+  el.querySelectorAll('.lbl-tab').forEach(function(t){t.addEventListener('click',function(){var m=t.getAttribute('data-tmode');if(m&&m!==tinMode){tinMode=m;renderTinLabel();}});});
+  if(tinMode==='blend')tinWireBlend();else tinWireSingle();
+  var g=document.getElementById('tinlbx-gen');if(g)g.addEventListener('click',generateTinLbx);
+}
+function tinSingleFormHtml(msg){
+  if(tinForm.name&&(!tinSample||(tinSample.sample_id||'').trim().toLowerCase()!==tinForm.name.trim().toLowerCase()))tinSample=tinRetailByName(tinForm.name);
+  var rows=TIN_FORM.map(function(f){
+    if(f.k==='name'){
+      return '<div class="smp-f"><span>'+esc(f.label)+'</span>'
+        +'<div class="lbl-namewrap">'
+        +'<input type="text" id="tf-name" list="tin-beans" autocomplete="off" value="'+esc(tinForm.name||'')+'" placeholder="'+esc(f.ph)+'" />'
+        +'<button type="button" class="lbl-namebtn" id="tf-name-pick" aria-label="Choose bean"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>'
+        +'<div class="lbl-namemenu" id="tf-name-menu"></div>'
+        +'</div></div>';
+    }
+    return '<label class="smp-f"><span>'+esc(f.label)+'</span><input type="text" id="tf-'+f.k+'" value="'+esc(tinForm[f.k]||'')+'" placeholder="'+esc(f.ph)+'" /></label>';
+  }).join('');
+  return '<div class="smp-sec-h" style="margin:10px 0 10px">Fill in &amp; generate</div>'
+    +'<div class="smp-fields">'+rows+'</div>'
+    +'<datalist id="tin-beans">'+tinBeanNameList().map(function(nm){return '<option value="'+esc(nm)+'"></option>';}).join('')+'</datalist>'
+    +'<div class="gform-msg'+(msg&&msg.err?' err':(msg&&msg.ok?' ok':''))+'" id="tinlbx-msg" style="margin-top:12px">'+(msg?esc(msg.text):'')+'</div>'
+    +'<button class="gbtn" id="tinlbx-gen" style="margin-top:6px">Generate .lbx</button>';
+}
+function tinWireSingle(){
+  TIN_FORM.forEach(function(f){var inp=document.getElementById('tf-'+f.k);if(inp&&f.k!=='name')inp.addEventListener('input',function(){tinForm[f.k]=inp.value;});});
+  var nameInp=document.getElementById('tf-name');
+  if(nameInp)nameInp.addEventListener('input',function(){var v=nameInp.value;if(tinRetailByName(v)){tinApplyByName(v);}else{tinForm.name=v;tinSample=null;}});
+  var pickBtn=document.getElementById('tf-name-pick'),nameMenu=document.getElementById('tf-name-menu');
+  if(nameMenu){var names=tinBeanNameList();nameMenu.innerHTML=names.length?names.map(function(nm){return '<button type="button" class="lbl-nameopt" data-nm="'+esc(nm)+'">'+esc(nm)+'</button>';}).join(''):'<div class="sempty">No beans yet</div>';nameMenu.querySelectorAll('.lbl-nameopt').forEach(function(o){o.addEventListener('click',function(){var nm=o.getAttribute('data-nm');if(nameInp)nameInp.value=nm;tinApplyByName(nm);nameMenu.classList.remove('open');if(pickBtn)pickBtn.classList.remove('on');});});}
+  tinWireNameMenu(pickBtn,nameMenu);
+}
+function tinRecipeHtml(){
+  var parts=(tinBlend.parts||[]).filter(function(p){return (p.bean||'').trim();});
+  if(parts.length)return '<div class="smp-sec-h" style="margin:14px 0 6px">Recipe</div><div class="rtl-recipe">'+parts.map(function(p){var pct=(p.pct||p.pct===0)?('<b>'+esc(String(p.pct))+'%</b> '):'';return '<span class="rtl-rchip">'+pct+esc(p.bean)+'</span>';}).join('')+'</div>';
+  if((tinBlend.name||'').trim())return '<div class="rtl-noflav" style="margin-top:10px">No recipe set · add it in classic F(x) → Blending</div>';
+  return '';
+}
+function renderTinRecipe(){var el=document.getElementById('tin-recipe');if(el)el.innerHTML=tinRecipeHtml();}
+function tinBlendFormHtml(msg){
+  if(tinBlend.name&&(!tinSample||(tinSample.sample_id||'').trim().toLowerCase()!==tinBlend.name.trim().toLowerCase()))tinSample=tinRetailByName(tinBlend.name);
+  if(tinBlend.name&&(!tinBlend.parts||!tinBlend.parts.length)){try{var d=blendDefByName(tinBlend.name);tinBlend.parts=d?(d.parts||[]).filter(function(p){return (p.bean||'').trim();}):[];}catch(e){}}
+  var nameField='<div class="smp-f"><span>Blend name</span>'
+    +'<div class="lbl-namewrap">'
+    +'<input type="text" id="tf-bname" list="tin-blends" autocomplete="off" value="'+esc(tinBlend.name||'')+'" placeholder="e.g. House Blend" />'
+    +'<button type="button" class="lbl-namebtn" id="tf-bname-pick" aria-label="Choose blend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>'
+    +'<div class="lbl-namemenu" id="tf-bname-menu"></div>'
+    +'</div></div>';
+  return '<div class="smp-sec-h" style="margin:10px 0 10px">Pick a blend &amp; generate</div>'
+    +'<div class="smp-fields">'+nameField+'</div>'
+    +'<datalist id="tin-blends">'+tinBlendNameList().map(function(nm){return '<option value="'+esc(nm)+'"></option>';}).join('')+'</datalist>'
+    +'<div id="tin-recipe">'+tinRecipeHtml()+'</div>'
+    +'<div class="gform-msg'+(msg&&msg.err?' err':(msg&&msg.ok?' ok':''))+'" id="tinlbx-msg" style="margin-top:12px">'+(msg?esc(msg.text):'')+'</div>'
+    +'<button class="gbtn" id="tinlbx-gen" style="margin-top:6px">Generate .lbx</button>';
+}
+function tinWireBlend(){
+  var nameInp=document.getElementById('tf-bname');
+  if(nameInp)nameInp.addEventListener('input',function(){tinApplyBlend(nameInp.value);renderTinRecipe();});
+  var pickBtn=document.getElementById('tf-bname-pick'),nameMenu=document.getElementById('tf-bname-menu');
+  if(nameMenu){var names=tinBlendNameList();nameMenu.innerHTML=names.length?names.map(function(nm){return '<button type="button" class="lbl-nameopt" data-nm="'+esc(nm)+'">'+esc(nm)+'</button>';}).join(''):'<div class="sempty">No blends yet</div>';nameMenu.querySelectorAll('.lbl-nameopt').forEach(function(o){o.addEventListener('click',function(){var nm=o.getAttribute('data-nm');if(nameInp)nameInp.value=nm;tinApplyBlend(nm);renderTinRecipe();nameMenu.classList.remove('open');if(pickBtn)pickBtn.classList.remove('on');});});}
+  tinWireNameMenu(pickBtn,nameMenu);
+}
+async function generateTinLbx(){
+  var msg=document.getElementById('tinlbx-msg');var btn=document.getElementById('tinlbx-gen');
+  try{
+    if(!window.JSZip){if(msg){msg.textContent='Zip library still loading, try again';msg.className='gform-msg err';}return;}
+    if(btn)btn.disabled=true;if(msg){msg.textContent='Building .lbx…';msg.className='gform-msg';}
+    var zip=await JSZip.loadAsync(await fetchAsset('/tin-label.lbx'));
+    var xml=await zip.file('label.xml').async('string');
+    tinCompileEntries().forEach(function(f){
+      var newText=(f.value==null)?'':f.value;
+      var dataOld='<pt:data>'+xmlEsc(f.orig)+'</pt:data>';
+      var idx=xml.indexOf(dataOld);if(idx<0)return;
+      var bStart=xml.lastIndexOf('<text:text>',idx);var bEnd=xml.indexOf('</text:text>',idx)+12;
+      var block=xml.slice(bStart,bEnd),nb=block;
+      if(newText!==f.orig){
+        nb=nb.replace(/<pt:data>[\s\S]*?<\/pt:data>/,'<pt:data>'+xmlEsc(newText)+'</pt:data>');
+        var items=tinStringItems(block,newText);
+        nb=nb.replace(/<text:stringItem charLen="\d+">[\s\S]*<\/text:stringItem>/,items);
+      }
+      if(nb!==block){xml=xml.slice(0,bStart)+nb+xml.slice(bEnd);}
+    });
+    var srcName=(tinMode==='blend'?tinBlend.name:(tinForm.name||tinForm.country))||'tin';
+    var nm=srcName.replace(/[^A-Za-z0-9 _\-]/g,'').trim().replace(/\s+/g,'_')||'tin';
+    try{var logoBmp=await tinLogoBmp();if(logoBmp)zip.file('Object0.bmp',logoBmp);}catch(e){}
+    try{
+      var rbmp=tinRadarBmp(tinSample);
+      if(rbmp&&xml.indexOf('Object1.bmp')<0){
+        zip.file('Object1.bmp',rbmp);
+        xml=xml.replace('</pt:objects>',TIN_RADAR_OBJ+'</pt:objects>');
+      }
+    }catch(e){}
+    try{
+      var flav=(tinSample&&tinSample.features&&tinSample.features.length)
+        ?tinSample.features.map(function(x){return String(x||'').trim();}).filter(Boolean).join(' · ').toUpperCase()
+        :'';
+      if(flav){
+        var flavObj=TIN_FLAV_OBJ.replace('__DATA__',xmlEsc(flav)).replace('__LEN__',String(flav.length));
+        xml=xml.replace('</pt:objects>',flavObj+'</pt:objects>');
+      }
+    }catch(e){}
+    zip.file('label.xml',xml);
+    var blob=await zip.generateAsync({type:'blob',mimeType:'application/octet-stream',compression:'DEFLATE'});
+    var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download=nm+'.lbx';document.body.appendChild(a);a.click();
+    setTimeout(function(){URL.revokeObjectURL(url);a.remove();},1500);
+    if(btn)btn.disabled=false;if(msg){msg.textContent='Done — '+nm+'.lbx downloaded';msg.className='gform-msg ok';}
+  }catch(e){if(btn)btn.disabled=false;if(msg){msg.textContent='Generate failed: '+(e&&e.message||e);msg.className='gform-msg err';}}
+}
+/* Labels 抽屜：頂部袋標／罐標切換，body 內就是 classic 那套（Blend/Single 分頁＋挑豆＋Generate） */
+var LBL_KIND='bag';
+async function openLabelSheet(){
+  if(!canWrite()){roToast();return;}
+  openDrawerHTML('<div class="t" style="font-size:19px">Labels</div>'
+    +'<div class="s" style="margin-top:2px">Fill in, generate the .lbx, then open it in P-touch Editor to print</div>'
+    +'<div class="pm-seg" style="margin-top:12px"><button data-lk="bag"'+(LBL_KIND==='bag'?' class="on"':'')+'>Bag label</button><button data-lk="tin"'+(LBL_KIND==='tin'?' class="on"':'')+'>Tin label</button></div>'
+    +'<div id="lbl-body" style="margin-top:14px"><div class="sempty">Loading beans…</div></div>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted);margin-top:14px">Close</button>');
+  $('d-cl').addEventListener('click',closeDrawer);
+  document.querySelectorAll('[data-lk]').forEach(function(b){b.addEventListener('click',function(){LBL_KIND=b.dataset.lk;document.querySelectorAll('[data-lk]').forEach(function(x){x.classList.toggle('on',x.dataset.lk===LBL_KIND);});paintLabelBody();});});
+  try{if(!window.JSZip)await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');}catch(e){}
+  try{await menusEnsureData();}catch(e){}
+  paintLabelBody();
+}
+function paintLabelBody(){if(LBL_KIND==='tin')renderTinLabel();else renderLabel();}
+
 /* ===== Tools ===== */
 /* ===== Timesheet 2.0 Stage B：排班（本週＋下兩週；班型模板；N/A 撞班警告）=====
    shift 形狀嚴格照 classic＝{day,name,start,end,br}（morning-brief/今日流晨報卡都在讀）；
@@ -4436,7 +4981,8 @@ function renderTools(){
     +'<button class="tool" id="t-stk" style="border-color:var(--accent);color:var(--accent)">Stocktake<small>weigh greens · right here</small></button>'
     +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
     +'<button class="tool" id="t-task" style="border-color:var(--accent);color:var(--accent)">New task<small>'+(isLead()?'assign · right here':'for the team · right here')+'</small></button>'
-    +[['Invoice','GST PDF · classic'],['IG asset','1200×1200 card · classic'],['Labels','bag / tin · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1" disabled style="opacity:.4;cursor:not-allowed">'+x[0]+'<small>'+x[1]+' · off</small></button>';}).join('')
+    +'<button class="tool" id="t-label" style="border-color:var(--accent);color:var(--accent)">Labels<small>bag / tin · right here</small></button>'
+    +[['Invoice','GST PDF · classic'],['IG asset','1200×1200 card · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1" disabled style="opacity:.4;cursor:not-allowed">'+x[0]+'<small>'+x[1]+' · off</small></button>';}).join('')
     +'</div>'):'')
     +'<div class="gsec">Look up · right here</div><div class="tgrid">'
     +[['Green stock','full list · right here','greens'],['Roasted Stock','FIFO shelf · right here','batches'],['Retail Info','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Menus','4 menu PDFs · right here','menus'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes']]
@@ -4477,6 +5023,7 @@ function renderTools(){
   var ts=$('t-stk');if(ts)ts.addEventListener('click',openStocktakeSheet);
   var tv=$('t-recv');if(tv)tv.addEventListener('click',openReceiveSheet);
   var tt=$('t-task');if(tt)tt.addEventListener('click',function(){openTaskAdd(null);});
+  var tlb=$('t-label');if(tlb)tlb.addEventListener('click',openLabelSheet);
   m.querySelectorAll('[data-th]').forEach(function(b){b.addEventListener('click',function(){applyTheme(b.dataset.th);renderTools();});});
   var tn=$('t-notif');if(tn)tn.addEventListener('click',function(){enablePush(tn);});
   var tp=$('t-ptest');if(tp)tp.addEventListener('click',async function(){
