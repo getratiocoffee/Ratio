@@ -162,6 +162,12 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .rtl-recipe{display:flex;flex-wrap:wrap;gap:6px}
 .rtl-rchip{border:1.5px solid var(--line2);border-radius:999px;padding:6px 12px;font-size:14px;color:var(--ink)}
 .rtl-noflav{color:var(--muted);font-size:14px}
+/* tracking 掃描全螢幕層 */
+#scanov{position:fixed;inset:0;z-index:80;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+#scanov .scanbox{width:min(92vw,420px);border-radius:14px;overflow:hidden}
+#scanov #scanview{width:100%}
+#scanov .scannote{color:#fff;opacity:.85;font-size:14px;text-align:center;margin-top:16px;max-width:420px}
+#scanov .scancancel{margin-top:16px;border:1.5px solid rgba(255,255,255,.6);background:rgba(255,255,255,.08);color:#fff;border-radius:12px;padding:13px 28px;min-height:48px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer}
 .dlab{font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-top:14px}
 .rs-day{border:1px solid var(--line);border-radius:12px;margin-top:9px;overflow:hidden}
 .rs-day-h{display:flex;justify-content:space-between;align-items:center;padding:9px 13px;background:var(--bg);font-size:13px;font-weight:700;color:var(--ink)}
@@ -787,7 +793,10 @@ function openDispatch(i){
   openDrawerHTML('<div class="t" style="font-size:19px">Dispatch '+i.t.replace('Ship ','')+'</div>'
     +(o.payment_status!=='paid'?'<div class="s" style="margin-top:6px"><span class="red">⚠ This order is unpaid</span></div>':'')
     +'<div class="dlab">Tracking number (optional)</div>'
-    +'<input class="din" id="dp-track" placeholder="e.g. AusPost tracking" value="'+esc(o.tracking_no||'')+'">'
+    +'<div class="lbl-namewrap" style="margin-top:8px">'
+    +'<input class="din" id="dp-track" style="margin-top:0" placeholder="e.g. AusPost tracking" value="'+esc(o.tracking_no||'')+'">'
+    +'<button type="button" class="lbl-namebtn" id="dp-scan" aria-label="Scan tracking number"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg></button>'
+    +'</div>'
     +'<button class="act" id="dp-mail">Dispatch and send email</button>'
     +'<button class="dclose" id="dp-silent">Dispatch without email</button>'
     +'<button class="dclose" id="dp-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>'
@@ -807,6 +816,27 @@ function openDispatch(i){
   $('dp-mail').addEventListener('click',function(){go(true);});
   $('dp-silent').addEventListener('click',function(){go(false);});
   $('dp-cl').addEventListener('click',closeDrawer);
+  var sc=$('dp-scan');if(sc)sc.addEventListener('click',function(){openTrackScan(function(txt){var el=$('dp-track');if(el)el.value=txt;});});
+}
+/* 掃描 tracking：iOS Safari 無 BarcodeDetector → 按需載 html5-qrcode（QR＋一維條碼皆可），
+   相機掃到就填回輸入框；不寫 DB。相機需 https＋授權；不支援時走防呆保留手動輸入。 */
+async function openTrackScan(onResult){
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){alert('This browser cannot use the camera here — please type the tracking number in.');return;}
+  try{if(!window.Html5Qrcode)await loadScriptOnce('https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js');}
+  catch(e){alert('Scanner could not load — check the connection, or type the number in.');return;}
+  var ov=document.createElement('div');ov.id='scanov';
+  ov.innerHTML='<div class="scanbox"><div id="scanview"></div></div><div class="scannote">Point the camera at the barcode or QR on the label</div><button class="scancancel" id="scancancel">Cancel</button>';
+  document.body.appendChild(ov);
+  var qr=new Html5Qrcode('scanview');var done=false;
+  function cleanup(){try{qr.stop().then(function(){try{qr.clear();}catch(e){}}).catch(function(){});}catch(e){}if(ov&&ov.parentNode)ov.parentNode.removeChild(ov);}
+  var cx=document.getElementById('scancancel');if(cx)cx.addEventListener('click',cleanup);
+  try{
+    await qr.start({facingMode:'environment'},{fps:10,qrbox:{width:260,height:260}},function(txt){
+      if(done)return;done=true;cleanup();
+      if(onResult)onResult(String(txt||'').trim());
+      toast('Scanned ✓');
+    },function(){});
+  }catch(e){cleanup();alert('Cannot open the camera — allow camera access in your browser, or type the number in.');}
 }
 
 /* ===== 出貨信資訊卡管線（自 classic 原封移植：畫卡 canvas → 上傳 mail-assets → 附進信）===== */
