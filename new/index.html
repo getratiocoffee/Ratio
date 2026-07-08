@@ -239,7 +239,7 @@ async function loadAll(){
     sb.from('product_sync').select('bean_id,status').eq('channel','square'),
     sb.from('samples').select('id,sample_id,bean_id,process,roast_date,cupping_date,features,flavour_locked,fragrance,acidity,sweetness,body,aftertaste,comment,cupper').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
     sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg,status,kind,remaining_kg,roasted_kg').order('roast_date',{ascending:false}),
-    sb.from('beans').select('id,name,process,quantity,low_stock_kg,country,cost_per_kg,supplier'),
+    sb.from('beans').select('id,name,process,quantity,low_stock_kg,country,region,station,variety,harvest,altitude,cost_per_kg,supplier'),
     sb.from('feedback').select('*').is('reply',null).order('created_at',{ascending:false}),
     sb.from('rosters').select('week_start,shifts,deleted').eq('week_start',mondayStr()),
     sb.from('app_state').select('value').eq('key','new_snooze').maybeSingle(),
@@ -1721,7 +1721,12 @@ function greenDupExists(name,process,excludeId){
     return String(b.name||'').trim().toLowerCase()===n&&String(b.process||'').trim().toLowerCase()===p;
   });
 }
-function openGreenEdit(b){
+async function openGreenEdit(b){
+  openDrawerHTML('<span class="tag">Green</span><div class="t" style="font-size:19px">Edit details</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  /* 表單以資料庫的完整列為準（記憶體 DB.beans 未必帶全欄——保 region/variety 等不被空欄存成 null 蓋掉） */
+  var full=b;
+  try{var q=await sb.from('beans').select('*').eq('id',b.id).single();if(q.data)full=q.data;}catch(e){}
+  b=full;
   var rows=GB_FIELDS.map(function(f){
     var v=b[f[0]];v=(v==null?'':String(v));
     return '<div style="margin-top:12px"><div class="dlab" style="margin:0 0 4px">'+esc(f[1])+'</div>'
