@@ -5221,7 +5221,8 @@ function renderTools(){
   /* Look up 依生產線四類分組（責任分區）：Production / Orders & customers / Daily task / Team ＋ App。
      寫入磁貼（_mk=canWrite）散進各自的類，唯讀磁貼人人看得到——分組是責任標示、不是權限牆 */
   var _mk=canWrite();
-  function _tiles(a){return a.map(function(x){var off=x[2]==='classic';return '<button class="tool" data-t="'+x[2]+'"'+(off?' disabled style="opacity:.4;cursor:not-allowed"':'')+'>'+x[0]+'<small>'+x[1]+(off?' · off':'')+'</small></button>';}).join('');}
+  /* x[3] 真＝「這顆會改資料」＝上玫瑰色（可改色）。做 app 期間的臨時規則，完工後整組拿掉 */
+  function _tiles(a){return a.map(function(x){var off=x[2]==='classic';var ed=x[3];return '<button class="tool" data-t="'+x[2]+'"'+(off?' disabled style="opacity:.4;cursor:not-allowed"':(ed?' style="color:var(--accent)"':''))+'>'+x[0]+'<small>'+x[1]+(off?' · off':'')+'</small></button>';}).join('');}
   function _mkTile(id,label,sub){return '<button class="tool" id="'+id+'" style="color:var(--accent)">'+label+'<small>'+sub+'</small></button>';}
   function _off(a){return a.map(function(x){return '<button class="tool" data-classic="1" disabled style="opacity:.4;cursor:not-allowed">'+x[0]+'<small>'+x[1]+' · off</small></button>';}).join('');}
   /* 部門代表色（同部門同色）：直接沿用今日流的 STCOLOR，讓卡片與工具說同一種色語言。
@@ -5231,7 +5232,7 @@ function renderTools(){
   function _sec(title,color,inner){return '<div class="gsec" style="color:'+color+'"><span class="gdot"></span>'+title+'</div><div class="tgrid" style="--dept:'+color+'">'+inner+'</div>';}
   var _groups=_sec('Production',DEPT.prod,
       (_mk?_mkTile('t-recv','Receive green','delivery in')+_mkTile('t-roast','Log roast','green in')+_mkTile('t-stk','Stocktake','weigh greens'):'')
-      +_tiles([['Green stock','full list','greens'],['Roasted Stock','FIFO shelf','batches']].concat(_mk?[['Delete a coffee','remove · careful','delbean']]:[])))
+      +_tiles([['Green stock','full list','greens'],['Roasted Stock','FIFO shelf','batches']].concat(_mk?[['Delete a coffee','remove · careful','delbean',1]]:[])))
     +_sec('QC &amp; Recipe',DEPT.qc,
       _tiles([['QC','cup and judge','qcgo'],['Recipe','blends · dial-in','recipe']]))
     +_sec('Shelf',DEPT.shelf,
@@ -5241,15 +5242,15 @@ function renderTools(){
       +_off([['Announce','email blast · classic'],['QR codes','shop / feedback · classic']]))
     +_sec('Orders &amp; customers',DEPT.ord,
       (_mk?_mkTile('t-neworder','New order','right here'):'')
-      +_tiles([['Orders','recent list','orders'],['Customers','book','customers']].concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[])))
+      +_tiles([['Orders','recent list','orders'],['Customers','book','customers']].concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale',1]]:[])))
     +(rsMoney()?_sec('Finance',DEPT.fin,
-      _tiles([['Payroll','wages · weeks','payroll'],['Calculator','cost · margins','calc']])
+      _tiles([['Payroll','wages · weeks','payroll',_mk?1:0],['Calculator','cost · margins','calc']])
       +_off([['Invoice','GST PDF · classic'],['Bookkeeping','expenses · classic']])):'')
     +_sec('Daily task',DEPT.day,
       (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'))+_mkTile('t-label','Labels','bag / tin'):'')
       +_tiles([['Menus','menu PDFs · in-store','menus'],['Info cards','A4 · 2 fold cards','infocards']]))
     +_sec('Team',DEPT.team,
-      _tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster'],['Team notes','notes · problems','notes']].concat(isLead()?[['Team','who is on · assign','team']]:[])))
+      _tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster',_mk?1:0],['Team notes','notes · problems','notes',_mk?1:0]].concat(isLead()?[['Team','who is on · assign','team',1]]:[])))
     +_sec('App',DEPT.app,
       _tiles([['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']]));
   m.innerHTML='<input class="search" id="tsearch" type="search" placeholder="Search beans, customers, orders…">'
