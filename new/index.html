@@ -182,9 +182,10 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .note{font-size:12.5px;color:var(--muted);text-align:center;margin:6px 14px 0;line-height:1.6}
 .search{width:100%;border:1.5px solid var(--line2);border-radius:12px;padding:15px 16px;font-size:16px;font-family:inherit;background:var(--surface);color:var(--ink);outline:none;margin-bottom:6px}
 .search:focus{border-color:var(--ink)}
-.gsec{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin:18px 2px 8px}
+.gsec{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin:18px 2px 8px;display:flex;align-items:center}
+.gdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor;margin-right:8px;flex:0 0 auto}
 .tgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-.tool{border:1px solid var(--line2);background:var(--surface);border-radius:12px;padding:13px 12px;font-size:15px;font-weight:700;font-family:inherit;color:var(--ink);cursor:pointer;text-align:center}
+.tool{border:1px solid var(--line2);border-left:3px solid var(--dept,var(--line2));background:var(--surface);border-radius:12px;padding:13px 12px;font-size:15px;font-weight:700;font-family:inherit;color:var(--ink);cursor:pointer;text-align:center}
 .tool:active{background:var(--tint)}
 .tool small{display:block;font-size:11.5px;font-weight:500;color:var(--muted);margin-top:3px}
 .hit{background:var(--surface);border:1px solid var(--line2);border-radius:12px;padding:13px 15px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px}
@@ -596,9 +597,11 @@ function renderFeed(){
       var cc=STCOLOR[i.st]||'#8A837C';
       /* 左色條：急件 accent 紅、晨報反白卡隱形（同 inv 底色）、其餘照類別色 */
       var bar=i.pin?'var(--inv)':(i.hot?'var(--accent)':cc);
+      /* 標題右內距＝依 cattag 實際寬度（狀態字長＋「· now」）動態算，長標籤（如 Wholesale · now）才加寬，短的維持 92px 不浪費空間 */
+      var pr=Math.max(92, 22 + String(i.st).length*8 + (i.hot?46:0));
       return '<div class="card feed'+(i.hot?' hot':'')+(i.pin?' brief':'')+'" style="border-left-color:'+bar+'" id="c-'+esc(i.id)+'">'
         +'<span class="cattag"'+(i.pin?'':' style="color:'+cc+'"')+'>● '+esc(i.st)+(i.hot?' <span style="color:var(--accent)">· now</span>':'')+'</span>'
-        +'<div class="t" style="padding-right:92px">'+i.t+'</div><div class="s s1">'+i.s+'</div>'
+        +'<div class="t" style="padding-right:'+pr+'px">'+i.t+'</div><div class="s s1">'+i.s+'</div>'
         +'<div class="cfoot">'
         +'<button class="moresm" data-more="'+esc(i.id)+'">details ▾</button>'
         +'<button class="actsm" data-do="'+esc(i.id)+'">'+esc(i.act)+'</button>'
@@ -5093,40 +5096,36 @@ function renderTools(){
      寫入磁貼（_mk=canWrite）散進各自的類，唯讀磁貼人人看得到——分組是責任標示、不是權限牆 */
   var _mk=canWrite();
   function _tiles(a){return a.map(function(x){var off=x[2]==='classic';return '<button class="tool" data-t="'+x[2]+'"'+(off?' disabled style="opacity:.4;cursor:not-allowed"':'')+'>'+x[0]+'<small>'+x[1]+(off?' · off':'')+'</small></button>';}).join('');}
-  function _mkTile(id,label,sub){return '<button class="tool" id="'+id+'" style="border-color:var(--accent);color:var(--accent)">'+label+'<small>'+sub+'</small></button>';}
+  function _mkTile(id,label,sub){return '<button class="tool" id="'+id+'" style="color:var(--accent)">'+label+'<small>'+sub+'</small></button>';}
   function _off(a){return a.map(function(x){return '<button class="tool" data-classic="1" disabled style="opacity:.4;cursor:not-allowed">'+x[0]+'<small>'+x[1]+' · off</small></button>';}).join('');}
-  var _groups='<div class="gsec">Production</div><div class="tgrid">'
-    +(_mk?_mkTile('t-recv','Receive green','delivery in')+_mkTile('t-roast','Log roast','green in')+_mkTile('t-stk','Stocktake','weigh greens'):'')
-    +_tiles([['Green stock','full list','greens'],['Roasted Stock','FIFO shelf','batches']].concat(_mk?[['Delete a coffee','remove · careful','delbean']]:[]))
-    +'</div>'
-    +'<div class="gsec">QC &amp; Recipe</div><div class="tgrid">'
-    +_tiles([['QC','cup and judge','qcgo'],['Recipe','blends · dial-in','recipe']])
-    +'</div>'
-    +'<div class="gsec">Shelf</div><div class="tgrid">'
-    +_tiles([['Retail Info','live on Square','retail']])
-    +'</div>'
-    +'<div class="gsec">Marketing</div><div class="tgrid">'
-    +_tiles([['IG asset','post card · caption','igasset']])
-    +_off([['Announce','email blast · classic'],['QR codes','shop / feedback · classic']])
-    +'</div>'
-    +'<div class="gsec">Orders &amp; customers</div><div class="tgrid">'
-    +(_mk?_mkTile('t-neworder','New order','right here'):'')
-    +_tiles([['Orders','recent list','orders'],['Customers','book','customers']].concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[]))
-    +'</div>'
-    +(rsMoney()?'<div class="gsec">Finance</div><div class="tgrid">'
-      +_tiles([['Payroll','wages · weeks','payroll']])
-      +_off([['Invoice','GST PDF · classic'],['Bookkeeping','expenses · classic']])
-      +'</div>':'')
-    +'<div class="gsec">Daily task</div><div class="tgrid">'
-    +(_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'))+_mkTile('t-label','Labels','bag / tin'):'')
-    +_tiles([['Menus','menu PDFs · in-store','menus'],['Info cards','A4 · 2 fold cards','infocards']])
-    +'</div>'
-    +'<div class="gsec">Team</div><div class="tgrid">'
-    +_tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster'],['Team notes','notes · problems','notes']].concat(isLead()?[['Team','who is on · assign','team']]:[]))
-    +'</div>'
-    +'<div class="gsec">App</div><div class="tgrid">'
-    +_tiles([['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']])
-    +'</div>';
+  /* 部門代表色（同部門同色）：直接沿用今日流的 STCOLOR，讓卡片與工具說同一種色語言。
+     Production=Roast 琥珀 / QC&Recipe=QC 藍 / Shelf=紫 / Orders=Orders 玫瑰 / Finance=Transaction 橄欖。
+     Marketing、Team 卡片端無對應 → 各給一個不撞色的新色；App=中性灰 */
+  var DEPT={prod:STCOLOR.Roast,qc:STCOLOR.QC,shelf:STCOLOR.Shelf,mkt:'#B75C93',ord:STCOLOR.Orders,fin:STCOLOR.Transaction,day:STCOLOR['Daily Task'],team:'#7B78C0',app:'#8A8A8A'};
+  function _sec(title,color,inner){return '<div class="gsec" style="color:'+color+'"><span class="gdot"></span>'+title+'</div><div class="tgrid" style="--dept:'+color+'">'+inner+'</div>';}
+  var _groups=_sec('Production',DEPT.prod,
+      (_mk?_mkTile('t-recv','Receive green','delivery in')+_mkTile('t-roast','Log roast','green in')+_mkTile('t-stk','Stocktake','weigh greens'):'')
+      +_tiles([['Green stock','full list','greens'],['Roasted Stock','FIFO shelf','batches']].concat(_mk?[['Delete a coffee','remove · careful','delbean']]:[])))
+    +_sec('QC &amp; Recipe',DEPT.qc,
+      _tiles([['QC','cup and judge','qcgo'],['Recipe','blends · dial-in','recipe']]))
+    +_sec('Shelf',DEPT.shelf,
+      _tiles([['Retail Info','live on Square','retail']]))
+    +_sec('Marketing',DEPT.mkt,
+      _tiles([['IG asset','post card · caption','igasset']])
+      +_off([['Announce','email blast · classic'],['QR codes','shop / feedback · classic']]))
+    +_sec('Orders &amp; customers',DEPT.ord,
+      (_mk?_mkTile('t-neworder','New order','right here'):'')
+      +_tiles([['Orders','recent list','orders'],['Customers','book','customers']].concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[])))
+    +(rsMoney()?_sec('Finance',DEPT.fin,
+      _tiles([['Payroll','wages · weeks','payroll']])
+      +_off([['Invoice','GST PDF · classic'],['Bookkeeping','expenses · classic']])):'')
+    +_sec('Daily task',DEPT.day,
+      (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'))+_mkTile('t-label','Labels','bag / tin'):'')
+      +_tiles([['Menus','menu PDFs · in-store','menus'],['Info cards','A4 · 2 fold cards','infocards']]))
+    +_sec('Team',DEPT.team,
+      _tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster'],['Team notes','notes · problems','notes']].concat(isLead()?[['Team','who is on · assign','team']]:[])))
+    +_sec('App',DEPT.app,
+      _tiles([['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']]));
   m.innerHTML='<input class="search" id="tsearch" type="search" placeholder="Search beans, customers, orders…">'
     +'<div id="thits"></div><div id="tgroups">'
     +'<div class="gsec">Notifications</div><div class="tgrid">'

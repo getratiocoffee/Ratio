@@ -56,6 +56,35 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-09 夜（睡前巡檢：部門配色＋卡片重疊 bug＋classic 缺口盤點）
+- **背景**：老闆睡前要求「開 Chrome 檢查所有按鈕/banner/功能有無溢出、對齊、破圖並直接修；同部門上同色；debug/瘦身；盤點 classic 還沒移植的（準備閹割）」。⚠ **桌機 Chrome 仍登出**（代跑不了營運端），故走**本機 serve 複本＋注入 stub（WHO/ROLE/DB）在真瀏覽器渲染**驗證；客戶購物頁用線上真資料看。
+- **UI 巡檢結果**：客戶購物頁（輪播卡/分類頁籤/購物車抽屜）＝乾淨無溢出無破圖；Tools（director 31 磁貼）＋今日流＋QC 台 stub 渲染＝**頁面零橫向溢出、零破圖**。唯一「溢出」是設計上的 `.bglogo`（旋轉背景、pointer-events:none），非 bug。
+- **🐛 真 bug 修掉：今日流卡片長標題撞右上角 cattag**（new/index.html ~line 601）。長客戶名（如 wholesale 長店名）時，標題第一行文字會壓到絕對定位的 `● WHOLESALE · NOW` 標籤上。原本 `.t` 寫死 `padding-right:92px`，但「Wholesale · now」標籤實測 124px 寬 → 不夠。**修法**＝右內距改**依標籤長度動態算** `pr=Math.max(92, 22 + i.st.length*8 + (i.hot?46:0))`：短狀態維持 92px 不浪費、長的（Wholesale/Roasting＋now）自動加寬。preview 實測長名卡標題在標籤前換行、不再重疊。
+- **✅ 部門同色（老闆要的「同部門同色」）**：Tools 8 部門原本標題全同一灰。**關鍵發現**＝今日流卡片早有一套 `STCOLOR`（Orders 玫瑰/QC 藍/Roast 琥珀/Shelf 紫/Transaction 橄欖…，連篩選 chip 都用），我一開始另配了一套土系色**跟它撞**（Shelf 卡片是紫、我 Tools 卻上綠）。改成 **Tools 部門色直接沿用 STCOLOR**＝整個 app 同概念同色：`DEPT={prod:STCOLOR.Roast, qc:STCOLOR.QC, shelf:STCOLOR.Shelf, ord:STCOLOR.Orders, fin:STCOLOR.Transaction, day:STCOLOR['Daily Task'], mkt:'#B75C93'(新), team:'#7B78C0'(新), app:'#8A8A8A'}`（Marketing/Team 卡片端無對應→給不撞的新色）。呈現＝gsec 標題上色＋前導圓點 `.gdot`＋磁貼**左側 3px 色條**（`--dept` 下放到 `.tool` 的 border-left，呼應卡片 border-left:4px）；建立類磁貼（_mkTile）改成「部門色條＋玫瑰色文字」（原本是玫瑰整框，會蓋掉色條）。明暗兩版皆實測清楚。CSS 動了 `.gsec`（flex＋gdot）、`.tool`（border-left:3px var(--dept)）。
+- **瘦身/debug 結論**：339 個函式**零死碼**（唯一單次出現的 `init` 是進入點 IIFE）；stub 渲染 feed/tools/qc **零 runtime 錯誤**（只有 serve 複本缺 sw.js 的 404，線上有）。檔案 424KB 主要是正當內容（含兩塊 ~25KB 品牌卡 base64，內嵌是為 canvas 匯出免 CORS，不宜動）。**結論＝程式碼已精實，無有意義的瘦身空間**；硬壓縮反害單檔可維護性。
+- **順手觀察（未動，待老闆決定）**：Tools 頁 **Notifications/Appearance（個人設定）排在最上面**，把 Production 等工作部門擠到下面捲動才到——建議挪到最底（App 附近）減少每天捲動摩擦，但會動到肌肉記憶，沒老闆點頭先不改。
+- **⚠ 以上 new/index.html 改動（部門色＋重疊修）尚未 commit/push**——老闆過目後用 GitHub Desktop push。
+- **📋 classic 移植缺口盤點（準備閹割 classic）**：見下方「classic 缺口清單」專節。
+
+## 〇、classic 缺口清單（2026-07-09 盤點 · 閹割前要嘛移植要嘛確認丟棄）
+classic 功能樹＝12 泡泡站（onOpen）＋ DOCK 模組。逐一比對 /new：
+**A. 新殼完全沒有（要嘛移植、要嘛老闆確認不要）**
+1. **利潤計算機 Retail/Wholesale Calculator**（classic fx:calc/order:calc＝`CALC_HTML` iframe，零售+批發雙模式、烘豆參數/包裝/固定成本→利潤率）——/new 完全沒有。Finance 儀表板也連它（model margins）。
+2. **Coffee C-Market 生豆行情**（classic green:cmarket＝TradingView 期貨圖＋生豆成本試算）——/new 沒有。
+3. **生豆採購紀錄/買入帳 Buy log**（classic green:buy＝loadPurchases）——/new 有「收生豆」(openReceiveSheet 併批次) 但**採購/買入 ledger 清單**沒有。
+4. **財務儀表板 Finance P&L**（classic fin=openFinance＝唯讀：本月/上月已收訂單金額、未收/逾期、生豆庫存價值、本月買豆）——/new Finance 群只有 Payroll live，Invoice/Bookkeeping 是 off 占位；**這張錢的總覽沒移植**。
+5. **GST 稅務發票 Invoice**（classic news=openInvoice 產 tax invoice PDF）——/new 是 disabled off 磁貼跳 classic。
+6. **行銷群發 Announce**（classic mkt=announceCoffee＝新豆上架 email 群發給全體有 email 的客戶）——/new 是 disabled off 占位。
+7. **檔案庫 Files**（classic file=openFile＝存 docx 等文件，如批發合約）——/new 沒有。
+8. **通訊錄 Contacts**（classic user=openContacts，與 Customers 分開的聯絡簿/供應商）——/new 沒有（只有 Customers）。
+9. **Admin 成員管理**（classic admin=openAdmin，密碼閘＋Supabase Auth 開/改帳號）——/new Team 抽屜只做角色/lead，**開帳號/密碼閘的成員管理**還在 classic。
+**B. /new 有但唯讀，編輯仍要回 classic**
+10. **拼配配方編輯 Blending**（classic fx:blend=openBlending）——/new openRecipeSheet 唯讀看 blends，新增/改配方→「edit in classic」。
+11. **Dial-in 濃縮沖煮紀錄編輯**（classic recipe:dialin=openDialin）——/new Recipe 看近期 dial-in 唯讀，新增→classic。
+12. **生豆樣品分析 Sample analyse**（classic green:analyse/samplehist＝生豆杯測評分＋歷史）——/new QC 台是熟豆 QC，**生豆樣品分析/歷史**沒對應。
+**C. classic 本來就沒做（非缺口）**：green:sell、program＝「soon」占位。
+**建議閹割順序**：先移植/確認 A 組高頻的（4 財務總覽、6 群發、1 計算機是老闆常用的三個）；B 組唯讀已可用、編輯低頻可暫留 classic 連結；A 組低頻的（7 檔案、8 通訊錄）確認是否真要。
+
 ## 〇、補記 — 2026-07-09（唯讀護欄＋Labels 移植＋上架入口）
 - **Tools 停用跳 classic 的傳送門**（new/index.html）：Tools 裡會 `location.href=CLASSIC` 的 6 個磁貼（Make 區 Invoice/IG asset/QR codes/Announce＋Look up 的 Classic app；原本還有 Labels 但下面移植後移除）改成 `disabled`＋灰 40%＋小字「· off」，保留可見好復原。commit 080f950。
 - **Header logo 放大 70%**（new/index.html）：`.brandlogo` 36px→61px。全頁共用（feed/QC/Tools/店面）。commit 080f950。
