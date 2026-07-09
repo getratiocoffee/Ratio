@@ -5065,7 +5065,7 @@ function renderTools(){
   var _mk=canWrite();
   function _tiles(a){return a.map(function(x){var off=x[2]==='classic';return '<button class="tool" data-t="'+x[2]+'"'+(off?' disabled style="opacity:.4;cursor:not-allowed"':'')+'>'+x[0]+'<small>'+x[1]+(off?' · off':'')+'</small></button>';}).join('');}
   function _mkTile(id,label,sub){return '<button class="tool" id="'+id+'" style="border-color:var(--accent);color:var(--accent)">'+label+'<small>'+sub+'</small></button>';}
-  var _offTiles=[['Invoice','GST PDF · classic'],['IG asset','1200 card · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1" disabled style="opacity:.4;cursor:not-allowed">'+x[0]+'<small>'+x[1]+' · off</small></button>';}).join('');
+  function _off(a){return a.map(function(x){return '<button class="tool" data-classic="1" disabled style="opacity:.4;cursor:not-allowed">'+x[0]+'<small>'+x[1]+' · off</small></button>';}).join('');}
   var _groups='<div class="gsec">Production</div><div class="tgrid">'
     +(_mk?_mkTile('t-recv','Receive green','delivery in')+_mkTile('t-roast','Log roast','green in')+_mkTile('t-stk','Stocktake','weigh greens'):'')
     +_tiles([['Green stock','full list','greens'],['Roasted Stock','FIFO shelf','batches'],['QC','cup and judge','qcgo'],['Recipe','blends · dial-in','recipe'],['Retail Info','live on Square','retail']].concat(_mk?[['Delete a coffee','remove · careful','delbean']]:[]))
@@ -5073,11 +5073,15 @@ function renderTools(){
     +'<div class="gsec">Orders &amp; customers</div><div class="tgrid">'
     +(_mk?_mkTile('t-neworder','New order','right here'):'')
     +_tiles([['Orders','recent list','orders'],['Customers','book','customers']].concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[]))
+    +_off([['Invoice','GST PDF · classic']])
+    +'</div>'
+    +'<div class="gsec">Marketing</div><div class="tgrid">'
+    +_tiles([['Menus','4 menu PDFs','menus']])
+    +_off([['IG asset','1200 card · classic'],['Announce','email blast · classic'],['QR codes','shop / feedback · classic']])
     +'</div>'
     +'<div class="gsec">Daily task</div><div class="tgrid">'
     +(_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'))+_mkTile('t-label','Labels','bag / tin'):'')
-    +_tiles([['Info cards','A4 · 2 fold cards','infocards'],['Menus','4 menu PDFs','menus']])
-    +(_mk?_offTiles:'')
+    +_tiles([['Info cards','A4 · 2 fold cards','infocards']])
     +'</div>'
     +'<div class="gsec">Team</div><div class="tgrid">'
     +_tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster'],['Team notes','notes · problems','notes']].concat(isLead()?[['Team','who is on · assign','team']]:[]))
