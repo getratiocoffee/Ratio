@@ -1442,12 +1442,12 @@ async function openShelfBeanDetail(nm,m){
     +(!feats.length&&!s.comment&&!hasScores?'<div class="s" style="margin-top:4px">No cupping record yet — cup it in QC first</div>':'')
     +(info.length?'<div class="dlab" style="color:'+col+'">The coffee</div>'
       +info.map(function(r){return '<div class="dl"><span>'+esc(r[0])+'</span><span style="text-align:right">'+esc(String(r[1]))+'</span></div>';}).join(''):'')
-    +'<button class="act" id="sb-edit">Edit listing…</button>'
-    +'<button class="dclose" id="sb-sold">'+(sold?'Put back on sale':'Mark sold out')+'</button>'
-    +'<button class="dclose" id="sb-requeue">Send back to QC…</button>'
-    +'<button class="dclose" id="sb-card">Formal Info Card PDF</button>'
-    +'<button class="dclose" id="sb-promo">Social post kit — IG &amp; RED</button>'
-    +'<button class="dclose" id="sb-ann">Announce by email — new coffee</button>'
+    +'<button class="act" id="sb-edit">Push to Live</button>'
+    +'<button class="dclose" id="sb-sold">'+(sold?'Put back on sale':'Mark Sold Out')+'</button>'
+    +'<button class="dclose" id="sb-requeue">Send back to QC</button>'
+    +'<button class="dclose" id="sb-card">Folding Info Card PDF</button>'
+    +'<button class="dclose" id="sb-promo">Social Post Kit - IG &amp; Red</button>'
+    +'<button class="dclose" id="sb-ann">Announce by email - new coffee</button>'
     +'<button class="dclose" id="sb-back">‹ Back to Retail Info</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('sb-edit').addEventListener('click',function(){openListSheet({ref:s});});
@@ -1468,7 +1468,7 @@ async function openShelfBeanDetail(nm,m){
       closeDrawer();toast('"'+nm+'" is back in the QC queue ✓');
       await reload();
     }catch(e){
-      btn.disabled=false;btn.textContent='Send back to QC…';
+      btn.disabled=false;btn.textContent='Send back to QC';
       alert('Failed: '+(e&&e.message||e));
     }
   });
@@ -1479,7 +1479,7 @@ async function openShelfBeanDetail(nm,m){
       toast(!sold?'Sold out on Square ✓':'Back on sale ✓');
       openRetailSheet();
     }catch(e){
-      btn.disabled=false;btn.textContent=sold?'Put back on sale':'Mark sold out';
+      btn.disabled=false;btn.textContent=sold?'Put back on sale':'Mark Sold Out';
       alert('Update failed: '+(e&&e.message||e));
     }
   });
@@ -2932,7 +2932,7 @@ function passedBeans(){
 async function openInfoCardsSheet(){
   var list=passedBeans();
   var dots={};try{dots=await cardDots();}catch(e){}
-  openDrawerHTML('<div class="t" style="font-size:19px">Formal Info Card</div>'
+  openDrawerHTML('<div class="t" style="font-size:19px">Folding Info Card</div>'
     +'<div class="s" style="margin-top:2px">QC-passed coffees · tap one for an A4 PDF — print double-sided, cut the cross into four 105 × 148.5 mm cards</div>'
     +(list.length?list.map(function(s){
       var c=dotColorFor(s.sample_id,dots);
@@ -5242,7 +5242,7 @@ function renderTools(){
       +_off([['Invoice','GST PDF · classic'],['Bookkeeping','expenses · classic']])):'')
     +_sec('Daily task',DEPT.day,
       (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'))+_mkTile('t-label','Labels','bag / tin'):'')
-      +_tiles([['Menus','menu PDFs · in-store','menus'],['Formal Info Card','A4 · 2 fold cards','infocards']]))
+      +_tiles([['Menus','menu PDFs · in-store','menus'],['Folding Info Card','A4 · 2 fold cards','infocards']]))
     +_sec('Team',DEPT.team,
       _tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster',_mk?1:0],['Team notes','notes · problems','notes',_mk?1:0]].concat(isLead()?[['Team','who is on · assign','team',1]]:[])))
     +_sec('App',DEPT.app,
