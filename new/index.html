@@ -4505,6 +4505,7 @@ async function openRosterSheet(){
 }
 function renderRoster(){
   var ws=rsWeekStart(RS_WK);var wk=RS_DATA[ws]||{shifts:[]};var shifts=wk.shifts;
+  var canEdit=isLead();
   var d0=rsDateFor(ws,0),d6=rsDateFor(ws,6);
   var seg='<div class="pm-seg" style="margin-top:10px">'+[0,1,2].map(function(i){
     return '<button data-rswk="'+i+'"'+(i===RS_WK?' class="on"':'')+'>'+['This week','Next week','Week after'][i]+'</button>';
@@ -4516,19 +4517,22 @@ function renderRoster(){
     tplRow='';
     body=rosterPersonHTML(ws,shifts);
   }else{
-    tplRow='<div style="display:flex;gap:8px;margin-top:10px"><button class="dclose" id="rs-tpl" style="flex:1;margin:0;padding:11px">Apply standard week</button><button class="dclose" id="rs-tpledit" style="flex:0 0 auto;margin:0;width:auto;padding:11px 16px">Edit…</button></div>';
+    tplRow=canEdit?'<div style="display:flex;gap:8px;margin-top:10px"><button class="dclose" id="rs-tpl" style="flex:1;margin:0;padding:11px">Apply standard week</button><button class="dclose" id="rs-tpledit" style="flex:0 0 auto;margin:0;width:auto;padding:11px 16px">Edit…</button></div>':'';
     body=RS_DOW.map(function(dw,di){
       var dObj=rsDateFor(ws,di);
       var rows='';
       shifts.forEach(function(s,idx){
         if(s.day!==dw[0])return;
         var has=!!(s.name&&String(s.name).trim());
+        if(!canEdit&&!has)return;
         var warn=has&&rsUnavailable(s.name,dObj);
-        rows+='<button class="rs-shift'+(has?'':' rs-empty')+'" data-rsedit="'+idx+'">'
-          +'<span class="rs-nm">'+(has?esc(s.name):'— tap to assign')+(warn?' <span class="fr-yellow">⚠</span>':'')+'</span>'
-          +'<span class="rs-tm">'+esc(s.start)+'–'+esc(s.end)+(s.br?' ·½':'')+' · '+rsHH(rsHrs(s.start,s.end,s.br))+'</span></button>';
+        var inner='<span class="rs-nm">'+(has?esc(s.name):'— tap to assign')+(warn?' <span class="fr-yellow">⚠</span>':'')+'</span>'
+          +'<span class="rs-tm">'+esc(s.start)+'–'+esc(s.end)+(s.br?' ·½':'')+' · '+rsHH(rsHrs(s.start,s.end,s.br))+'</span>';
+        rows+=canEdit
+          ?'<button class="rs-shift'+(has?'':' rs-empty')+'" data-rsedit="'+idx+'">'+inner+'</button>'
+          :'<div class="rs-shift" style="cursor:default">'+inner+'</div>';
       });
-      return '<div class="rs-day"><div class="rs-day-h"><span>'+dw[1]+' '+rsDMY(dObj)+'</span><button class="rs-add" data-rsadd="'+dw[0]+'">+ shift</button></div>'
+      return '<div class="rs-day"><div class="rs-day-h"><span>'+dw[1]+' '+rsDMY(dObj)+'</span>'+(canEdit?'<button class="rs-add" data-rsadd="'+dw[0]+'">+ shift</button>':'')+'</div>'
         +(rows||'<div class="rs-none">no shifts</div>')+'</div>';
     }).join('');
   }
@@ -4536,21 +4540,24 @@ function renderRoster(){
     +'<div class="s" style="margin-top:2px">'+rsDMY(d0)+' – '+rsDMY(d6)+' · '+assigned+' assigned</div>'
     +seg+modeSeg+tplRow
     +'<div style="margin-top:4px">'+body+'</div>'
-    +'<button class="act" id="rs-save">Save '+['this week','next week','week after'][RS_WK]+'</button>'
-    +'<button class="dclose" id="rs-hist">Past weeks &amp; pay →</button>'
+    +(canEdit?'<button class="act" id="rs-save">Save '+['this week','next week','week after'][RS_WK]+'</button>':'')
+    +(WHO?'<button class="'+(canEdit?'dclose':'act')+'" id="rs-myna">My unavailability</button>':'')
+    +((rsMoney()||canEdit)?'<button class="dclose" id="rs-hist">Past weeks &amp; pay →</button>':'')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   document.querySelectorAll('#drawer [data-rswk]').forEach(function(b){b.addEventListener('click',function(){RS_WK=+b.dataset.rswk;renderRoster();});});
-  $('rs-hist').addEventListener('click',openPayrollSheet);
+  var hs=$('rs-hist');if(hs)hs.addEventListener('click',openPayrollSheet);
+  var mn=$('rs-myna');if(mn)mn.addEventListener('click',openMyNA);
   document.querySelectorAll('#drawer [data-rsmode]').forEach(function(b){b.addEventListener('click',function(){RS_VIEW=b.dataset.rsmode;renderRoster();});});
   document.querySelectorAll('#drawer [data-rsedit]').forEach(function(b){b.addEventListener('click',function(){openShiftEdit(ws,+b.dataset.rsedit);});});
   document.querySelectorAll('#drawer [data-rsadd]').forEach(function(b){b.addEventListener('click',function(){addRosterShift(ws,b.dataset.rsadd);});});
   var tpl=$('rs-tpl');if(tpl)tpl.addEventListener('click',function(){applyStandardWeek(ws);});
   var tple=$('rs-tpledit');if(tple)tple.addEventListener('click',openTemplateEdit);
-  $('rs-save').addEventListener('click',function(){saveRosterWeek(ws,this);});
+  var sv=$('rs-save');if(sv)sv.addEventListener('click',function(){saveRosterWeek(ws,sv);});
   $('d-cl').addEventListener('click',closeDrawer);
 }
 /* By person：同一週的班改按「人」分組（每人本週總時數＋逐班；未指派另列一格）。點班照樣進 openShiftEdit */
 function rosterPersonHTML(ws,shifts){
+  var canEdit=isLead();
   var byName={},order=[];
   shifts.forEach(function(s,idx){
     var nm=(s.name&&String(s.name).trim())?String(s.name).trim():'';
@@ -4568,8 +4575,9 @@ function rosterPersonHTML(ws,shifts){
     p.rows.sort(function(a,b){return dowKeys.indexOf(a.s.day)-dowKeys.indexOf(b.s.day)||(String(a.s.start)<String(b.s.start)?-1:1);});
     var rows=p.rows.map(function(o){
       var di=dowKeys.indexOf(o.s.day),dObj=rsDateFor(ws,di<0?0:di),warn=rsUnavailable(nm,dObj);
-      return '<button class="rs-shift" data-rsedit="'+o.idx+'"><span class="rs-nm" style="font-weight:500;font-size:13px">'+((RS_DOW[di]||['','?'])[1])+' '+rsDMY(dObj)+(warn?' <span class="fr-yellow">⚠</span>':'')+'</span>'
-        +'<span class="rs-tm">'+esc(o.s.start)+'–'+esc(o.s.end)+(o.s.br?' ·½':'')+' · '+rsHH(rsHrs(o.s.start,o.s.end,o.s.br))+'</span></button>';
+      var pin='<span class="rs-nm" style="font-weight:500;font-size:13px">'+((RS_DOW[di]||['','?'])[1])+' '+rsDMY(dObj)+(warn?' <span class="fr-yellow">⚠</span>':'')+'</span>'
+        +'<span class="rs-tm">'+esc(o.s.start)+'–'+esc(o.s.end)+(o.s.br?' ·½':'')+' · '+rsHH(rsHrs(o.s.start,o.s.end,o.s.br))+'</span>';
+      return canEdit?'<button class="rs-shift" data-rsedit="'+o.idx+'">'+pin+'</button>':'<div class="rs-shift" style="cursor:default">'+pin+'</div>';
     }).join('');
     return '<div class="rs-day"><div class="rs-day-h"><span>'+esc(nm)+'</span><span style="color:var(--accent)">'+rsHH(p.total)+' this week</span></div>'+rows+'</div>';
   }).join('');
@@ -4630,6 +4638,51 @@ async function saveRosterWeek(ws,btn){
     toast('Timesheet saved ✓');
   }catch(e){alert('Save failed: '+(e&&e.message||e));}
   btn.disabled=false;btn.textContent='Save '+['this week','next week','week after'][RS_WK];
+}
+/* ===== My unavailability：員工自己標休（staff_na）＝唯讀班表下唯一能寫的東西。
+   RLS＝is_staff() 且 name=my_profile_name()（或 money）——只能動自己那筆，名字自動帶 WHO */
+function rsRangeLbl(s,e){var d1=rsDateFor(s,0);if(String(s)===String(e))return rsDMY(d1)+'/'+d1.getFullYear();var d2=rsDateFor(e,0);return rsDMY(d1)+' – '+rsDMY(d2)+'/'+d2.getFullYear();}
+function openMyNA(){
+  var mine=(RS_NA||[]).filter(function(n){return String(n.name)===String(WHO);})
+    .sort(function(a,b){return String(a.start_date)<String(b.start_date)?-1:1;});
+  var list=mine.length?mine.map(function(n){
+    return '<div class="rs-shift" style="cursor:default"><span class="rs-nm">'+esc(rsRangeLbl(n.start_date,n.end_date))+'</span>'
+      +'<button class="chip" data-nadel="'+esc(n.start_date)+'|'+esc(n.end_date)+'" style="border-color:var(--danger);color:var(--danger)">Remove</button></div>';
+  }).join(''):'<div class="rs-none" style="border:1px solid var(--line);border-radius:12px">Nothing marked — you are available for any shift</div>';
+  var today=rsDIso(new Date());
+  openDrawerHTML('<div class="t" style="font-size:19px">My unavailability</div>'
+    +'<div class="s" style="margin-top:2px">Days you cannot work'+(WHO?' · '+esc(WHO):'')+'. The roster shows a ⚠ if you are booked on a day off.</div>'
+    +'<div style="margin-top:12px">'+list+'</div>'
+    +'<div class="dlab">Add days off</div>'
+    +'<div class="pair" style="margin-top:8px;display:grid"><div><div class="dlab" style="margin-top:0">From</div><input class="din" id="na-s" type="date" value="'+today+'"></div><div><div class="dlab" style="margin-top:0">To</div><input class="din" id="na-e" type="date" value="'+today+'"></div></div>'
+    +'<button class="act" id="na-add">Add</button>'
+    +'<button class="dclose" id="na-back" style="border:none;background:none;color:var(--muted)">‹ Back to timesheet</button>');
+  document.querySelectorAll('#drawer [data-nadel]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.nadel.split('|');delMyNA(p[0],p[1],b);});});
+  $('na-add').addEventListener('click',addMyNA);
+  $('na-back').addEventListener('click',renderRoster);
+}
+async function addMyNA(){
+  if(!WHO){alert('Your account has no name set yet — ask the owner to set it before marking days off.');return;}
+  var s=($('na-s')||{}).value,e=($('na-e')||{}).value;
+  if(!s||!e){alert('Pick both dates.');return;}
+  if(e<s){var t=s;s=e;e=t;}
+  var b=$('na-add');b.disabled=true;b.textContent='Adding…';
+  try{
+    var u=await sbRaw('staff_na').insert({name:WHO,start_date:s,end_date:e});
+    if(u.error)throw new Error(u.error.message);
+    RS_NA.push({name:WHO,start_date:s,end_date:e});
+    toast('Days off saved ✓');openMyNA();
+  }catch(err){b.disabled=false;b.textContent='Add';alert('Could not save: '+(err&&err.message||err));}
+}
+async function delMyNA(s,e,btn){
+  if(!confirm('Remove these days off?'))return;
+  btn.disabled=true;
+  try{
+    var u=await sbRaw('staff_na').delete().eq('name',WHO).eq('start_date',s).eq('end_date',e);
+    if(u.error)throw new Error(u.error.message);
+    RS_NA=RS_NA.filter(function(n){return !(String(n.name)===String(WHO)&&String(n.start_date)===String(s)&&String(n.end_date)===String(e));});
+    toast('Removed ✓');openMyNA();
+  }catch(err){btn.disabled=false;alert('Could not remove: '+(err&&err.message||err));}
 }
 /* 班型模板編輯（存 app_state ts_templates；與 classic 不共用，classic 的 DAY_PRESETS 是硬編碼預設） */
 function openTemplateEdit(){RS_TE=JSON.parse(JSON.stringify(rsTpl()));renderTemplateEdit();}
@@ -5028,7 +5081,7 @@ function renderTools(){
       .concat(canWrite()?[['Delete a coffee','remove records · careful','delbean']]:[])
       .concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[])
       .concat(isLead()?[['Team','who’s on · assign','team']]:[])
-      .concat((ROLE==='director'||ROLE==='finance'||LEAD)?[['Timesheet','roster · hours'+(rsMoney()?' · pay':''),'roster']]:[])
+      .concat(['director','finance','roaster','retail','staff'].indexOf(myRole())>=0||LEAD?[['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster']]:[])
       .concat([['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']]).map(function(x){var off=x[2]==='classic';return '<button class="tool" data-t="'+x[2]+'"'+(off?' disabled style="opacity:.4;cursor:not-allowed"':'')+'>'+x[0]+'<small>'+x[1]+(off?' · off':'')+'</small></button>';}).join('')
     +'</div></div>';
   var inp=$('tsearch');
