@@ -1572,7 +1572,9 @@ async function openPromoSheet(s,m){
   }catch(e){var h2=$('pk-card');if(h2)h2.textContent='Kit failed: '+(e&&e.message||e);}
 }
 /* ===== 社群四連圖：把 Folding Info Card 拆成 4 張 1080×1080 PNG（版面/雷達/產區/QR），各自下載做輪播 =====
-   資料源同 Folding Info Card；用 html2pdf 的 toCanvas（含捲動校正，同 Brew Card 修法）逐張截圖 */
+   資料源同 Folding Info Card。截圖直接呼叫 html2canvas 對元素本身取景（輸出＝元素的 1080 見方）。
+   ⚠ 不可改回 html2pdf 的 toCanvas＋width/windowWidth:1080：那組參數會用「原視窗量到的座標」去裁
+   「照 1080 重排過的複本」，內容整片橫移（偏移量隨視窗寬變，手機上把雷達/產區右緣切掉） */
 function _socShell(inner){return '<div style="width:1080px;height:1080px;background:#FAF8F4;color:#241E1B;font-family:Inter,sans-serif;position:relative;overflow:hidden">'+inner+'</div>';}
 function _socOrn(col){return '<div style="display:flex;align-items:center;justify-content:center;gap:22px;margin:30px 0"><div style="width:88px;height:2px;background:#E4DDD5"></div><div style="width:16px;height:16px;background:'+col+';transform:rotate(45deg)"></div><div style="width:88px;height:2px;background:#E4DDD5"></div></div>';}
 function socialCoverHTML(nm,feats,comment,col){
@@ -1641,12 +1643,20 @@ async function socialSplitPick(s){
   var feats=(full.features||[]).filter(Boolean).slice(0,3);
   await exportSocialImages(full,info,feats,nm,col,null);
 }
+/* 保底：截圖尺寸不是 1080 見方就縮放補正（IG 要正方形） */
+function _soc1080(cv){
+  if(cv.width===1080&&cv.height===1080)return cv.toDataURL('image/png');
+  var o=document.createElement('canvas');o.width=1080;o.height=1080;
+  var g=o.getContext('2d');g.fillStyle='#FAF8F4';g.fillRect(0,0,1080,1080);
+  g.drawImage(cv,0,0,1080,1080);
+  return o.toDataURL('image/png');
+}
 async function exportSocialImages(full,info,feats,nm,col,btn){
   var orig=btn?btn.textContent:'';
   if(btn){btn.disabled=true;btn.textContent='Rendering 4 images…';}
   var box=$('pk-social');if(box)box.innerHTML='<div class="s" style="margin-top:8px;color:var(--muted)">Rendering four square images…</div>';
   try{
-    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
+    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
     var sc={fragrance:full.fragrance,acidity:full.acidity,sweetness:full.sweetness,body:full.body,aftertaste:full.aftertaste};
     var radar=printRadarPNG(sc,col);
     var comment=String(full.comment||'').trim();
@@ -1663,8 +1673,8 @@ async function exportSocialImages(full,info,feats,nm,col,btn){
         im.crossOrigin='anonymous';
         return (im.complete&&im.naturalWidth)?Promise.resolve():new Promise(function(r){im.onload=r;im.onerror=r;});
       }));
-      var canvas=await html2pdf().set({html2canvas:{scale:1,useCORS:true,backgroundColor:'#FAF8F4',width:1080,height:1080,windowWidth:1080,windowHeight:1080,scrollX:0,scrollY:0}}).from(host.firstChild).toCanvas().get('canvas');
-      out.push([defs[i][0],canvas.toDataURL('image/png')]);
+      var canvas=await html2canvas(host.firstChild,{scale:1,useCORS:true,backgroundColor:'#FAF8F4'});
+      out.push([defs[i][0],_soc1080(canvas)]);
       host.remove();
     }
     if(box)box.innerHTML='<div class="dlab">Four images — tap each to save</div>'
