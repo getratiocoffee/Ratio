@@ -2933,7 +2933,7 @@ async function openInfoCardsSheet(){
   var list=passedBeans();
   var dots={};try{dots=await cardDots();}catch(e){}
   openDrawerHTML('<div class="t" style="font-size:19px">Info cards</div>'
-    +'<div class="s" style="margin-top:2px">QC-passed coffees · tap one for an A4 PDF — duplex short-edge, cut once, fold into two 148.5 × 105 mm cards</div>'
+    +'<div class="s" style="margin-top:2px">QC-passed coffees · tap one for a PDF — duplex short-edge, two A4 sheets, cut each once, fold into four 148.5 × 105 mm cards</div>'
     +(list.length?list.map(function(s){
       var c=dotColorFor(s.sample_id,dots);
       return '<div class="dl" data-ic="'+esc(s.id)+'" style="cursor:pointer;align-items:center">'
@@ -3086,6 +3086,9 @@ async function openInfoCardPrint(s){
     /* 雙面短邊翻：整張背面相對正面轉 180°，故第 2 頁（內頁）內容預轉 180° 補償，印出對摺後內頁才正立 */
     +'.icroot .flip{position:absolute;inset:0;transform:rotate(180deg)}'
     +'</style>'
+    /* 4 卡＝兩張 A4（各裁一刀各得 2 卡）：每張 A4＝正面 outerStrip×2＋背面 flip(innerStrip×2)，共 4 頁 */
+    +'<div class="page pb"><div class="cuth"></div>'+outerStrip+outerStrip+'</div>'
+    +'<div class="page pb"><div class="flip"><div class="cuth"></div>'+innerStrip+innerStrip+'</div></div>'
     +'<div class="page pb"><div class="cuth"></div>'+outerStrip+outerStrip+'</div>'
     +'<div class="page"><div class="flip"><div class="cuth"></div>'+innerStrip+innerStrip+'</div></div>'
     +'</div>';
@@ -3106,8 +3109,9 @@ async function openInfoCardPrint(s){
     await html2pdf().set({
       filename:'infocard-'+beanSlug(nm)+'.pdf',
       image:{type:'jpeg',quality:.95},
-      /* scale 2.6：兩頁疊一張大 canvas，3.3 會爆 iPhone 的 16.7MP canvas 上限（真機全白破圖的另一根因） */
-      html2canvas:{scale:2.6,useCORS:true,backgroundColor:'#ffffff'},
+      /* scale 2.1：4 頁疊一張大 canvas（約 15.7MP），穩在 iPhone 16.7MP canvas 上限內；
+         原本 2 頁用 2.6，改 4 頁後必須降到 2.1 否則爆掉→真機全白破圖 */
+      html2canvas:{scale:2.1,useCORS:true,backgroundColor:'#ffffff'},
       jsPDF:{unit:'mm',format:[297,210],orientation:'landscape'},
       pagebreak:{mode:['css']}
     }).from(host.firstChild).save();
