@@ -2655,6 +2655,7 @@ function renderQC(){
     :'';
   function wireExtras(){
     var ad=$('qc-add');if(ad)ad.addEventListener('click',openBackfillSheet);
+    var sh=$('qc-shelf');if(sh)sh.addEventListener('click',openRetailSheet);
     m.querySelectorAll('[data-tocup]').forEach(function(el){el.addEventListener('click',function(){
       var r=(DB.roasts||[]).find(function(x){return String(x.id)===String(el.dataset.tocup);});
       if(r)openCupSheet({ref:r});
@@ -2663,7 +2664,8 @@ function renderQC(){
   if(!QCQ.length){
     m.innerHTML=cupSec
       +'<div class="empty">'+(tocup.length?'Nothing waiting for a verdict':'QC queue is clear ✓')+'</div>'
-      +'<button class="more" id="qc-add">＋ Add a past batch</button>';
+      +'<button class="more" id="qc-add">＋ Add a past batch</button>'
+      +'<button class="more" id="qc-shelf">Shelf · on sale now</button>';
     $('deck').style.display='none';document.body.style.paddingBottom='';
     wireExtras();
     return;
@@ -2675,7 +2677,8 @@ function renderQC(){
       var f=(q.s.features||[]).slice(0,3).join(', ');
       return '<div class="qrow'+(q.r.id===selQC?' sel':'')+'" data-q="'+esc(q.r.id)+'"><div class="t">'+esc(q.s.sample_id||'—')+(q.s.process?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif">'+esc(q.s.process)+'</span>':'')+'</div><div class="s">'+(q.r.roast_date?'roasted '+fmtD(q.r.roast_date)+' · ':'')+esc(f||'')+'</div></div>';
     }).join('')
-    +'<button class="more" id="qc-add">＋ Add a past batch</button>';
+    +'<button class="more" id="qc-add">＋ Add a past batch</button>'
+    +'<button class="more" id="qc-shelf">Shelf · on sale now</button>';
   wireExtras();
   m.querySelectorAll('[data-q]').forEach(function(r){r.addEventListener('click',function(){selQC=r.dataset.q;renderQC();});});
   var q=QCQ.find(function(x){return String(x.r.id)===String(selQC);});
