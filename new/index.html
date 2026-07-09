@@ -3064,7 +3064,8 @@ async function openInfoCardPrint(s){
     +'.icroot .card4{width:105mm;height:148.5mm;position:relative}'
     +'.icroot .cutv{position:absolute;top:0;bottom:0;left:104.85mm;border-left:.25mm dashed #C9C2BB;z-index:5}'
     +'.icroot .cuth4{position:absolute;left:0;right:0;top:148.4mm;border-top:.25mm dashed #C9C2BB;z-index:5}'
-    +'.icroot .frame{position:absolute;inset:4mm;border:.3mm solid #4A423B}'
+    /* 外框加粗到 .5mm：0.3mm 太細，html2canvas 縮圖時上緣/右緣被反鋸齒吃淡（老闆印出來四邊不均）；粗一點四邊都印得實 */
+    +'.icroot .frame{position:absolute;inset:4mm;border:.5mm solid #4A423B}'
     +'.icroot .frame2{outline:.2mm solid #C9C2BB;outline-offset:1mm}'
     +'.icroot .inner{position:absolute;inset:4mm;padding:5mm 5.5mm;display:flex;flex-direction:column}'
     +'.icroot .lab{font-size:6.2pt;font-weight:700;letter-spacing:.24em;color:#8A837C;text-transform:uppercase}'
