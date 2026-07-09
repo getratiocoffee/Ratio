@@ -1483,14 +1483,13 @@ function promoCaptions(nm,info,feats,comment,price,g,proc){
   proc=String(proc||'').trim();
   var procZh=PROC_ZH[proc.toLowerCase()]||'';
   var priceLine=(price!=null)?('$'+centAmt(price)+' / '+g+'g'):'';
-  var en='NEW ON THE SHELF — '+nm+'\n';
+  var en='On the shelf — '+nm+'\n';
   var line2=[origin,proc?proc+' process':'',variety].filter(Boolean).join(' · ');
   if(line2)en+=line2+'\n';
   if(feats.length)en+='Cupping notes: '+feats.join(', ')+'\n';
   if(comment)en+='“'+comment+'”\n';
-  en+='\n'+(priceLine?priceLine+' · ':'')+'roasted fresh in Crows Nest, Sydney.\n'
-    +'Order through the link in bio, or come say hi at the lab.\n\n'
-    +'#specialtycoffee #sydneycoffee #crowsnest #coffeeroaster #freshlyroasted';
+  en+='\n'+(priceLine?priceLine+'\n':'')+'Roasted fresh in Crows Nest, Sydney.\n\n'
+    +'#specialtycoffee #sydneycoffee #crowsnest';
   var zh='☕ 新豆上架｜'+nm+'\n';
   var zp=[];
   if(origin)zp.push('產地 '+origin);
@@ -1498,9 +1497,8 @@ function promoCaptions(nm,info,feats,comment,price,g,proc){
   if(zp.length)zh+=zp.join('，')+'\n';
   if(feats.length)zh+='杯測風味：'+feats.join('、')+'\n';
   if(comment)zh+='「'+comment+'」\n';
-  zh+='\n'+(priceLine?priceLine+'，':'')+'雪梨 Crows Nest 本地新鮮烘焙。\n'
-    +'歡迎私訊訂購，或來店裡喝一杯 🤎\n\n'
-    +'#雪梨咖啡 #悉尼咖啡 #精品咖啡 #咖啡豆推薦 #北岸咖啡';
+  zh+='\n'+(priceLine?priceLine+'\n':'')+'雪梨 Crows Nest 本地新鮮烘焙。\n\n'
+    +'#雪梨咖啡 #精品咖啡 #北岸咖啡';
   return {en:en,zh:zh};
 }
 async function openPromoSheet(s,m){
@@ -1551,6 +1549,37 @@ async function openPromoSheet(s,m){
       setTimeout(function(){btn.textContent=orig;},1600);
     });});
   }catch(e){var h2=$('pk-card');if(h2)h2.textContent='Kit failed: '+(e&&e.message||e);}
+}
+/* ===== Marketing → IG asset 直接入口：列上架中的豆 → 點一支開現成的 Social post kit（openPromoSheet）=====
+   清單建置照 openRetailSheet（載 rtl_* 記憶＋DB.syncs 上架豆），但 IG 用最新烘焙排最上（先介紹新鮮的） */
+async function openIGSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">IG asset</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  var m={rtl_price:{},rtl_g:{},rtl_sizes:{},rtl_sold:{}};
+  try{var r=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes','rtl_sold']);
+    (r.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
+      if(v&&typeof v==='object')m[x.key]=v;});
+  }catch(e){}
+  var live=(DB.syncs||[]).filter(function(x){return (x.status==='synced'||x.status==='paused')&&String(x.bean_id||'').trim();})
+    .map(function(x){var nm=String(x.bean_id).trim();var d=null;try{d=shelfLatestRoast(nm);}catch(e){}return {nm:nm,d:d};})
+    .sort(function(a,b){if(!!a.d!==!!b.d)return a.d?-1:1;return String(b.d||'').localeCompare(String(a.d||''))||a.nm.localeCompare(b.nm);});
+  var seen={},rows='';
+  live.forEach(function(e){
+    var nm=e.nm,k=nm.toLowerCase();if(seen[k])return;seen[k]=true;
+    var rep=null;try{rep=shelfSampleFor(nm);}catch(e2){}
+    var fr;try{fr=shelfFreshness(nm);}catch(e2){fr={txt:'',cls:''};}
+    rows+='<div class="hit" data-ig="'+esc(nm)+'"><span><div class="t" style="font-size:16px">'+esc(nm)
+      +(rep&&rep.process?' <span style="color:var(--muted);font-weight:400;font-size:12.5px;font-family:Inter,sans-serif">'+esc(rep.process)+'</span>':'')+'</div>'
+      +'<div class="s"><span class="'+fr.cls+'">'+esc(fr.txt)+'</span></div></span><span class="k">post ›</span></div>';
+  });
+  openDrawerHTML('<div class="t" style="font-size:19px">IG asset</div>'
+    +'<div class="s" style="margin-top:2px">pick a coffee → post card and caption for Instagram and RED</div>'
+    +(rows||'<div class="empty">Nothing on the shelf to feature yet</div>')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  document.querySelectorAll('#drawer [data-ig]').forEach(function(el){el.addEventListener('click',function(){
+    var nm=el.dataset.ig,s=null;try{s=shelfSampleFor(nm);}catch(e2){}
+    openPromoSheet(s||{sample_id:nm},m);
+  });});
+  $('d-cl').addEventListener('click',closeDrawer);
 }
 /* ===== 新豆通知信群發（社群曝光 Phase 4：一份內容三發的「信」——IG/小紅書在 Social post kit）=====
    照抄 classic announceCoffee/uploadCardFor：QC 閘門→客戶人數確認→畫卡上傳 mail-assets（Square 安全白邊版，
@@ -5076,12 +5105,12 @@ function renderTools(){
     +_off([['Invoice','GST PDF · classic']])
     +'</div>'
     +'<div class="gsec">Marketing</div><div class="tgrid">'
-    +_tiles([['Menus','4 menu PDFs','menus']])
-    +_off([['IG asset','1200 card · classic'],['Announce','email blast · classic'],['QR codes','shop / feedback · classic']])
+    +_tiles([['IG asset','post card · caption','igasset']])
+    +_off([['Announce','email blast · classic'],['QR codes','shop / feedback · classic']])
     +'</div>'
     +'<div class="gsec">Daily task</div><div class="tgrid">'
     +(_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'))+_mkTile('t-label','Labels','bag / tin'):'')
-    +_tiles([['Info cards','A4 · 2 fold cards','infocards']])
+    +_tiles([['Menus','menu PDFs · in-store','menus'],['Info cards','A4 · 2 fold cards','infocards']])
     +'</div>'
     +'<div class="gsec">Team</div><div class="tgrid">'
     +_tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster'],['Team notes','notes · problems','notes']].concat(isLead()?[['Team','who is on · assign','team']]:[]))
@@ -5155,6 +5184,7 @@ function renderTools(){
     if(k==='retail'){openRetailSheet();return;}
     if(k==='qcgo'){view='qc';render();return;}
     if(k==='recipe'){openRecipeSheet();return;}
+    if(k==='igasset'){openIGSheet();return;}
     if(k==='infocards'){openInfoCardsSheet();return;}
     if(k==='menus'){openMenusSheet();return;}
     if(k==='delbean'){openDeleteCoffeeSheet();return;}
