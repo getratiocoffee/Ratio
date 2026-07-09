@@ -1445,7 +1445,7 @@ async function openShelfBeanDetail(nm,m){
     +'<button class="act" id="sb-edit">Edit listing…</button>'
     +'<button class="dclose" id="sb-sold">'+(sold?'Put back on sale':'Mark sold out')+'</button>'
     +'<button class="dclose" id="sb-requeue">Send back to QC…</button>'
-    +'<button class="dclose" id="sb-card">Info card PDF</button>'
+    +'<button class="dclose" id="sb-card">Formal Info Card PDF</button>'
     +'<button class="dclose" id="sb-promo">Social post kit — IG &amp; RED</button>'
     +'<button class="dclose" id="sb-ann">Announce by email — new coffee</button>'
     +'<button class="dclose" id="sb-back">‹ Back to Retail Info</button>'
@@ -2932,7 +2932,7 @@ function passedBeans(){
 async function openInfoCardsSheet(){
   var list=passedBeans();
   var dots={};try{dots=await cardDots();}catch(e){}
-  openDrawerHTML('<div class="t" style="font-size:19px">Info cards</div>'
+  openDrawerHTML('<div class="t" style="font-size:19px">Formal Info Card</div>'
     +'<div class="s" style="margin-top:2px">QC-passed coffees · tap one for an A4 PDF — print double-sided, cut the cross into four 105 × 148.5 mm cards</div>'
     +(list.length?list.map(function(s){
       var c=dotColorFor(s.sample_id,dots);
@@ -5242,7 +5242,7 @@ function renderTools(){
       +_off([['Invoice','GST PDF · classic'],['Bookkeeping','expenses · classic']])):'')
     +_sec('Daily task',DEPT.day,
       (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'))+_mkTile('t-label','Labels','bag / tin'):'')
-      +_tiles([['Menus','menu PDFs · in-store','menus'],['Info cards','A4 · 2 fold cards','infocards']]))
+      +_tiles([['Menus','menu PDFs · in-store','menus'],['Formal Info Card','A4 · 2 fold cards','infocards']]))
     +_sec('Team',DEPT.team,
       _tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster',_mk?1:0],['Team notes','notes · problems','notes',_mk?1:0]].concat(isLead()?[['Team','who is on · assign','team',1]]:[])))
     +_sec('App',DEPT.app,
