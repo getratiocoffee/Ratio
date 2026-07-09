@@ -3196,6 +3196,59 @@ async function openBrewCardPrint(){
   }
   host.remove();
 }
+/* 全店通用手沖＝infusion 欄位版（給②出貨信／③網頁豆頁；欄位同 classic rtlBrewFields('infusion')） */
+var POUROVER_INFUSION={temp:'92°C',ppm:'80',grind:'Medium-fine',dose:'15',water:'240',time:'2:00–2:30'};
+/* Brew Card 抽屜：下載 PDF（①實體卡）＋套用到所有貨架豆（讓②出貨信／③網頁豆頁也顯示） */
+function openBrewCardSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Brew Card</div>'
+    +'<div class="s" style="margin-top:2px">House pour-over guide — hand it out with the coffee, and let it ride along in dispatch emails and the QR bean page</div>'
+    +'<button class="act" id="bc-pdf">Download PDF · A4, 4 cards</button>'
+    +'<button class="dclose" id="bc-apply">Add it to every shelf coffee</button>'
+    +'<div class="s" style="margin-top:8px;color:var(--muted)">“Add it” writes the pour-over recipe onto each QC-passed coffee, so customers see it in the dispatch email and when they scan the QR. Safe to run again anytime.</div>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('bc-pdf').addEventListener('click',function(){closeDrawer();openBrewCardPrint();});
+  $('bc-apply').addEventListener('click',function(){applyPouroverToAll(this);});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+async function applyPouroverToAll(btn){
+  var list=passedBeans();
+  if(!list.length){alert('No QC-passed coffees to apply to yet.');return;}
+  if(!confirm('Add the house pour-over recipe to all '+list.length+' shelf coffee'+(list.length===1?'':'s')+'?\n\nIt then shows in dispatch emails and on the QR bean page. This overwrites any existing pour-over (infusion) notes on those coffees.'))return;
+  if(btn){btn.disabled=true;btn.textContent='Applying…';}
+  /* 解析不重複的 blend / bean target（比對照抄 openImmersionSheet） */
+  var blendIds={},beanIds={},blendRows=[];
+  try{var bq=await sb.from('blends').select('id,name,brew');blendRows=bq.data||[];}catch(e){}
+  for(var i=0;i<list.length;i++){
+    var s=list[i],nm=String(s.sample_id||'').trim();
+    var bl=blendRows.find(function(b){return String(b.name||'').trim().toLowerCase()===nm.toLowerCase();});
+    if(bl){blendIds[bl.id]=1;continue;}
+    var bean=null;
+    if(s.bean_id)bean=(DB.beans||[]).find(function(b){return String(b.id)===String(s.bean_id);});
+    if(!bean){
+      var proc=String(s.process||'').trim().toLowerCase();
+      var pool=(DB.beans||[]).filter(function(b){return String(b.name||'').trim().toLowerCase()===nm.toLowerCase();});
+      bean=(proc?pool.find(function(b){return String(b.process||'').trim().toLowerCase()===proc;}):null)||pool[0]||null;
+    }
+    if(bean)beanIds[bean.id]=1;
+  }
+  var ok=0,fail=0;
+  /* 只覆寫 infusion，其他方法原封不動（照 saveImmersion） */
+  for(var bid in blendIds){
+    var row=blendRows.find(function(b){return String(b.id)===String(bid);});
+    var brew=(row&&row.brew&&typeof row.brew==='object')?Object.assign({},row.brew):{};
+    brew.infusion=POUROVER_INFUSION;
+    try{var u=await sb.from('blends').update({brew:brew}).eq('id',bid);if(u.error)throw new Error(u.error.message);ok++;}catch(e){fail++;}
+  }
+  for(var beanid in beanIds){
+    var cur={};
+    try{var fr=await sb.from('beans').select('brew').eq('id',beanid).maybeSingle();var v=fr&&fr.data&&fr.data.brew;if(v&&typeof v==='object')cur=v;}catch(e){}
+    var brew2=Object.assign({},cur);brew2.infusion=POUROVER_INFUSION;
+    try{var u2=await sb.from('beans').update({brew:brew2}).eq('id',beanid);if(u2.error)throw new Error(u2.error.message);ok++;}catch(e){fail++;}
+  }
+  if(btn){btn.disabled=false;btn.textContent='Add it to every shelf coffee';}
+  closeDrawer();
+  toast(fail?('Applied to '+ok+', '+fail+' failed'):('Pour-over added to '+ok+' coffee'+(ok===1?'':'s')+' ✓'));
+}
 /* 外部腳本延遲載入（只載一次） */
 var _loadedScripts={};
 function loadScriptOnce(url){
@@ -5402,7 +5455,7 @@ function renderTools(){
     if(k==='payroll'){openPayrollSheet();return;}
     if(k==='calc'){openCalcSheet();return;}
     if(k==='infocards'){openInfoCardsSheet();return;}
-    if(k==='brewcard'){openBrewCardPrint();return;}
+    if(k==='brewcard'){openBrewCardSheet();return;}
     if(k==='menus'){openMenusSheet();return;}
     if(k==='delbean'){openDeleteCoffeeSheet();return;}
     if(k==='wholesale'){openWholesaleSheet();return;}
