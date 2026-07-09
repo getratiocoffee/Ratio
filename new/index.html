@@ -3014,6 +3014,7 @@ async function openInfoCardPrint(s){
   var info=await beanInfoRows(full);
   var beanUrl='https://ratio-theta.vercel.app/?bean='+encodeURIComponent(beanSlug(nm));
   var feats=(full.features||[]).filter(Boolean).slice(0,3);
+  var comment=String(full.comment||'').trim();
   var sc={fragrance:full.fragrance,acidity:full.acidity,sweetness:full.sweetness,body:full.body,aftertaste:full.aftertaste};
   /* ===== A4 直式雙面＝2×2 田字格 4 張雙面卡（老闆定稿 2026-07-09：把摺卡轉 90° 縮成 4 張一面）=====
      每卡 105×148.5mm；正面頁＝4 張卡正面（豆名＋風味＋雷達）、背面頁＝4 張卡背面（明細＋QR＋聯絡）
@@ -3035,7 +3036,7 @@ async function openInfoCardPrint(s){
     +orn
     +'<div class="serif" style="font-style:italic;font-size:14pt;font-weight:600;line-height:1.1">'+esc(nm)+'</div>'
     +'<div style="width:9mm;border-top:.5mm solid '+col+';margin:1.6mm 0 1.4mm"></div>'
-    +feats.map(function(f){return '<div class="serif" style="font-style:italic;font-size:10pt;font-weight:600;line-height:1.4;color:'+col+'">'+esc(f)+'</div>';}).join('')
+    +(comment?'<div class="serif" style="font-style:italic;font-size:9pt;font-weight:500;line-height:1.5;color:#5A534C;max-width:74mm">'+esc(comment)+'</div>':'')
     +'</div>'
     +'<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:3mm 5mm;border-top:.2mm dashed #C9C2BB">'
     +qrImg
@@ -3045,8 +3046,9 @@ async function openInfoCardPrint(s){
   /* 面 2＝風味雷達＋產區明細（對摺卡：上半＝雷達置中、下半＝明細置中）。中線＝對摺虛線 */
   var cardInfo='<div class="card4"><div class="frame"></div>'
     +'<div class="inner" style="padding:0">'
-    +'<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:3mm 5mm">'
-    +'<img src="'+radar+'" style="width:66mm;display:block" alt="">'
+    +'<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3mm 5mm">'
+    +'<img src="'+radar+'" style="width:62mm;display:block" alt="">'
+    +(feats.length?'<div style="margin-top:1.4mm;text-align:center">'+feats.map(function(f){return '<span class="serif" style="font-style:italic;font-size:10pt;font-weight:600;color:'+col+'">'+esc(f)+'</span>';}).join('<span style="color:'+col+';margin:0 1.6mm">·</span>')+'</div>':'')
     +'</div>'
     +'<div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:3mm 6mm;border-top:.2mm dashed #C9C2BB">'
     +'<div class="lab" style="color:'+col+';text-align:center">The coffee · '+esc(nm)+'</div>'
@@ -3077,9 +3079,9 @@ async function openInfoCardPrint(s){
     +'.icroot .flip{position:absolute;inset:0;transform:rotate(180deg)}'
     +'</style>'
     /* 老闆定位（2026-07-09）：面 2（雷達＋明細）排第一頁正立、面 1（封面＋QR）排第二頁。
-       ⚠ 第二頁（封面＋QR）整頁再轉 180°（.flip 包住 grid，切線不轉）——老闆印表機雙面設定要的朝向；若印出背面顛倒，把第二頁的 .flip 拿掉即可 */
+       ⚠ 背面朝向改由印表機雙面設定處理（2026-07-09 老闆改印表機設定），故第二頁不再軟體轉 180°（原 .flip 已移除）；若哪天印出背面顛倒，改印表機雙面短邊/長邊設定即可 */
     +'<div class="page pb"><div class="cutv"></div><div class="cuth4"></div><div class="grid">'+cardInfo+cardInfo+cardInfo+cardInfo+'</div></div>'
-    +'<div class="page"><div class="cutv"></div><div class="cuth4"></div><div class="flip"><div class="grid">'+cardCover+cardCover+cardCover+cardCover+'</div></div></div>'
+    +'<div class="page"><div class="cutv"></div><div class="cuth4"></div><div class="grid">'+cardCover+cardCover+cardCover+cardCover+'</div></div>'
     +'</div>';
   /* 老闆指定：不開列印框，直接產 PDF 檔下載（html2pdf 首次用時才載，兩頁 297×105mm）
      ⚠ 兩個坑：①離螢幕定位不能寫在交給 html2pdf 的元素上（會被 clone 走→截到空白）——包殼藏、把乾淨的 .icroot 交出去
