@@ -1551,7 +1551,9 @@ async function openPromoSheet(s,m){
     var body=$('pk-body');
     if(body)body.innerHTML=
       '<a class="dclose" style="display:block;text-align:center;text-decoration:none" download="ig-'+beanSlug(nm)+'.png" href="data:image/png;base64,'+b64+'">Download image</a>'
-      +'<button class="dclose" id="pk-split">Export 4 images for a carousel</button>'
+      +'<div class="dlab">Export 4 images for a carousel</div>'
+      +'<button class="dclose" id="pk-split">White background — ready to post</button>'
+      +'<button class="dclose" id="pk-split-t">Transparent background</button>'
       +'<div id="pk-social"></div>'
       +'<div class="dlab">Instagram caption</div>'
       +'<textarea class="dta" id="pk-en" style="min-height:180px">'+esc(cap.en)+'</textarea>'
@@ -1568,16 +1570,18 @@ async function openPromoSheet(s,m){
       btn.textContent=ok?'Copied ✓':'Copy failed — long-press the text instead';
       setTimeout(function(){btn.textContent=orig;},1600);
     });});
-    var sp=$('pk-split');if(sp)sp.addEventListener('click',function(){exportSocialImages(full,info,feats,nm,col,this);});
+    var sp=$('pk-split');if(sp)sp.addEventListener('click',function(){exportSocialImages(full,info,feats,nm,col,this,true);});
+    var spt=$('pk-split-t');if(spt)spt.addEventListener('click',function(){exportSocialImages(full,info,feats,nm,col,this,false);});
   }catch(e){var h2=$('pk-card');if(h2)h2.textContent='Kit failed: '+(e&&e.message||e);}
 }
 /* ===== 社群四連圖：把 Folding Info Card 拆成 4 張 1080×1080 PNG（版面/雷達/產區/QR），各自下載做輪播 =====
    資料源同 Folding Info Card。截圖直接呼叫 html2canvas 對元素本身取景（輸出＝元素的 1080 見方）。
    ⚠ 不可改回 html2pdf 的 toCanvas＋width/windowWidth:1080：那組參數會用「原視窗量到的座標」去裁
    「照 1080 重排過的複本」，內容整片橫移（偏移量隨視窗寬變，手機上把雷達/產區右緣切掉） */
-function _socShell(inner){return '<div style="width:1080px;height:1080px;background:#FAF8F4;color:#241E1B;font-family:Inter,sans-serif;position:relative;overflow:hidden">'+inner+'</div>';}
+/* solid=false 出透明底（給老闆疊自己的背景用）；QR 那張的白色相框照留，不然掃不到 */
+function _socShell(inner,solid){return '<div style="width:1080px;height:1080px;background:'+(solid===false?'transparent':'#FAF8F4')+';color:#241E1B;font-family:Inter,sans-serif;position:relative;overflow:hidden">'+inner+'</div>';}
 function _socOrn(col){return '<div style="display:flex;align-items:center;justify-content:center;gap:22px;margin:30px 0"><div style="width:88px;height:2px;background:#E4DDD5"></div><div style="width:16px;height:16px;background:'+col+';transform:rotate(45deg)"></div><div style="width:88px;height:2px;background:#E4DDD5"></div></div>';}
-function socialCoverHTML(nm,feats,comment,col){
+function socialCoverHTML(nm,feats,comment,col,solid){
   return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:110px 100px">'
     +'<img src="/logo.png" crossorigin="anonymous" style="width:118px;height:118px" alt="">'
     +'<div style="font-family:Fraunces,Georgia,serif;font-size:50px;font-weight:600;margin-top:26px">Ratio Coffee</div>'
@@ -1586,36 +1590,39 @@ function socialCoverHTML(nm,feats,comment,col){
     +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:78px;font-weight:600;line-height:1.05">'+esc(nm)+'</div>'
     +'<div style="width:84px;height:4px;background:'+col+';margin:30px 0"></div>'
     +feats.map(function(f){return '<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:40px;font-weight:600;line-height:1.5;color:'+col+'">'+esc(f)+'</div>';}).join('')
-    +'</div>');
+    +'</div>',solid);
 }
-function socialRadarHTML(radar,feats,col){
+function socialRadarHTML(radar,feats,col,solid){
   return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:110px 90px">'
     +'<div style="font-size:22px;letter-spacing:8px;text-transform:uppercase;color:'+col+'">Cup profile</div>'
     +'<img src="'+radar+'" style="width:860px;max-width:100%;margin:40px 0" alt="">'
     +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:40px;font-weight:600;color:'+col+'">'+feats.map(esc).join('  ·  ')+'</div>'
-    +'</div>');
+    +'</div>',solid);
 }
-function socialOriginHTML(nm,info,col){
+function socialOriginHTML(nm,info,col,solid){
   return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:120px 110px">'
     +'<div style="font-size:22px;letter-spacing:8px;text-transform:uppercase;color:'+col+';text-align:center">The coffee</div>'
     +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:46px;font-weight:600;text-align:center;margin-top:10px">'+esc(nm)+'</div>'
     +'<div style="width:84px;height:4px;background:'+col+';margin:26px auto 40px"></div>'
     +'<table style="width:100%;border-collapse:collapse">'+info.map(function(r){return '<tr><td style="font-size:22px;letter-spacing:3px;text-transform:uppercase;color:#8C857E;padding:20px 0;border-bottom:1px solid #E8E2DB">'+esc(r[0])+'</td><td style="font-family:Fraunces,Georgia,serif;font-size:32px;text-align:right;padding:20px 0;border-bottom:1px solid #E8E2DB">'+esc(String(r[1]))+'</td></tr>';}).join('')+'</table>'
-    +'</div>');
+    +'</div>',solid);
 }
-function socialQrHTML(qrSrc,col){
+function socialQrHTML(qrSrc,col,solid){
   return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:110px 100px">'
     +'<div style="font-size:22px;letter-spacing:8px;text-transform:uppercase;color:'+col+'">Scan for this coffee</div>'
     +'<div style="border:14px solid #fff;outline:1px solid #E4DDD5;background:#fff;margin:44px 0"><img src="'+qrSrc+'" crossorigin="anonymous" style="width:440px;height:440px;display:block" alt=""></div>'
     +'<div style="font-size:28px;color:#5A534C;line-height:1.7">@ratio.crowsnest · caffeine@coffeeratio.com<br><span style="color:#8C857E">Roasted in Sydney</span></div>'
-    +'</div>');
+    +'</div>',solid);
 }
 /* Daily task 快速入口（暫放）：列 QC 通過的豆 → 選一支就地產四張社群圖，不用繞進 Social post kit */
+var SOC_SOLID=true; /* 抽屜頂的底色切換；true=白底（IG 直接發），false=透明 */
 async function openSocialSplitSheet(){
   var list=passedBeans();
   var dots={};try{dots=await cardDots();}catch(e){}
   openDrawerHTML('<div class="t" style="font-size:19px">Social images</div>'
     +'<div class="s" style="margin-top:2px">Pick a coffee → four square images (cover · radar · origin · QR) for a carousel</div>'
+    +'<div class="pm-seg"><button id="soc-w" class="'+(SOC_SOLID?'on':'')+'">White background</button><button id="soc-t" class="'+(SOC_SOLID?'':'on')+'">Transparent</button></div>'
+    +'<div class="s" id="soc-note" style="margin-top:8px;color:var(--muted)">'+(SOC_SOLID?'Ready to post straight to Instagram.':'Instagram fills transparency with black — use these only to layer on your own background.')+'</div>'
     +(list.length?list.map(function(s){
       var c=dotColorFor(s.sample_id,dots);
       return '<div class="dl" data-sc="'+esc(s.id)+'" style="cursor:pointer;align-items:center">'
@@ -1626,6 +1633,14 @@ async function openSocialSplitSheet(){
     +'<div id="pk-social"></div>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);
+  function segSet(v){
+    SOC_SOLID=v;
+    $('soc-w').className=v?'on':'';
+    $('soc-t').className=v?'':'on';
+    $('soc-note').textContent=v?'Ready to post straight to Instagram.':'Instagram fills transparency with black — use these only to layer on your own background.';
+  }
+  $('soc-w').addEventListener('click',function(){segSet(true);});
+  $('soc-t').addEventListener('click',function(){segSet(false);});
   document.querySelectorAll('#drawer [data-sc]').forEach(function(el){el.addEventListener('click',function(){
     var s=(DB.samples||[]).find(function(x){return String(x.id)===String(el.dataset.sc);});
     if(s)socialSplitPick(s);
@@ -1641,17 +1656,20 @@ async function socialSplitPick(s){
   var col=dotColorFor(nm,dots)||'#B25E6A';
   var info=[];try{info=await beanInfoRows(full);}catch(e){}
   var feats=(full.features||[]).filter(Boolean).slice(0,3);
-  await exportSocialImages(full,info,feats,nm,col,null);
+  await exportSocialImages(full,info,feats,nm,col,null,SOC_SOLID);
 }
-/* 保底：截圖尺寸不是 1080 見方就縮放補正（IG 要正方形） */
-function _soc1080(cv){
+/* 透明縮圖的棋盤格襯底——不然抽屜裡看不出哪張是透明的 */
+var _SOC_CHK='background-image:linear-gradient(45deg,#c9c4be 25%,transparent 25%),linear-gradient(-45deg,#c9c4be 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#c9c4be 75%),linear-gradient(-45deg,transparent 75%,#c9c4be 75%);background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0px;background-color:#fff';
+/* 保底：截圖尺寸不是 1080 見方就縮放補正（IG 要正方形）。透明版不補底色 */
+function _soc1080(cv,solid){
   if(cv.width===1080&&cv.height===1080)return cv.toDataURL('image/png');
   var o=document.createElement('canvas');o.width=1080;o.height=1080;
-  var g=o.getContext('2d');g.fillStyle='#FAF8F4';g.fillRect(0,0,1080,1080);
+  var g=o.getContext('2d');
+  if(solid!==false){g.fillStyle='#FAF8F4';g.fillRect(0,0,1080,1080);}
   g.drawImage(cv,0,0,1080,1080);
   return o.toDataURL('image/png');
 }
-async function exportSocialImages(full,info,feats,nm,col,btn){
+async function exportSocialImages(full,info,feats,nm,col,btn,solid){
   var orig=btn?btn.textContent:'';
   if(btn){btn.disabled=true;btn.textContent='Rendering 4 images…';}
   var box=$('pk-social');if(box)box.innerHTML='<div class="s" style="margin-top:8px;color:var(--muted)">Rendering four square images…</div>';
@@ -1662,7 +1680,7 @@ async function exportSocialImages(full,info,feats,nm,col,btn){
     var comment=String(full.comment||'').trim();
     var beanUrl='https://ratio-theta.vercel.app/?bean='+encodeURIComponent(beanSlug(nm));
     var qrSrc='https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl);
-    var defs=[['cover',socialCoverHTML(nm,feats,comment,col)],['radar',socialRadarHTML(radar,feats,col)],['origin',socialOriginHTML(nm,info,col)],['qr',socialQrHTML(qrSrc,col)]];
+    var defs=[['cover',socialCoverHTML(nm,feats,comment,col,solid)],['radar',socialRadarHTML(radar,feats,col,solid)],['origin',socialOriginHTML(nm,info,col,solid)],['qr',socialQrHTML(qrSrc,col,solid)]];
     var out=[];
     for(var i=0;i<defs.length;i++){
       var host=document.createElement('div');
@@ -1673,13 +1691,15 @@ async function exportSocialImages(full,info,feats,nm,col,btn){
         im.crossOrigin='anonymous';
         return (im.complete&&im.naturalWidth)?Promise.resolve():new Promise(function(r){im.onload=r;im.onerror=r;});
       }));
-      var canvas=await html2canvas(host.firstChild,{scale:1,useCORS:true,backgroundColor:'#FAF8F4'});
-      out.push([defs[i][0],_soc1080(canvas)]);
+      var canvas=await html2canvas(host.firstChild,{scale:1,useCORS:true,backgroundColor:solid===false?null:'#FAF8F4'});
+      out.push([defs[i][0],_soc1080(canvas,solid)]);
       host.remove();
     }
-    if(box)box.innerHTML='<div class="dlab">Four images — tap each to save</div>'
+    var sfx=solid===false?'-transparent':'';
+    var thumbBg=solid===false?_SOC_CHK:'';
+    if(box)box.innerHTML='<div class="dlab">Four images'+(solid===false?' · transparent background':'')+' — tap each to save</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">'
-      +out.map(function(r,ix){return '<a download="ratio-'+beanSlug(nm)+'-'+(ix+1)+'-'+r[0]+'.png" href="'+r[1]+'" style="text-decoration:none"><img src="'+r[1]+'" style="width:100%;display:block;border:1px solid var(--line);border-radius:10px"><div style="text-align:center;font-size:12.5px;color:var(--accent);margin:4px 0 2px">'+(ix+1)+' · '+r[0]+' ↓</div></a>';}).join('')
+      +out.map(function(r,ix){return '<a download="ratio-'+beanSlug(nm)+'-'+(ix+1)+'-'+r[0]+sfx+'.png" href="'+r[1]+'" style="text-decoration:none"><img src="'+r[1]+'" style="width:100%;display:block;border:1px solid var(--line);border-radius:10px;'+thumbBg+'"><div style="text-align:center;font-size:12.5px;color:var(--accent);margin:4px 0 2px">'+(ix+1)+' · '+r[0]+' ↓</div></a>';}).join('')
       +'</div>';
     if(btn){btn.disabled=false;btn.textContent=orig;}
   }catch(e){
