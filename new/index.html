@@ -5097,17 +5097,26 @@ function renderTools(){
   function _off(a){return a.map(function(x){return '<button class="tool" data-classic="1" disabled style="opacity:.4;cursor:not-allowed">'+x[0]+'<small>'+x[1]+' · off</small></button>';}).join('');}
   var _groups='<div class="gsec">Production</div><div class="tgrid">'
     +(_mk?_mkTile('t-recv','Receive green','delivery in')+_mkTile('t-roast','Log roast','green in')+_mkTile('t-stk','Stocktake','weigh greens'):'')
-    +_tiles([['Green stock','full list','greens'],['Roasted Stock','FIFO shelf','batches'],['QC','cup and judge','qcgo'],['Recipe','blends · dial-in','recipe'],['Retail Info','live on Square','retail']].concat(_mk?[['Delete a coffee','remove · careful','delbean']]:[]))
+    +_tiles([['Green stock','full list','greens'],['Roasted Stock','FIFO shelf','batches']].concat(_mk?[['Delete a coffee','remove · careful','delbean']]:[]))
     +'</div>'
-    +'<div class="gsec">Orders &amp; customers</div><div class="tgrid">'
-    +(_mk?_mkTile('t-neworder','New order','right here'):'')
-    +_tiles([['Orders','recent list','orders'],['Customers','book','customers']].concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[]))
-    +_off([['Invoice','GST PDF · classic']])
+    +'<div class="gsec">QC &amp; Recipe</div><div class="tgrid">'
+    +_tiles([['QC','cup and judge','qcgo'],['Recipe','blends · dial-in','recipe']])
+    +'</div>'
+    +'<div class="gsec">Shelf</div><div class="tgrid">'
+    +_tiles([['Retail Info','live on Square','retail']])
     +'</div>'
     +'<div class="gsec">Marketing</div><div class="tgrid">'
     +_tiles([['IG asset','post card · caption','igasset']])
     +_off([['Announce','email blast · classic'],['QR codes','shop / feedback · classic']])
     +'</div>'
+    +'<div class="gsec">Orders &amp; customers</div><div class="tgrid">'
+    +(_mk?_mkTile('t-neworder','New order','right here'):'')
+    +_tiles([['Orders','recent list','orders'],['Customers','book','customers']].concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[]))
+    +'</div>'
+    +(rsMoney()?'<div class="gsec">Finance</div><div class="tgrid">'
+      +_tiles([['Payroll','wages · weeks','payroll']])
+      +_off([['Invoice','GST PDF · classic'],['Bookkeeping','expenses · classic']])
+      +'</div>':'')
     +'<div class="gsec">Daily task</div><div class="tgrid">'
     +(_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'))+_mkTile('t-label','Labels','bag / tin'):'')
     +_tiles([['Menus','menu PDFs · in-store','menus'],['Info cards','A4 · 2 fold cards','infocards']])
@@ -5185,6 +5194,7 @@ function renderTools(){
     if(k==='qcgo'){view='qc';render();return;}
     if(k==='recipe'){openRecipeSheet();return;}
     if(k==='igasset'){openIGSheet();return;}
+    if(k==='payroll'){openPayrollSheet();return;}
     if(k==='infocards'){openInfoCardsSheet();return;}
     if(k==='menus'){openMenusSheet();return;}
     if(k==='delbean'){openDeleteCoffeeSheet();return;}
