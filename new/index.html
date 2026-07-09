@@ -3024,29 +3024,31 @@ async function openInfoCardPrint(s){
     +'<div style="width:1.9mm;height:1.9mm;background:'+col+';transform:rotate(45deg)"></div>'
     +'<div style="width:11mm;border-top:.2mm solid #C9C2BB"></div></div>';
   var radar=printRadarPNG(sc,col);
-  var qrBox='<div style="border:.25mm solid #E1DAD3;padding:1.1mm;background:#fff;flex:0 0 auto"><img src="https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl)+'" style="width:17mm;height:17mm;display:block" alt="QR"></div>';
-  var cardFront='<div class="card4"><div class="frame frame2"></div>'
+  var qrImg='<div style="border:.25mm solid #E1DAD3;padding:1.1mm;background:#fff;display:inline-block"><img src="https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl)+'" style="width:21mm;height:21mm;display:block" alt="QR"></div>';
+  /* 面 1＝封面＋QR（老闆定 2026-07-09：封面跟 QR code 同一面） */
+  var cardCover='<div class="card4"><div class="frame frame2"></div>'
     +'<div class="inner" style="align-items:center;text-align:center">'
-    +'<img src="/logo.png" style="width:11mm;height:11mm" alt="Ratio">'
-    +'<div class="lab" style="letter-spacing:.3em;margin-top:1.8mm">Specialty Coffee Lab</div>'
+    +'<img src="/logo.png" style="width:12mm;height:12mm" alt="Ratio">'
+    +'<div class="serif" style="font-size:13pt;font-weight:700;margin-top:1.4mm;letter-spacing:.01em">Ratio Coffee</div>'
+    +'<div class="lab" style="letter-spacing:.3em;margin-top:.8mm">Specialty Coffee Lab</div>'
     +orn
     +'<div class="serif" style="font-style:italic;font-size:15pt;font-weight:600;line-height:1.15">'+esc(nm)+'</div>'
-    +'<div style="width:10mm;border-top:.5mm solid '+col+';margin:2.4mm 0 2.2mm"></div>'
-    +feats.map(function(f){return '<div class="serif" style="font-style:italic;font-size:11pt;font-weight:600;line-height:1.5;color:'+col+'">'+esc(f)+'</div>';}).join('')
-    +'<div style="flex:1;min-height:2mm"></div>'
-    +'<img src="'+radar+'" style="width:56mm;display:block;margin:0 auto" alt="">'
+    +'<div style="width:10mm;border-top:.5mm solid '+col+';margin:2mm 0 1.8mm"></div>'
+    +feats.map(function(f){return '<div class="serif" style="font-style:italic;font-size:10.5pt;font-weight:600;line-height:1.45;color:'+col+'">'+esc(f)+'</div>';}).join('')
+    +'<div style="flex:1;min-height:2.5mm"></div>'
+    +qrImg
+    +'<div class="lab" style="margin-top:1.6mm">Scan for this coffee</div>'
+    +'<div style="font-size:6pt;color:#5A534C;line-height:1.7;margin-top:.9mm">@ratio.crowsnest · caffeine@coffeeratio.com<br><span style="color:#8A837C">Roasted in Sydney</span></div>'
     +'</div></div>';
-  var cardBack='<div class="card4"><div class="frame"></div>'
+  /* 面 2＝風味雷達＋產區明細（老闆定：radar chart and 產區明細同一面） */
+  var cardInfo='<div class="card4"><div class="frame"></div>'
     +'<div class="inner">'
     +'<div class="lab" style="color:'+col+'">The coffee</div>'
     +'<div class="serif" style="font-size:12.5pt;font-weight:700;margin-top:.8mm">'+esc(nm)+'</div>'
-    +'<div style="width:9mm;border-top:.5mm solid '+col+';margin:1.6mm 0 1.2mm"></div>'
+    +'<div style="width:9mm;border-top:.5mm solid '+col+';margin:1.4mm 0 .4mm"></div>'
+    +'<img src="'+radar+'" style="width:60mm;display:block;margin:.6mm auto 1.4mm" alt="">'
     +'<div>'+info.map(function(r){return '<div class="br"><span>'+esc(r[0])+'</span><b>'+esc(String(r[1]))+'</b></div>';}).join('')+'</div>'
-    +'<div style="flex:1;min-height:2mm"></div>'
-    +'<div style="display:flex;align-items:center;gap:3mm">'+qrBox
-    +'<div style="text-align:left"><div class="lab">Scan for this coffee</div>'
-    +'<div style="font-size:6pt;color:#5A534C;line-height:1.75;margin-top:1.1mm">@ratio.crowsnest<br>caffeine@coffeeratio.com<br><span style="color:#8A837C">Roasted in Sydney</span></div></div>'
-    +'</div></div></div>';
+    +'</div></div>';
   var html='<div class="icroot">'
     +'<style>'
     +'.icroot{font-family:Inter,sans-serif;color:#1E1A19}'
@@ -3069,9 +3071,9 @@ async function openInfoCardPrint(s){
     /* 雙面短邊翻：整張背面相對正面轉 180°，故背面頁預轉 180° 補償，印出後背面才正立 */
     +'.icroot .flip{position:absolute;inset:0;transform:rotate(180deg)}'
     +'</style>'
-    /* 老闆定位（2026-07-09）：明細面排第一頁正立、封面排第二頁轉 180°（雙面印後朝向才對）；4 張同款一起照做 */
-    +'<div class="page pb"><div class="cutv"></div><div class="cuth4"></div><div class="grid">'+cardBack+cardBack+cardBack+cardBack+'</div></div>'
-    +'<div class="page"><div class="flip"><div class="cutv"></div><div class="cuth4"></div><div class="grid">'+cardFront+cardFront+cardFront+cardFront+'</div></div></div>'
+    /* 老闆定位（2026-07-09）：面 2（雷達＋明細）排第一頁正立、面 1（封面＋QR）排第二頁轉 180°（雙面印後朝向才對）；4 張同款一起照做 */
+    +'<div class="page pb"><div class="cutv"></div><div class="cuth4"></div><div class="grid">'+cardInfo+cardInfo+cardInfo+cardInfo+'</div></div>'
+    +'<div class="page"><div class="flip"><div class="cutv"></div><div class="cuth4"></div><div class="grid">'+cardCover+cardCover+cardCover+cardCover+'</div></div></div>'
     +'</div>';
   /* 老闆指定：不開列印框，直接產 PDF 檔下載（html2pdf 首次用時才載，兩頁 297×105mm）
      ⚠ 兩個坑：①離螢幕定位不能寫在交給 html2pdf 的元素上（會被 clone 走→截到空白）——包殼藏、把乾淨的 .icroot 交出去
