@@ -1608,6 +1608,39 @@ function socialQrHTML(qrSrc,col){
     +'<div style="font-size:28px;color:#5A534C;line-height:1.7">@ratio.crowsnest · caffeine@coffeeratio.com<br><span style="color:#8C857E">Roasted in Sydney</span></div>'
     +'</div>');
 }
+/* Daily task 快速入口（暫放）：列 QC 通過的豆 → 選一支就地產四張社群圖，不用繞進 Social post kit */
+async function openSocialSplitSheet(){
+  var list=passedBeans();
+  var dots={};try{dots=await cardDots();}catch(e){}
+  openDrawerHTML('<div class="t" style="font-size:19px">Social images</div>'
+    +'<div class="s" style="margin-top:2px">Pick a coffee → four square images (cover · radar · origin · QR) for a carousel</div>'
+    +(list.length?list.map(function(s){
+      var c=dotColorFor(s.sample_id,dots);
+      return '<div class="dl" data-sc="'+esc(s.id)+'" style="cursor:pointer;align-items:center">'
+        +'<span style="color:var(--ink);font-weight:600">'+(c?'<span style="color:'+c+'">●</span> ':'')+esc(s.sample_id||'—')
+        +(s.process?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(s.process)+'</span>':'')+'</span>'
+        +'<span style="color:var(--muted)">4 images →</span></div>';
+    }).join(''):'<div class="empty">No QC-passed coffees yet</div>')
+    +'<div id="pk-social"></div>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('d-cl').addEventListener('click',closeDrawer);
+  document.querySelectorAll('#drawer [data-sc]').forEach(function(el){el.addEventListener('click',function(){
+    var s=(DB.samples||[]).find(function(x){return String(x.id)===String(el.dataset.sc);});
+    if(s)socialSplitPick(s);
+  });});
+}
+async function socialSplitPick(s){
+  var nm=String(s.sample_id||'').trim();
+  var full=s;
+  try{var fq=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',nm)
+    .order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
+    if(fq.data&&fq.data[0])full=fq.data[0];}catch(e){}
+  var dots={};try{dots=await cardDots();}catch(e){}
+  var col=dotColorFor(nm,dots)||'#B25E6A';
+  var info=[];try{info=await beanInfoRows(full);}catch(e){}
+  var feats=(full.features||[]).filter(Boolean).slice(0,3);
+  await exportSocialImages(full,info,feats,nm,col,null);
+}
 async function exportSocialImages(full,info,feats,nm,col,btn){
   var orig=btn?btn.textContent:'';
   if(btn){btn.disabled=true;btn.textContent='Rendering 4 images…';}
@@ -5458,7 +5491,7 @@ function renderTools(){
       +_off([['Invoice','GST PDF · classic'],['Bookkeeping','expenses · classic']])):'')
     +_sec('Daily task',DEPT.day,
       (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'))+_mkTile('t-label','Labels','bag / tin'):'')
-      +_tiles([['Menus','menu PDFs · in-store','menus'],['Folding Info Card','A4 · 4 fold cards','infocards'],['Brew Card','A4 · pour-over guide','brewcard']]))
+      +_tiles([['Menus','menu PDFs · in-store','menus'],['Folding Info Card','A4 · 4 fold cards','infocards'],['Brew Card','A4 · pour-over guide','brewcard'],['Social Images','4-up · pick a coffee','social4']]))
     +_sec('Team',DEPT.team,
       _tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster',_mk?1:0],['Team notes','notes · problems','notes',_mk?1:0]].concat(isLead()?[['Team','who is on · assign','team',1]]:[])))
     +_sec('App',DEPT.app,
@@ -5534,6 +5567,7 @@ function renderTools(){
     if(k==='calc'){openCalcSheet();return;}
     if(k==='infocards'){openInfoCardsSheet();return;}
     if(k==='brewcard'){openBrewCardSheet();return;}
+    if(k==='social4'){openSocialSplitSheet();return;}
     if(k==='menus'){openMenusSheet();return;}
     if(k==='delbean'){openDeleteCoffeeSheet();return;}
     if(k==='wholesale'){openWholesaleSheet();return;}
