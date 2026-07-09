@@ -2933,7 +2933,7 @@ async function openInfoCardsSheet(){
   var list=passedBeans();
   var dots={};try{dots=await cardDots();}catch(e){}
   openDrawerHTML('<div class="t" style="font-size:19px">Info cards</div>'
-    +'<div class="s" style="margin-top:2px">QC-passed coffees · tap one for a PDF — duplex short-edge, two A4 sheets, cut each once, fold into four 148.5 × 105 mm cards</div>'
+    +'<div class="s" style="margin-top:2px">QC-passed coffees · tap one for an A4 PDF — print double-sided, cut the cross into four 105 × 148.5 mm cards</div>'
     +(list.length?list.map(function(s){
       var c=dotColorFor(s.sample_id,dots);
       return '<div class="dl" data-ic="'+esc(s.id)+'" style="cursor:pointer;align-items:center">'
@@ -3015,82 +3015,62 @@ async function openInfoCardPrint(s){
   var beanUrl='https://ratio-theta.vercel.app/?bean='+encodeURIComponent(beanSlug(nm));
   var feats=(full.features||[]).filter(Boolean).slice(0,3);
   var sc={fragrance:full.fragrance,acidity:full.acidity,sweetness:full.sweetness,body:full.body,aftertaste:full.aftertaste};
-  /* ===== A4 雙面裁 4 卡（老闆定稿）：正面＝品牌＋豆名＋風味＋雷達，反面＝完整明細表＋QR＋聯絡 =====
-     每卡 148.5×105mm，同卡 ×4 田字格，裁切虛線十字；雙面短邊翻頁 */
-  /* ===== A4 雙面＝2 張完整摺疊卡（老闆定稿：封面回歸）=====
-     每卡攤平 297×105 對摺成 148.5×105；A4 上下兩條、裁一刀各自對摺；雙面短邊翻
-     第 1 頁條＝〔QR 背面｜封面〕、第 2 頁條＝〔The coffee 詳情｜Tasting notes＋雷達〕 */
-  /* 定稿設計（實驗室證書風）：四面細線框、豆色菱飾、Fraunces 義大利體風味詞；QR 80%、無電話、Sydney */
-  var orn='<div style="display:flex;align-items:center;justify-content:center;gap:3mm;margin:4mm 0 3.2mm">'
-    +'<div style="width:16mm;border-top:.2mm solid #C9C2BB"></div>'
-    +'<div style="width:2.1mm;height:2.1mm;background:'+col+';transform:rotate(45deg)"></div>'
-    +'<div style="width:16mm;border-top:.2mm solid #C9C2BB"></div></div>';
-  var outerStrip='<div class="strip"><div class="foldl"></div>'
-    +'<div class="panel"><div class="frame"></div>'
-    +'<div class="inner" style="align-items:center;justify-content:center;text-align:center">'
-    +'<div style="border:.25mm solid #E1DAD3;padding:2.2mm;background:#fff"><img src="https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl)+'" style="width:29mm;height:29mm;display:block" alt="QR"></div>'
-    +'<div class="lab" style="margin-top:4.5mm">Scan for this coffee</div>'
-    +'<div class="lab" style="font-size:5.8pt;color:#B3ABA3;margin-top:1.2mm">Flavour · Brew guide · Story</div>'
+  /* ===== A4 直式雙面＝2×2 田字格 4 張雙面卡（老闆定稿 2026-07-09：把摺卡轉 90° 縮成 4 張一面）=====
+     每卡 105×148.5mm；正面頁＝4 張卡正面（豆名＋風味＋雷達）、背面頁＝4 張卡背面（明細＋QR＋聯絡）
+     4 張同一支豆（identical）→ 裁成 4 張時正反自動對齊，不需鏡像；雙面短邊翻（.flip 補正背面朝向）
+     若真機背面上下顛倒＝把印表機雙面設定在短邊/長邊之間切換即可（同卡故對齊永遠對，只影響背面正立） */
+  var orn='<div style="display:flex;align-items:center;justify-content:center;gap:2.4mm;margin:2.6mm 0 2.4mm">'
+    +'<div style="width:11mm;border-top:.2mm solid #C9C2BB"></div>'
+    +'<div style="width:1.9mm;height:1.9mm;background:'+col+';transform:rotate(45deg)"></div>'
+    +'<div style="width:11mm;border-top:.2mm solid #C9C2BB"></div></div>';
+  var radar=printRadarPNG(sc,col);
+  var qrBox='<div style="border:.25mm solid #E1DAD3;padding:1.1mm;background:#fff;flex:0 0 auto"><img src="https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl)+'" style="width:17mm;height:17mm;display:block" alt="QR"></div>';
+  var cardFront='<div class="card4"><div class="frame frame2"></div>'
+    +'<div class="inner" style="align-items:center;text-align:center">'
+    +'<img src="/logo.png" style="width:11mm;height:11mm" alt="Ratio">'
+    +'<div class="lab" style="letter-spacing:.3em;margin-top:1.8mm">Specialty Coffee Lab</div>'
     +orn
-    +'<div style="font-size:8.5pt;color:#5A534C;line-height:2">@ratio.crowsnest · caffeine@coffeeratio.com<br><span style="color:#8A837C">Roasted in Sydney, Australia</span></div>'
-    +'</div></div>'
-    +'<div class="panel"><div class="frame frame2"></div>'
-    +'<div class="inner" style="align-items:center;justify-content:center;text-align:center">'
-    +'<img src="/logo.png" style="width:15mm;height:15mm" alt="Ratio">'
-    +'<div class="serif" style="font-size:24pt;font-weight:700;margin-top:4.5mm;letter-spacing:.01em">Ratio Coffee</div>'
-    +orn
-    +'<div class="lab" style="letter-spacing:.34em">Specialty Coffee Lab</div>'
-    +'<div style="position:absolute;bottom:9.5mm;left:0;right:0;text-align:center">'
-    +'<span style="display:inline-block;width:1.8mm;height:1.8mm;border-radius:50%;background:'+col+';vertical-align:.4mm;margin-right:2mm"></span>'
-    +'<span class="serif" style="font-style:italic;font-size:10.5pt;font-weight:600">'+esc(nm)+'</span></div>'
-    +'</div></div></div>';
-  var innerStrip='<div class="strip"><div class="foldl"></div>'
-    +'<div class="panel"><div class="frame"></div>'
+    +'<div class="serif" style="font-style:italic;font-size:15pt;font-weight:600;line-height:1.15">'+esc(nm)+'</div>'
+    +'<div style="width:10mm;border-top:.5mm solid '+col+';margin:2.4mm 0 2.2mm"></div>'
+    +feats.map(function(f){return '<div class="serif" style="font-style:italic;font-size:11pt;font-weight:600;line-height:1.5;color:'+col+'">'+esc(f)+'</div>';}).join('')
+    +'<div style="flex:1;min-height:2mm"></div>'
+    +'<img src="'+radar+'" style="width:56mm;display:block;margin:0 auto" alt="">'
+    +'</div></div>';
+  var cardBack='<div class="card4"><div class="frame"></div>'
     +'<div class="inner">'
     +'<div class="lab" style="color:'+col+'">The coffee</div>'
-    +'<div class="serif" style="font-size:16pt;font-weight:700;margin-top:1.6mm">'+esc(nm)+'</div>'
-    +'<div style="width:12mm;border-top:.5mm solid '+col+';margin:2.6mm 0 2mm"></div>'
+    +'<div class="serif" style="font-size:12.5pt;font-weight:700;margin-top:.8mm">'+esc(nm)+'</div>'
+    +'<div style="width:9mm;border-top:.5mm solid '+col+';margin:1.6mm 0 1.2mm"></div>'
     +'<div>'+info.map(function(r){return '<div class="br"><span>'+esc(r[0])+'</span><b>'+esc(String(r[1]))+'</b></div>';}).join('')+'</div>'
-    +'</div></div>'
-    +'<div class="panel"><div class="frame"></div>'
-    +'<div class="inner">'
-    +'<div class="lab" style="color:'+col+'">Tasting notes</div>'
-    +'<div style="width:12mm;border-top:.5mm solid '+col+';margin:2.6mm 0 0"></div>'
-    +'<div style="flex:1;display:flex;align-items:center;gap:3mm">'
-    +'<div style="flex:1;min-width:0">'
-    +feats.map(function(f){return '<div class="serif" style="font-style:italic;font-size:17.5pt;font-weight:600;line-height:1.6;color:'+col+'">'+esc(f)+'</div>';}).join('')
-    +(full.comment?'<div style="font-size:9pt;font-style:italic;color:#5A534C;margin-top:3.5mm;line-height:1.55">“'+esc(full.comment)+'”</div>':'')
-    +'</div>'
-    +'<div style="flex:0 0 47mm"><img src="'+printRadarPNG(sc,col)+'" style="width:47mm;display:block" alt=""></div>'
-    +'</div></div></div>'
-    +'</div>';
+    +'<div style="flex:1;min-height:2mm"></div>'
+    +'<div style="display:flex;align-items:center;gap:3mm">'+qrBox
+    +'<div style="text-align:left"><div class="lab">Scan for this coffee</div>'
+    +'<div style="font-size:6pt;color:#5A534C;line-height:1.75;margin-top:1.1mm">@ratio.crowsnest<br>caffeine@coffeeratio.com<br><span style="color:#8A837C">Roasted in Sydney</span></div></div>'
+    +'</div></div></div>';
   var html='<div class="icroot">'
     +'<style>'
     +'.icroot{font-family:Inter,sans-serif;color:#1E1A19}'
     +'.icroot *{box-sizing:border-box;margin:0;padding:0}'
-    /* 頁高減 1px 防幽靈頁；strip 減半 px 讓兩條塞進一頁 */
-    +'.icroot .page{width:297mm;height:calc(210mm - 1px);position:relative;background:#fff;overflow:hidden}'
+    /* 頁高減 1px 防幽靈頁 */
+    +'.icroot .page{width:210mm;height:calc(297mm - 1px);position:relative;background:#fff;overflow:hidden}'
     +'.icroot .page.pb{page-break-after:always}'
-    +'.icroot .strip{width:297mm;height:calc(105mm - .5px);display:flex;position:relative;overflow:hidden;background:#fff}'
-    +'.icroot .foldl{position:absolute;left:148.25mm;top:7mm;bottom:7mm;border-left:.3mm dashed #D9D2CB;z-index:4}'
-    +'.icroot .cuth{position:absolute;top:104.8mm;left:0;right:0;border-top:.25mm dashed #C9C2BB;z-index:5}'
-    +'.icroot .panel{width:148.5mm;height:105mm;position:relative}'
-    +'.icroot .frame{position:absolute;inset:5mm;border:.3mm solid #4A423B}'
-    +'.icroot .frame2{outline:.2mm solid #C9C2BB;outline-offset:1.1mm}'
-    +'.icroot .inner{position:absolute;inset:5mm;padding:6.5mm 8mm;display:flex;flex-direction:column}'
-    +'.icroot .lab{font-size:7pt;font-weight:700;letter-spacing:.28em;color:#8A837C;text-transform:uppercase}'
+    +'.icroot .grid{width:210mm;height:297mm;display:flex;flex-wrap:wrap}'
+    +'.icroot .card4{width:105mm;height:148.5mm;position:relative}'
+    +'.icroot .cutv{position:absolute;top:0;bottom:0;left:104.85mm;border-left:.25mm dashed #C9C2BB;z-index:5}'
+    +'.icroot .cuth4{position:absolute;left:0;right:0;top:148.4mm;border-top:.25mm dashed #C9C2BB;z-index:5}'
+    +'.icroot .frame{position:absolute;inset:4mm;border:.3mm solid #4A423B}'
+    +'.icroot .frame2{outline:.2mm solid #C9C2BB;outline-offset:1mm}'
+    +'.icroot .inner{position:absolute;inset:4mm;padding:5mm 5.5mm;display:flex;flex-direction:column}'
+    +'.icroot .lab{font-size:6.2pt;font-weight:700;letter-spacing:.24em;color:#8A837C;text-transform:uppercase}'
     +'.icroot .serif{font-family:\'Fraunces\',serif}'
-    +'.icroot .br{display:flex;justify-content:space-between;gap:5mm;border-bottom:.2mm solid #E8E2DB;padding:1.9mm 0;font-size:9pt;align-items:baseline}'
-    +'.icroot .br span{color:#8A837C;flex:0 0 auto;font-size:6.6pt;font-weight:700;letter-spacing:.14em;text-transform:uppercase}'
+    +'.icroot .br{display:flex;justify-content:space-between;gap:3mm;border-bottom:.2mm solid #E8E2DB;padding:1.35mm 0;font-size:7.4pt;align-items:baseline}'
+    +'.icroot .br span{color:#8A837C;flex:0 0 auto;font-size:5.5pt;font-weight:700;letter-spacing:.1em;text-transform:uppercase}'
     +'.icroot .br b{font-weight:600;text-align:right;overflow-wrap:anywhere}'
-    /* 雙面短邊翻：整張背面相對正面轉 180°，故第 2 頁（內頁）內容預轉 180° 補償，印出對摺後內頁才正立 */
+    /* 雙面短邊翻：整張背面相對正面轉 180°，故背面頁預轉 180° 補償，印出後背面才正立 */
     +'.icroot .flip{position:absolute;inset:0;transform:rotate(180deg)}'
     +'</style>'
-    /* 4 卡＝兩張 A4（各裁一刀各得 2 卡）：每張 A4＝正面 outerStrip×2＋背面 flip(innerStrip×2)，共 4 頁 */
-    +'<div class="page pb"><div class="cuth"></div>'+outerStrip+outerStrip+'</div>'
-    +'<div class="page pb"><div class="flip"><div class="cuth"></div>'+innerStrip+innerStrip+'</div></div>'
-    +'<div class="page pb"><div class="cuth"></div>'+outerStrip+outerStrip+'</div>'
-    +'<div class="page"><div class="flip"><div class="cuth"></div>'+innerStrip+innerStrip+'</div></div>'
+    +'<div class="page pb"><div class="cutv"></div><div class="cuth4"></div><div class="grid">'+cardFront+cardFront+cardFront+cardFront+'</div></div>'
+    +'<div class="page"><div class="flip"><div class="cutv"></div><div class="cuth4"></div><div class="grid">'+cardBack+cardBack+cardBack+cardBack+'</div></div></div>'
     +'</div>';
   /* 老闆指定：不開列印框，直接產 PDF 檔下載（html2pdf 首次用時才載，兩頁 297×105mm）
      ⚠ 兩個坑：①離螢幕定位不能寫在交給 html2pdf 的元素上（會被 clone 走→截到空白）——包殼藏、把乾淨的 .icroot 交出去
@@ -3109,10 +3089,9 @@ async function openInfoCardPrint(s){
     await html2pdf().set({
       filename:'infocard-'+beanSlug(nm)+'.pdf',
       image:{type:'jpeg',quality:.95},
-      /* scale 2.1：4 頁疊一張大 canvas（約 15.7MP），穩在 iPhone 16.7MP canvas 上限內；
-         原本 2 頁用 2.6，改 4 頁後必須降到 2.1 否則爆掉→真機全白破圖 */
-      html2canvas:{scale:2.1,useCORS:true,backgroundColor:'#ffffff'},
-      jsPDF:{unit:'mm',format:[297,210],orientation:'landscape'},
+      /* scale 2.6：兩頁疊一張大 canvas，3.3 會爆 iPhone 的 16.7MP canvas 上限（真機全白破圖的另一根因） */
+      html2canvas:{scale:2.6,useCORS:true,backgroundColor:'#ffffff'},
+      jsPDF:{unit:'mm',format:[210,297],orientation:'portrait'},
       pagebreak:{mode:['css']}
     }).from(host.firstChild).save();
     toast('PDF downloaded ✓');
