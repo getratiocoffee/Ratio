@@ -5060,6 +5060,31 @@ function renderTools(){
   var m=$('main');
   var pushReady=('serviceWorker' in navigator)&&('PushManager' in window)&&(typeof Notification!=='undefined');
   var iosNoA2HS=/iphone|ipad/i.test(navigator.userAgent)&&!(window.navigator.standalone===true);
+  /* Look up 依生產線四類分組（責任分區）：Production / Orders & customers / Daily task / Team ＋ App。
+     寫入磁貼（_mk=canWrite）散進各自的類，唯讀磁貼人人看得到——分組是責任標示、不是權限牆 */
+  var _mk=canWrite();
+  function _tiles(a){return a.map(function(x){var off=x[2]==='classic';return '<button class="tool" data-t="'+x[2]+'"'+(off?' disabled style="opacity:.4;cursor:not-allowed"':'')+'>'+x[0]+'<small>'+x[1]+(off?' · off':'')+'</small></button>';}).join('');}
+  function _mkTile(id,label,sub){return '<button class="tool" id="'+id+'" style="border-color:var(--accent);color:var(--accent)">'+label+'<small>'+sub+'</small></button>';}
+  var _offTiles=[['Invoice','GST PDF · classic'],['IG asset','1200 card · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1" disabled style="opacity:.4;cursor:not-allowed">'+x[0]+'<small>'+x[1]+' · off</small></button>';}).join('');
+  var _groups='<div class="gsec">Production</div><div class="tgrid">'
+    +(_mk?_mkTile('t-recv','Receive green','delivery in')+_mkTile('t-roast','Log roast','green in')+_mkTile('t-stk','Stocktake','weigh greens'):'')
+    +_tiles([['Green stock','full list','greens'],['Roasted Stock','FIFO shelf','batches'],['QC','cup and judge','qcgo'],['Recipe','blends · dial-in','recipe'],['Retail Info','live on Square','retail']].concat(_mk?[['Delete a coffee','remove · careful','delbean']]:[]))
+    +'</div>'
+    +'<div class="gsec">Orders &amp; customers</div><div class="tgrid">'
+    +(_mk?_mkTile('t-neworder','New order','right here'):'')
+    +_tiles([['Orders','recent list','orders'],['Customers','book','customers']].concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[]))
+    +'</div>'
+    +'<div class="gsec">Daily task</div><div class="tgrid">'
+    +(_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'))+_mkTile('t-label','Labels','bag / tin'):'')
+    +_tiles([['Info cards','A4 · 2 fold cards','infocards'],['Menus','4 menu PDFs','menus']])
+    +(_mk?_offTiles:'')
+    +'</div>'
+    +'<div class="gsec">Team</div><div class="tgrid">'
+    +_tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster'],['Team notes','notes · problems','notes']].concat(isLead()?[['Team','who is on · assign','team']]:[]))
+    +'</div>'
+    +'<div class="gsec">App</div><div class="tgrid">'
+    +_tiles([['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']])
+    +'</div>';
   m.innerHTML='<input class="search" id="tsearch" type="search" placeholder="Search beans, customers, orders…">'
     +'<div id="thits"></div><div id="tgroups">'
     +'<div class="gsec">Notifications</div><div class="tgrid">'
@@ -5070,23 +5095,8 @@ function renderTools(){
     +'<div class="gsec">Appearance</div><div class="pm-seg">'
     +[['auto','Auto'],['light','Light'],['dark','Dark']].map(function(x){return '<button data-th="'+x[0]+'"'+(themeGet()===x[0]?' class="on"':'')+'>'+x[1]+'</button>';}).join('')
     +'</div>'
-    +(canWrite()?('<div class="gsec">Make</div><div class="tgrid">'
-    +'<button class="tool" id="t-neworder" style="border-color:var(--accent);color:var(--accent)">New order<small>right here</small></button>'
-    +'<button class="tool" id="t-roast" style="border-color:var(--accent);color:var(--accent)">Log roast<small>green in · right here</small></button>'
-    +'<button class="tool" id="t-stk" style="border-color:var(--accent);color:var(--accent)">Stocktake<small>weigh greens · right here</small></button>'
-    +'<button class="tool" id="t-recv" style="border-color:var(--accent);color:var(--accent)">Receive green<small>delivery in · right here</small></button>'
-    +'<button class="tool" id="t-task" style="border-color:var(--accent);color:var(--accent)">New task<small>'+(isLead()?'assign · right here':'for the team · right here')+'</small></button>'
-    +'<button class="tool" id="t-label" style="border-color:var(--accent);color:var(--accent)">Labels<small>bag / tin · right here</small></button>'
-    +[['Invoice','GST PDF · classic'],['IG asset','1200×1200 card · classic'],['QR codes','shop / feedback · classic'],['Announce','email · classic']].map(function(x){return '<button class="tool" data-classic="1" disabled style="opacity:.4;cursor:not-allowed">'+x[0]+'<small>'+x[1]+' · off</small></button>';}).join('')
-    +'</div>'):'')
-    +'<div class="gsec">Look up · right here</div><div class="tgrid">'
-    +[['Green stock','full list · right here','greens'],['Roasted Stock','FIFO shelf · right here','batches'],['Retail Info','live on Square','retail'],['Info cards','A4 · 2 fold cards','infocards'],['Menus','4 menu PDFs · right here','menus'],['Customers','book · right here','customers'],['Orders','recent list · right here','orders'],['Team notes','read and post · right here','notes']]
-      .concat(canWrite()?[['Delete a coffee','remove records · careful','delbean']]:[])
-      .concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[])
-      .concat(isLead()?[['Team','who’s on · assign','team']]:[])
-      .concat(['director','finance','roaster','retail','staff'].indexOf(myRole())>=0||LEAD?[['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster']]:[])
-      .concat([['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']]).map(function(x){var off=x[2]==='classic';return '<button class="tool" data-t="'+x[2]+'"'+(off?' disabled style="opacity:.4;cursor:not-allowed"':'')+'>'+x[0]+'<small>'+x[1]+(off?' · off':'')+'</small></button>';}).join('')
-    +'</div></div>';
+    +_groups
+    +'</div>';
   var inp=$('tsearch');
   function lookup(){
     var q=inp.value.trim().toLowerCase();
@@ -5139,6 +5149,8 @@ function renderTools(){
     if(k==='customers'){openCustomersSheet();return;}
     if(k==='help'){openHelpSheet();return;}
     if(k==='retail'){openRetailSheet();return;}
+    if(k==='qcgo'){view='qc';render();return;}
+    if(k==='recipe'){openRecipeSheet();return;}
     if(k==='infocards'){openInfoCardsSheet();return;}
     if(k==='menus'){openMenusSheet();return;}
     if(k==='delbean'){openDeleteCoffeeSheet();return;}
@@ -5152,6 +5164,30 @@ function renderTools(){
     }
     inp.focus();toast('Type in the search box above');
   });});
+}
+/* ===== Recipe（Production 類的新入口）：拼配配方＋近期 dial-in，唯讀；
+   blends 直接查表（name/parts/note），dial-in 用 DB.dialins；配方編輯仍在 classic ===== */
+async function openRecipeSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Recipe</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  var blends=[];
+  try{var bq=await sb.from('blends').select('name,parts,note').order('name');blends=(bq.data||[]).filter(function(b){return b.name;});}catch(e){}
+  var blendHTML=blends.length?blends.map(function(b){
+    var parts=(b.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;});
+    var line=parts.length?parts.map(function(p){return esc((p.bean||'').trim())+' '+parseFloat(p.pct)+'%';}).join(' · '):'<span class="red">no parts — edit in classic</span>';
+    return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-top:8px"><div class="t" style="font-size:15px">'+esc(b.name)+'</div><div class="s" style="margin-top:3px">'+line+'</div>'+(b.note?'<div class="s" style="margin-top:2px;color:var(--muted)">'+esc(b.note)+'</div>':'')+'</div>';
+  }).join(''):'<div class="sempty">No blends yet — add them in the classic app</div>';
+  var dins=(DB.dialins||[]).slice(0,12);
+  var dinHTML=dins.length?dins.map(function(d){
+    var bits=[];if(d.grind)bits.push('grind '+esc(d.grind));if(d.dose)bits.push(d.dose+'g');if(d.yield)bits.push('→ '+d.yield+'g');if(d.time_s)bits.push(d.time_s+'s');
+    return '<div class="dl"><span>'+esc(d.coffee||'—')+'</span><span style="color:var(--muted)">'+(bits.join(' · ')||'—')+'</span></div>';
+  }).join(''):'<div class="sempty">No dial-ins logged yet</div>';
+  openDrawerHTML('<div class="t" style="font-size:19px">Recipe</div>'
+    +'<div class="s" style="margin-top:2px">blend recipes and recent dial-ins — read-only here, edit blends in the classic app</div>'
+    +'<div class="dlab">Blends</div>'+blendHTML
+    +'<div class="dlab">Recent dial-ins</div>'+dinHTML
+    +'<a class="dclose" style="text-decoration:none;text-align:center;display:block;margin-top:14px" href="'+CLASSIC+'">Edit blends in classic</a>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('d-cl').addEventListener('click',closeDrawer);
 }
 /* ===== Wholesale 設定（director only）：全店折扣％＋批發帳號切換 =====
    折扣存 app_state 'ws_discount' {pct:20}——單一 scalar，plain upsert 即可；
