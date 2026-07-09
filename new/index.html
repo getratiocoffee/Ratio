@@ -3111,6 +3111,91 @@ async function openInfoCardPrint(s){
   }
   host.remove();
 }
+/* ===== 手沖 Brew Card（全店通用一份，獨立 A6 卡；跟 Folding Info Card 一起夾寄）=====
+   內容目前寫在 DEFAULT_POUROVER；之後編輯抽屜會把它接到 app_state.pourover（同 dinein pattern） */
+var DEFAULT_POUROVER={
+  method:'V60',dose:'15 g',water:'240 g',ratio:'1:16',temp:'92°C',grind:'Medium-fine',time:'2:00–2:30',
+  bloom:'Bloom 30–40 g — wait for the sweet aroma, then start pouring',
+  pours:['Pour to 100 g','Pour to 170 g','Pour to 240 g'],
+  finish:'Draw down — finish by 2:00–2:30',
+  taste:[['Watery, thin','Add one more pour'],['Dry, astringent','One fewer pour'],['Draws too fast','Grind finer'],['Draws too slow','Grind coarser']],
+  habits:['Pour at the centre — keep water off the coffee wall','A steady centre pour lifts the fines to the top'],
+  finetune:[['2','3','Brighter — more acidity'],['3','4','Rounder — more sweetness']]
+};
+async function openBrewCardPrint(){
+  toast('Preparing brew card…');
+  var P=DEFAULT_POUROVER,col='#B25E6A';
+  var steps=[[P.bloom.split(' — ')[0],P.bloom.split(' — ')[1]||'']].concat(P.pours.map(function(x){return [x,''];})).concat([[P.finish.split(' — ')[0],P.finish.split(' — ')[1]||'']]);
+  var stepH=steps.map(function(s,i){return '<div class="stp"><span class="num">'+(i+1)+'</span><span><b>'+esc(s[0])+'</b>'+(s[1]?' — '+esc(s[1]):'')+'</span></div>';}).join('');
+  var tasteH=P.taste.map(function(t){return '<span style="color:#8C857E">'+esc(t[0])+'</span><span>'+esc(t[1])+'</span>';}).join('');
+  var habitH=P.habits.map(function(h){return '<div style="display:flex;gap:1.4mm"><span style="color:'+col+'">·</span><span>'+esc(h)+'</span></div>';}).join('');
+  var tuneH=P.finetune.map(function(f){return '<span style="white-space:nowrap">Join <span class="dot">'+esc(f[0])+'</span> + <span class="dot">'+esc(f[1])+'</span></span><span>'+esc(f[2])+'</span>';}).join('');
+  var orn='<div style="display:flex;align-items:center;justify-content:center;gap:2.2mm;margin:1.6mm 0">'
+    +'<div style="width:12mm;border-top:.2mm solid #E4DDD5"></div>'
+    +'<div style="width:1.7mm;height:1.7mm;background:'+col+';transform:rotate(45deg)"></div>'
+    +'<div style="width:12mm;border-top:.2mm solid #E4DDD5"></div></div>';
+  var card='<div class="card4"><div class="frame"></div><div class="inner">'
+    +'<div class="lab">Ratio Coffee · brew guide</div>'
+    +'<div class="ttl">Pour-over recipe</div>'+orn
+    +'<div class="pg">'
+      +'<div><div class="k">Dose · water</div><div class="v">'+esc(P.dose)+' · '+esc(P.water)+' <span style="font-size:6pt;color:#8C857E">('+esc(P.ratio)+')</span></div></div>'
+      +'<div><div class="k">Water temp</div><div class="v">'+esc(P.temp)+'</div></div>'
+      +'<div><div class="k">Grind</div><div class="v">'+esc(P.grind)+'</div></div>'
+      +'<div><div class="k">Total time</div><div class="v">'+esc(P.time)+'</div></div>'
+    +'</div>'
+    +'<div class="sec">The pour</div>'+stepH
+    +'<div class="sec">If it tastes…</div><div class="tg">'+tasteH+'</div>'
+    +'<div class="sec">Two habits</div><div class="hb">'+habitH+'</div>'
+    +'<div class="sec">Fine-tune the flavour</div><div class="tg tune">'+tuneH+'</div>'
+    +'<div class="fn">“Join” = pour the two steps as one, without pausing between.</div>'
+    +'</div></div>';
+  var html='<div class="bcroot"><style>'
+    +'.bcroot{font-family:Inter,sans-serif;color:#241E1B}'
+    +'.bcroot *{box-sizing:border-box;margin:0;padding:0}'
+    +'.bcroot .page{width:210mm;height:calc(297mm - 1px);position:relative;background:#fff;overflow:hidden}'
+    +'.bcroot .grid{width:210mm;height:297mm;display:flex;flex-wrap:wrap}'
+    +'.bcroot .card4{width:105mm;height:148.5mm;position:relative;background:#FAF8F4}'
+    +'.bcroot .cutv{position:absolute;top:0;bottom:0;left:104.85mm;border-left:.25mm dashed #C9C2BB;z-index:5}'
+    +'.bcroot .cuth4{position:absolute;left:0;right:0;top:148.4mm;border-top:.25mm dashed #C9C2BB;z-index:5}'
+    +'.bcroot .frame{position:absolute;inset:6mm;border:.4mm solid #C9BFB4}'
+    +'.bcroot .inner{position:absolute;inset:6mm;padding:5.5mm 6mm;display:flex;flex-direction:column;overflow:hidden}'
+    +'.bcroot .lab,.bcroot .sec{font-size:5.7pt;letter-spacing:.16em;text-transform:uppercase;color:'+col+'}'
+    +'.bcroot .lab{text-align:center}'
+    +'.bcroot .sec{margin:2.6mm 0 1.3mm}'
+    +'.bcroot .ttl{font-family:\'Fraunces\',Georgia,serif;font-size:15pt;font-weight:600;text-align:center;margin-top:.7mm}'
+    +'.bcroot .pg{display:grid;grid-template-columns:1fr 1fr;gap:2.2mm 3mm;margin-top:1.4mm}'
+    +'.bcroot .k{font-size:5pt;letter-spacing:.08em;text-transform:uppercase;color:#8C857E}'
+    +'.bcroot .v{font-family:\'Fraunces\',Georgia,serif;font-size:9pt;color:#241E1B;margin-top:.3mm}'
+    +'.bcroot .num{width:3.9mm;height:3.9mm;flex:none;border-radius:50%;background:'+col+';color:#fff;font-size:6pt;display:flex;align-items:center;justify-content:center}'
+    +'.bcroot .stp{display:flex;gap:1.9mm;align-items:baseline;padding:.5mm 0;font-size:7.2pt}'
+    +'.bcroot .stp b{font-weight:600}'
+    +'.bcroot .tg{display:grid;grid-template-columns:auto 1fr;gap:1.1mm 3mm;font-size:6.8pt;align-items:baseline}'
+    +'.bcroot .tg.tune{align-items:center;gap:1.5mm 3mm}'
+    +'.bcroot .hb{font-size:6.8pt;line-height:1.5}'
+    +'.bcroot .dot{display:inline-flex;width:3.4mm;height:3.4mm;border-radius:50%;background:'+col+';color:#fff;font-size:5.6pt;align-items:center;justify-content:center;vertical-align:middle}'
+    +'.bcroot .fn{margin-top:1.3mm;font-size:6pt;color:#8C857E}'
+    +'</style>'
+    +'<div class="page"><div class="cutv"></div><div class="cuth4"></div><div class="grid">'+card+card+card+card+'</div></div>'
+    +'</div>';
+  var host=document.createElement('div');
+  host.style.cssText='position:absolute;left:-9999px;top:0';
+  host.innerHTML=html;
+  document.body.appendChild(host);
+  try{
+    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
+    await html2pdf().set({
+      filename:'ratio-brew-card.pdf',
+      image:{type:'jpeg',quality:.95},
+      html2canvas:{scale:2.6,useCORS:true,backgroundColor:'#ffffff'},
+      jsPDF:{unit:'mm',format:[210,297],orientation:'portrait'},
+      pagebreak:{mode:['css']}
+    }).from(host.firstChild).save();
+    toast('PDF downloaded ✓');
+  }catch(e){
+    alert('PDF failed: '+(e&&e.message||e));
+  }
+  host.remove();
+}
 /* 外部腳本延遲載入（只載一次） */
 var _loadedScripts={};
 function loadScriptOnce(url){
@@ -5242,7 +5327,7 @@ function renderTools(){
       +_off([['Invoice','GST PDF · classic'],['Bookkeeping','expenses · classic']])):'')
     +_sec('Daily task',DEPT.day,
       (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'))+_mkTile('t-label','Labels','bag / tin'):'')
-      +_tiles([['Menus','menu PDFs · in-store','menus'],['Folding Info Card','A4 · 4 fold cards','infocards']]))
+      +_tiles([['Menus','menu PDFs · in-store','menus'],['Folding Info Card','A4 · 4 fold cards','infocards'],['Brew Card','A4 · pour-over guide','brewcard']]))
     +_sec('Team',DEPT.team,
       _tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster',_mk?1:0],['Team notes','notes · problems','notes',_mk?1:0]].concat(isLead()?[['Team','who is on · assign','team',1]]:[])))
     +_sec('App',DEPT.app,
@@ -5317,6 +5402,7 @@ function renderTools(){
     if(k==='payroll'){openPayrollSheet();return;}
     if(k==='calc'){openCalcSheet();return;}
     if(k==='infocards'){openInfoCardsSheet();return;}
+    if(k==='brewcard'){openBrewCardPrint();return;}
     if(k==='menus'){openMenusSheet();return;}
     if(k==='delbean'){openDeleteCoffeeSheet();return;}
     if(k==='wholesale'){openWholesaleSheet();return;}
