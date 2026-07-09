@@ -169,6 +169,20 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 #scanov .scannote{color:#fff;opacity:.85;font-size:14px;text-align:center;margin-top:16px;max-width:420px}
 #scanov .scancancel{margin-top:16px;border:1.5px solid rgba(255,255,255,.6);background:rgba(255,255,255,.08);color:#fff;border-radius:12px;padding:13px 28px;min-height:48px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer}
 .dlab{font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-top:14px}
+.cx-row{display:flex;align-items:center;gap:10px;margin-top:8px}
+.cx-lab{flex:1;min-width:0;font-size:14px;color:var(--ink)}
+.cx-in{width:96px;flex:0 0 auto;border:1.5px solid var(--line2);border-radius:10px;padding:10px 10px;font-size:15px;font-family:inherit;background:var(--surface);color:var(--ink);outline:none;text-align:right}
+.cx-in:focus{border-color:var(--ink)}
+.cx-unit{width:52px;flex:0 0 auto;font-size:12.5px;color:var(--muted)}
+.cx-add{display:flex;gap:8px;align-items:center;margin-top:8px}
+.cx-add .cx-in{flex:1;width:auto;text-align:left}
+.cx-mgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:8px}
+.cx-metric{background:var(--tint);border-radius:10px;padding:11px 13px}
+.cx-metric span{display:block;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.cx-metric b{display:block;font-size:20px;color:var(--ink);margin-top:3px}
+.cx-metric.hi{outline:1.5px solid var(--accent);outline-offset:-1.5px}
+.cx-note{margin-top:10px;font-size:13px;font-weight:600;color:var(--danger);background:var(--surface);border:1px solid var(--line2);border-radius:10px;padding:9px 12px}
+.cx-note.ok{color:var(--accent);border-color:var(--accent)}
 .rs-day{border:1px solid var(--line);border-radius:12px;margin-top:9px;overflow:hidden}
 .rs-day-h{display:flex;justify-content:space-between;align-items:center;padding:9px 13px;background:var(--bg);font-size:13px;font-weight:700;color:var(--ink)}
 .rs-add{border:none;background:none;color:var(--accent);font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;padding:3px 4px}
@@ -5023,6 +5037,118 @@ async function saveTaskAdd(){
     await reload();
   }catch(e){btn.disabled=false;btn.textContent='Add task';alert('Add failed: '+(e&&e.message||e));}
 }
+/* ===== 利潤計算機（從 classic CALC_HTML 移植；計算邏輯逐字照抄 getBase/calcRetail/calcWholesale，
+   UI 改用新殼 tokens；零售/批發雙模式。參考案例：4 鍋·10kg·13%·$30豆·150g@$25 → 232 包·利潤 $4159·71.7%）===== */
+var CX={mode:'retail',pots:4,bean:30,greenKg:10,shrink:13,cbag:0,cstick:0,cbox:0,packRate:30,packSpeed:60,venue:125,staff:50,transport:100,pkg:0,wsPrice:12,wsQty:20,pkgs:[{g:150,p:25},{g:250,p:25}]};
+function cxBase(){
+  var roastedKg=CX.pots*CX.greenKg*(1-CX.shrink/100), totalGreenKg=CX.pots*CX.greenKg;
+  var roastMin=CX.pots*15, totalMin=30+roastMin+30, venueHrs=roastMin/60, staffHrs=totalMin/60;
+  return {roastedKg:roastedKg,totalGreenKg:totalGreenKg,roastMin:roastMin,totalMin:totalMin,venueHrs:venueHrs,staffHrs:staffHrs,
+    venueCost:venueHrs*CX.venue, staffCost:staffHrs*CX.staff, beanCost:totalGreenKg*CX.bean,
+    packLaborPerBag:CX.packSpeed>0?CX.packRate/CX.packSpeed:0, matCostPerBag:CX.cbag+CX.cstick+CX.cbox};
+}
+function cxMoney(n){return '$'+(Number(n)||0).toFixed(2);}
+function cxBrow(l,v,strong,col){return '<div class="dl"'+(strong?' style="font-weight:700"':'')+'><span'+(strong?' style="color:var(--ink)"':'')+'>'+l+'</span><span'+(col?' style="color:'+col+'"':'')+'>'+v+'</span></div>';}
+function cxResults(){
+  var b=cxBase(), pkg=CX.pkgs[CX.pkg]||CX.pkgs[0];
+  if(CX.mode==='retail'){
+    var bags=Math.floor(b.roastedKg/(pkg.g/1000));
+    var matTotal=bags*b.matCostPerBag, packLaborTotal=bags*b.packLaborPerBag;
+    var totalCost=b.venueCost+b.staffCost+CX.transport+b.beanCost+matTotal+packLaborTotal;
+    var revenue=bags*pkg.p, profit=revenue-totalCost, margin=revenue>0?profit/revenue*100:0;
+    var pc=profit>=0?'var(--accent)':'var(--danger)';
+    var bd=cxBrow('Transport (incl. labour)',cxMoney(CX.transport))
+      +cxBrow('Venue x '+b.venueHrs.toFixed(2)+' hr',cxMoney(b.venueCost))
+      +cxBrow('Roast staff x '+b.staffHrs.toFixed(2)+' hr',cxMoney(b.staffCost))
+      +cxBrow('Green ('+b.totalGreenKg+' kg x $'+CX.bean+')',cxMoney(b.beanCost));
+    if(b.matCostPerBag>0)bd+=cxBrow('Packaging ('+bags+' x '+cxMoney(b.matCostPerBag)+')',cxMoney(matTotal));
+    bd+=cxBrow('Packing labour ('+bags+' x '+cxMoney(b.packLaborPerBag)+')',cxMoney(packLaborTotal))
+      +cxBrow('Total cost',cxMoney(totalCost),true)
+      +cxBrow('Revenue ('+bags+' x $'+pkg.p+')',cxMoney(revenue),true);
+    return '<div class="cx-mgrid">'
+        +'<div class="cx-metric"><span>Sellable bags</span><b>'+bags+'</b></div>'
+        +'<div class="cx-metric"><span>Roasted</span><b>'+b.roastedKg.toFixed(1)+' kg</b></div>'
+        +'<div class="cx-metric hi"><span>Profit</span><b style="color:'+pc+'">'+(profit>=0?'+':'')+cxMoney(Math.abs(profit)).replace('$','$')+'</b></div>'
+        +'<div class="cx-metric"><span>Margin</span><b style="color:'+pc+'">'+margin.toFixed(1)+'%</b></div></div>'
+      +'<div class="dlab">Cost breakdown</div>'+bd;
+  }else{
+    var totalBags=Math.floor(b.roastedKg/(pkg.g/1000));
+    var roastCostPerBag=totalBags>0?(b.venueCost+b.staffCost+CX.transport+b.beanCost)/totalBags:0;
+    var totalCostPerBag=roastCostPerBag+b.matCostPerBag+b.packLaborPerBag;
+    var subtotal=CX.wsQty*CX.wsPrice, MOQ=150, SHIP=20, moqMet=subtotal>=MOQ, shipping=moqMet?0:SHIP;
+    var orderTotal=subtotal+shipping, orderCost=CX.wsQty*totalCostPerBag;
+    var orderProfit=orderTotal-orderCost, orderMargin=orderTotal>0?orderProfit/orderTotal*100:0;
+    var profitPerBag=CX.wsPrice-totalCostPerBag, pc=orderProfit>=0?'var(--accent)':'var(--danger)';
+    var bd=cxBrow('Roast cost / bag (allocated)',cxMoney(roastCostPerBag));
+    if(b.matCostPerBag>0)bd+=cxBrow('Packaging / bag',cxMoney(b.matCostPerBag));
+    bd+=cxBrow('Packing labour / bag',cxMoney(b.packLaborPerBag))
+      +cxBrow('Total cost / bag',cxMoney(totalCostPerBag),true)
+      +cxBrow('Goods ('+CX.wsQty+' x $'+CX.wsPrice.toFixed(2)+')',cxMoney(subtotal))
+      +cxBrow('Delivery',moqMet?'free':cxMoney(SHIP),false,moqMet?'var(--accent)':'')
+      +cxBrow('Order total',cxMoney(orderTotal),true);
+    return '<div class="cx-note'+(moqMet?' ok':'')+'">'+(moqMet?'Meets $150 MOQ · free delivery':'Under $150 MOQ · +$20 delivery (needs $'+(MOQ-subtotal).toFixed(2)+' more)')+'</div>'
+      +'<div class="cx-mgrid">'
+        +'<div class="cx-metric"><span>Bags made</span><b>'+totalBags+'</b></div>'
+        +'<div class="cx-metric"><span>Profit / bag</span><b style="color:'+(profitPerBag>=0?'var(--accent)':'var(--danger)')+'">'+(profitPerBag>=0?'+':'')+cxMoney(Math.abs(profitPerBag))+'</b></div>'
+        +'<div class="cx-metric hi"><span>Order profit</span><b style="color:'+pc+'">'+(orderProfit>=0?'+':'')+cxMoney(Math.abs(orderProfit))+'</b></div>'
+        +'<div class="cx-metric"><span>Margin</span><b style="color:'+pc+'">'+orderMargin.toFixed(1)+'%</b></div></div>'
+      +'<div class="dlab">Per-bag breakdown</div>'+bd;
+  }
+}
+function cxNum(id,label,val,unit,step,min){
+  return '<label class="cx-row"><span class="cx-lab">'+label+'</span>'
+    +'<input class="cx-in" id="'+id+'" type="number" inputmode="decimal" value="'+val+'" step="'+(step||1)+'"'+(min!=null?' min="'+min+'"':'')+'>'
+    +(unit?'<span class="cx-unit">'+unit+'</span>':'')+'</label>';
+}
+function cxRenderOut(){var o=$('cx-out');if(o)o.innerHTML=cxResults();}
+function openCalcSheet(){
+  var sizeSeg=CX.pkgs.map(function(p,i){return '<button data-cxpkg="'+i+'"'+(i===CX.pkg?' class="on"':'')+'>'+p.g+'g</button>';}).join('');
+  var priceRow=CX.mode==='retail'
+    ? cxNum('cx-price','Sell price / bag',CX.pkgs[CX.pkg].p,'$',1,0)
+    : cxNum('cx-wsprice','Wholesale price / bag',CX.wsPrice,'$',0.5,0)+cxNum('cx-wsqty','Order bags',CX.wsQty,'bags',1,1);
+  openDrawerHTML('<div class="t" style="font-size:19px">Calculator</div>'
+    +'<div class="s" style="margin-top:2px">model roast cost, price and margin — nothing is saved</div>'
+    +'<div class="pm-seg" id="cx-mode" style="margin-top:12px">'
+      +'<button data-cxmode="retail"'+(CX.mode==='retail'?' class="on"':'')+'>Retail</button>'
+      +'<button data-cxmode="wholesale"'+(CX.mode==='wholesale'?' class="on"':'')+'>Wholesale</button></div>'
+    +'<div class="dlab">Roast batch</div>'
+    +cxNum('cx-pots','Pots (15 min each)',CX.pots,'',1,1)
+    +cxNum('cx-bean','Green price',CX.bean,'$/kg',1,0)
+    +cxNum('cx-greenKg','Green per pot',CX.greenKg,'kg',1,1)
+    +cxNum('cx-shrink','Roast loss',CX.shrink,'%',1,0)
+    +'<div class="dlab">Package size</div>'
+    +'<div class="pm-seg" id="cx-sizes">'+sizeSeg+'</div>'
+    +'<div class="cx-add"><input class="cx-in" id="cx-cg" type="number" inputmode="numeric" placeholder="new g" min="50" step="50"><input class="cx-in" id="cx-cp" type="number" inputmode="decimal" placeholder="price $" min="1" step="1"><button class="chip" id="cx-addpkg">Add size</button></div>'
+    +'<div class="dlab">Price</div><div id="cx-pricebox">'+priceRow+'</div>'
+    +'<div class="dlab">Packaging cost / bag</div>'
+    +cxNum('cx-cbag','Coffee bag',CX.cbag,'$',0.1,0)
+    +cxNum('cx-cstick','Sticker',CX.cstick,'$',0.1,0)
+    +cxNum('cx-cbox','Box',CX.cbox,'$',0.1,0)
+    +'<div class="dlab">Packing labour</div>'
+    +cxNum('cx-packRate','Pay rate',CX.packRate,'$/hr',1,0)
+    +cxNum('cx-packSpeed','Speed',CX.packSpeed,'bags/hr',5,1)
+    +'<div class="dlab">Fixed cost</div>'
+    +cxNum('cx-venue','Venue (incl. GST)',CX.venue,'$/hr',5,0)
+    +cxNum('cx-staff','Roast staff',CX.staff,'$/hr',5,0)
+    +cxNum('cx-transport','Transport',CX.transport,'$',10,0)
+    +'<div class="dlab">Result</div><div id="cx-out">'+cxResults()+'</div>'
+    +'<button class="dclose" id="cx-close" style="border:none;background:none;color:var(--muted)">Close</button>');
+  var d=$('drawer');
+  var map={'cx-pots':'pots','cx-bean':'bean','cx-greenKg':'greenKg','cx-shrink':'shrink','cx-cbag':'cbag','cx-cstick':'cstick','cx-cbox':'cbox','cx-packRate':'packRate','cx-packSpeed':'packSpeed','cx-venue':'venue','cx-staff':'staff','cx-transport':'transport','cx-wsprice':'wsPrice','cx-wsqty':'wsQty'};
+  d.addEventListener('input',function(e){
+    var id=e.target.id;
+    if(map[id]){CX[map[id]]=parseFloat(e.target.value)||0;cxRenderOut();return;}
+    if(id==='cx-price'){CX.pkgs[CX.pkg].p=parseFloat(e.target.value)||0;cxRenderOut();return;}
+  });
+  d.querySelectorAll('[data-cxmode]').forEach(function(b){b.addEventListener('click',function(){CX.mode=b.dataset.cxmode;openCalcSheet();});});
+  d.querySelectorAll('[data-cxpkg]').forEach(function(b){b.addEventListener('click',function(){CX.pkg=+b.dataset.cxpkg;openCalcSheet();});});
+  var ap=$('cx-addpkg');if(ap)ap.addEventListener('click',function(){
+    var g=parseInt($('cx-cg').value,10), p=parseFloat($('cx-cp').value);
+    if(!g||!p||g<50||p<1){toast('Enter grams and price');return;}
+    CX.pkgs.push({g:g,p:p});CX.pkg=CX.pkgs.length-1;openCalcSheet();
+  });
+  $('cx-close').addEventListener('click',closeDrawer);
+}
 async function openTeamSheet(){
   openDrawerHTML('<div class="t" style="font-size:19px">Team</div><div class="empty" style="margin-top:16px">Loading…</div>');
   await rsEnsureStaff();
@@ -5117,7 +5243,7 @@ function renderTools(){
       (_mk?_mkTile('t-neworder','New order','right here'):'')
       +_tiles([['Orders','recent list','orders'],['Customers','book','customers']].concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale']]:[])))
     +(rsMoney()?_sec('Finance',DEPT.fin,
-      _tiles([['Payroll','wages · weeks','payroll']])
+      _tiles([['Payroll','wages · weeks','payroll'],['Calculator','cost · margins','calc']])
       +_off([['Invoice','GST PDF · classic'],['Bookkeeping','expenses · classic']])):'')
     +_sec('Daily task',DEPT.day,
       (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'))+_mkTile('t-label','Labels','bag / tin'):'')
@@ -5194,6 +5320,7 @@ function renderTools(){
     if(k==='recipe'){openRecipeSheet();return;}
     if(k==='igasset'){openIGSheet();return;}
     if(k==='payroll'){openPayrollSheet();return;}
+    if(k==='calc'){openCalcSheet();return;}
     if(k==='infocards'){openInfoCardsSheet();return;}
     if(k==='menus'){openMenusSheet();return;}
     if(k==='delbean'){openDeleteCoffeeSheet();return;}
