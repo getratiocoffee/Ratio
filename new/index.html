@@ -1542,6 +1542,7 @@ async function openPromoSheet(s,m){
     try{var bq=await sb.from('blends').select('name,parts,note');
       (bq.data||[]).forEach(function(b){if(b.name)blendMap[String(b.name).trim().toLowerCase()]={parts:b.parts||[],note:b.note||''};});}catch(e){}
     var info=[];try{info=await beanInfoRows(full);}catch(e){}
+    var col=dotColorFor(nm,dots)||'#B25E6A';
     var b64=await makeSquareCard(await cardDataFor(full,blendMap,dots),{tight:true});
     var feats=(full.features||[]).filter(Boolean).slice(0,3);
     var cap=promoCaptions(nm,info,feats,full.comment||'',m.rtl_price[nm],m.rtl_g[nm]||250,full.process||'');
@@ -1550,6 +1551,8 @@ async function openPromoSheet(s,m){
     var body=$('pk-body');
     if(body)body.innerHTML=
       '<a class="dclose" style="display:block;text-align:center;text-decoration:none" download="ig-'+beanSlug(nm)+'.png" href="data:image/png;base64,'+b64+'">Download image</a>'
+      +'<button class="dclose" id="pk-split">Export 4 images for a carousel</button>'
+      +'<div id="pk-social"></div>'
       +'<div class="dlab">Instagram caption</div>'
       +'<textarea class="dta" id="pk-en" style="min-height:180px">'+esc(cap.en)+'</textarea>'
       +'<button class="dclose" data-copy="pk-en">Copy English caption</button>'
@@ -1565,7 +1568,81 @@ async function openPromoSheet(s,m){
       btn.textContent=ok?'Copied ✓':'Copy failed — long-press the text instead';
       setTimeout(function(){btn.textContent=orig;},1600);
     });});
+    var sp=$('pk-split');if(sp)sp.addEventListener('click',function(){exportSocialImages(full,info,feats,nm,col,this);});
   }catch(e){var h2=$('pk-card');if(h2)h2.textContent='Kit failed: '+(e&&e.message||e);}
+}
+/* ===== 社群四連圖：把 Folding Info Card 拆成 4 張 1080×1080 PNG（版面/雷達/產區/QR），各自下載做輪播 =====
+   資料源同 Folding Info Card；用 html2pdf 的 toCanvas（含捲動校正，同 Brew Card 修法）逐張截圖 */
+function _socShell(inner){return '<div style="width:1080px;height:1080px;background:#FAF8F4;color:#241E1B;font-family:Inter,sans-serif;position:relative;overflow:hidden">'+inner+'</div>';}
+function _socOrn(col){return '<div style="display:flex;align-items:center;justify-content:center;gap:22px;margin:30px 0"><div style="width:88px;height:2px;background:#E4DDD5"></div><div style="width:16px;height:16px;background:'+col+';transform:rotate(45deg)"></div><div style="width:88px;height:2px;background:#E4DDD5"></div></div>';}
+function socialCoverHTML(nm,feats,comment,col){
+  return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:110px 100px">'
+    +'<img src="/logo.png" crossorigin="anonymous" style="width:118px;height:118px" alt="">'
+    +'<div style="font-family:Fraunces,Georgia,serif;font-size:50px;font-weight:600;margin-top:26px">Ratio Coffee</div>'
+    +'<div style="font-size:21px;letter-spacing:9px;text-transform:uppercase;color:#8C857E;margin-top:12px">Specialty Coffee Lab</div>'
+    +_socOrn(col)
+    +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:78px;font-weight:600;line-height:1.05">'+esc(nm)+'</div>'
+    +'<div style="width:84px;height:4px;background:'+col+';margin:30px 0"></div>'
+    +feats.map(function(f){return '<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:40px;font-weight:600;line-height:1.5;color:'+col+'">'+esc(f)+'</div>';}).join('')
+    +'</div>');
+}
+function socialRadarHTML(radar,feats,col){
+  return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:110px 90px">'
+    +'<div style="font-size:22px;letter-spacing:8px;text-transform:uppercase;color:'+col+'">Cup profile</div>'
+    +'<img src="'+radar+'" style="width:860px;max-width:100%;margin:40px 0" alt="">'
+    +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:40px;font-weight:600;color:'+col+'">'+feats.map(esc).join('  ·  ')+'</div>'
+    +'</div>');
+}
+function socialOriginHTML(nm,info,col){
+  return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:120px 110px">'
+    +'<div style="font-size:22px;letter-spacing:8px;text-transform:uppercase;color:'+col+';text-align:center">The coffee</div>'
+    +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:46px;font-weight:600;text-align:center;margin-top:10px">'+esc(nm)+'</div>'
+    +'<div style="width:84px;height:4px;background:'+col+';margin:26px auto 40px"></div>'
+    +'<table style="width:100%;border-collapse:collapse">'+info.map(function(r){return '<tr><td style="font-size:22px;letter-spacing:3px;text-transform:uppercase;color:#8C857E;padding:20px 0;border-bottom:1px solid #E8E2DB">'+esc(r[0])+'</td><td style="font-family:Fraunces,Georgia,serif;font-size:32px;text-align:right;padding:20px 0;border-bottom:1px solid #E8E2DB">'+esc(String(r[1]))+'</td></tr>';}).join('')+'</table>'
+    +'</div>');
+}
+function socialQrHTML(qrSrc,col){
+  return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:110px 100px">'
+    +'<div style="font-size:22px;letter-spacing:8px;text-transform:uppercase;color:'+col+'">Scan for this coffee</div>'
+    +'<div style="border:14px solid #fff;outline:1px solid #E4DDD5;background:#fff;margin:44px 0"><img src="'+qrSrc+'" crossorigin="anonymous" style="width:440px;height:440px;display:block" alt=""></div>'
+    +'<div style="font-size:28px;color:#5A534C;line-height:1.7">@ratio.crowsnest · caffeine@coffeeratio.com<br><span style="color:#8C857E">Roasted in Sydney</span></div>'
+    +'</div>');
+}
+async function exportSocialImages(full,info,feats,nm,col,btn){
+  var orig=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Rendering 4 images…';}
+  var box=$('pk-social');if(box)box.innerHTML='<div class="s" style="margin-top:8px;color:var(--muted)">Rendering four square images…</div>';
+  try{
+    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
+    var sc={fragrance:full.fragrance,acidity:full.acidity,sweetness:full.sweetness,body:full.body,aftertaste:full.aftertaste};
+    var radar=printRadarPNG(sc,col);
+    var comment=String(full.comment||'').trim();
+    var beanUrl='https://ratio-theta.vercel.app/?bean='+encodeURIComponent(beanSlug(nm));
+    var qrSrc='https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl);
+    var defs=[['cover',socialCoverHTML(nm,feats,comment,col)],['radar',socialRadarHTML(radar,feats,col)],['origin',socialOriginHTML(nm,info,col)],['qr',socialQrHTML(qrSrc,col)]];
+    var out=[];
+    for(var i=0;i<defs.length;i++){
+      var host=document.createElement('div');
+      host.style.cssText='position:absolute;left:-9999px;top:0';
+      host.innerHTML=defs[i][1];
+      document.body.appendChild(host);
+      await Promise.all(Array.prototype.map.call(host.querySelectorAll('img'),function(im){
+        im.crossOrigin='anonymous';
+        return (im.complete&&im.naturalWidth)?Promise.resolve():new Promise(function(r){im.onload=r;im.onerror=r;});
+      }));
+      var canvas=await html2pdf().set({html2canvas:{scale:1,useCORS:true,backgroundColor:'#FAF8F4',width:1080,height:1080,windowWidth:1080,windowHeight:1080,scrollX:0,scrollY:0}}).from(host.firstChild).toCanvas().get('canvas');
+      out.push([defs[i][0],canvas.toDataURL('image/png')]);
+      host.remove();
+    }
+    if(box)box.innerHTML='<div class="dlab">Four images — tap each to save</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">'
+      +out.map(function(r,ix){return '<a download="ratio-'+beanSlug(nm)+'-'+(ix+1)+'-'+r[0]+'.png" href="'+r[1]+'" style="text-decoration:none"><img src="'+r[1]+'" style="width:100%;display:block;border:1px solid var(--line);border-radius:10px"><div style="text-align:center;font-size:12.5px;color:var(--accent);margin:4px 0 2px">'+(ix+1)+' · '+r[0]+' ↓</div></a>';}).join('')
+      +'</div>';
+    if(btn){btn.disabled=false;btn.textContent=orig;}
+  }catch(e){
+    if(box)box.innerHTML='<div class="s" style="color:var(--danger)">Export failed: '+esc(e&&e.message||String(e))+'</div>';
+    if(btn){btn.disabled=false;btn.textContent=orig;}
+  }
 }
 /* ===== Marketing → IG asset 直接入口：列上架中的豆 → 點一支開現成的 Social post kit（openPromoSheet）=====
    清單建置照 openRetailSheet（載 rtl_* 記憶＋DB.syncs 上架豆），但 IG 用最新烘焙排最上（先介紹新鮮的） */
