@@ -1554,6 +1554,7 @@ async function openPromoSheet(s,m){
       +'<div class="dlab">Export 4 images for a carousel</div>'
       +'<button class="dclose" id="pk-split">White background — ready to post</button>'
       +'<button class="dclose" id="pk-split-t">Transparent background</button>'
+      +'<button class="dclose" id="pk-split-p">Photo background</button>'
       +'<div id="pk-social"></div>'
       +'<div class="dlab">Instagram caption</div>'
       +'<textarea class="dta" id="pk-en" style="min-height:180px">'+esc(cap.en)+'</textarea>'
@@ -1570,84 +1571,263 @@ async function openPromoSheet(s,m){
       btn.textContent=ok?'Copied ✓':'Copy failed — long-press the text instead';
       setTimeout(function(){btn.textContent=orig;},1600);
     });});
-    var sp=$('pk-split');if(sp)sp.addEventListener('click',function(){exportSocialImages(full,info,feats,nm,col,this,true);});
-    var spt=$('pk-split-t');if(spt)spt.addEventListener('click',function(){exportSocialImages(full,info,feats,nm,col,this,false);});
+    var sp=$('pk-split');if(sp)sp.addEventListener('click',function(){exportSocialImages(full,info,feats,nm,col,this,'white');});
+    var spt=$('pk-split-t');if(spt)spt.addEventListener('click',function(){exportSocialImages(full,info,feats,nm,col,this,'clear');});
+    var spp=$('pk-split-p');if(spp)spp.addEventListener('click',async function(){
+      /* 沒存過照片就當場選一張，選完再產圖 */
+      var slug=beanSlug(nm),have=await listBeanPhotos();
+      if(!have[slug]&&!(await changeBeanPhoto(nm,this)))return;
+      this.textContent='Photo background';this.disabled=false;
+      exportSocialImages(full,info,feats,nm,col,this,'photo');
+    });
   }catch(e){var h2=$('pk-card');if(h2)h2.textContent='Kit failed: '+(e&&e.message||e);}
+}
+/* ===== 豆子背景照：存 Storage mail-assets 的 photo-<slug>.jpg，靠檔名對應豆子（同 card-<slug>.png 慣例）
+   不查 DB——豆名算得出檔名就找得到圖。⚠ 豆子改名要一起搬（saveGreenBean 有接） ===== */
+function beanPhotoPath(nm){return 'photo-'+beanSlug(nm)+'.jpg';}
+function beanPhotoUrl(nm){var p=sb.storage.from('mail-assets').getPublicUrl(beanPhotoPath(nm));return (p&&p.data&&p.data.publicUrl)||'';}
+/* 一次列出所有已存照片 → {slug:true}，給清單標「有沒有照片」 */
+async function listBeanPhotos(){
+  try{
+    var r=await sb.storage.from('mail-assets').list('',{limit:300,search:'photo-'});
+    var m={};(r.data||[]).forEach(function(o){var g=/^photo-(.+)\.jpg$/.exec(o.name||'');if(g)m[g[1]]=true;});
+    return m;
+  }catch(e){return {};}
+}
+/* 拉成 dataURL 再交給 html2canvas（省一次跨網域抓圖；沒照片回 null） */
+async function loadBeanPhotoData(nm){
+  try{
+    var r=await fetch(beanPhotoUrl(nm)+'?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok)return null;
+    var b=await r.blob();
+    if(!b||!b.size)return null;
+    return await new Promise(function(ok){var fr=new FileReader();fr.onload=function(){ok(fr.result);};fr.onerror=function(){ok(null);};fr.readAsDataURL(b);});
+  }catch(e){return null;}
+}
+/* 選檔（手機＝相簿或相機） */
+function pickPhotoFile(){
+  return new Promise(function(ok){
+    var inp=document.createElement('input');
+    inp.type='file';inp.accept='image/*';
+    inp.addEventListener('change',function(){ok((inp.files&&inp.files[0])||null);});
+    inp.click();
+  });
+}
+/* 置中裁成 1080 見方 JPEG——不管拍的是直是橫是 HEIC，存進去都同一規格 */
+function _cropSquare1080(file){
+  return new Promise(function(ok,bad){
+    var fr=new FileReader();
+    fr.onload=function(){
+      var im=new Image();
+      im.onload=function(){
+        var s=Math.min(im.naturalWidth,im.naturalHeight);
+        if(!s)return bad(new Error('That image looks empty'));
+        var c=document.createElement('canvas');c.width=1080;c.height=1080;
+        c.getContext('2d').drawImage(im,(im.naturalWidth-s)/2,(im.naturalHeight-s)/2,s,s,0,0,1080,1080);
+        c.toBlob(function(b){b?ok(b):bad(new Error('Could not process that image'));},'image/jpeg',0.86);
+      };
+      im.onerror=function(){bad(new Error('Could not read that image — try a JPEG or PNG'));};
+      im.src=fr.result;
+    };
+    fr.onerror=function(){bad(new Error('Could not read that file'));};
+    fr.readAsDataURL(file);
+  });
+}
+async function uploadBeanPhoto(nm,file){
+  var blob=await _cropSquare1080(file);
+  var up=await sb.storage.from('mail-assets').upload(beanPhotoPath(nm),blob,{upsert:true,contentType:'image/jpeg'});
+  if(up&&up.error)throw new Error(up.error.message||'Upload failed');
+  return true;
+}
+/* 照片偏暗就把字翻成淺色（不然深咖啡色標題會沉進照片裡） */
+async function photoIsDark(dataUrl){
+  try{
+    var im=new Image();im.src=dataUrl;
+    await new Promise(function(r,b){im.onload=r;im.onerror=b;});
+    var c=document.createElement('canvas');c.width=32;c.height=32;
+    c.getContext('2d').drawImage(im,0,0,32,32);
+    var d=c.getContext('2d').getImageData(0,0,32,32).data,sum=0;
+    for(var i=0;i<d.length;i+=4)sum+=0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2];
+    return sum/1024<140;
+  }catch(e){return false;}
+}
+function _socTheme(dark){
+  return dark
+    ?{ink:'#F7F2ED',muted:'#C6BEB6',soft:'#DED6CE',line:'rgba(247,242,237,.26)',orn:'rgba(247,242,237,.34)'}
+    :{ink:'#241E1B',muted:'#8C857E',soft:'#5A534C',line:'#E8E2DB',orn:'#E4DDD5'};
+}
+/* logo.png 是深色線稿，深底上會看不見。用 canvas 就地上色成 dataURL
+   （不能用 CSS mask——html2canvas 不吃 mask，會畫成一塊實心方塊） */
+async function _socLogo(col){
+  try{
+    var im=new Image();im.crossOrigin='anonymous';im.src='/logo.png';
+    await new Promise(function(r,b){im.onload=r;im.onerror=b;});
+    var c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;
+    var g=c.getContext('2d');
+    g.drawImage(im,0,0);
+    g.globalCompositeOperation='source-in';
+    g.fillStyle=col;g.fillRect(0,0,c.width,c.height);
+    return c.toDataURL('image/png');
+  }catch(e){return '/logo.png';}
 }
 /* ===== 社群四連圖：把 Folding Info Card 拆成 4 張 1080×1080 PNG（版面/雷達/產區/QR），各自下載做輪播 =====
    資料源同 Folding Info Card。截圖直接呼叫 html2canvas 對元素本身取景（輸出＝元素的 1080 見方）。
    ⚠ 不可改回 html2pdf 的 toCanvas＋width/windowWidth:1080：那組參數會用「原視窗量到的座標」去裁
    「照 1080 重排過的複本」，內容整片橫移（偏移量隨視窗寬變，手機上把雷達/產區右緣切掉） */
-/* solid=false 出透明底（給老闆疊自己的背景用）；QR 那張的白色相框照留，不然掃不到 */
-function _socShell(inner,solid){return '<div style="width:1080px;height:1080px;background:'+(solid===false?'transparent':'#FAF8F4')+';color:#241E1B;font-family:Inter,sans-serif;position:relative;overflow:hidden">'+inner+'</div>';}
-function _socOrn(col){return '<div style="display:flex;align-items:center;justify-content:center;gap:22px;margin:30px 0"><div style="width:88px;height:2px;background:#E4DDD5"></div><div style="width:16px;height:16px;background:'+col+';transform:rotate(45deg)"></div><div style="width:88px;height:2px;background:#E4DDD5"></div></div>';}
-function socialCoverHTML(nm,feats,comment,col,solid){
+/* o={mode:'white'|'clear'|'photo', photo:dataURL, scrim:0..1, dark:bool, T:色票, logo:dataURL}
+   photo 模式＝照片鋪底＋一層紗（淺照片白紗深字／深照片深紗淺字）
+   clear＝透明底；QR 那張的白色相框永遠保留，不然掃不到 */
+function _socShell(inner,o){
+  o=o||{};var T=o.T||_socTheme(false);
+  var bg=o.mode==='clear'?'transparent':'#FAF8F4';
+  var layers='';
+  if(o.mode==='photo'&&o.photo){
+    var tint=o.dark?'20,16,14':'250,248,244';
+    layers='<img src="'+o.photo+'" style="position:absolute;left:0;top:0;width:1080px;height:1080px;object-fit:cover" alt="">'
+      +'<div style="position:absolute;left:0;top:0;width:1080px;height:1080px;background:rgba('+tint+','+(o.scrim==null?0.72:o.scrim)+')"></div>';
+  }
+  return '<div style="width:1080px;height:1080px;background:'+bg+';color:'+T.ink+';font-family:Inter,sans-serif;position:relative;overflow:hidden">'+layers+inner+'</div>';
+}
+function _socOrn(col,T){return '<div style="display:flex;align-items:center;justify-content:center;gap:22px;margin:30px 0"><div style="width:88px;height:2px;background:'+T.orn+'"></div><div style="width:16px;height:16px;background:'+col+';transform:rotate(45deg)"></div><div style="width:88px;height:2px;background:'+T.orn+'"></div></div>';}
+function socialCoverHTML(nm,feats,comment,col,o){
+  var T=(o&&o.T)||_socTheme(false);
   return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:110px 100px">'
-    +'<img src="/logo.png" crossorigin="anonymous" style="width:118px;height:118px" alt="">'
+    +'<img src="'+((o&&o.logo)||'/logo.png')+'" crossorigin="anonymous" style="width:118px;height:118px" alt="">'
     +'<div style="font-family:Fraunces,Georgia,serif;font-size:50px;font-weight:600;margin-top:26px">Ratio Coffee</div>'
-    +'<div style="font-size:21px;letter-spacing:9px;text-transform:uppercase;color:#8C857E;margin-top:12px">Specialty Coffee Lab</div>'
-    +_socOrn(col)
+    +'<div style="font-size:21px;letter-spacing:9px;text-transform:uppercase;color:'+T.muted+';margin-top:12px">Specialty Coffee Lab</div>'
+    +_socOrn(col,T)
     +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:78px;font-weight:600;line-height:1.05">'+esc(nm)+'</div>'
     +'<div style="width:84px;height:4px;background:'+col+';margin:30px 0"></div>'
     +feats.map(function(f){return '<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:40px;font-weight:600;line-height:1.5;color:'+col+'">'+esc(f)+'</div>';}).join('')
-    +'</div>',solid);
+    +'</div>',o);
 }
-function socialRadarHTML(radar,feats,col,solid){
+function socialRadarHTML(radar,feats,col,o){
   return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:110px 90px">'
     +'<div style="font-size:22px;letter-spacing:8px;text-transform:uppercase;color:'+col+'">Cup profile</div>'
     +'<img src="'+radar+'" style="width:860px;max-width:100%;margin:40px 0" alt="">'
     +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:40px;font-weight:600;color:'+col+'">'+feats.map(esc).join('  ·  ')+'</div>'
-    +'</div>',solid);
+    +'</div>',o);
 }
-function socialOriginHTML(nm,info,col,solid){
+function socialOriginHTML(nm,info,col,o){
+  var T=(o&&o.T)||_socTheme(false);
   return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:120px 110px">'
     +'<div style="font-size:22px;letter-spacing:8px;text-transform:uppercase;color:'+col+';text-align:center">The coffee</div>'
     +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:46px;font-weight:600;text-align:center;margin-top:10px">'+esc(nm)+'</div>'
     +'<div style="width:84px;height:4px;background:'+col+';margin:26px auto 40px"></div>'
-    +'<table style="width:100%;border-collapse:collapse">'+info.map(function(r){return '<tr><td style="font-size:22px;letter-spacing:3px;text-transform:uppercase;color:#8C857E;padding:20px 0;border-bottom:1px solid #E8E2DB">'+esc(r[0])+'</td><td style="font-family:Fraunces,Georgia,serif;font-size:32px;text-align:right;padding:20px 0;border-bottom:1px solid #E8E2DB">'+esc(String(r[1]))+'</td></tr>';}).join('')+'</table>'
-    +'</div>',solid);
+    +'<table style="width:100%;border-collapse:collapse">'+info.map(function(r){return '<tr><td style="font-size:22px;letter-spacing:3px;text-transform:uppercase;color:'+T.muted+';padding:20px 0;border-bottom:1px solid '+T.line+'">'+esc(r[0])+'</td><td style="font-family:Fraunces,Georgia,serif;font-size:32px;text-align:right;padding:20px 0;border-bottom:1px solid '+T.line+'">'+esc(String(r[1]))+'</td></tr>';}).join('')+'</table>'
+    +'</div>',o);
 }
-function socialQrHTML(qrSrc,col,solid){
+function socialQrHTML(qrSrc,col,o){
+  var T=(o&&o.T)||_socTheme(false);
   return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:110px 100px">'
     +'<div style="font-size:22px;letter-spacing:8px;text-transform:uppercase;color:'+col+'">Scan for this coffee</div>'
-    +'<div style="border:14px solid #fff;outline:1px solid #E4DDD5;background:#fff;margin:44px 0"><img src="'+qrSrc+'" crossorigin="anonymous" style="width:440px;height:440px;display:block" alt=""></div>'
-    +'<div style="font-size:28px;color:#5A534C;line-height:1.7">@ratio.crowsnest · caffeine@coffeeratio.com<br><span style="color:#8C857E">Roasted in Sydney</span></div>'
-    +'</div>',solid);
+    +'<div style="border:14px solid #fff;outline:1px solid '+T.orn+';background:#fff;margin:44px 0"><img src="'+qrSrc+'" crossorigin="anonymous" style="width:440px;height:440px;display:block" alt=""></div>'
+    +'<div style="font-size:28px;color:'+T.soft+';line-height:1.7">@ratio.crowsnest · caffeine@coffeeratio.com<br><span style="color:'+T.muted+'">Roasted in Sydney</span></div>'
+    +'</div>',o);
 }
 /* Daily task 快速入口（暫放）：列 QC 通過的豆 → 選一支就地產四張社群圖，不用繞進 Social post kit */
-var SOC_SOLID=true; /* 抽屜頂的底色切換；true=白底（IG 直接發），false=透明 */
+var SOC_MODE='white';  /* white=米白底（直接發 IG）／clear=透明／photo=該豆的背景照 */
+var SOC_SCRIM=null;    /* 紗的濃度：null=自動（深照片配白字不用壓太重，淺照片要壓深字才讀得到）；拖過滑桿就固定 */
+function socScrim(dark){return SOC_SCRIM==null?(dark?0.48:0.72):SOC_SCRIM;}
+var SOC_PHOTOS={};     /* {slug:true} 哪些豆子已經有照片 */
+var SOC_NOTE={
+  white:'Ready to post straight to Instagram.',
+  clear:'Instagram fills transparency with black — use these only to layer on your own background.',
+  photo:'Each coffee uses its own saved photo. Tap Photo to choose or replace it.'
+};
 async function openSocialSplitSheet(){
   var list=passedBeans();
   var dots={};try{dots=await cardDots();}catch(e){}
+  SOC_PHOTOS=await listBeanPhotos();
+  var mayEdit=canWrite();
+  function rowsHTML(){
+    if(!list.length)return '<div class="empty">No QC-passed coffees yet</div>';
+    return list.map(function(s){
+      var nm=String(s.sample_id||'').trim();
+      var c=dotColorFor(nm,dots);
+      var has=!!SOC_PHOTOS[beanSlug(nm)];
+      return '<div class="dl" style="align-items:center;gap:10px">'
+        +'<span data-sc="'+esc(s.id)+'" style="flex:1;min-width:0;cursor:pointer">'
+          +'<span style="color:var(--ink);font-weight:600">'+(c?'<span style="color:'+c+'">●</span> ':'')+esc(nm||'—')+'</span>'
+          +(s.process?' <span style="color:var(--muted);font-size:13px">'+esc(s.process)+'</span>':'')
+          +'<span style="display:block;font-size:12.5px;color:'+(has?'var(--accent)':'var(--muted)')+'">'+(has?'✓ photo saved':'no photo yet')+'</span>'
+        +'</span>'
+        +(mayEdit?'<button data-ph="'+esc(nm)+'" style="flex:none;padding:7px 12px;border:1px solid var(--line2);background:transparent;color:var(--muted);border-radius:999px;font-size:12.5px;font-weight:600;font-family:inherit;white-space:nowrap;cursor:pointer">'+(has?'Replace':'Photo')+'</button>':'')
+        +'<span data-sc="'+esc(s.id)+'" style="flex:none;color:var(--muted);cursor:pointer">→</span></div>';
+    }).join('');
+  }
   openDrawerHTML('<div class="t" style="font-size:19px">Social images</div>'
     +'<div class="s" style="margin-top:2px">Pick a coffee → four square images (cover · radar · origin · QR) for a carousel</div>'
-    +'<div class="pm-seg"><button id="soc-w" class="'+(SOC_SOLID?'on':'')+'">White background</button><button id="soc-t" class="'+(SOC_SOLID?'':'on')+'">Transparent</button></div>'
-    +'<div class="s" id="soc-note" style="margin-top:8px;color:var(--muted)">'+(SOC_SOLID?'Ready to post straight to Instagram.':'Instagram fills transparency with black — use these only to layer on your own background.')+'</div>'
-    +(list.length?list.map(function(s){
-      var c=dotColorFor(s.sample_id,dots);
-      return '<div class="dl" data-sc="'+esc(s.id)+'" style="cursor:pointer;align-items:center">'
-        +'<span style="color:var(--ink);font-weight:600">'+(c?'<span style="color:'+c+'">●</span> ':'')+esc(s.sample_id||'—')
-        +(s.process?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(s.process)+'</span>':'')+'</span>'
-        +'<span style="color:var(--muted)">4 images →</span></div>';
-    }).join(''):'<div class="empty">No QC-passed coffees yet</div>')
+    +'<div class="pm-seg"><button id="soc-w">White</button><button id="soc-t">Transparent</button><button id="soc-p">Photo</button></div>'
+    +'<div id="soc-scrimwrap" style="display:none;margin-top:12px">'
+      +'<div class="dlab" style="display:flex;justify-content:space-between"><span>Background fade</span><span id="soc-scrimval">'+(SOC_SCRIM==null?'Auto':Math.round(SOC_SCRIM*100)+'%')+'</span></div>'
+      +'<input type="range" id="soc-scrim" min="20" max="92" value="'+(SOC_SCRIM==null?60:Math.round(SOC_SCRIM*100))+'" style="width:100%;accent-color:var(--accent)">'
+      +'<div class="s" style="color:var(--muted);font-size:12.5px">Auto picks a fade to suit each photo. Higher = photo softer, text clearer</div>'
+    +'</div>'
+    +'<div class="s" id="soc-note" style="margin-top:8px;color:var(--muted)">'+SOC_NOTE.white+'</div>'
+    +'<div id="soc-rows">'+rowsHTML()+'</div>'
     +'<div id="pk-social"></div>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);
-  function segSet(v){
-    SOC_SOLID=v;
-    $('soc-w').className=v?'on':'';
-    $('soc-t').className=v?'':'on';
-    $('soc-note').textContent=v?'Ready to post straight to Instagram.':'Instagram fills transparency with black — use these only to layer on your own background.';
+
+  function paintRows(){$('soc-rows').innerHTML=rowsHTML();wireRows();}
+  function segSet(m){
+    SOC_MODE=m;
+    $('soc-w').className=m==='white'?'on':'';
+    $('soc-t').className=m==='clear'?'on':'';
+    $('soc-p').className=m==='photo'?'on':'';
+    $('soc-note').textContent=SOC_NOTE[m];
+    $('soc-scrimwrap').style.display=m==='photo'?'':'none';
   }
-  $('soc-w').addEventListener('click',function(){segSet(true);});
-  $('soc-t').addEventListener('click',function(){segSet(false);});
-  document.querySelectorAll('#drawer [data-sc]').forEach(function(el){el.addEventListener('click',function(){
-    var s=(DB.samples||[]).find(function(x){return String(x.id)===String(el.dataset.sc);});
-    if(s)socialSplitPick(s);
-  });});
+  $('soc-w').addEventListener('click',function(){segSet('white');});
+  $('soc-t').addEventListener('click',function(){segSet('clear');});
+  $('soc-p').addEventListener('click',function(){segSet('photo');});
+  $('soc-scrim').addEventListener('input',function(){
+    SOC_SCRIM=Number(this.value)/100;
+    $('soc-scrimval').textContent=this.value+'%';
+  });
+  function wireRows(){
+    document.querySelectorAll('#soc-rows [data-ph]').forEach(function(b){b.addEventListener('click',async function(e){
+      e.stopPropagation();
+      await changeBeanPhoto(b.dataset.ph,b);
+      paintRows();
+    });});
+    document.querySelectorAll('#soc-rows [data-sc]').forEach(function(el){el.addEventListener('click',function(){
+      var s=(DB.samples||[]).find(function(x){return String(x.id)===String(el.dataset.sc);});
+      if(s)socialSplitPick(s);
+    });});
+  }
+  segSet(SOC_MODE);
+  wireRows();
+}
+/* 選一張照片存給這支豆（覆蓋舊的）。上傳走 storage，唯讀護欄的 sb.from Proxy 管不到，自己擋 */
+async function changeBeanPhoto(nm,btn){
+  if(!canWrite()){roToast();return false;}
+  var f=await pickPhotoFile();
+  if(!f)return false;
+  var orig=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  try{
+    await uploadBeanPhoto(nm,f);
+    SOC_PHOTOS[beanSlug(nm)]=true;
+    toast('Photo saved for '+nm);
+    return true;
+  }catch(e){
+    toast(e&&e.message||'Upload failed');
+    if(btn){btn.disabled=false;btn.textContent=orig;}
+    return false;
+  }
 }
 async function socialSplitPick(s){
   var nm=String(s.sample_id||'').trim();
+  /* photo 模式但這支豆還沒照片 → 先選照片，選完才產圖 */
+  if(SOC_MODE==='photo'&&!SOC_PHOTOS[beanSlug(nm)]){
+    if(!canWrite()){roToast();return;}
+    toast('Pick a background photo for '+nm);
+    var ok=await changeBeanPhoto(nm,null);
+    if(!ok)return;
+    var rows=$('soc-rows');if(rows)rows.querySelectorAll('[data-ph="'+nm.replace(/"/g,'')+'"]').forEach(function(b){b.textContent='Replace';});
+  }
   var full=s;
   try{var fq=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',nm)
     .order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
@@ -1656,48 +1836,63 @@ async function socialSplitPick(s){
   var col=dotColorFor(nm,dots)||'#B25E6A';
   var info=[];try{info=await beanInfoRows(full);}catch(e){}
   var feats=(full.features||[]).filter(Boolean).slice(0,3);
-  await exportSocialImages(full,info,feats,nm,col,null,SOC_SOLID);
+  await exportSocialImages(full,info,feats,nm,col,null,SOC_MODE);
 }
 /* 透明縮圖的棋盤格襯底——不然抽屜裡看不出哪張是透明的 */
 var _SOC_CHK='background-image:linear-gradient(45deg,#c9c4be 25%,transparent 25%),linear-gradient(-45deg,#c9c4be 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#c9c4be 75%),linear-gradient(-45deg,transparent 75%,#c9c4be 75%);background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0px;background-color:#fff';
 /* 保底：截圖尺寸不是 1080 見方就縮放補正（IG 要正方形）。透明版不補底色 */
-function _soc1080(cv,solid){
+function _soc1080(cv,mode){
   if(cv.width===1080&&cv.height===1080)return cv.toDataURL('image/png');
   var o=document.createElement('canvas');o.width=1080;o.height=1080;
   var g=o.getContext('2d');
-  if(solid!==false){g.fillStyle='#FAF8F4';g.fillRect(0,0,1080,1080);}
+  if(mode!=='clear'){g.fillStyle='#FAF8F4';g.fillRect(0,0,1080,1080);}
   g.drawImage(cv,0,0,1080,1080);
   return o.toDataURL('image/png');
 }
-async function exportSocialImages(full,info,feats,nm,col,btn,solid){
+/* mode: 'white'（預設）｜'clear' 透明｜'photo' 該豆的背景照鋪四張 */
+async function exportSocialImages(full,info,feats,nm,col,btn,mode){
+  if(mode===true)mode='white';if(mode===false)mode='clear';   /* 舊的布林呼叫仍相容 */
+  mode=mode||'white';
   var orig=btn?btn.textContent:'';
   if(btn){btn.disabled=true;btn.textContent='Rendering 4 images…';}
   var box=$('pk-social');if(box)box.innerHTML='<div class="s" style="margin-top:8px;color:var(--muted)">Rendering four square images…</div>';
   try{
     await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    var photo=null;
+    if(mode==='photo'){
+      if(box)box.innerHTML='<div class="s" style="margin-top:8px;color:var(--muted)">Loading photo…</div>';
+      photo=await loadBeanPhotoData(nm);
+      if(!photo)throw new Error('No photo saved for '+nm+' yet — tap Photo to choose one');
+    }
+    var dark=photo?await photoIsDark(photo):false;
+    var T=_socTheme(dark);
+    var scrim=socScrim(dark);
+    var o={mode:mode,photo:photo,scrim:scrim,dark:dark,T:T,logo:await _socLogo(T.ink)};
     var sc={fragrance:full.fragrance,acidity:full.acidity,sweetness:full.sweetness,body:full.body,aftertaste:full.aftertaste};
-    var radar=printRadarPNG(sc,col);
+    var radar=printRadarPNG(sc,col,dark?{grid:'rgba(247,242,237,.32)',label:T.muted}:{});
     var comment=String(full.comment||'').trim();
     var beanUrl='https://ratio-theta.vercel.app/?bean='+encodeURIComponent(beanSlug(nm));
     var qrSrc='https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl);
-    var defs=[['cover',socialCoverHTML(nm,feats,comment,col,solid)],['radar',socialRadarHTML(radar,feats,col,solid)],['origin',socialOriginHTML(nm,info,col,solid)],['qr',socialQrHTML(qrSrc,col,solid)]];
+    var defs=[['cover',socialCoverHTML(nm,feats,comment,col,o)],['radar',socialRadarHTML(radar,feats,col,o)],['origin',socialOriginHTML(nm,info,col,o)],['qr',socialQrHTML(qrSrc,col,o)]];
     var out=[];
     for(var i=0;i<defs.length;i++){
+      if(box)box.innerHTML='<div class="s" style="margin-top:8px;color:var(--muted)">Rendering image '+(i+1)+' of 4…</div>';
       var host=document.createElement('div');
       host.style.cssText='position:absolute;left:-9999px;top:0';
       host.innerHTML=defs[i][1];
       document.body.appendChild(host);
       await Promise.all(Array.prototype.map.call(host.querySelectorAll('img'),function(im){
-        im.crossOrigin='anonymous';
+        if(im.src.slice(0,5)!=='data:')im.crossOrigin='anonymous';
         return (im.complete&&im.naturalWidth)?Promise.resolve():new Promise(function(r){im.onload=r;im.onerror=r;});
       }));
-      var canvas=await html2canvas(host.firstChild,{scale:1,useCORS:true,backgroundColor:solid===false?null:'#FAF8F4'});
-      out.push([defs[i][0],_soc1080(canvas,solid)]);
+      var canvas=await html2canvas(host.firstChild,{scale:1,useCORS:true,backgroundColor:mode==='clear'?null:'#FAF8F4'});
+      out.push([defs[i][0],_soc1080(canvas,mode)]);
       host.remove();
     }
-    var sfx=solid===false?'-transparent':'';
-    var thumbBg=solid===false?_SOC_CHK:'';
-    if(box)box.innerHTML='<div class="dlab">Four images'+(solid===false?' · transparent background':'')+' — tap each to save</div>'
+    var sfx=mode==='clear'?'-transparent':(mode==='photo'?'-photo':'');
+    var thumbBg=mode==='clear'?_SOC_CHK:'';
+    var lbl=mode==='clear'?' · transparent background':(mode==='photo'?' · photo background · '+(dark?'light text':'dark text')+' · fade '+Math.round(scrim*100)+'%':'');
+    if(box)box.innerHTML='<div class="dlab">Four images'+lbl+' — tap each to save</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">'
       +out.map(function(r,ix){return '<a download="ratio-'+beanSlug(nm)+'-'+(ix+1)+'-'+r[0]+sfx+'.png" href="'+r[1]+'" style="text-decoration:none"><img src="'+r[1]+'" style="width:100%;display:block;border:1px solid var(--line);border-radius:10px;'+thumbBg+'"><div style="text-align:center;font-size:12.5px;color:var(--accent);margin:4px 0 2px">'+(ix+1)+' · '+r[0]+' ↓</div></a>';}).join('')
       +'</div>';
@@ -2064,6 +2259,11 @@ async function saveGreenBean(b,btn){
       if(eAny)throw new Error('bean renamed but relinking failed: '+eAny.message+' — please retry');
       (DB.samples||[]).forEach(function(s){if(String(s.bean_id||'')===String(b.id)||(!s.bean_id&&String(s.sample_id||'')===oldName))s.sample_id=newName;});
       (DB.roasts||[]).forEach(function(r){if(String(r.bean_id||'')===String(b.id)||(!r.bean_id&&String(r.bean_name||'')===oldName))r.bean_name=newName;});
+      /* 社群背景照的檔名綁豆名——一起搬，不然新名字找不到照片。搬不動不擋改名，提醒重傳即可 */
+      try{
+        var mv=await sb.storage.from('mail-assets').move(beanPhotoPath(oldName),beanPhotoPath(newName));
+        if(mv&&mv.error&&!/not found/i.test(mv.error.message||''))toast('Renamed — but the background photo did not move, please re-upload it');
+      }catch(e){}
     }
     var i=(DB.beans||[]).findIndex(function(x){return String(x.id)===String(b.id);});
     var nb=Object.assign({},b,upd);
@@ -3090,14 +3290,16 @@ async function openInfoCardsSheet(){
 }
 /* 印刷卡雷達：html2canvas **不畫行內 SVG**（老闆真機 PDF 雷達整個消失的破圖根因）
    → 用 canvas 畫成 PNG 嵌 <img>，4 倍超取樣夠印刷 */
-function printRadarPNG(sc,color){
+/* opts.grid/opts.label＝網格線與標籤色（深色照片底要翻亮，不給就用原本的淺底配色） */
+function printRadarPNG(sc,color,opts){
+  opts=opts||{};
   var S=4;
   var cv=document.createElement('canvas');cv.width=412*S;cv.height=246*S;
   var x=cv.getContext('2d');x.scale(S,S);x.translate(62,-2); /* 對齊定稿 viewBox -62 2 412 246（大寫標籤要寬邊） */
   var K=[['fragrance','AROMA'],['acidity','ACIDITY'],['sweetness','SWEETNESS'],['body','BODY'],['aftertaste','AFTERTASTE']];
   var cx=150,cy=128,R=88;
   function pt(i,rad){var a=i*2*Math.PI/5;return [cx+rad*Math.sin(a),cy-rad*Math.cos(a)];}
-  x.lineWidth=1;x.strokeStyle='#D9D2CB';
+  x.lineWidth=1;x.strokeStyle=opts.grid||'#D9D2CB';
   [1,2,3].forEach(function(l){x.beginPath();for(var i=0;i<=5;i++){var q=pt(i%5,R*l/3);if(i)x.lineTo(q[0],q[1]);else x.moveTo(q[0],q[1]);}x.stroke();});
   for(var i=0;i<5;i++){var q=pt(i,R);x.beginPath();x.moveTo(cx,cy);x.lineTo(q[0],q[1]);x.stroke();}
   var pts=K.map(function(k,i){return pt(i,R*(Number(sc[k[0]])||0)/3);});
@@ -3106,7 +3308,7 @@ function printRadarPNG(sc,color){
   x.lineWidth=2.5;x.strokeStyle=color;x.lineJoin='round';x.stroke();
   x.fillStyle=color;
   pts.forEach(function(p){x.beginPath();x.arc(p[0],p[1],4.5,0,6.3);x.fill();});
-  x.fillStyle='#8A837C';x.font='600 13.5px Inter, sans-serif';
+  x.fillStyle=opts.label||'#8A837C';x.font='600 13.5px Inter, sans-serif';
   try{x.letterSpacing='1px';}catch(e){}
   K.forEach(function(k,i){
     var q=pt(i,R+21);
