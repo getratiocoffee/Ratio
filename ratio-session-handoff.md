@@ -57,6 +57,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-10 之三（🚑 上線事故＋hotfix：boot 炸在已拆除的 #chips）
+- **事故**：老闆 push 今日流 v3＋閹割階段一後回報「生豆熟豆完全空白」「購物車沒連 Square」。真因＝chips 列退役時**只刪了 renderChips 函式與 #chips div，漏刪三處 `$('chips').innerHTML=''` 直接引用**（boot/renderPublicMenu/renderCustomerPortal）→ boot 一進場就 TypeError 中斷，**loadAll 沒跑**→ 登入後 DB 全空（生豆/熟豆/今日流）、店面/購物車綁定沒掛上。兩個症狀同一病灶。
+- **修**：三行刪除，`$('chips')` 引用歸零（commit 89f099e）。修後實測：未登入 boot 走通進店面、加購物車 2 件、POST public-shop checkout 回 200＋Square 付款連結（total $50，未付款無交易）——**購物車↔Square 鏈本來就是好的**。
+- **⚠ 教訓（以後照做）**：拆 DOM 元素時要 **grep 元素 id 的全部引用**（`$('xxx')`/getElementById），不能只清函式與 HTML；靜態 jscheck 抓不到 null.innerHTML 這種 runtime 錯，**未登入 boot 路徑也要在 preview 跑一次**（這次 stub 測試都從 renderFeed 進場、繞過了 boot）。
+- **另一件事（資料非 bug）**：Roasted Stock 只有 Danche v3 一批＝其他 15 筆 roasts 沒填 roasted_kg/remaining_kg（記烘豆時 Roasted out 沒填），貨架靠這欄算庫存；老闆之後記烘豆要填，舊批可從補登入口補。
+
 ## 〇、補記 — 2026-07-10 之二（閹割 classic 階段一·換門面：根網址改由新殼接管）
 - **背景**：老闆下令開始閹割 classic。盤點發現 classic 握三條對外命脈（?bean 罐標 QR／?fb 回饋 QR＋新殼 feedback 鈕／?shop email 連結，全指根網址）——所以第一刀是**換門面不砍功能**：網址不動、門後換人。
 - **① 根換新殼**：新建 `vercel.json` `{"rewrites":[{"source":"/","destination":"/new/"}]}`；`index.html` → git mv `classic.html`（歷史保留）。已印出的實體 QR／寄出的 email 連結全部無痛沿用；員工 PWA `/new/` 不動。classic 入口＝`/classic.html`（登入頁加一行「Back office — daily ops now lives at /new」告示）。
