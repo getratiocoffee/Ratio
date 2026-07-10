@@ -57,6 +57,13 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-10 之六（Push to Live 商品圖模式可選＋per-bean 記憶）
+- **背景**：Square 商品圖原是寫死規則（有背景照→自動 photo 四連圖、否則單張品牌卡），抽屜看不到也選不了——老闆 Social Images 選白底、June Project 上架卻照片版的困惑源頭。老闆拍板：①上架抽屜加選擇（同 Social Images 三模式）②透明自動轉白底（Square 走 JPEG 無透明，UI 註明）③每支豆各自記住。計畫檔同 `social-media-valiant-raven.md`（覆寫）。
+- **做法**：①`renderSocialImages` 加 `opts.bg` 覆蓋（上架用 per-bean 底色、不動全域 SOC_BG）②app_state 新 key **`rtl_imgstyle`**＝`{豆名:{mode:'colour'|'transparent'|'photo',bg:'#hex'}}`，openListSheet 批次讀（併入 rtl_* 那組）、push 成功 read-modify-write 寫回③`paintListSheet` 加「Product images · 4-up carousel」段選＋Colour 色票列（重用 SOC_SWATCHES）＋Transparent 說明＋Photo 有無照片狀態/Replace 鈕（自訂色盤用 change 事件——input 每拖一格重繪會關色盤）④`pushListToSquare` 拆 havePhoto 自動規則改依 `LST.imgMode`：photo 沒照片→push 前先挑（取消＝中止）；colour/transparent→render 'white'（bg=記憶色/米白）JPEG 0.88；失敗仍退 makeSquareCard 兜底。
+- **無感遷移**：沒記憶的豆預設＝舊行為（有照片 photo／無照片 colour 米白）。
+- **驗證**：jscheck ✓；preview mock LST——三模式切換/色票選色/Transparent 提示/Photo 狀態列 ✓；opts.bg 覆蓋（全域 SOC_BG 不動、角落像素 #241E1B、dark 翻淺）✓；boot 無 error ✓。**真上架（打真 Square）本機不可測**：部署後老闆拿 June Project 選色底 Push update → 網店看輪播四張底色；再開一次抽屜確認記憶帶出。
+- **edge 契約備查**：sync-to-square v21 收 `images_b64[]`（≤6 張、第一張 primary、順序=輪播序）＋`image_mime`；四連圖一律 JPEG（PNG 曾塞爆請求體）。
+
 ## 〇、補記 — 2026-07-10 之五（Social Images：自選底色＋每張產出物標註設定）
 - **背景**：老闆兩需求①白底版底色可選（原寫死 #FAF8F4）②每張產出要註明用了什麼設定（多批下載後分不清，不好調整）。拍板：標註放**縮圖＋檔名**、圖片本身乾淨可直接發 IG；底色＝預設色票＋自訂色盤。計畫檔 `~/.claude/plans/social-media-valiant-raven.md`。
 - **底色**：全域 `SOC_BG`（預設米白）＋`SOC_SWATCHES` 六色（米白/亞麻/淡玫瑰/鼠尾草/深棕/墨黑）＋`socBgIsDark()`（luma 公式同 photoIsDark）。抽屜段選 White 改名 **Colour**，下方 `soc-bgwrap` 色票列（只在 Colour 模式顯示）＋`<input type=color>` 自訂。**深底自動翻淺字**＝借 photo 深照片整套現成機制（_socTheme/雷達淺 grid/_liftColour 提亮），QR 白框永遠保留可掃。底色硬編碼改了三處：_socShell bg、html2canvas backgroundColor、_soc1080 保底補色——全跟 renderSocialImages 算出的 bg 走，並回傳 `bg` 給呼叫端。

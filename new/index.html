@@ -2505,9 +2505,9 @@ async function renderSocialImages(full,info,feats,nm,col,mode,opts){
     photo=await loadBeanPhotoData(nm);
     if(!photo)throw new Error('No photo saved for '+nm+' yet — tap Photo to choose one');
   }
-  /* white 模式的底色跟 SOC_BG 走（老闆可換色）；photo/clear 不吃底色。
-     深底色沿用 photo 深照片那套：字翻米白、雷達 grid 翻淺、點色提亮 */
-  var bg=mode==='white'?(SOC_BG||'#FAF8F4'):'#FAF8F4';
+  /* white 模式的底色：opts.bg（上架 per-bean 記憶）優先，否則全域 SOC_BG（Social Images 抽屜）；
+     photo/clear 不吃底色。深底色沿用 photo 深照片那套：字翻米白、雷達 grid 翻淺、點色提亮 */
+  var bg=mode==='white'?(opts.bg||SOC_BG||'#FAF8F4'):'#FAF8F4';
   var dark=photo?await photoIsDark(photo):(mode==='white'?socBgIsDark(bg):false);
   var T=_socTheme(dark);
   var scrim=socScrim(dark);
@@ -3190,19 +3190,23 @@ var LST=null;
 async function openListSheet(i){
   if(!canWrite()){roToast();return;}
   var s=i.ref;var nm=String(s.sample_id||'').trim();
-  /* 帶上次的價格/規格記憶（classic 同款鑰匙） */
-  var mem={rtl_price:{},rtl_g:{},rtl_sizes:{}};
-  try{var r=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes']);
+  /* 帶上次的價格/規格記憶（classic 同款鑰匙）＋商品圖模式記憶（rtl_imgstyle，per-bean） */
+  var mem={rtl_price:{},rtl_g:{},rtl_sizes:{},rtl_imgstyle:{}};
+  try{var r=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes','rtl_imgstyle']);
     (r.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
       if(v&&typeof v==='object')mem[x.key]=v;});
   }catch(e){}
   var sc=mem.rtl_sizes[nm]||{};
+  /* 商品圖模式：記憶優先；沒記憶＝沿用舊的自動規則（有照片→photo、沒照片→米白色底），老闆無感遷移 */
+  var hasPhoto=false;try{hasPhoto=!!(await listBeanPhotos())[beanSlug(nm)];}catch(e){}
+  var ist=mem.rtl_imgstyle[nm]||{};
   /* 送修空窗防呆（老闆踩過）：豆子還在 QC 重審（佇列或待杯測）→ push 不自動鎖風味——
      沒經過重杯就鎖回（可能還是錯的）描述；鎖定交給 QC Pass 那一刻 */
   var rq=(QCQ||[]).some(function(q){return String(q.s.sample_id||'').trim().toLowerCase()===nm.toLowerCase();})
     ||toCupList().some(function(r){return String(r.bean_name||'').trim().toLowerCase()===nm.toLowerCase();});
   LST={s:s,name:nm,grams:mem.rtl_g[nm]||250,price:mem.rtl_price[nm]!=null?String(mem.rtl_price[nm]):'',
     p500:sc.g500!=null?String(sc.g500):'',p1k:sc.g1000!=null?String(sc.g1000):'',lock:rq?false:!s.flavour_locked,requeue:rq,
+    imgMode:ist.mode||(hasPhoto?'photo':'colour'),imgBg:ist.bg||'#FAF8F4',hasPhoto:hasPhoto,
     /* 已上架＝更新模式（Retail shelf 的 Edit listing 走這裡；push 對 Square 是 upsert，同一條管線） */
     upd:!!((DB.syncs||[]).find(function(x){return x.status==='synced'&&String(x.bean_id||'').trim().toLowerCase()===nm.toLowerCase();}))};
   paintListSheet();
@@ -3216,12 +3220,31 @@ function paintListSheet(){
     +'<div class="dlab">Price (AUD)</div><input class="din" id="ls-p" inputmode="decimal" placeholder="e.g. 25" value="'+esc(LST.price)+'">'
     +'<div class="dlab">500g price · blank = skip</div><input class="din" id="ls-p5" inputmode="decimal" placeholder="—" value="'+esc(LST.p500)+'">'
     +'<div class="dlab">1kg price · blank = skip</div><input class="din" id="ls-p1" inputmode="decimal" placeholder="—" value="'+esc(LST.p1k)+'">'
+    /* 商品圖模式（同 Social Images 那套，per-bean 記憶）：Colour 色底／Transparent 轉白底／Photo 背景照 */
+    +'<div class="dlab">Product images · 4-up carousel</div>'
+    +'<div class="pm-seg">'+[['colour','Colour'],['transparent','Transparent'],['photo','Photo']].map(function(m){return '<button data-im="'+m[0]+'"'+(LST.imgMode===m[0]?' class="on"':'')+'>'+m[1]+'</button>';}).join('')+'</div>'
+    +(LST.imgMode==='colour'
+      ?'<div style="display:flex;gap:9px;align-items:center;margin-top:10px;flex-wrap:wrap">'
+        +SOC_SWATCHES.map(function(c){return '<button data-imbg="'+c+'" aria-label="'+c+'" style="flex:none;width:30px;height:30px;border-radius:50%;background:'+c+';border:2px solid '+(c.toLowerCase()===LST.imgBg.toLowerCase()?'var(--accent)':'var(--line2)')+';cursor:pointer;padding:0"></button>';}).join('')
+        +'<label style="flex:none;width:30px;height:30px;border-radius:50%;border:2px dashed var(--line2);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:16px;cursor:pointer;position:relative">+'
+          +'<input type="color" id="ls-imbgpick" value="'+LST.imgBg+'" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>'
+        +'<span class="s" style="color:var(--muted);font-size:12.5px">'+LST.imgBg.toUpperCase()+'</span>'
+      +'</div>':'')
+    +(LST.imgMode==='transparent'?'<div class="s" style="color:var(--muted);font-size:12.5px;margin-top:8px">Square photos cannot be transparent — a white version is pushed. Transparent stays in Social Images for IG layering.</div>':'')
+    +(LST.imgMode==='photo'?'<div class="s" style="margin-top:8px;font-size:12.5px;color:'+(LST.hasPhoto?'var(--accent)':'var(--muted)')+'">'
+      +(LST.hasPhoto?'✓ photo saved':'No photo yet — you will pick one when pushing')
+      +' <button id="ls-imph" style="margin-left:6px;padding:5px 11px;border:1px solid var(--line2);background:transparent;color:var(--muted);border-radius:999px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">'+(LST.hasPhoto?'Replace':'Pick now')+'</button></div>':'')
     +(LST.requeue?'<div class="s fr-yellow" style="margin-top:12px">Re-checking in QC — the flavour description stays unlocked until it passes QC again</div>'
       :(s.flavour_locked?'':'<div class="pm-seg" style="margin-top:14px"><button id="ls-lk"'+(LST.lock?' class="on"':'')+'>'+(LST.lock?'✓ ':'')+'Lock flavour description</button></div>'))
     +'<button class="act" id="ls-push">'+(LST.upd?'Push update to Square':'Push to Square')+'</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
   function grab(){LST.price=$('ls-p').value;LST.p500=$('ls-p5').value;LST.p1k=$('ls-p1').value;}
   document.querySelectorAll('#drawer [data-g]').forEach(function(el){el.addEventListener('click',function(){grab();LST.grams=+el.dataset.g;paintListSheet();});});
+  document.querySelectorAll('#drawer [data-im]').forEach(function(el){el.addEventListener('click',function(){grab();LST.imgMode=el.dataset.im;paintListSheet();});});
+  document.querySelectorAll('#drawer [data-imbg]').forEach(function(el){el.addEventListener('click',function(){grab();LST.imgBg=el.dataset.imbg;paintListSheet();});});
+  /* 自訂色盤用 change（放開才觸發）——input 每拖一格就重繪會把色盤關掉 */
+  var ibp=$('ls-imbgpick');if(ibp)ibp.addEventListener('change',function(){grab();LST.imgBg=this.value;paintListSheet();});
+  var iph=$('ls-imph');if(iph)iph.addEventListener('click',async function(){grab();var ok=await changeBeanPhoto(LST.name,iph);if(ok){LST.hasPhoto=true;paintListSheet();}});
   var lk=$('ls-lk');if(lk)lk.addEventListener('click',function(){grab();LST.lock=!LST.lock;paintListSheet();});
   $('ls-push').addEventListener('click',function(){grab();pushListToSquare();});
   $('d-cl').addEventListener('click',closeDrawer);
@@ -3234,10 +3257,16 @@ async function pushListToSquare(){
   var p1k=Number(String(LST.p1k).replace(/[^0-9.]/g,''))||0;
   /* 重審中 push 不再彈「沒鎖要推嗎」——抽屜黃字已講明鎖定等 QC Pass */
   if(!s.flavour_locked&&!LST.lock&&!LST.requeue&&!confirm('Flavour description is not locked — push anyway?'))return;
+  /* photo 模式但這支豆還沒照片 → 先選照片，取消＝中止 push（照 socialSplitPick 的路數） */
+  if(LST.imgMode==='photo'&&!LST.hasPhoto){
+    var okp=await changeBeanPhoto(nm,null);
+    if(!okp){toast('Push cancelled — pick a photo first');return;}
+    LST.hasPhoto=true;
+  }
   var btn=$('ls-push');if(btn){btn.disabled=true;btn.textContent='Drawing card…';}
   try{
-    /* 商品圖：這支豆有背景照 → 送社群四連圖（封面/雷達/產區/QR，JPEG）當 Square 商品輪播；
-       沒照片就退回單張品牌卡（同出貨信管線，flavour_locked 紀錄優先） */
+    /* 商品圖照抽屜選擇（per-bean 記憶）：photo=該豆背景照、colour=色底、transparent=轉白底
+       （Square 走 JPEG 無透明，抽屜有註明）。render 失敗仍退單張品牌卡兜底 */
     var img64=null,imgs64=null;
     try{
       var fq=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',nm)
@@ -3248,18 +3277,16 @@ async function pushListToSquare(){
         var blendMap={};
         try{var bq=await sb.from('blends').select('name,parts,note');
           (bq.data||[]).forEach(function(b){if(b.name)blendMap[String(b.name).trim().toLowerCase()]={parts:b.parts||[],note:b.note||''};});}catch(e){}
-        var havePhoto=false;
-        try{havePhoto=!!(await listBeanPhotos())[beanSlug(nm)];}catch(e){}
-        if(havePhoto){
-          try{
-            var info=[];try{info=await beanInfoRows(full,{omit:['Roasted','Harvest']});}catch(e){}
-            var feats=(full.features||[]).filter(Boolean).slice(0,3);
-            var col=dotColorFor(nm,dots)||'#B25E6A';
-            var r=await renderSocialImages(full,info,feats,nm,col,'photo',{fmt:'image/jpeg',quality:0.88,
-              onStep:function(m){if(btn)btn.textContent=m;}});
-            imgs64=r.images.map(function(x){return x[1].split(',')[1];});
-          }catch(e){console.error('photo cards',e);imgs64=null;}
-        }
+        try{
+          var info=[];try{info=await beanInfoRows(full,{omit:['Roasted','Harvest']});}catch(e){}
+          var feats=(full.features||[]).filter(Boolean).slice(0,3);
+          var col=dotColorFor(nm,dots)||'#B25E6A';
+          var rmode=LST.imgMode==='photo'?'photo':'white';
+          var rbg=LST.imgMode==='colour'?(LST.imgBg||'#FAF8F4'):'#FAF8F4';
+          var r=await renderSocialImages(full,info,feats,nm,col,rmode,{fmt:'image/jpeg',quality:0.88,bg:rbg,
+            onStep:function(m){if(btn)btn.textContent=m;}});
+          imgs64=r.images.map(function(x){return x[1].split(',')[1];});
+        }catch(e){console.error('product cards',e);imgs64=null;}
         if(!imgs64)img64=await makeSquareCard(await cardDataFor(full,blendMap,dots));
       }
     }catch(e){console.error('card',e);}
@@ -3271,13 +3298,14 @@ async function pushListToSquare(){
     await callFn('sync-to-square',{action:'push',sample_id:nm,name:nm,description:desc,grams:LST.grams,price:price,variations:variations,
       image_b64:imgs64?null:img64, images_b64:imgs64, image_mime:imgs64?'image/jpeg':'image/png'});
     SHOP_STALE=true; /* 商品圖剛換過——下次看店面別吃 5 分鐘的舊快取 */
-    /* 價格記憶寫回 app_state（讀回最新再改，避免蓋掉別台改的） */
+    /* 價格＋商品圖模式記憶寫回 app_state（讀回最新再改，避免蓋掉別台改的） */
     try{
-      var mem=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes']);
-      var m={rtl_price:{},rtl_g:{},rtl_sizes:{}};
+      var mem=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes','rtl_imgstyle']);
+      var m={rtl_price:{},rtl_g:{},rtl_sizes:{},rtl_imgstyle:{}};
       (mem.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}if(v&&typeof v==='object')m[x.key]=v;});
       m.rtl_price[nm]=price;m.rtl_g[nm]=LST.grams;
       var sc={};if(p500>0)sc.g500=p500;if(p1k>0)sc.g1000=p1k;m.rtl_sizes[nm]=sc;
+      m.rtl_imgstyle[nm]={mode:LST.imgMode||'colour',bg:LST.imgBg||'#FAF8F4'};
       for(var k in m)await sb.from('app_state').upsert({key:k,value:m[k],updated_at:new Date().toISOString()},{onConflict:'key'});
     }catch(e){console.error('price memory',e);}
     if(!s.flavour_locked&&LST.lock){try{await sb.from('samples').update({flavour_locked:true}).eq('id',s.id);}catch(e){}}
