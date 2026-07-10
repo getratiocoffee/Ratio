@@ -179,7 +179,7 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .qrow .t{font-size:18px}
 .drawer-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40;display:none;touch-action:none}
 .drawer-bg.show{display:block}
-.drawer{position:fixed;left:22px;right:22px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);max-width:476px;margin:0 auto;background:var(--surface);border:1.5px solid var(--ink);border-radius:16px;padding:12px 20px 20px;z-index:50;visibility:hidden;transform:translateY(calc(100% + 120px));transition:transform .28s ease,visibility 0s linear .3s;max-height:78vh;overflow-y:auto;overscroll-behavior:contain}
+.drawer{position:fixed;left:22px;right:22px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);max-width:476px;margin:0 auto;background:var(--surface);border:1.5px solid var(--ink);border-radius:16px;padding:12px 20px 20px;z-index:50;visibility:hidden;transform:translateY(calc(100% + 120px));transition:transform .28s ease,visibility 0s linear .3s;max-height:78vh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
 .drawer.show{visibility:visible;transform:translateY(0);transition:transform .28s ease}
 .grab{display:flex;justify-content:center;padding:12px 0 14px;margin:-6px 0 2px;touch-action:none;cursor:grab}
 .grab::after{content:'';width:52px;height:5px;border-radius:99px;background:var(--line2)}
@@ -244,7 +244,8 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .cx-in:focus{border-color:var(--ink)}
 .cx-unit{width:52px;flex:0 0 auto;font-size:12.5px;color:var(--muted)}
 .cx-add{display:flex;gap:8px;align-items:center;margin-top:8px}
-.cx-add .cx-in{flex:1;width:auto;text-align:left}
+/* min-width:0 不可拿掉：input 的 flex 最小寬預設是內容寬（~190px），兩顆就把抽屜撐出水平捲動（老闆回報左右滑） */
+.cx-add .cx-in{flex:1;width:auto;min-width:0;text-align:left}
 .cx-mgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:8px}
 .cx-metric{background:var(--tint);border-radius:10px;padding:11px 13px}
 .cx-metric span{display:block;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
