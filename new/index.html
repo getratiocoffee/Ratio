@@ -1876,6 +1876,9 @@ async function openRetailSheet(){
   var inQCSet={};
   (QCQ||[]).forEach(function(q){inQCSet[String(q.s.sample_id||'').trim().toLowerCase()]=1;});
   toCupList().forEach(function(r){inQCSet[String(r.bean_name||'').trim().toLowerCase()]=1;});
+  /* 漏網之魚 highlight（老闆點名）：上架了、也不在 QC 重審流程、但風味沒鎖＝被 public-shop 的
+     QC 閘門濾掉，掛著 On sale 客人卻看不到，且沒有任何流程會去處理它——標紅提醒去鎖風味 */
+  var hidN=0;
   var rows=live.map(function(x){
     var nm=String(x.bean_id).trim();
     var price=m.rtl_price[nm],g=m.rtl_g[nm]||250;
@@ -1884,18 +1887,21 @@ async function openRetailSheet(){
     var rep=shelfSampleFor(nm);
     var col=uiDot(dotColorFor(nm,dots));
     var inQC=!!inQCSet[nm.toLowerCase()];
+    var unlocked=!inQC&&!(rep&&rep.flavour_locked);if(unlocked)hidN++;
     return '<div class="hit" data-shelf="'+esc(nm)+'"><span><div class="t" style="font-size:16px">'
       +(col?'<span style="color:'+col+';font-size:12px">●</span> ':'')+esc(nm)
       +(rep&&rep.process?' <span style="color:var(--muted);font-weight:400;font-size:12.5px;font-family:Inter,sans-serif">'+esc(rep.process)+'</span>':'')+'</div>'
       +'<div class="s">'+(price!=null?g+'g '+money(price):'<span class="red">no price</span>')
       +' · <span class="'+fr.cls+'"'+(fr.cls?'':' style="color:var(--muted)"')+'>'+esc(fr.txt)+'</span>'
-      +(inQC?' · <span class="fr-yellow">re-checking in QC</span>':'')+'</div></span>'
+      +(inQC?' · <span class="fr-yellow">re-checking in QC</span>':'')
+      +(unlocked?' · <span class="red">not in shop — flavour unlocked</span>':'')+'</div></span>'
       +'<span class="k'+(sold?' red':'')+'">'+(sold?'Sold out':'On sale')+'</span></div>';
   }).join('');
   var errs=(DB.syncs||[]).filter(function(x){return x.status&&x.status!=='synced'&&x.status!=='paused';});
   var toList=ITEMS.filter(function(i){return i.kind==='list';});
   openDrawerHTML('<div class="t" style="font-size:19px">Retail Info</div>'
-    +'<div class="s" style="margin-top:2px">'+live.length+' live on Square'+(soldN?' · <span class="red">'+soldN+' sold out</span>':'')+' · tap a coffee for flavour and dossier</div>'
+    +'<div class="s" style="margin-top:2px">'+live.length+' live on Square'+(soldN?' · <span class="red">'+soldN+' sold out</span>':'')
+    +(hidN?' · <span class="red">'+hidN+' not in shop — flavour unlocked</span>':'')+' · tap a coffee for flavour and dossier</div>'
     +(rows||'<div class="empty">Nothing on the shelf yet</div>')
     +(errs.length?'<div class="dlab">Sync problems</div>'+errs.map(function(x){return '<div class="dl"><span>'+esc(x.bean_id||'—')+'</span><span class="red">'+esc(x.status)+'</span></div>';}).join(''):'')
     +(toList.length?'<div class="dlab">Ready to list</div>'+toList.map(function(i,ix){

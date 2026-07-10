@@ -57,6 +57,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-10 之九（Retail Info 標出「上架了但店面看不到」的漏網豆）
+- **背景**：老闆點名 highlight「已上架、不在 QC 裡」的豆——即被 public-shop QC 閘門（samples 要有 flavour_locked=true）濾掉的漏網之魚：掛著 On sale、客人在 app 店面卻看不到、也沒有任何流程會處理它們（Dark Knight 快取誤會那次順帶發現菜單只 3 支的根因）。
+- **做法**：`openRetailSheet` 每行加判斷 `unlocked=!inQC&&!(rep&&rep.flavour_locked)` → 行內紅字「not in shop — flavour unlocked」＋頂部摘要計數「N not in shop — flavour unlocked」。**QC 重審中的不重複標**（已有黃字 re-checking in QC，那是正常流程）；售罄的照標（paused 一樣被閘門擋）。
+- **驗證**：jscheck ✓；mock 四情境（已鎖乾淨/沒鎖標紅/重審只黃/售罄沒鎖標紅）DOM 逐行 ✓；截圖 ✓；boot 無 error ✓。
+- **注意**：這只是標示，鎖風味仍要走原流程（QC Pass 自動鎖，或上架抽屜的 Lock flavour）。
+
 ## 〇、補記 — 2026-07-10 之八（Square Online 商品頁主圖 3:4→1:1，沒改碼）
 - **背景**：老闆發現 coffeeratio.com.au（Square Online 網店，客人真正下單的站）商品詳情頁主圖是直式長方——我們的 1080 正方四連圖被塞進 3:4 框上下留白。⚠ 這個站跟新殼 ?shop 是兩回事：**Ratio 有一個 Square Online 建站**（自訂網域 coffeeratio.com.au，2026-07-09 有發布過），商品從 Square 目錄自動帶入。
 - **修法（Chrome MCP 代跑，老闆登入態）**：Square Dashboard 左欄「Square Online」→ square.online 後台 → Edit site → 頁面下拉 → Item pages 任一頁 → 左欄「Item details」section →（模板：改一處套用全部商品頁）→ Content → Image gallery → **Aspect ratio 3:4 改 1:1**（Image fit 維持 Crop）→ Done → Publish。真機驗證 coffeeratio.com.au 商品頁主圖已正方滿版 ✓。
