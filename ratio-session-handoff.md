@@ -65,6 +65,11 @@
 - **驗證**：jscheck ✓；preview mock——staff 喇叭 computed block 可見／customer none／未登入 boot 仍 none ✓；events 空＋一筆請假時晨報出現「Next 30 days: 1 item ›」✓；無 console error ✓。
 - **順帶發現**：老闆那台瀏覽器登入身分是 `WHO='Wu'`、role=**staff**（不是 director）——若那該是老闆帳號，profiles.role 要改。
 
+## 〇、補記 — 2026-07-11 之二（公開豆頁雷達用該豆的罐標點色）
+- **老闆需求**：Social Images 的 QR 掃進去（?bean 公開頁），雷達圖顏色要用 Coffee Info 那支豆的對應顏色（rtl_dot 點色），跟社群圖/店內一致。
+- **改法**：①**public-bean edge v6**——新增查 app_state `rtl_dot`（名字不分大小寫比對），用內嵌的 DOTCOL 表（⚠ 鏡射自前端 RTL_DOTCOL：y #E0B341／b #3D7DBF／d #22386B／r #C0392B，**改色票兩邊要同步**）轉 hex 回傳 `dot` 欄位（沒設點色回 null）；②前端 `sampleRadarSVG(s,force,col)` 加第三參數（描邊/頂點用 col、淡填 hex→rgba 0.18，沒給退回玫瑰 #B25E6A），?bean render 傳 `d.dot`。sampleRadarSVG 只有公開頁一個呼叫端，安全。
+- **驗證**：curl v6——Dark Knight #C0392B／June Project #22386B／Kii AB #C0392B，與 rtl_dot 資料吻合 ✓；本機 ?bean=june-project 雷達 stroke/fill/頂點全深藍 ✓；jscheck ✓；無 console error ✓。注意 public-bean 有 5 分鐘 Cache-Control，剛改點色的豆要等快取過期才變色。
+
 ## 〇、補記 — 2026-07-11（Calculator 重整：前台一屏生豆→熟豆、成本摺疊＋app_state 記憶）
 - **老闆需求**：「滑來滑去很難點數字」＋「前台主要看生豆與產出熟豆的關係；人事成本收起來，一年調一次」。根因＝16 欄 6 區超過一屏＋切模式/選尺寸全量重繪 scrollTop 歸零＋完全無持久化（nothing is saved）。
 - **改法**（`openCalcSheet` 一帶，計算公式 cxBase/cxResults 一字未動）：①前台一屏＝模式段＋Roast batch＋**`#cx-flow` 生豆→熟豆換算行**（玫瑰粗體「40 kg green → 34.8 kg roasted · 232 × 150g bags」，cxRenderOut 一起更新）＋Package size＋Price＋Result；②包材/包裝工/場地/烘豆工資/運輸收進「Costs & labour」**摺疊列**（`#cx-costs-t` 切 display 不重繪、CX.costsOpen 記開合）；③重繪前記 `drawer.scrollTop` 重繪後還原（跳頂修掉）；④**app_state 新 key `calc_prefs`**＝{cbag,cstick,cbox,packRate,packSpeed,venue,staff,transport,pkgs}，開抽屜載入（CX_LOADED 一次性）、變更防抖 800ms upsert；批次數字（pots/bean/greenKg/shrink/wsQty）刻意不存；⑤input 監聽改 `d.oninput`（原 addEventListener 每次重繪疊加一支）。副標改「batch numbers reset each time — costs below are remembered」。

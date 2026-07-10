@@ -6726,7 +6726,11 @@ if('serviceWorker' in navigator){try{navigator.serviceWorker.register('/new/sw.j
    2026-07-10 從 classic 移植（classic 原 IIFE ~L2521/L2558）——根網址換由新殼服務後，
    實體 QR（罐標/袋標/資訊卡）與 email 連結由這裡接手。overlay 蓋在 app 上層，不擋 boot */
 function fmtDate(d){if(!d||d==='—')return 'No date';var p=String(d).split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0].slice(-2)):d;}
-function sampleRadarSVG(s,force){
+function sampleRadarSVG(s,force,col){
+  /* col＝這支豆的罐標點色（Coffee Info 的 rtl_dot，public-bean 帶出）；沒有就退回玫瑰主色 */
+  col=col||'#B25E6A';
+  var m=/^#?([0-9a-f]{6})$/i.exec(String(col));
+  var fillA=m?('rgba('+parseInt(m[1].slice(0,2),16)+','+parseInt(m[1].slice(2,4),16)+','+parseInt(m[1].slice(4,6),16)+',0.18)'):'rgba(178,94,106,0.18)';
   var axes=[['fragrance','Fragrance'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
   if(!force&&!axes.some(function(a){return s[a[0]]!=null;}))return '';
   var W=232,H=176,cx=W/2,cy=H/2+4,R=46,n=axes.length;
@@ -6736,14 +6740,14 @@ function sampleRadarSVG(s,force){
   var spokes='';for(var i=0;i<n;i++){var p=pt(i,R);spokes+='<line x1="'+cx+'" y1="'+cy+'" x2="'+p[0].toFixed(1)+'" y2="'+p[1].toFixed(1)+'" stroke="rgba(128,120,115,0.18)" stroke-width="1"/>';}
   var dpts=axes.map(function(a,i){var v=(s[a[0]]==null?0:s[a[0]]);return pt(i,R*(v/3));});
   var dpoly=dpts.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ');
-  var dots=dpts.map(function(p){return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="2" fill="#B25E6A"/>';}).join('');
+  var dots=dpts.map(function(p){return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="2" fill="'+col+'"/>';}).join('');
   var labels='';axes.forEach(function(a,i){
     var lp=pt(i,R+15),anc=(lp[0]<cx-2?'end':(lp[0]>cx+2?'start':'middle'));
     labels+='<text x="'+lp[0].toFixed(1)+'" y="'+(lp[1]+3).toFixed(1)+'" font-size="9" font-weight="700" fill="#8C8079" text-anchor="'+anc+'">'+a[1]+'</text>';
   });
   return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" xmlns="http://www.w3.org/2000/svg">'
     +grid+spokes
-    +'<polygon points="'+dpoly+'" fill="rgba(178,94,106,0.18)" stroke="#B25E6A" stroke-width="1.6" stroke-linejoin="round"/>'
+    +'<polygon points="'+dpoly+'" fill="'+fillA+'" stroke="'+col+'" stroke-width="1.6" stroke-linejoin="round"/>'
     +dots+labels+'</svg>';
 }
 /* 回饋表單：ref＝訂單 id 或 'store'；內部「Leave feedback」鈕也走這裡（不再跳頁） */
@@ -6821,7 +6825,7 @@ function showFbOverlay(ref){
       if(d.origin&&d.origin.region)sub.push(esc(d.origin.region));
       if(d.roast_date)sub.push('Roasted '+esc(fmtDate(d.roast_date)));
       var radar='';
-      try{radar=sampleRadarSVG(d.scores,true);}catch(e){}
+      try{radar=sampleRadarSVG(d.scores,true,d.dot);}catch(e){}
       var brewH=pbBrewHTML(d.brew);
       ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div>'
         +'<div class="pb-name">'+esc(d.name)+'</div>'
