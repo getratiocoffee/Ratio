@@ -66,16 +66,27 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 .pb-brand{font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--accent);margin-bottom:14px}
 .pb-name{font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--ink);line-height:1.2}
 .pb-sub{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.55}
+/* 評語升格：豆名正下方的 serif 斜體引言——整頁最人話的一句要第一眼看到 */
+.pb-quote{font-family:'Fraunces',serif;font-style:italic;font-size:16.5px;color:var(--ink);margin-top:10px;line-height:1.55}
 .pb-sec{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px}
 .pb-sec-h{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
 .pb-flav{display:flex;gap:8px;flex-wrap:wrap}
 .pb-chip{background:var(--tint);color:var(--ink);border-radius:999px;padding:6px 13px;font-size:13px;font-weight:600}
+/* 關鍵事實兩欄行（配方/產區/品種/海拔/烘焙日）：左標籤右值，一行一件事好掃 */
+.pb-row{display:flex;justify-content:space-between;gap:14px;padding:8px 0;border-bottom:1px solid var(--line);align-items:baseline}
+.pb-row:last-child{border-bottom:none;padding-bottom:0}
+.pb-row:first-child{padding-top:0}
+.pb-row span{color:var(--muted);flex:0 0 auto;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.pb-row b{font-weight:600;font-size:13.5px;text-align:right;color:var(--ink);overflow-wrap:anywhere}
 .pb-radar svg{display:block;margin:0 auto;max-width:260px;width:100%;height:auto}
-.pb-brew-m{margin-top:10px}
+.pb-brew-m{margin-top:14px}
 .pb-brew-m:first-child{margin-top:0}
-.pb-brew-h{font-weight:700;color:var(--accent);font-size:13px;margin-bottom:3px}
-.pb-brew-l{font-size:13px;line-height:1.7}
-.pb-brew-l b{font-family:ui-monospace,monospace;font-weight:600}
+.pb-brew-h{font-weight:700;color:var(--accent);font-size:13px;margin-bottom:6px}
+/* 沖煮參數格狀兩欄（原本全擠一行讀不動）：每格＝灰標籤＋mono 數值 */
+.pb-brew-g{display:grid;grid-template-columns:1fr 1fr;gap:7px 16px}
+.pb-brew-g div{font-size:13px}
+.pb-brew-g span{color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;display:block}
+.pb-brew-g b{font-family:ui-monospace,monospace;font-weight:600;font-size:14px}
 .pb-foot{text-align:center;font-size:12px;color:var(--muted);margin-top:18px;line-height:1.7}
 .pb-foot a{color:var(--accent);font-weight:600}
 .pb-empty{text-align:center;color:var(--muted);font-size:13px;padding:56px 24px}
@@ -6802,38 +6813,52 @@ function showFbOverlay(ref){
     var out='';
     METH.forEach(function(m){
       var v=brew[m[0]];if(!v||typeof v!=='object')return;
-      var lines=[];
+      var cells=[];
       FLD.forEach(function(f){
         if(f[0]==='yield'&&m[0]!=='espresso')return;
         var val=String(v[f[0]]||'').trim();if(!val)return;
-        lines.push(f[1]+' <b>'+esc(val)+'</b>');
+        cells.push('<div><span>'+f[1]+'</span><b>'+esc(val)+'</b></div>');
       });
       var dose=parseFloat(v.dose||''),liq=parseFloat(m[0]==='espresso'?(v.yield||''):(v.water||''));
-      if(dose>0&&liq>0){var r=Math.round(liq/dose*10)/10;lines.push('Ratio <b>1:'+(r%1===0?Math.round(r):r)+'</b>');}
-      if(!lines.length)return;
-      out+='<div class="pb-brew-m"><div class="pb-brew-h">'+m[1]+'</div><div class="pb-brew-l">'+lines.join(' · ')+'</div></div>';
+      if(dose>0&&liq>0){var r=Math.round(liq/dose*10)/10;cells.push('<div><span>Ratio</span><b>1:'+(r%1===0?Math.round(r):r)+'</b></div>');}
+      if(!cells.length)return;
+      out+='<div class="pb-brew-m"><div class="pb-brew-h">'+m[1]+'</div><div class="pb-brew-g">'+cells.join('')+'</div></div>';
     });
     return out;
+  }
+  /* 人話日期：28/06/26 → 28 Jun 2026 */
+  function pbDate(s){
+    try{var d=new Date(String(s)+'T00:00:00');
+      return d.getDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]+' '+d.getFullYear();
+    }catch(e){return String(s||'');}
   }
   fetch(SUPABASE_URL+'/functions/v1/public-bean?name='+encodeURIComponent(q))
     .then(function(r){return r.json();})
     .then(function(d){
       if(!d||!d.ok){ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div><div class="pb-empty">This coffee page is not available.</div></div>';return;}
-      var sub=[];
-      if(d.kind==='blend'&&d.recipe&&d.recipe.length)sub.push(d.recipe.map(function(p){return esc(p.bean)+' '+p.pct+'%';}).join(' · '));
-      else if(d.process)sub.push(esc(d.process));
-      if(d.origin&&d.origin.region)sub.push(esc(d.origin.region));
-      if(d.roast_date)sub.push('Roasted '+esc(fmtDate(d.roast_date)));
+      /* 版面（老闆點名簡單易懂）：豆名 → 評語引言 → 風味 chips 直接在頂部；
+         關鍵事實（配方/處理法/產區/品種/海拔/烘焙日）併成一張兩欄清單卡，不再散在副標與 Origin 卡 */
+      var rows=[];
+      if(d.kind==='blend'&&d.recipe&&d.recipe.length){
+        d.recipe.forEach(function(p){rows.push([p.pct+'%',p.bean+(p.process?' · '+p.process:'')]);});
+      }else{
+        if(d.process)rows.push(['Process',d.process]);
+        if(d.origin&&d.origin.region)rows.push(['Origin',d.origin.region]);
+        if(d.origin&&d.origin.variety)rows.push(['Variety',d.origin.variety]);
+        if(d.origin&&d.origin.altitude)rows.push(['Altitude',d.origin.altitude+' m']);
+      }
+      if(d.roast_date)rows.push(['Roasted',pbDate(d.roast_date)]);
       var radar='';
       try{radar=sampleRadarSVG(d.scores,true,d.dot);}catch(e){}
       var brewH=pbBrewHTML(d.brew);
       ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div>'
         +'<div class="pb-name">'+esc(d.name)+'</div>'
-        +(sub.length?'<div class="pb-sub">'+sub.join(' · ')+'</div>':'')
-        +((d.flavour&&d.flavour.length)?'<div class="pb-sec"><div class="pb-sec-h">Flavour</div><div class="pb-flav">'+d.flavour.map(function(f){return '<span class="pb-chip">'+esc(f)+'</span>';}).join('')+'</div>'+(d.comment?'<div class="pb-sub" style="margin-top:10px">'+esc(d.comment)+'</div>':'')+'</div>':'')
+        +(d.comment?'<div class="pb-quote">“'+esc(d.comment)+'”</div>':'')
+        +((d.flavour&&d.flavour.length)?'<div class="pb-flav" style="margin-top:12px">'+d.flavour.map(function(f){return '<span class="pb-chip">'+esc(f)+'</span>';}).join('')+'</div>':'')
+        +(rows.length?'<div class="pb-sec"><div class="pb-sec-h">The coffee</div>'
+          +rows.map(function(r){return '<div class="pb-row"><span>'+esc(r[0])+'</span><b>'+esc(String(r[1]))+'</b></div>';}).join('')+'</div>':'')
         +(radar?'<div class="pb-sec"><div class="pb-sec-h">Cup profile</div><div class="pb-radar">'+radar+'</div></div>':'')
         +(brewH?'<div class="pb-sec"><div class="pb-sec-h">How to brew it</div>'+brewH+'</div>':'')
-        +(d.origin&&(d.origin.variety||d.origin.altitude)?'<div class="pb-sec"><div class="pb-sec-h">Origin</div><div class="pb-brew-l">'+[d.origin.variety?('Variety <b>'+esc(d.origin.variety)+'</b>'):'',d.origin.altitude?('Altitude <b>'+esc(d.origin.altitude)+' m</b>'):''].filter(Boolean).join(' · ')+'</div></div>':'')
         +'<div class="pb-foot">Ratio Coffee · Crows Nest, Sydney<br><a href="?fb=store">Tried it? Tell us what you think →</a></div>'
         +'</div>';
     })

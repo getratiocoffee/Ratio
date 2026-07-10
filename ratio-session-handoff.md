@@ -65,6 +65,11 @@
 - **驗證**：jscheck ✓；preview mock——staff 喇叭 computed block 可見／customer none／未登入 boot 仍 none ✓；events 空＋一筆請假時晨報出現「Next 30 days: 1 item ›」✓；無 console error ✓。
 - **順帶發現**：老闆那台瀏覽器登入身分是 `WHO='Wu'`、role=**staff**（不是 director）——若那該是老闆帳號，profiles.role 要改。
 
+## 〇、補記 — 2026-07-11 之三（公開豆頁排版重整：簡單易懂）
+- **老闆需求**：QR 掃入的 ?bean 豆頁排版優化。原版問題：評語藏在 Flavour 卡的小灰字、產區資訊拆兩處（副標＋底部 Origin 卡）、沖煮參數整行擠（Temp 92°C · PPM 80 · …）、日期 28/06/26。
+- **新版面**（?bean IIFE＋pb-* CSS）：品牌 → 豆名 → **評語升格 serif 斜體引言**（.pb-quote）→ 風味 chips 直接頂部 →「**The coffee**」兩欄清單卡（.pb-row：拼配＝每成分一行 70%｜Finca Milan · Nitro Culturing；單品＝Process/Origin/Variety/Altitude；共通 Roasted 人話日期 pbDate '28 Jun 2026'）→ Cup profile 雷達（點色版）→ How to brew it **格狀兩欄**（.pb-brew-g：灰標籤上、mono 值下，取代擠一行）→ footer。原 Flavour 卡與 Origin 卡拆併、副標移除。
+- **驗證**：june-project（拼配）／kii-ab（單品全欄位）／dark-knight（brew 三方法格狀）三型截圖 ✓；jscheck ✓；無 console error ✓。
+
 ## 〇、補記 — 2026-07-11 之二（公開豆頁雷達用該豆的罐標點色）
 - **老闆需求**：Social Images 的 QR 掃進去（?bean 公開頁），雷達圖顏色要用 Coffee Info 那支豆的對應顏色（rtl_dot 點色），跟社群圖/店內一致。
 - **改法**：①**public-bean edge v6**——新增查 app_state `rtl_dot`（名字不分大小寫比對），用內嵌的 DOTCOL 表（⚠ 鏡射自前端 RTL_DOTCOL：y #E0B341／b #3D7DBF／d #22386B／r #C0392B，**改色票兩邊要同步**）轉 hex 回傳 `dot` 欄位（沒設點色回 null）；②前端 `sampleRadarSVG(s,force,col)` 加第三參數（描邊/頂點用 col、淡填 hex→rgba 0.18，沒給退回玫瑰 #B25E6A），?bean render 傳 `d.dot`。sampleRadarSVG 只有公開頁一個呼叫端，安全。
