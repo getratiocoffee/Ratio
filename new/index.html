@@ -1434,6 +1434,11 @@ async function openShelfBeanDetail(nm,m){
   var dots={};try{dots=await cardDots();}catch(e){}
   var col=uiDot(dotColorFor(nm,dots))||'#B25E6A';
   var info=[];try{info=await beanInfoRows(s);}catch(e){}
+  /* 拼配豆在 beans 表沒有同名生豆，beanInfoRows 一律回空——它的身世在 blends（配方）裡。
+     判斷方式同 cardDataFor：名字命中 blends 就是拼配 */
+  var bd=null;
+  try{var bq=await sb.from('blends').select('name,parts,note').ilike('name',nm);bd=(bq.data||[])[0]||null;}catch(e){}
+  var recipe=bd?(bd.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}):[];
   var feats=(s.features||[]).filter(Boolean).slice(0,3);
   var hasScores=['fragrance','acidity','sweetness','body','aftertaste'].some(function(k){return s[k]!=null;});
   var sc={fragrance:s.fragrance,acidity:s.acidity,sweetness:s.sweetness,body:s.body,aftertaste:s.aftertaste};
@@ -1458,9 +1463,14 @@ async function openShelfBeanDetail(nm,m){
     +(hasScores?'<img src="'+printRadarPNG(sc,col)+'" style="width:72%;max-width:250px;display:block;margin:12px auto 0" alt="cup profile">':'')
     +'<div class="dlab" style="color:'+col+'">Tasting notes</div>'
     +(feats.length?'<div style="margin-top:2px">'+feats.map(function(f){return '<span class="shop-chip">'+esc(f)+'</span>';}).join('')+'</div>':'')
-    +(s.comment?'<div class="s" style="font-style:italic;margin-top:6px">“'+esc(s.comment)+'”</div>':'')
+    /* 拼配沒杯測評語時退回配方的 note（同 cardDataFor 的品牌卡邏輯） */
+    +(s.comment||(bd&&bd.note)?'<div class="s" style="font-style:italic;margin-top:6px">“'+esc(s.comment||bd.note)+'”</div>':'')
     +(s.cupper?'<div class="s" style="margin-top:4px">Analysed by '+esc(s.cupper)+'</div>':'')
-    +(!feats.length&&!s.comment&&!hasScores?'<div class="s" style="margin-top:4px">No cupping record yet — cup it in QC first</div>':'')
+    +(!feats.length&&!s.comment&&!hasScores&&!recipe.length?'<div class="s" style="margin-top:4px">No cupping record yet — cup it in QC first</div>':'')
+    /* 拼配的身世＝配方成分；單品的身世＝產區履歷。兩者不會同時出現 */
+    +(recipe.length?'<div class="dlab" style="color:'+col+'">Recipe</div>'
+      +recipe.map(function(p){return '<div class="dl"><span>'+esc(parseFloat(p.pct)+'% '+p.bean)+'</span>'
+        +(p.process?'<span style="text-align:right;color:var(--muted)">'+esc(p.process)+'</span>':'<span></span>')+'</div>';}).join(''):'')
     +(info.length?'<div class="dlab" style="color:'+col+'">The coffee</div>'
       +info.map(function(r){return '<div class="dl"><span>'+esc(r[0])+'</span><span style="text-align:right">'+esc(String(r[1]))+'</span></div>';}).join(''):'')
     +'<button class="act" id="sb-edit">Push to Live</button>'
