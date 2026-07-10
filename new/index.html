@@ -1415,7 +1415,9 @@ function markBriefSeen(){
 }
 function updateBell(){
   var b=$('hbell');if(!b)return;
-  b.style.display=(myRole()==='customer')?'none':'';
+  /* ⚠ 要寫 'block' 不能寫 ''：CSS #hbell 預設 display:none（未登入的店面不該有喇叭），
+     清掉 inline 樣式只會落回那個 none——喇叭因此從來沒出現過，晨報只剩每天自動彈那一次 */
+  b.style.display=(myRole()==='customer')?'none':'block';
   var seen='';try{seen=localStorage.getItem('brief_seen_ts')||'';}catch(e){}
   var fresh=noticesToday().some(function(n){return String(n.ts||'')>seen;});
   $('hbdot').style.display=fresh?'block':'none';
@@ -1444,7 +1446,10 @@ function openBriefSheet(){
     h+='<div class="dlab">Happening today</div>'
       +evToday.map(function(e){return '<div class="dl" style="border:none;padding:6px 0"><span style="color:var(--muted);flex:0 0 62px">'+esc(e.kind||'event')+'</span><span style="flex:1;text-align:left">'+esc(e.txt)+'</span></div>';}).join('');
   }
-  if(evAhead.length)h+='<button class="more" id="bf-upc" style="text-align:left;padding:8px 0 0">Next 30 days: '+evAhead.length+' event'+(evAhead.length===1?'':'s')+' ›</button>';
+  /* 未來 30 天的入口：事件＋請假一起算（只有人請假、沒有事件時，入口也要在——不然月報整個消失） */
+  var naAhead=(DB.staffNa||[]).filter(function(x){return String(x.end_date)>=t;}).length;
+  var ahead=evAhead.length+naAhead;
+  if(ahead)h+='<button class="more" id="bf-upc" style="text-align:left;padding:8px 0 0">Next 30 days: '+ahead+' item'+(ahead===1?'':'s')+' ›</button>';
   h+=(canWrite()?'<div style="display:flex;gap:9px;margin-top:14px"><button class="dclose" id="bf-post" style="flex:1;margin-top:0">+ Post a notice</button><button class="act" id="bf-ok" style="flex:2;margin-top:0">Got it — start the day</button></div>'
     :'<button class="act" id="bf-ok">Got it — start the day</button>');
   openDrawerHTML(h);

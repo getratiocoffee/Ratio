@@ -57,6 +57,14 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-10 之十（🐛 晨報喇叭從沒出現過＋月報入口被 events 綁架）
+- **症狀**：老闆「我介面沒有晨報，沒有月報」。
+- **根因①（真 bug，喇叭）**：CSS `#hbell{...display:none}`（未登入店面不該有喇叭），但 `updateBell()` 顯示時寫 `b.style.display=''` ——清掉 inline 只會**落回 CSS 的 none**，所以喇叭**從上線起就沒出現過**。晨報只剩 `boot` 每天自動彈那一次（`seen!==todayKey()`），錯過或關掉就整天叫不出來。修：`''` → `'block'`（customer 仍 none）。**教訓：CSS 預設 display:none 的元素，JS 要顯示必須寫明確值，不能用空字串。**
+- **根因②（月報入口）**：晨報底部「Next 30 days: N events ›」只在 `evAhead.length`（events 表）>0 時生成，計數也只算 events。老闆 events 表**一筆都沒有**，只有 staff_na 一筆（Joshua zhu 7/13–15）→ 按鈕不出現 → 月報從晨報完全進不去（唯一活路是 Tools→Daily task→Upcoming 磁貼）。修：`ahead=evAhead.length+naAhead`（未來 30 天請假數），文字改 `N item(s)`。
+- **診斷過程備查**：Chrome MCP 在老闆線上登入態跑 `getComputedStyle(hbell)` 抓到 display:none 與命中規則；`DB.staffNa` 有資料、`openUpcomingSheet()` 真的列得出 Joshua——證明資料/RLS/渲染都正常，是入口的問題。
+- **驗證**：jscheck ✓；preview mock——staff 喇叭 computed block 可見／customer none／未登入 boot 仍 none ✓；events 空＋一筆請假時晨報出現「Next 30 days: 1 item ›」✓；無 console error ✓。
+- **順帶發現**：老闆那台瀏覽器登入身分是 `WHO='Wu'`、role=**staff**（不是 director）——若那該是老闆帳號，profiles.role 要改。
+
 ## 〇、補記 — 2026-07-10 之九（Retail Info 標出「上架了但店面看不到」的漏網豆）
 - **背景**：老闆點名 highlight「已上架、不在 QC 裡」的豆——即被 public-shop QC 閘門（samples 要有 flavour_locked=true）濾掉的漏網之魚：掛著 On sale、客人在 app 店面卻看不到、也沒有任何流程會處理它們（Dark Knight 快取誤會那次順帶發現菜單只 3 支的根因）。
 - **做法**：`openRetailSheet` 每行加判斷 `unlocked=!inQC&&!(rep&&rep.flavour_locked)` → 行內紅字「not in shop — flavour unlocked」＋頂部摘要計數「N not in shop — flavour unlocked」。**QC 重審中的不重複標**（已有黃字 re-checking in QC，那是正常流程）；售罄的照標（paused 一樣被閘門擋）。
