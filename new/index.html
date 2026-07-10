@@ -301,6 +301,19 @@ const VAPID_PUBLIC='BFPC3UdlUFbYeowrMvVn-eJWjES_PHYuy34_7v7XbgPSb88CRdG5pjyT30Ht
 var view='feed', filter='all', selQC=null, ITEMS=[], QCQ=[], ROLE='director', WHO='', LEAD=false;
 /* 晨報彈窗狀態：BRIEF＝班表摘要（buildItems 算好）；NOTICES＝公告板（app_state new_notices）；BRIEF_AUTO＝本次啟動已自動彈過 */
 var BRIEF={rosterLine:'',rosterNames:''}, NOTICES=[], BRIEF_AUTO=false;
+/* 派工層：ASSIGN_ALL＝今天誰負責哪張卡（app_state new_assign，日期 key 隔天歸零＝每天早上重新分發）。
+   VIEW_MODE mine/all＝員工只看自己的；VIEW_AS＝主管點進度行看某人的清單；ASSIGN_MODE＝派工模式 */
+var ASSIGN_ALL={}, VIEW_MODE='mine', VIEW_AS='', ASSIGN_MODE=false;
+function assignMap(){return ASSIGN_ALL[todayKey()]||{};}
+function assignPush(){
+  var t=todayKey(),m={};m[t]=ASSIGN_ALL[t]||{};ASSIGN_ALL=m; /* 只留今天 */
+  return sb.from('app_state').upsert({key:'new_assign',value:ASSIGN_ALL,updated_at:new Date().toISOString()},{onConflict:'key'});
+}
+/* 卡片今天歸誰：task 卡沿用它自己的 assigned_to；其餘看今日派工表；null＝沒人認領 */
+function cardOwner(i){
+  if(i.kind==='task'&&i.ref&&i.ref.assigned_to)return i.ref.assigned_to;
+  return assignMap()[i.id]||null;
+}
 /* 每日收尾清單：CLOSING_ITEMS＝項目（app_state new_closing_items，老闆可編）；CLOSING_ALL＝勾選（new_closing，日期 key 隔天自動全新） */
 var CLOSING_ITEMS=[], CLOSING_ALL={};
 function closingMap(){return CLOSING_ALL[todayKey()]||{};}
@@ -391,7 +404,8 @@ async function loadAll(){
     sb.from('events').select('*').gte('date',todayKey()).lte('date',dPlus(30)).order('date',{ascending:true}),
     sb.from('staff_na').select('*').lte('start_date',dPlus(30)).gte('end_date',todayKey()),
     sb.from('app_state').select('value').eq('key','new_closing_items').maybeSingle(),
-    sb.from('app_state').select('value').eq('key','new_closing').maybeSingle()
+    sb.from('app_state').select('value').eq('key','new_closing').maybeSingle(),
+    sb.from('app_state').select('value').eq('key','new_assign').maybeSingle()
   ]);
   DB={orders:rs[0].data||[],customers:rs[1].data||[],tasks:rs[2].data||[],dialins:rs[3].data||[],
       syncs:rs[4].data||[],samples:rs[5].data||[],roasts:rs[6].data||[],beans:rs[7].data||[],
@@ -413,6 +427,9 @@ async function loadAll(){
   var ckm=rs[16]&&rs[16].data&&rs[16].data.value;
   if(typeof ckm==='string'){try{ckm=JSON.parse(ckm);}catch(e){ckm=null;}}
   CLOSING_ALL=(ckm&&typeof ckm==='object')?ckm:{};
+  var asg=rs[17]&&rs[17].data&&rs[17].data.value;
+  if(typeof asg==='string'){try{asg=JSON.parse(asg);}catch(e){asg=null;}}
+  ASSIGN_ALL=(asg&&typeof asg==='object')?asg:{};
   buildItems();
 }
 function dPlus(n){var t=new Date();t.setDate(t.getDate()+n);return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
@@ -672,32 +689,84 @@ function cardHTML(i){
   var bar=i.pin?'var(--inv)':(i.hot?'var(--accent)':cc);
   /* 標題右內距＝依 cattag 實際寬度（狀態字長＋「· now」）動態算，長標籤（如 Wholesale · now）才加寬，短的維持 92px 不浪費空間 */
   var pr=Math.max(92, 22 + String(i.st).length*8 + (i.hot?46:0));
+  /* 派工模式：卡腳換成人名膠囊（點擊輪換）；task 卡的派工在任務卡自己那邊管，這裡唯讀 */
+  var owner=cardOwner(i);
+  var foot=(ASSIGN_MODE&&!i.pin&&!i.sink)
+    ?'<div class="cfoot"><span class="moresm" style="cursor:default">'+(i.kind==='task'?'from task card':'tap to assign →')+'</span>'
+      +'<button class="actsm" data-asg="'+esc(i.id)+'"'+(i.kind==='task'?' disabled':'')+' style="background:'+(owner?'var(--accent)':'var(--line)')+';color:'+(owner?'#fff':'var(--muted)')+'">'+(owner?esc(owner):'anyone')+'</button></div>'
+    :'<div class="cfoot">'
+      +'<button class="moresm" data-more="'+esc(i.id)+'">details ▾</button>'
+      +'<button class="actsm" data-do="'+esc(i.id)+'">'+esc(i.act)+'</button></div>';
+  /* 一般模式：卡上帶「誰負責」小註記（派給我不用寫、沒人派不用寫） */
+  var ownTag=(!ASSIGN_MODE&&owner&&owner!==WHO&&i.kind!=='task')?' <span style="color:var(--muted);font-weight:500">· '+esc(owner)+'</span>':'';
   return '<div class="swipewrap" id="w-'+esc(i.id)+'">'
-    +(i.nosnooze?'':'<button class="swipeact" data-snz="'+esc(i.id)+'">Later</button>')
+    +(i.nosnooze||ASSIGN_MODE?'':'<button class="swipeact" data-snz="'+esc(i.id)+'">Later</button>')
     +'<div class="card feed'+(i.hot?' hot':'')+(i.pin?' brief':'')+'" style="border-left-color:'+bar+'" id="c-'+esc(i.id)+'">'
     +'<span class="cattag"'+(i.pin?'':' style="color:'+cc+'"')+'>● '+esc(i.st)+(i.hot?' <span style="color:var(--accent)">· now</span>':'')+'</span>'
-    +'<div class="t" style="padding-right:'+pr+'px">'+i.t+'</div><div class="s s1">'+i.s+'</div>'
-    +'<div class="cfoot">'
-    +'<button class="moresm" data-more="'+esc(i.id)+'">details ▾</button>'
-    +'<button class="actsm" data-do="'+esc(i.id)+'">'+esc(i.act)+'</button>'
-    +'</div></div></div>';
+    +'<div class="t" style="padding-right:'+pr+'px">'+i.t+ownTag+'</div><div class="s s1">'+i.s+'</div>'
+    +foot+'</div></div>';
+}
+/* 名單輪換用：今天有班的人（去重）＋自己 */
+function assignCycle(){
+  var names=todayShifts().map(function(s){return s.name;}).filter(function(n,i,a){return a.indexOf(n)===i;});
+  if(WHO&&names.indexOf(WHO)<0)names.push(WHO);
+  return names;
 }
 function renderFeed(){
   $('deck').style.display='none';
-  var list=myItems();
-  $('hcnt').textContent=(list.length-((list[0]&&list[0].pin)?1:0))+' to do · '+WHO;
+  var base=myItems();
+  $('hcnt').textContent=(base.filter(function(i){return !i.pin;}).length)+' to do · '+WHO;
   var m=$('main');
-  if(!list.length){
-    m.innerHTML='<div class="empty" style="padding-top:64px"><div style="font-size:24px">✓</div>'
+  var me=VIEW_AS||WHO,am=assignMap();
+  /* My day 視角：我的卡＋pin/hot/sink（急件防漏接、例行事全員）；沒人認領的收 Up for grabs */
+  var grabs=[],list;
+  if(VIEW_MODE==='mine'&&!ASSIGN_MODE){
+    list=base.filter(function(i){
+      if(i.pin||i.hot||i.sink)return true;
+      var o=cardOwner(i);
+      if(!o){grabs.push(i);return false;}
+      return o===me;
+    });
+  }else list=base.slice();
+  /* 視角列：My day / Everything；主管另有一行 team 進度（點人名看他的清單）；派工模式整條換臉 */
+  var mineN=(VIEW_MODE==='mine'&&!ASSIGN_MODE)?list.filter(function(i){return !i.pin;}).length
+    :base.filter(function(i){if(i.pin)return false;var o=cardOwner(i);return i.hot||i.sink||!o||o===me;}).length;
+  var allN=base.filter(function(i){return !i.pin;}).length;
+  var bars='';
+  if(ASSIGN_MODE){
+    bars='<div style="display:flex;align-items:center;gap:8px;margin:2px 0 10px"><span class="s" style="flex:1">Assigning the day — tap the name on each card</span>'
+      +'<button class="chip on" id="asg-done">Done</button></div>';
+  }else{
+    bars='<div style="display:flex;gap:6px;margin:2px 0 8px;flex-wrap:wrap">'
+      +'<button class="chip'+(VIEW_MODE==='mine'?' on':'')+'" data-vm="mine">'+(VIEW_AS?esc(VIEW_AS)+'’s day':'My day')+' · '+mineN+'</button>'
+      +'<button class="chip'+(VIEW_MODE==='all'?' on':'')+'" data-vm="all">Everything · '+allN+'</button>'
+      +(VIEW_AS?'<button class="chip" data-vw="">back to me</button>':'')
+      +'</div>';
+    if(isLead()){
+      var cyc=assignCycle(),tl='';
+      var doneOf=function(n){var d=0,t=0,sn=snoozeMap();Object.keys(am).forEach(function(id){
+        if(am[id]!==n)return;t++;
+        if(!ITEMS.some(function(x){return x.id===id;})&&!sn[id])d++;});return {d:d,t:t};};
+      cyc.forEach(function(n){var s=doneOf(n);if(!s.t&&n!==WHO)return; /* 沒派工又不是自己＝不佔位 */
+        tl+='<button class="chip" data-vw="'+esc(n)+'" style="min-height:32px;padding:4px 11px;font-size:12px'+(VIEW_AS===n?';border-color:var(--accent);color:var(--accent)':'')+'">'+(n===WHO?'Me':esc(n))+(s.t?' '+s.d+'/'+s.t:'')+'</button>';});
+      var unA=base.filter(function(i){return !i.pin&&!i.sink&&!cardOwner(i);}).length;
+      if(unA)tl+='<span class="chip" style="min-height:32px;padding:4px 11px;font-size:12px;border-style:dashed;pointer-events:none">'+unA+' unassigned</span>';
+      if(canWrite())tl+='<button class="chip" id="asg-go" style="min-height:32px;padding:4px 11px;font-size:12px">Assign</button>';
+      if(tl)bars+='<div style="display:flex;gap:6px;margin:0 0 10px;flex-wrap:wrap;align-items:center">'+tl+'</div>';
+    }
+  }
+  if(!list.length&&!grabs.length){
+    m.innerHTML=bars+'<div class="empty" style="padding-top:52px"><div style="font-size:24px">✓</div>'
       +'<div style="font-size:17px;font-weight:700;color:var(--ink);margin-top:8px">All clear — nice work</div>'
       +'<div style="margin-top:4px">Everything is done · see you tomorrow</div>'
       +'<a href="'+CLASSIC+'" style="color:var(--accent);font-size:13px">Open the classic app</a></div>';
+    bindBars(m);
     return;
   }
-  /* 版面：置頂區（晨報/急件/我的）不分組 → 站別分組（組頭可摺疊）→ undo/排序切換沉底 */
+  /* 版面：置頂區（晨報/急件/我的）不分組 → 站別分組（組頭可摺疊）→ Up for grabs → undo/排序切換沉底 */
   var top=[],rest=[];
-  list.forEach(function(i){if(i.pin||i.hot||i.mine)top.push(i);else rest.push(i);});
-  var h=top.map(cardHTML).join(''),gi=0;
+  list.forEach(function(i){if(i.pin||i.hot||(i.mine&&!VIEW_AS))top.push(i);else rest.push(i);});
+  var h=bars+top.map(cardHTML).join(''),gi=0;
   while(gi<rest.length){
     var st=rest[gi].st,grp=[];
     while(gi<rest.length&&rest[gi].st===st){grp.push(rest[gi]);gi++;}
@@ -706,20 +775,44 @@ function renderFeed(){
       +'<span class="gdot" style="background:'+(STCOLOR[st]||'#8A837C')+'"></span>'+esc(st)+' · '+grp.length+'</button>';
     if(!folded)h+=grp.map(cardHTML).join('');
   }
+  if(grabs.length){
+    var gf=FOLDED.has('__grabs');
+    h+='<button class="grphead" data-grp="__grabs"><span class="garr">'+(gf?'▸':'▾')+'</span>'
+      +'<span class="gdot" style="background:var(--line2)"></span>Up for grabs · '+grabs.length+'</button>';
+    if(!gf)h+=grabs.map(cardHTML).join('');
+  }
   h+=(SNOOZED_SESSION?'<button class="more" id="unsnooze">'+SNOOZED_SESSION+' snoozed until tomorrow · undo</button>':'')
     +'<div class="note" id="ctxline">'+CTXS[ctxIdx].label+' · swipe right = do · left = later</div>';
   m.innerHTML=h;
+  bindBars(m);
   var un=$('unsnooze');if(un)un.addEventListener('click',undoSnooze);
   m.querySelectorAll('[data-do]').forEach(function(b){b.addEventListener('click',function(){if(Date.now()-_drag<300)return;runAction(b.dataset.do,b);});});
   m.querySelectorAll('[data-more]').forEach(function(b){b.addEventListener('click',function(){if(Date.now()-_drag<300)return;openDetails(b.dataset.more);});});
   m.querySelectorAll('[data-snz]').forEach(function(b){b.addEventListener('click',function(){snoozeCard(b.dataset.snz);});});
   m.querySelectorAll('.grphead').forEach(function(g){g.addEventListener('click',function(){
     var s=g.dataset.grp;if(FOLDED.has(s))FOLDED.delete(s);else FOLDED.add(s);foldPush();render();});});
-  list.forEach(function(i){var el=document.getElementById('c-'+i.id);if(el)attachSwipe(el,i.id);});
+  /* 派工膠囊：點一下輪到下一個人（anyone → 班表順序 → 回 anyone），存 app_state 全店同步 */
+  m.querySelectorAll('[data-asg]').forEach(function(b){b.addEventListener('click',function(){
+    if(b.disabled)return;
+    var id=b.dataset.asg,cyc=[null].concat(assignCycle());
+    var cur=am[id]||null,ix=cyc.indexOf(cur),next=cyc[(ix+1)%cyc.length];
+    if(next)am[id]=next;else delete am[id];
+    ASSIGN_ALL[todayKey()]=am;
+    try{assignPush();}catch(e){}
+    renderFeed();
+  });});
+  if(!ASSIGN_MODE)list.concat(grabs).forEach(function(i){var el=document.getElementById('c-'+i.id);if(el)attachSwipe(el,i.id);});
   var cl=$('ctxline');if(cl)cl.addEventListener('click',function(){ctxIdx=(ctxIdx+1)%CTXS.length;render();toast(CTXS[ctxIdx].label);});
   /* 每天第一次進 app：自動彈 briefing（今天看過就不吵；本次啟動只彈一次） */
   var seen='';try{seen=localStorage.getItem('brief_seen')||'';}catch(e){}
   if(!BRIEF_AUTO&&myRole()!=='customer'&&seen!==todayKey()){BRIEF_AUTO=true;setTimeout(openBriefSheet,450);}
+}
+/* 視角列/進度行/派工模式的共用綁定 */
+function bindBars(m){
+  m.querySelectorAll('[data-vm]').forEach(function(b){b.addEventListener('click',function(){VIEW_MODE=b.dataset.vm;if(VIEW_MODE==='all')VIEW_AS='';renderFeed();});});
+  m.querySelectorAll('[data-vw]').forEach(function(b){b.addEventListener('click',function(){VIEW_AS=(b.dataset.vw===WHO)?'':b.dataset.vw;VIEW_MODE='mine';renderFeed();});});
+  var ag=$('asg-go');if(ag)ag.addEventListener('click',function(){if(!canWrite()){roToast();return;}ASSIGN_MODE=true;VIEW_MODE='all';renderFeed();});
+  var ad=$('asg-done');if(ad)ad.addEventListener('click',function(){ASSIGN_MODE=false;VIEW_MODE='mine';logAct('assigned the day');renderFeed();toast('Day assigned — everyone sees their own list');});
 }
 /* 貪睡統一入口：點 Later 鈕（或抽屜 det2）走這裡——toast 直接給 Undo */
 function snoozeCard(id){addSnooze(id);dropCard(id,true);toast('Snoozed — back tomorrow','Undo',undoSnooze);}
