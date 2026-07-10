@@ -169,9 +169,11 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .big{border:none;border-radius:12px;padding:13px 16px;min-height:48px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;background:var(--accent);color:#fff}
 .pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .pair button{border-radius:12px;padding:13px;min-height:48px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;background:var(--surface)}
-/* Pass 在 pair 裡仍是主色實心（.pair button 的白底特異性較高，要蓋回來） */
-.pair .big{border:none;background:var(--accent);color:#fff}
-.pair .dn{border:1.5px solid var(--danger);color:var(--danger)}
+/* 判定鈕＝紅綠燈（老闆定案）：Pass 綠、Downgrade 紅，兩顆都實心白字。
+   色票固定不隨主題翻——實心色塊自帶對比，翻色反而讓深色版的紅太亮、白字讀不清。
+   綠沿用新鮮度的 .fr-green；紅沿用淺色主題的 --danger */
+.pair .big{border:none;background:#3F9A66;color:#fff}
+.pair .dn{border:none;background:#C0392B;color:#fff}
 .qrow{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:15px 16px;margin-bottom:10px;cursor:pointer}
 .qrow.sel{border:2px solid var(--accent)}
 .qrow .t{font-size:18px}
