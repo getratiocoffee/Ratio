@@ -90,6 +90,8 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 /* Brew card 網頁版（通用手沖指南）：編號步驟＋左問題右解法的診斷行 */
 .pb-step{display:flex;gap:10px;padding:6px 0;font-size:13.5px;line-height:1.5;align-items:flex-start}
 .pb-step .n{flex:0 0 20px;height:20px;border-radius:50%;background:var(--tint);color:var(--accent);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px}
+/* 行內圈圈數字（fine-tune 用）＝與 The pour 步驟同款圓號碼，客人一眼連得回上面第幾步 */
+.pb-num{display:inline-flex;width:18px;height:18px;border-radius:50%;background:var(--tint);color:var(--accent);font-size:10.5px;font-weight:700;align-items:center;justify-content:center;vertical-align:-4px}
 .pb-step i{display:block;font-style:normal;color:var(--muted);font-size:12.5px}
 .pb-fix{display:flex;justify-content:space-between;gap:14px;padding:6px 0;font-size:13px;align-items:baseline;border-bottom:1px solid var(--line)}
 .pb-fix:last-child{border-bottom:none}
@@ -6864,7 +6866,7 @@ function showFbOverlay(ref){
       +'<div class="pb-brew-h" style="margin-top:14px">Two habits</div>'
       +P.habits.map(function(h){return '<div class="pb-step"><span class="n">·</span><span>'+esc(h)+'</span></div>';}).join('')
       +'<div class="pb-brew-h" style="margin-top:14px">Fine-tune the flavour</div>'
-      +P.finetune.map(function(f){return '<div class="pb-fix"><span>Join pours '+esc(f[0])+' + '+esc(f[1])+'</span><b>'+esc(f[2])+'</b></div>';}).join('')
+      +P.finetune.map(function(f){return '<div class="pb-fix"><span>Join <span class="pb-num">'+esc(f[0])+'</span> + <span class="pb-num">'+esc(f[1])+'</span></span><b>'+esc(f[2])+'</b></div>';}).join('')
       +'<div class="pb-note">“Join” = pour the two steps as one, without pausing between.</div>'
       +'</div>';
   }
