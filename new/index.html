@@ -272,6 +272,10 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .hit{background:var(--surface);border:1px solid var(--line2);border-radius:12px;padding:13px 15px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px}
 .hit .t{font-size:17px}
 .hit .k{flex:0 0 auto;font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--accent)}
+/* 泡泡整顆警示（Retail Info 漏網豆：上架了但店面看不到）：淡紅底＋紅框，深淺主題各一版 */
+.hit.warn{background:#FBEDEA;border-color:var(--danger)}
+@media(prefers-color-scheme:dark){:root:not(.light) .hit.warn{background:#3A2623}}
+:root.dark .hit.warn{background:#3A2623}
 </style></head><body class="appview">
 <div class="bglogo"></div>
 <div class="sbar"></div>
@@ -1888,7 +1892,7 @@ async function openRetailSheet(){
     var col=uiDot(dotColorFor(nm,dots));
     var inQC=!!inQCSet[nm.toLowerCase()];
     var unlocked=!inQC&&!(rep&&rep.flavour_locked);if(unlocked)hidN++;
-    return '<div class="hit" data-shelf="'+esc(nm)+'"><span><div class="t" style="font-size:16px">'
+    return '<div class="hit'+(unlocked?' warn':'')+'" data-shelf="'+esc(nm)+'"><span><div class="t" style="font-size:16px">'
       +(col?'<span style="color:'+col+';font-size:12px">●</span> ':'')+esc(nm)
       +(rep&&rep.process?' <span style="color:var(--muted);font-weight:400;font-size:12.5px;font-family:Inter,sans-serif">'+esc(rep.process)+'</span>':'')+'</div>'
       +'<div class="s">'+(price!=null?g+'g '+money(price):'<span class="red">no price</span>')
