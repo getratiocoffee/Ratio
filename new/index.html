@@ -33,6 +33,15 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px;transition:transform .25s,opacity .25s;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 /* Today 流卡片 v2（老闆 manager 視角評審）：類別色條＋右上角分類＋小膠囊鈕；.feed 限定不波及商店卡 */
 .card.feed{position:relative;border-left:4px solid var(--line);padding:14px 16px;margin-bottom:10px}
+/* 兩段式滑卡：wrap 墊底層 Later 鈕，卡片滑開 88px 停住、再點才貪睡（防誤滑） */
+.swipewrap{position:relative;border-radius:12px;overflow:hidden;margin-bottom:10px}
+.swipewrap .card.feed{margin-bottom:0}
+.swipeact{position:absolute;top:0;right:0;bottom:0;width:88px;border:none;background:var(--line);color:var(--muted);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;border-radius:0 12px 12px 0}
+/* 站別分組組頭：色點＋站名＋張數，點擊摺疊 */
+.grphead{display:flex;align-items:center;gap:7px;width:100%;text-align:left;background:none;border:none;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:9px 4px 7px;cursor:pointer;user-select:none;-webkit-user-select:none}
+.grphead .garr{font-size:10px;width:12px}
+.grphead .gdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.tundo{background:none;border:none;color:var(--inv-t);font-family:inherit;font-size:14px;font-weight:700;text-decoration:underline;margin-left:10px;cursor:pointer;padding:0}
 .cattag{position:absolute;top:13px;right:14px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .actsm{border:none;border-radius:999px;padding:10px 20px;min-height:44px;font-size:15px;font-weight:700;font-family:'Inter',sans-serif;background:var(--accent);color:#fff;cursor:pointer}
 .cfoot{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
@@ -106,7 +115,6 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 .act[disabled]{opacity:.45}
 .more{display:block;width:100%;text-align:center;font-size:13.5px;color:var(--muted);padding:10px 0 2px;background:none;border:none;font-family:inherit;cursor:pointer}
 .empty{text-align:center;color:var(--muted);padding:46px 20px;font-size:15px;line-height:1.7}
-.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 22px 2px;max-width:520px;margin:0 auto}
 .chip{flex:0 0 auto;border:1px solid var(--line2);background:var(--surface);color:var(--muted);border-radius:999px;padding:8px 14px;min-height:40px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
 .chip.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1.5px solid var(--ink);display:flex;gap:8px;padding:10px 20px max(env(safe-area-inset-bottom,0px) - 16px,12px);z-index:30}
@@ -213,6 +221,7 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .rs-shift.rs-empty .rs-nm{color:var(--muted);font-weight:500}
 .rs-none{padding:10px 13px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
 .toast{position:fixed;left:50%;transform:translateX(-50%) translateY(20px);bottom:150px;background:var(--inv);color:var(--inv-t);border-radius:999px;padding:11px 22px;font-size:15px;font-weight:600;opacity:0;transition:all .3s;z-index:60;pointer-events:none;white-space:nowrap;max-width:88vw;overflow:hidden;text-overflow:ellipsis}
+.toast.act{pointer-events:auto}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .note{font-size:12.5px;color:var(--muted);text-align:center;margin:6px 14px 0;line-height:1.6}
 .search{width:100%;border:1.5px solid var(--line2);border-radius:12px;padding:15px 16px;font-size:16px;font-family:inherit;background:var(--surface);color:var(--ink);outline:none;margin-bottom:6px}
@@ -230,7 +239,6 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 <div class="bglogo"></div>
 <div class="sbar"></div>
 <header><span class="hspace"></span><span class="brand" id="hbrand"><span class="brandlogo" role="img" aria-label="Ratio"></span></span><span class="cnt" id="hcnt">loading…</span></header>
-<div class="chips" id="chips"></div>
 <div class="wrap" id="main"><div class="empty">Loading your day…</div></div>
 <div class="deck" id="deck" style="display:none"></div>
 <nav>
@@ -301,7 +309,12 @@ var DB={orders:[],customers:[],tasks:[],dialins:[],syncs:[],samples:[],roasts:[]
 var _drag=0;
 function $(id){return document.getElementById(id);}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-function toast(m){var t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('show');},2000);}
+/* toast 第二形態：帶一顆可點的動作字（Undo）——有動作時停久一點、開放點擊 */
+function toast(m,act,fn){var t=$('toast');
+  if(act){t.innerHTML=esc(m)+'<button class="tundo">'+esc(act)+'</button>';t.classList.add('act');
+    t.querySelector('.tundo').addEventListener('click',function(){t.classList.remove('show','act');clearTimeout(t._h);fn();});}
+  else{t.textContent=m;t.classList.remove('act');}
+  t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('show','act');},act?4500:2000);}
 function money(n){return '$'+(Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function daysSince(ts){if(!ts)return 0;var d=new Date(ts);return isNaN(d)?0:Math.floor((Date.now()-d)/86400000);}
 function fmtD(s){if(!s)return '';var p=String(s).slice(0,10).split('-');return p.length===3?(p[2]+'/'+p[1]):s;}
@@ -611,47 +624,68 @@ function myItems(){
       var kb=(b.pin?-99:0)+(b.mine?-50:0)+(c.pr[b.st]||8)+(b.hot?0:.5);
       return ka-kb;});
 }
-function renderChips(){
-  var el=$('chips');
-  if(view!=='feed'){el.innerHTML='';return;}
-  var r=myRole(),sts={},tot=0;
-  ITEMS.forEach(function(i){if(!i.pin&&i.roles.indexOf(r)>-1){sts[i.st]=(sts[i.st]||0)+1;tot++;}});
-  var h='<button class="chip'+(filter==='all'?' on':'')+'" data-f="all">All '+tot+'</button>';
-  Object.keys(sts).forEach(function(k){h+='<button class="chip'+(filter===k?' on':'')+'" data-f="'+k+'"><span style="color:'+(STCOLOR[k]||'#8A837C')+'">●</span> '+k+' '+sts[k]+'</button>';});
-  el.innerHTML=h;
-  el.querySelectorAll('.chip').forEach(function(c){c.addEventListener('click',function(){filter=c.dataset.f;render();});});
+/* 站別 chips 列已退役（2026-07）：計數交給分組組頭、「只看某站」＝摺疊其他組；filter 機制保留備用 */
+/* 分組摺疊狀態：個人瀏覽偏好，session 內記住即可（不進 app_state） */
+var FOLDED=(function(){try{return new Set(JSON.parse(sessionStorage.getItem('feed_folded')||'[]'));}catch(e){return new Set();}})();
+function foldPush(){try{sessionStorage.setItem('feed_folded',JSON.stringify(Array.from(FOLDED)));}catch(e){}}
+function cardHTML(i){
+  var cc=STCOLOR[i.st]||'#8A837C';
+  /* 左色條：急件 accent 紅、晨報反白卡隱形（同 inv 底色）、其餘照類別色 */
+  var bar=i.pin?'var(--inv)':(i.hot?'var(--accent)':cc);
+  /* 標題右內距＝依 cattag 實際寬度（狀態字長＋「· now」）動態算，長標籤（如 Wholesale · now）才加寬，短的維持 92px 不浪費空間 */
+  var pr=Math.max(92, 22 + String(i.st).length*8 + (i.hot?46:0));
+  return '<div class="swipewrap" id="w-'+esc(i.id)+'">'
+    +'<button class="swipeact" data-snz="'+esc(i.id)+'">Later</button>'
+    +'<div class="card feed'+(i.hot?' hot':'')+(i.pin?' brief':'')+'" style="border-left-color:'+bar+'" id="c-'+esc(i.id)+'">'
+    +'<span class="cattag"'+(i.pin?'':' style="color:'+cc+'"')+'>● '+esc(i.st)+(i.hot?' <span style="color:var(--accent)">· now</span>':'')+'</span>'
+    +'<div class="t" style="padding-right:'+pr+'px">'+i.t+'</div><div class="s s1">'+i.s+'</div>'
+    +'<div class="cfoot">'
+    +'<button class="moresm" data-more="'+esc(i.id)+'">details ▾</button>'
+    +'<button class="actsm" data-do="'+esc(i.id)+'">'+esc(i.act)+'</button>'
+    +'</div></div></div>';
 }
 function renderFeed(){
   $('deck').style.display='none';
   var list=myItems();
   $('hcnt').textContent=(list.length-((list[0]&&list[0].pin)?1:0))+' to do · '+WHO;
   var m=$('main');
-  if(!list.length){m.innerHTML='<div class="empty">All clear — nothing needs you right now ☕<br><a href="'+CLASSIC+'" style="color:var(--accent)">Open the classic app</a></div>';return;}
-  m.innerHTML='<div class="note" id="ctxline">'+CTXS[ctxIdx].label+' · swipe right = do · left = later</div>'
-    +list.map(function(i){
-      var cc=STCOLOR[i.st]||'#8A837C';
-      /* 左色條：急件 accent 紅、晨報反白卡隱形（同 inv 底色）、其餘照類別色 */
-      var bar=i.pin?'var(--inv)':(i.hot?'var(--accent)':cc);
-      /* 標題右內距＝依 cattag 實際寬度（狀態字長＋「· now」）動態算，長標籤（如 Wholesale · now）才加寬，短的維持 92px 不浪費空間 */
-      var pr=Math.max(92, 22 + String(i.st).length*8 + (i.hot?46:0));
-      return '<div class="card feed'+(i.hot?' hot':'')+(i.pin?' brief':'')+'" style="border-left-color:'+bar+'" id="c-'+esc(i.id)+'">'
-        +'<span class="cattag"'+(i.pin?'':' style="color:'+cc+'"')+'>● '+esc(i.st)+(i.hot?' <span style="color:var(--accent)">· now</span>':'')+'</span>'
-        +'<div class="t" style="padding-right:'+pr+'px">'+i.t+'</div><div class="s s1">'+i.s+'</div>'
-        +'<div class="cfoot">'
-        +'<button class="moresm" data-more="'+esc(i.id)+'">details ▾</button>'
-        +'<button class="actsm" data-do="'+esc(i.id)+'">'+esc(i.act)+'</button>'
-        +'</div></div>';
-    }).join('')
-    +(SNOOZED_SESSION?'<button class="more" id="unsnooze">'+SNOOZED_SESSION+' snoozed until tomorrow · undo</button>':'');
+  if(!list.length){
+    m.innerHTML='<div class="empty" style="padding-top:64px"><div style="font-size:24px">✓</div>'
+      +'<div style="font-size:17px;font-weight:700;color:var(--ink);margin-top:8px">All clear — nice work</div>'
+      +'<div style="margin-top:4px">Everything is done · see you tomorrow</div>'
+      +'<a href="'+CLASSIC+'" style="color:var(--accent);font-size:13px">Open the classic app</a></div>';
+    return;
+  }
+  /* 版面：置頂區（晨報/急件/我的）不分組 → 站別分組（組頭可摺疊）→ undo/排序切換沉底 */
+  var top=[],rest=[];
+  list.forEach(function(i){if(i.pin||i.hot||i.mine)top.push(i);else rest.push(i);});
+  var h=top.map(cardHTML).join(''),gi=0;
+  while(gi<rest.length){
+    var st=rest[gi].st,grp=[];
+    while(gi<rest.length&&rest[gi].st===st){grp.push(rest[gi]);gi++;}
+    var folded=FOLDED.has(st);
+    h+='<button class="grphead" data-grp="'+esc(st)+'"><span class="garr">'+(folded?'▸':'▾')+'</span>'
+      +'<span class="gdot" style="background:'+(STCOLOR[st]||'#8A837C')+'"></span>'+esc(st)+' · '+grp.length+'</button>';
+    if(!folded)h+=grp.map(cardHTML).join('');
+  }
+  h+=(SNOOZED_SESSION?'<button class="more" id="unsnooze">'+SNOOZED_SESSION+' snoozed until tomorrow · undo</button>':'')
+    +'<div class="note" id="ctxline">'+CTXS[ctxIdx].label+' · swipe right = do · left = later</div>';
+  m.innerHTML=h;
   var un=$('unsnooze');if(un)un.addEventListener('click',undoSnooze);
   m.querySelectorAll('[data-do]').forEach(function(b){b.addEventListener('click',function(){if(Date.now()-_drag<300)return;runAction(b.dataset.do,b);});});
   m.querySelectorAll('[data-more]').forEach(function(b){b.addEventListener('click',function(){if(Date.now()-_drag<300)return;openDetails(b.dataset.more);});});
+  m.querySelectorAll('[data-snz]').forEach(function(b){b.addEventListener('click',function(){snoozeCard(b.dataset.snz);});});
+  m.querySelectorAll('.grphead').forEach(function(g){g.addEventListener('click',function(){
+    var s=g.dataset.grp;if(FOLDED.has(s))FOLDED.delete(s);else FOLDED.add(s);foldPush();render();});});
   list.forEach(function(i){var el=document.getElementById('c-'+i.id);if(el)attachSwipe(el,i.id);});
   var cl=$('ctxline');if(cl)cl.addEventListener('click',function(){ctxIdx=(ctxIdx+1)%CTXS.length;render();toast(CTXS[ctxIdx].label);});
 }
+/* 貪睡統一入口：點 Later 鈕（或抽屜 det2）走這裡——toast 直接給 Undo */
+function snoozeCard(id){addSnooze(id);dropCard(id,true);toast('Snoozed — back tomorrow','Undo',undoSnooze);}
 function item(id){return ITEMS.find(function(x){return x.id===id;});}
 function dropCard(id,left){
-  var el=document.getElementById('c-'+id);
+  /* 有 swipewrap 就平移整個 wrap（連底層 Later 鈕一起走），沒有才退回卡片本體 */
+  var el=document.getElementById('w-'+id)||document.getElementById('c-'+id);
   if(el){el.style.transition='transform .22s,opacity .22s';el.style.transform='translateX('+(left?'-':'')+'110%)';el.style.opacity='0';}
   setTimeout(function(){ITEMS=ITEMS.filter(function(x){return x.id!==id;});render();},210);
 }
@@ -822,7 +856,7 @@ function openDetails(id){
       catch(e){alert('Reminder failed: '+(e&&e.message||e));}
     }
     else if(i.det2==='Open classic app'){location.href=CLASSIC;}
-    else if(i.det2==='Not today'||i.det2==='Later'){addSnooze(id);dropCard(id,true);toast('Snoozed — back tomorrow');}
+    else if(i.det2==='Not today'||i.det2==='Later'){snoozeCard(id);}
   });
   $('d-cl').addEventListener('click',closeDrawer);
 }
@@ -3150,26 +3184,42 @@ async function saveRoastSheet(){
     alert('Log failed: '+(e&&e.message||e));
   }
 }
-/* ===== 滑卡 ===== */
+/* ===== 滑卡（兩段式）=====
+   右滑 >35% 寬＝直接做（照舊）。左滑不再直接貪睡：過門檻放手 → 卡片停在 -88px
+   露出底層 Later 鈕，要「再點 Later」才真的睡（防誤滑）；點卡片本體/滑開別張＝彈回 */
+var SWIPE_OPEN=null; /* 目前滑開露出 Later 的卡 id——一次只開一張 */
+function closeSwipe(){
+  if(!SWIPE_OPEN)return;
+  var el=document.getElementById('c-'+SWIPE_OPEN);
+  if(el){el.style.transition='transform .2s';el.style.transform='';}
+  SWIPE_OPEN=null;
+}
 function attachSwipe(el,id){
   if(!canWrite())return; /* read-only：不綁滑卡（右做左睡都是寫入/共用貪睡） */
-  /* 誤觸防護：①方向鎖——先確認是「明確的橫向」才開始滑（斜滑/直捲直接放棄）
-     ②門檻加大——要滑過卡片寬度的 35%（做）/ 45%（貪睡）才觸發 */
-  var x0=null,y0=0,dx=0,locked=false,dead=false;
+  /* 誤觸防護：方向鎖——先確認是「明確的橫向」才開始滑（斜滑/直捲直接放棄） */
+  var x0=null,y0=0,dx=0,locked=false,dead=false,wasOpen=false;
   var barC=el.style.borderLeftColor; /* 類別色條：borderColor 清空會連左條一起洗掉，回彈時補回 */
-  function reset(anim){el.style.transition=anim?'transform .25s':'none';el.style.transform='';el.style.borderColor='';el.style.borderLeftColor=barC;x0=null;dx=0;locked=false;dead=false;}
-  el.addEventListener('pointerdown',function(e){if(e.target.closest('button'))return;x0=e.clientX;y0=e.clientY;dx=0;locked=false;dead=false;try{el.setPointerCapture(e.pointerId);}catch(err){}el.style.transition='none';});
+  function reset(anim){el.style.transition=anim?'transform .25s':'none';el.style.transform='';el.style.borderColor='';el.style.borderLeftColor=barC;x0=null;dx=0;locked=false;dead=false;if(SWIPE_OPEN===id)SWIPE_OPEN=null;}
+  el.addEventListener('pointerdown',function(e){
+    if(e.target.closest('button'))return;
+    wasOpen=(SWIPE_OPEN===id);
+    if(SWIPE_OPEN&&SWIPE_OPEN!==id)closeSwipe(); /* 滑開別張＝先收舊的 */
+    x0=e.clientX;y0=e.clientY;dx=0;locked=false;dead=false;
+    try{el.setPointerCapture(e.pointerId);}catch(err){}
+    el.style.transition='none';
+  });
   el.addEventListener('pointermove',function(e){
     if(x0==null||dead)return;
     dx=e.clientX-x0;var dy=e.clientY-y0;
     if(!locked){
-      if(Math.abs(dy)>14&&Math.abs(dy)>Math.abs(dx)){dead=true;el.style.transform='';el.style.borderColor='';el.style.borderLeftColor=barC;return;}
+      if(Math.abs(dy)>14&&Math.abs(dy)>Math.abs(dx)){dead=true;el.style.transform=wasOpen?'translateX(-88px)':'';el.style.borderColor='';el.style.borderLeftColor=barC;return;}
       if(Math.abs(dx)>18&&Math.abs(dx)>Math.abs(dy)*1.6)locked=true;
       else return;
     }
-    el.style.transform='translateX('+dx*0.9+'px)';
+    var base=wasOpen?-88:0;
+    el.style.transform='translateX('+Math.max(-118,base+dx*0.9)+'px)';
     var w=el.offsetWidth;
-    var bc=dx>w*0.25?'var(--accent)':(dx<-w*0.3?'var(--muted)':'');
+    var bc=(base+dx)>w*0.25?'var(--accent)':'';
     el.style.borderColor=bc;
     el.style.borderLeftColor=bc||barC; /* 沒過門檻時左條維持類別色 */
   });
@@ -3177,11 +3227,15 @@ function attachSwipe(el,id){
   el.addEventListener('pointerup',function(){
     if(x0==null)return;
     if(Math.abs(dx)>10)_drag=Date.now();
-    var w=el.offsetWidth;
-    if(locked&&dx>w*0.35){var i=item(id);reset(true);if(i)runAction(id,null);}
-    else if(locked&&dx<-w*0.45){addSnooze(id);dropCard(id,true);toast('Snoozed — back tomorrow');x0=null;dx=0;locked=false;}
-    else reset(true);
+    var w=el.offsetWidth,end=(wasOpen?-88:0)+dx;
+    if(locked&&end>w*0.35){var i=item(id);reset(true);if(i)runAction(id,null);return;}
+    el.style.transition='transform .2s';el.style.borderColor='';el.style.borderLeftColor=barC;
+    if(locked&&end<-60){el.style.transform='translateX(-88px)';SWIPE_OPEN=id;} /* 停在滑開態，等點 Later */
+    else{el.style.transform='';if(SWIPE_OPEN===id)SWIPE_OPEN=null;}
+    x0=null;dx=0;locked=false;dead=false;
   });
+  /* 滑開態下點卡片本體＝收回（不觸發卡片動作；剛放手 300ms 內的 click 是拖曳尾勁，略過） */
+  el.addEventListener('click',function(){if(SWIPE_OPEN===id&&Date.now()-_drag>300)closeSwipe();});
 }
 /* ===== QC 工作台 ===== */
 function renderQC(){
@@ -6093,7 +6147,6 @@ async function enablePush(btn){
 }
 if('serviceWorker' in navigator){try{navigator.serviceWorker.register('/new/sw.js');}catch(e){}}
 function render(){
-  renderChips();
   /* 浮水印只給今日流：內容少的頁（QC/Tools）整塊露出來像破圖 */
   var bgl=document.querySelector('.bglogo');if(bgl)bgl.style.display='';
   if(view==='feed')renderFeed();else if(view==='qc')renderQC();else renderTools();
