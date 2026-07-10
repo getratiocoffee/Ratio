@@ -57,6 +57,13 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-10 之五（Social Images：自選底色＋每張產出物標註設定）
+- **背景**：老闆兩需求①白底版底色可選（原寫死 #FAF8F4）②每張產出要註明用了什麼設定（多批下載後分不清，不好調整）。拍板：標註放**縮圖＋檔名**、圖片本身乾淨可直接發 IG；底色＝預設色票＋自訂色盤。計畫檔 `~/.claude/plans/social-media-valiant-raven.md`。
+- **底色**：全域 `SOC_BG`（預設米白）＋`SOC_SWATCHES` 六色（米白/亞麻/淡玫瑰/鼠尾草/深棕/墨黑）＋`socBgIsDark()`（luma 公式同 photoIsDark）。抽屜段選 White 改名 **Colour**，下方 `soc-bgwrap` 色票列（只在 Colour 模式顯示）＋`<input type=color>` 自訂。**深底自動翻淺字**＝借 photo 深照片整套現成機制（_socTheme/雷達淺 grid/_liftColour 提亮），QR 白框永遠保留可掃。底色硬編碼改了三處：_socShell bg、html2canvas backgroundColor、_soc1080 保底補色——全跟 renderSocialImages 算出的 bg 走，並回傳 `bg` 給呼叫端。
+- **標註**：exportSocialImages 組 `tag`（colour #HEX／transparent／photo · fade N%）→ 每張縮圖下加第二行灰字 tag＋標題行 lbl＋檔名後綴（自訂色 `-bg-EFE6D8`、photo 補 `-photo-fade60`；**米白預設照舊無後綴**、transparent 照舊）。兩個入口（Social Images 抽屜＋貨架 Social post kit）走同一個 exportSocialImages 都受惠。
+- **不動**：photo/clear 行為、Square 商品圖自動 photo 版（L3222）、Folding Info Card。底色不存 app_state（session 全域，同 SOC_MODE）。
+- **驗證**：jscheck ✓；本機 8125 真跑 html2canvas——亞麻底角落像素 #EFE6D8 ✓、墨黑底 #241E1B＋dark=true 淺字 ✓；抽屜 DOM（色票只在 Colour 顯示/點選換色換框/自訂色盤）✓；檔名三模式 ✓；深底四張截圖含拼配明細與 QR 白框 ✓；boot 無 console error ✓。
+
 ## 〇、補記 — 2026-07-10 之四（Social Images ↔ Folding Info Card 內容單一事實源）
 - **背景**：老闆要「Social Images 四張圖＝Folding Info Card 四頁，改一邊內容另一邊要同步」。盤點結論：**豆子資料本來就同步**（兩邊同樣走 samples flavour_locked 優先 row＋cardDots 點色＋beanInfoRows 明細＋features/comment/雷達）；真正各抄一份的是**固定文案與連結組法**。
 - **做法**：新殼 `renderSocialImages` 區塊頂新增單一事實源（約 L2245）：`CARD_TEXT`（brand/tagline/scan/ig/email/footer 六句）＋`cardBeanUrl(nm)`/`cardQrSrc(nm)`（?bean 連結與 qrserver 組法）。social 四張（socialCoverHTML/socialQrHTML/renderSocialImages）與 `openInfoCardPrint`（A4 摺卡）全部改引用，grep 確認舊字串歸零只剩定義一份。**以後改店帳號/email/標語/掃描語＝只改 CARD_TEXT，兩邊（含 Square 商品圖——它走同一個 renderSocialImages）一起變。**

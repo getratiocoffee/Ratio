@@ -2268,7 +2268,7 @@ function _socScrimBg(tint,scrim){
    clear＝透明底；QR 那張的白色相框永遠保留，不然掃不到 */
 function _socShell(inner,o){
   o=o||{};var T=o.T||_socTheme(false);
-  var bg=o.mode==='clear'?'transparent':'#FAF8F4';
+  var bg=o.mode==='clear'?'transparent':(o.bg||'#FAF8F4');
   var layers='';
   if(o.mode==='photo'&&o.photo){
     var tint=o.dark?'20,16,14':'250,248,244';
@@ -2338,8 +2338,18 @@ function socialQrHTML(qrSrc,col,o){
     +'</div>',o);
 }
 /* Daily task 快速入口（暫放）：列 QC 通過的豆 → 選一支就地產四張社群圖，不用繞進 Social post kit */
-var SOC_MODE='white';  /* white=米白底（直接發 IG）／clear=透明／photo=該豆的背景照 */
+var SOC_MODE='white';  /* white=素色底（直接發 IG）／clear=透明／photo=該豆的背景照 */
 var SOC_SCRIM=null;    /* 紗的濃度：null=自動（深照片配白字不用壓太重，淺照片要壓深字才讀得到）；拖過滑桿就固定 */
+var SOC_BG='#FAF8F4';  /* white 模式的底色（老闆可換色）；預設米白＝原本的固定值 */
+/* 底色色票：貼紙白玫瑰語言——米白（預設）/亞麻/淡玫瑰/鼠尾草/深棕/墨黑；自訂色盤在最後 */
+var SOC_SWATCHES=['#FAF8F4','#EFE6D8','#E9D5D0','#D8DFD3','#3E322B','#241E1B'];
+/* 底色深淺（luma 公式同 photoIsDark）：深底自動沿用 photo 深照片那套翻淺字機制 */
+function socBgIsDark(hex){
+  var m=/^#?([0-9a-f]{6})$/i.exec(String(hex||''));
+  if(!m)return false;
+  var n=parseInt(m[1],16);
+  return (0.2126*((n>>16)&255)+0.7152*((n>>8)&255)+0.0722*(n&255))<140;
+}
 function socScrim(dark){return SOC_SCRIM==null?(dark?0.48:0.72):SOC_SCRIM;}
 var SOC_PHOTOS={};     /* {slug:true} 哪些豆子已經有照片 */
 var SOC_NOTE={
@@ -2370,7 +2380,17 @@ async function openSocialSplitSheet(){
   }
   openDrawerHTML('<div class="t" style="font-size:19px">Social images</div>'
     +'<div class="s" style="margin-top:2px">Pick a coffee → four square images (cover · radar · origin · QR) for a carousel</div>'
-    +'<div class="pm-seg"><button id="soc-w">White</button><button id="soc-t">Transparent</button><button id="soc-p">Photo</button></div>'
+    +'<div class="pm-seg"><button id="soc-w">Colour</button><button id="soc-t">Transparent</button><button id="soc-p">Photo</button></div>'
+    /* 底色列（只在 Colour 模式顯示）：色票一鍵選＋最後一顆自訂色盤；深底會自動翻淺字 */
+    +'<div id="soc-bgwrap" style="margin-top:12px">'
+      +'<div class="dlab" style="display:flex;justify-content:space-between"><span>Background colour</span><span id="soc-bghex">'+SOC_BG.toUpperCase()+'</span></div>'
+      +'<div style="display:flex;gap:9px;align-items:center;margin-top:6px;flex-wrap:wrap">'
+        +SOC_SWATCHES.map(function(c){return '<button data-bg="'+c+'" aria-label="'+c+'" style="flex:none;width:34px;height:34px;border-radius:50%;background:'+c+';border:2px solid '+(c.toLowerCase()===SOC_BG.toLowerCase()?'var(--accent)':'var(--line2)')+';cursor:pointer;padding:0"></button>';}).join('')
+        +'<label style="flex:none;width:34px;height:34px;border-radius:50%;border:2px dashed var(--line2);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px;cursor:pointer;position:relative">+'
+          +'<input type="color" id="soc-bgpick" value="'+SOC_BG+'" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>'
+      +'</div>'
+      +'<div class="s" style="color:var(--muted);font-size:12.5px;margin-top:6px">Dark colours flip the text to light automatically</div>'
+    +'</div>'
     +'<div id="soc-scrimwrap" style="display:none;margin-top:12px">'
       +'<div class="dlab" style="display:flex;justify-content:space-between"><span>Background fade</span><span id="soc-scrimval">'+(SOC_SCRIM==null?'Auto':Math.round(SOC_SCRIM*100)+'%')+'</span></div>'
       +'<input type="range" id="soc-scrim" min="20" max="92" value="'+(SOC_SCRIM==null?60:Math.round(SOC_SCRIM*100))+'" style="width:100%;accent-color:var(--accent)">'
@@ -2390,7 +2410,17 @@ async function openSocialSplitSheet(){
     $('soc-p').className=m==='photo'?'on':'';
     $('soc-note').textContent=SOC_NOTE[m];
     $('soc-scrimwrap').style.display=m==='photo'?'':'none';
+    $('soc-bgwrap').style.display=m==='white'?'':'none';
   }
+  function bgSet(c){
+    SOC_BG=c;
+    $('soc-bghex').textContent=c.toUpperCase();
+    document.querySelectorAll('#soc-bgwrap [data-bg]').forEach(function(b){
+      b.style.borderColor=b.dataset.bg.toLowerCase()===c.toLowerCase()?'var(--accent)':'var(--line2)';
+    });
+  }
+  document.querySelectorAll('#soc-bgwrap [data-bg]').forEach(function(b){b.addEventListener('click',function(){bgSet(b.dataset.bg);});});
+  $('soc-bgpick').addEventListener('input',function(){bgSet(this.value);});
   $('soc-w').addEventListener('click',function(){segSet('white');});
   $('soc-t').addEventListener('click',function(){segSet('clear');});
   $('soc-p').addEventListener('click',function(){segSet('photo');});
@@ -2453,12 +2483,12 @@ async function socialSplitPick(s){
 /* 透明縮圖的棋盤格襯底——不然抽屜裡看不出哪張是透明的 */
 var _SOC_CHK='background-image:linear-gradient(45deg,#c9c4be 25%,transparent 25%),linear-gradient(-45deg,#c9c4be 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#c9c4be 75%),linear-gradient(-45deg,transparent 75%,#c9c4be 75%);background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0px;background-color:#fff';
 /* 保底：截圖尺寸不是 1080 見方就縮放補正（IG 要正方形）。透明版不補底色也不能轉 JPEG */
-function _soc1080(cv,mode,fmt,q){
+function _soc1080(cv,mode,fmt,q,bg){
   fmt=fmt||'image/png';
   if(cv.width===1080&&cv.height===1080)return cv.toDataURL(fmt,q);
   var o=document.createElement('canvas');o.width=1080;o.height=1080;
   var g=o.getContext('2d');
-  if(mode!=='clear'){g.fillStyle='#FAF8F4';g.fillRect(0,0,1080,1080);}
+  if(mode!=='clear'){g.fillStyle=bg||'#FAF8F4';g.fillRect(0,0,1080,1080);}
   g.drawImage(cv,0,0,1080,1080);
   return o.toDataURL(fmt,q);
 }
@@ -2475,7 +2505,10 @@ async function renderSocialImages(full,info,feats,nm,col,mode,opts){
     photo=await loadBeanPhotoData(nm);
     if(!photo)throw new Error('No photo saved for '+nm+' yet — tap Photo to choose one');
   }
-  var dark=photo?await photoIsDark(photo):false;
+  /* white 模式的底色跟 SOC_BG 走（老闆可換色）；photo/clear 不吃底色。
+     深底色沿用 photo 深照片那套：字翻米白、雷達 grid 翻淺、點色提亮 */
+  var bg=mode==='white'?(SOC_BG||'#FAF8F4'):'#FAF8F4';
+  var dark=photo?await photoIsDark(photo):(mode==='white'?socBgIsDark(bg):false);
   var T=_socTheme(dark);
   var scrim=socScrim(dark);
   /* 版面固定黑白：呼叫端傳進來的 col 是 dotColorFor() 的罐標色（黃/藍/紅），那是店裡貨架
@@ -2486,7 +2519,7 @@ async function renderSocialImages(full,info,feats,nm,col,mode,opts){
   var radarCol=col||'#B25E6A';
   if(dark)radarCol=_liftColour(radarCol,0.45);
   col=T.ink;
-  var o={mode:mode,photo:photo,scrim:scrim,dark:dark,T:T,dot:radarCol,
+  var o={mode:mode,photo:photo,scrim:scrim,dark:dark,T:T,dot:radarCol,bg:bg,
     logo:await _socLogo(T.ink), drop:await _socDrop(col), bean:await _socBean(col)};
   var sc={fragrance:full.fragrance,acidity:full.acidity,sweetness:full.sweetness,body:full.body,aftertaste:full.aftertaste};
   var radar=printRadarPNG(sc,radarCol,dark?{grid:'rgba(247,242,237,.32)',label:T.muted}:{});
@@ -2505,11 +2538,11 @@ async function renderSocialImages(full,info,feats,nm,col,mode,opts){
       if(im.src.slice(0,5)!=='data:')im.crossOrigin='anonymous';
       return (im.complete&&im.naturalWidth)?Promise.resolve():new Promise(function(r){im.onload=r;im.onerror=r;});
     }));
-    var canvas=await html2canvas(host.firstChild,{scale:1,useCORS:true,backgroundColor:mode==='clear'?null:'#FAF8F4'});
-    out.push([defs[i][0],_soc1080(canvas,mode,opts.fmt,opts.quality)]);
+    var canvas=await html2canvas(host.firstChild,{scale:1,useCORS:true,backgroundColor:mode==='clear'?null:bg});
+    out.push([defs[i][0],_soc1080(canvas,mode,opts.fmt,opts.quality,bg)]);
     host.remove();
   }
-  return {images:out,dark:dark,scrim:scrim};
+  return {images:out,dark:dark,scrim:scrim,bg:bg};
 }
 /* mode: 'white'（預設）｜'clear' 透明｜'photo' 該豆的背景照鋪四張 */
 async function exportSocialImages(full,info,feats,nm,col,btn,mode){
@@ -2522,13 +2555,16 @@ async function exportSocialImages(full,info,feats,nm,col,btn,mode){
     var r=await renderSocialImages(full,info,feats,nm,col,mode,{onStep:function(m){
       if(box)box.innerHTML='<div class="s" style="margin-top:8px;color:var(--muted)">'+esc(m)+'</div>';
     }});
-    var out=r.images,dark=r.dark,scrim=r.scrim;
-    var sfx=mode==='clear'?'-transparent':(mode==='photo'?'-photo':'');
+    var out=r.images,dark=r.dark,scrim=r.scrim,bg=r.bg||'#FAF8F4';
+    var bghex=bg.replace('#','').toUpperCase();
+    /* 設定描述 tag：每張縮圖下標一行、檔名帶後綴——以後回頭看檔案就知道那批用了什麼設定（老闆點名） */
+    var tag=mode==='clear'?'transparent':(mode==='photo'?'photo · fade '+Math.round(scrim*100)+'%':'colour #'+bghex);
+    var sfx=mode==='clear'?'-transparent':(mode==='photo'?'-photo-fade'+Math.round(scrim*100):(bghex==='FAF8F4'?'':'-bg-'+bghex));
     var thumbBg=mode==='clear'?_SOC_CHK:'';
-    var lbl=mode==='clear'?' · transparent background':(mode==='photo'?' · photo background · '+(dark?'light text':'dark text')+' · fade '+Math.round(scrim*100)+'%':'');
+    var lbl=' · '+tag+((mode==='photo'||dark)?' · '+(dark?'light text':'dark text'):'');
     if(box)box.innerHTML='<div class="dlab">Four images'+lbl+' — tap each to save</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">'
-      +out.map(function(r,ix){return '<a download="ratio-'+beanSlug(nm)+'-'+(ix+1)+'-'+r[0]+sfx+'.png" href="'+r[1]+'" style="text-decoration:none"><img src="'+r[1]+'" style="width:100%;display:block;border:1px solid var(--line);border-radius:10px;'+thumbBg+'"><div style="text-align:center;font-size:12.5px;color:var(--accent);margin:4px 0 2px">'+(ix+1)+' · '+r[0]+' ↓</div></a>';}).join('')
+      +out.map(function(r,ix){return '<a download="ratio-'+beanSlug(nm)+'-'+(ix+1)+'-'+r[0]+sfx+'.png" href="'+r[1]+'" style="text-decoration:none"><img src="'+r[1]+'" style="width:100%;display:block;border:1px solid var(--line);border-radius:10px;'+thumbBg+'"><div style="text-align:center;font-size:12.5px;color:var(--accent);margin:4px 0 0">'+(ix+1)+' · '+r[0]+' ↓</div><div style="text-align:center;font-size:11.5px;color:var(--muted);margin:0 0 2px">'+esc(tag)+'</div></a>';}).join('')
       +'</div>';
     if(btn){btn.disabled=false;btn.textContent=orig;}
   }catch(e){
