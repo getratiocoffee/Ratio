@@ -76,8 +76,11 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 .shopimghold{width:100%;aspect-ratio:790/1096;overflow:hidden;position:relative;border-bottom:1px solid var(--line)}
 /* 舊的品牌卡帶 Square 安全白邊，放大裁掉 */
 .shopimghold .shopimg{position:absolute;width:151.9%;left:-25.95%;top:-4.74%;height:auto;display:block}
-/* 照片版四連圖：正方框（直式框會把產區那張的標題裁掉）＋卡上就能左右滑四張 */
-.shopimghold.sq{aspect-ratio:1}
+/* 照片版四連圖：正方框（直式框會把產區那張的標題裁掉）＋卡上就能左右滑四張
+   內描邊界定圖片邊緣——深色下 --surface 與 --bg 同色，深色照片會讓整張卡沉進背景。
+   ⚠ 是 inset 不是 border：.card 已有一圈 1px --line，再加外框會變雙框 */
+.shopimghold.sq{aspect-ratio:1;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
+.shopc.photo{border-color:var(--line2)}
 .shopimghold.sq .shopimg{position:static;width:100%;height:100%;left:auto;top:auto;object-fit:cover}
 .shopslide{display:flex;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
 .shopslide::-webkit-scrollbar{display:none}
@@ -85,6 +88,9 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 .shopimgdots{position:absolute;left:0;right:0;bottom:9px;display:flex;justify-content:center;gap:6px;pointer-events:none}
 .shopimgdots span{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.5);box-shadow:0 0 2px rgba(0,0,0,.35)}
 .shopimgdots span.on{background:#fff}
+/* 夜版的內描邊要是亮的（深色照片配深色卡） */
+@media(prefers-color-scheme:dark){:root:not(.light) .shopimghold.sq{box-shadow:inset 0 0 0 1px rgba(255,255,255,.10)}}
+:root.dark .shopimghold.sq{box-shadow:inset 0 0 0 1px rgba(255,255,255,.10)}
 /* 商品明細的四連圖：橫向滑，一次一張 */
 .shopgal{display:flex;align-items:flex-start;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;margin-top:12px;padding-bottom:2px}
 .shopgal::-webkit-scrollbar{display:none}
@@ -1689,8 +1695,19 @@ async function _socLogo(col){
    資料源同 Folding Info Card。截圖直接呼叫 html2canvas 對元素本身取景（輸出＝元素的 1080 見方）。
    ⚠ 不可改回 html2pdf 的 toCanvas＋width/windowWidth:1080：那組參數會用「原視窗量到的座標」去裁
    「照 1080 重排過的複本」，內容整片橫移（偏移量隨視窗寬變，手機上把雷達/產區右緣切掉） */
+/* 中央暗角：文字底下濃、四周淡，照片邊緣的細節才活得下來。
+   平均一片紗做不到——壓到照片看得見字就糊，壓到字清楚照片就沒了。
+   中心 50% 48% 略低於正中，涵蓋評語那一行（實測評語常壓在照片最亮的東西上）。
+   html2canvas 1.4.1 完整支援 radial-gradient（驗證過：中心 25／四角 255／中段 157） */
+function _socScrimBg(tint,scrim){
+  var mid=(scrim*0.86).toFixed(3), edge=Math.max(0,scrim*0.25).toFixed(3);
+  return 'radial-gradient(ellipse 74% 58% at 50% 48%,'
+    +'rgba('+tint+','+scrim+') 0%,'
+    +'rgba('+tint+','+mid+') 40%,'
+    +'rgba('+tint+','+edge+') 100%)';
+}
 /* o={mode:'white'|'clear'|'photo', photo:dataURL, scrim:0..1, dark:bool, T:色票, logo:dataURL}
-   photo 模式＝照片鋪底＋一層紗（淺照片白紗深字／深照片深紗淺字）
+   photo 模式＝照片鋪底＋中央暗角（淺照片白紗深字／深照片深紗淺字）
    clear＝透明底；QR 那張的白色相框永遠保留，不然掃不到 */
 function _socShell(inner,o){
   o=o||{};var T=o.T||_socTheme(false);
@@ -1698,8 +1715,9 @@ function _socShell(inner,o){
   var layers='';
   if(o.mode==='photo'&&o.photo){
     var tint=o.dark?'20,16,14':'250,248,244';
+    var scrim=(o.scrim==null?0.72:o.scrim);
     layers='<img src="'+o.photo+'" style="position:absolute;left:0;top:0;width:1080px;height:1080px;object-fit:cover" alt="">'
-      +'<div style="position:absolute;left:0;top:0;width:1080px;height:1080px;background:rgba('+tint+','+(o.scrim==null?0.72:o.scrim)+')"></div>';
+      +'<div style="position:absolute;left:0;top:0;width:1080px;height:1080px;background:'+_socScrimBg(tint,scrim)+'"></div>';
   }
   return '<div style="width:1080px;height:1080px;background:'+bg+';color:'+T.ink+';font-family:Inter,sans-serif;position:relative;overflow:hidden">'+layers+inner+'</div>';
 }
@@ -1786,7 +1804,7 @@ async function openSocialSplitSheet(){
     +'<div id="soc-scrimwrap" style="display:none;margin-top:12px">'
       +'<div class="dlab" style="display:flex;justify-content:space-between"><span>Background fade</span><span id="soc-scrimval">'+(SOC_SCRIM==null?'Auto':Math.round(SOC_SCRIM*100)+'%')+'</span></div>'
       +'<input type="range" id="soc-scrim" min="20" max="92" value="'+(SOC_SCRIM==null?60:Math.round(SOC_SCRIM*100))+'" style="width:100%;accent-color:var(--accent)">'
-      +'<div class="s" style="color:var(--muted);font-size:12.5px">Auto picks a fade to suit each photo. Higher = photo softer, text clearer</div>'
+      +'<div class="s" style="color:var(--muted);font-size:12.5px">Fades the photo behind the text and leaves the edges bright. Auto suits most photos — higher = text clearer</div>'
     +'</div>'
     +'<div class="s" id="soc-note" style="margin-top:8px;color:var(--muted)">'+SOC_NOTE.white+'</div>'
     +'<div id="soc-rows">'+rowsHTML()+'</div>'
@@ -6314,7 +6332,7 @@ function shopCardsHTML(beans){
           return '<button data-sz="'+si+'" data-vid="'+esc(s.id)+'" data-price="'+(s.price!=null?s.price:'')+'" data-retail="'+(s.retail!=null?s.retail:'')+'" data-label="'+esc(s.label)+'"'+(si===0?' class="on"':'')+'>'+esc(s.label)+(s.price!=null?' $'+centAmt(s.price):'')+'</button>';
         }).join('')+'</div>'
       :'';
-    return '<div class="card shopc" data-bean="'+esc(b.name)+'" data-vid="'+esc(so?'':(s0.id||''))+'" data-price="'+(s0.price!=null?s0.price:'')+'" data-label="'+esc(s0.label||'')+'">'
+    return '<div class="card shopc'+(shopIsPhotoSet(b)?' photo':'')+'" data-bean="'+esc(b.name)+'" data-vid="'+esc(so?'':(s0.id||''))+'" data-price="'+(s0.price!=null?s0.price:'')+'" data-label="'+esc(s0.label||'')+'">'
       +shopImagesHTML(b,bx,so)
       +'<div class="shopin">'
       /* 翻頁圓點在圖與價之間：每張卡自帶一排、亮自己那顆（滑到哪張看到的就是哪張的點，不用捲動監聽） */
