@@ -6397,7 +6397,7 @@ function renderTools(){
     +_sec('Shelf',DEPT.shelf,
       _tiles([['Retail Info','live on Square','retail']]))
     +_sec('Marketing',DEPT.mkt,
-      _tiles([['IG asset','post card · caption','igasset']])
+      _tiles([['IG asset','post card · caption','igasset'],['Folding Info Card','A4 · 4 fold cards','infocards'],['Brew Card','A4 · pour-over guide','brewcard'],['Social Images','4-up · pick a coffee','social4']])
       +_off([['Announce','email blast · classic'],['QR codes','shop / feedback · classic']]))
     +_sec('Orders &amp; customers',DEPT.ord,
       (_mk?_mkTile('t-neworder','New order','right here'):'')
@@ -6407,7 +6407,7 @@ function renderTools(){
       +_off([['Invoice','GST PDF · classic'],['Bookkeeping','expenses · classic']])):'')
     +_sec('Daily task',DEPT.day,
       (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'))+_mkTile('t-label','Labels','bag / tin'):'')
-      +_tiles([['Upcoming','30 days · bookings · parcels','upcoming'],['Menus','menu PDFs · in-store','menus'],['Folding Info Card','A4 · 4 fold cards','infocards'],['Brew Card','A4 · pour-over guide','brewcard'],['Social Images','4-up · pick a coffee','social4']]))
+      +_tiles([['Upcoming','30 days · bookings · parcels','upcoming'],['Menus','menu PDFs · in-store','menus']]))
     +_sec('Team',DEPT.team,
       _tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster',_mk?1:0],['Team notes','notes · problems','notes',_mk?1:0],['Activity','who did what · when','activity']].concat(isLead()?[['Team','who is on · assign','team',1]]:[])))
     +_sec('App',DEPT.app,
