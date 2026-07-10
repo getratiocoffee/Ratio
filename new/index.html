@@ -74,9 +74,17 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 /* 資訊卡圖滿版：CSS 裁掉 Square 安全白邊——內容框在 1200×1200 佔 x217-983/y64-1136，
    裁切盒各留 12px 呼吸邊＝x0 205 w790 / y0 52 h1096。⚠ 數字綁 classic makeSquareCard 預設邊距，改邊距要跟著改 */
 .shopimghold{width:100%;aspect-ratio:790/1096;overflow:hidden;position:relative;border-bottom:1px solid var(--line)}
-/* 舊的品牌卡帶 Square 安全白邊，放大裁掉；照片版四連圖是滿版的，直接 cover（.sq） */
+/* 舊的品牌卡帶 Square 安全白邊，放大裁掉 */
 .shopimghold .shopimg{position:absolute;width:151.9%;left:-25.95%;top:-4.74%;height:auto;display:block}
-.shopimghold.sq .shopimg{position:absolute;inset:0;width:100%;height:100%;left:0;top:0;object-fit:cover}
+/* 照片版四連圖：正方框（直式框會把產區那張的標題裁掉）＋卡上就能左右滑四張 */
+.shopimghold.sq{aspect-ratio:1}
+.shopimghold.sq .shopimg{position:static;width:100%;height:100%;left:auto;top:auto;object-fit:cover}
+.shopslide{display:flex;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+.shopslide::-webkit-scrollbar{display:none}
+.shopslide .shopimg{flex:0 0 100%;min-width:0;scroll-snap-align:center}
+.shopimgdots{position:absolute;left:0;right:0;bottom:9px;display:flex;justify-content:center;gap:6px;pointer-events:none}
+.shopimgdots span{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.5);box-shadow:0 0 2px rgba(0,0,0,.35)}
+.shopimgdots span.on{background:#fff}
 /* 商品明細的四連圖：橫向滑，一次一張 */
 .shopgal{display:flex;align-items:flex-start;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;margin-top:12px;padding-bottom:2px}
 .shopgal::-webkit-scrollbar{display:none}
@@ -6282,6 +6290,18 @@ function shopPriceHTML(price,label,retail){
     ?' <s style="color:var(--muted);font-size:14px;font-weight:400">$'+centAmt(retail)+'</s>':'';
   return '$'+centAmt(price)+strike+'<span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif"> /'+esc(label)+'</span>';
 }
+/* 卡片圖區：照片版＝四張橫滑（內層 scroll-snap，滑到底才換豆子）＋圓點；舊品牌卡＝單張 */
+function shopImagesHTML(b,bx,so){
+  var imgs=shopIsPhotoSet(b)?b.images:(b.image?[b.image]:[]);
+  if(!imgs.length)return '';
+  var dim=so?' style="opacity:.55;filter:grayscale(.35)"':'';
+  var one=function(u,i){return '<img class="shopimg" src="'+esc(u)+'" alt="'+esc(b.name)+'" loading="'+(bx===0&&i===0?'eager':'lazy')+'"'+dim+'>';};
+  if(imgs.length<2)return '<div class="shopimghold">'+one(imgs[0],0)+'</div>';
+  return '<div class="shopimghold sq">'
+    +'<div class="shopslide" data-slide>'+imgs.map(one).join('')+'</div>'
+    +'<div class="shopimgdots">'+imgs.map(function(_,i){return '<span'+(i?'':' class="on"')+'></span>';}).join('')+'</div>'
+    +'</div>';
+}
 function shopCardsHTML(beans){
   if(!beans.length)return '<div class="empty">The shelf is being restocked — check back soon ☕</div>';
   return beans.map(function(b,bx){
@@ -6295,7 +6315,7 @@ function shopCardsHTML(beans){
         }).join('')+'</div>'
       :'';
     return '<div class="card shopc" data-bean="'+esc(b.name)+'" data-vid="'+esc(so?'':(s0.id||''))+'" data-price="'+(s0.price!=null?s0.price:'')+'" data-label="'+esc(s0.label||'')+'">'
-      +(b.image?'<div class="shopimghold'+(shopIsPhotoSet(b)?' sq':'')+'"><img class="shopimg" src="'+esc(b.image)+'" alt="'+esc(b.name)+'" loading="'+(bx===0?'eager':'lazy')+'"'+(so?' style="opacity:.55;filter:grayscale(.35)"':'')+'></div>':'')
+      +shopImagesHTML(b,bx,so)
       +'<div class="shopin">'
       /* 翻頁圓點在圖與價之間：每張卡自帶一排、亮自己那顆（滑到哪張看到的就是哪張的點，不用捲動監聽） */
       +(beans.length>1?'<div class="shopdots" style="margin:0 0 12px">'+beans.map(function(_,i){return '<span'+(i===bx?' class="on"':'')+'></span>';}).join('')+'</div>':'')
@@ -6346,6 +6366,17 @@ function wireShopCards(root){
     });
     var det=card.querySelector('[data-shopdetail]');
     if(det)det.addEventListener('click',function(){openShopDetailSheet(card.dataset.bean);});
+    /* 卡片圖的圓點跟著橫滑走。⚠ 別用 rAF 節流——頁面不畫影格時它不會跑，圓點就永遠不動 */
+    var slide=card.querySelector('[data-slide]');
+    if(slide){
+      var dots=card.querySelectorAll('.shopimgdots span'),lastI=0;
+      slide.addEventListener('scroll',function(){
+        var i=Math.round(slide.scrollLeft/Math.max(1,slide.clientWidth));
+        if(i===lastI)return;
+        lastI=i;
+        dots.forEach(function(d,di){d.classList.toggle('on',di===i);});
+      },{passive:true});
+    }
   });
 }
 /* ===== 登入抽屜（帳號＝打開其他功能的鑰匙；照 classic submit 的 signInWithPassword，只登入不註冊）===== */
