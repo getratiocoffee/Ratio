@@ -169,7 +169,8 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .big{border:none;border-radius:12px;padding:13px 16px;min-height:48px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;background:var(--accent);color:#fff}
 .pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .pair button{border-radius:12px;padding:13px;min-height:48px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;background:var(--surface)}
-.pair .rr{border:1.5px solid var(--ink);color:var(--ink)}
+/* Pass 在 pair 裡仍是主色實心（.pair button 的白底特異性較高，要蓋回來） */
+.pair .big{border:none;background:var(--accent);color:#fff}
 .pair .dn{border:1.5px solid var(--danger);color:var(--danger)}
 .qrow{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:15px 16px;margin-bottom:10px;cursor:pointer}
 .qrow.sel{border:2px solid var(--accent)}
@@ -1824,7 +1825,7 @@ function openHelpSheet(){
     +'<div class="dlab">Gestures</div>'
     +P('<b>Swipe right</b> = do it now (same as the big button). <b>Swipe left</b> = the card slides open and shows a <b>Later</b> button — tap it to snooze until tomorrow (the card hides on every device; tap Undo on the toast or the undo row at the bottom to bring it back). Tap a group heading to fold or unfold that station.')
     +'<div class="dlab">QC tab</div>'
-    +P('Batches waiting for a verdict. Tap one to select, then hit <b>Pass</b>, <b>Re-roast</b> or <b>Down</b> with your thumb. Judged batches move on automatically — passed coffees line up for flavour locking and Square listing.')
+    +P('Batches waiting for a verdict. Tap one to select, then hit <b>Pass</b> or <b>Downgrade</b> with your thumb. Judged batches move on automatically — passed coffees line up for flavour locking and Square listing.')
     +'<div class="dlab">Tools tab</div>'
     +P('<b>Make</b>: new orders, roast logging (single origin or blend), stocktake and green deliveries — all saved to the same books as the classic app. <b>Look up</b>: search anything, browse green stock, roast batches, customers, orders and team notes. Anything marked <b>classic</b> jumps to the desktop app.')
     +'<div class="dlab">Notifications</div>'
@@ -3849,22 +3850,21 @@ function renderQC(){
     +'<div class="qacts">'
     +'<button class="qact" id="q-recup">Re-cup</button>'
     +'<button class="qact" id="q-card">Card</button>'
-    +'<button class="qact" id="q-imm">Immersion</button>'
-    +'<button class="qact" id="q-date">Roast date</button>'
+    +'<button class="qact" id="q-date">Edit Roast Date</button>'
     +'</div>'
     /* 鎖風味的決定在判定當下：pass＝判定＋鎖（開關可關；已鎖的豆顯示已鎖不重複問） */
     +(q.s.flavour_locked
       ?'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:2px 0 8px">flavours already locked ✓</div>'
       :'<button id="q-lock" class="qtoggle'+(QCLOCK?' on':'')+'">'+(QCLOCK?'✓ ':'')+'Lock flavours on pass</button>')
-    +'<div class="deck-btns"><button class="big" id="q-p">Pass</button>'
-    +'<div class="pair"><button class="rr" id="q-r">Re-roast</button><button class="dn" id="q-d">Down</button></div></div>';
+    /* 判定＝一排兩顆（老闆定案 2026-07-11）：Pass 主色、Downgrade 紅框；Re-roast 已退役 */
+    +'<div class="deck-btns"><div class="pair">'
+    +'<button class="big" id="q-p">Pass</button><button class="dn" id="q-d">Downgrade</button>'
+    +'</div></div>';
   $('q-recup').addEventListener('click',function(){openRecupSheet(q);});
   $('q-card').addEventListener('click',function(){openCardPreview(q);});
-  $('q-imm').addEventListener('click',function(){openImmersionSheet(q);});
   $('q-date').addEventListener('click',function(){openRoastDateSheet(q);});
   var ql=$('q-lock');if(ql)ql.addEventListener('click',function(){QCLOCK=!QCLOCK;renderQC();});
   $('q-p').addEventListener('click',function(){qcVerdict(q.r,'pass',null,'qc:'+q.r.id,q.s);});
-  $('q-r').addEventListener('click',function(){qcVerdict(q.r,'reroast',null,'qc:'+q.r.id,q.s);});
   $('q-d').addEventListener('click',function(){qcVerdict(q.r,'downgrade',null,'qc:'+q.r.id,q.s);});
 }
 /* 編輯烘豆日期（老闆點名）：修批次日期——新鮮度、資訊卡、貨架排序全跟著走 */
@@ -3964,72 +3964,6 @@ async function openCardPreview(q){
     var host=$('cardprev');
     if(host)host.outerHTML='<img src="data:image/png;base64,'+b64+'" alt="flavour card" style="width:100%;display:block;margin-top:10px;border:1px solid var(--line);border-radius:12px">';
   }catch(e){var h2=$('cardprev');if(h2)h2.textContent='Card failed: '+(e&&e.message||e);}
-}
-/* QC 工作台：immersion 沖煮方案（杯測師填；espresso 等其他方法歸咖啡師的 dial-in 流程）
-   欄位同 classic rtlBrewFields('immersion')；只動 brew.immersion，其他方法原封不動 */
-var IMM=null;
-var IMM_FIELDS=[['temp','Water Temperature','92°C'],['ppm','Water PPM','80'],['grind','Grind','Medium-fine'],['dose','Dose (g)','15'],['water','Water (g)','240'],['time','Extraction Time','2:30']];
-async function openImmersionSheet(q){
-  var nm=String(q.s.sample_id||'').trim();
-  var target=null,brew={};
-  /* 配方豆優先（blends 表同名）→ 否則生豆表（bean_id 優先、名字+process 備援，照 classic rtlBrewBeanRow） */
-  try{
-    var bq=await sb.from('blends').select('id,name,brew');
-    var bl=(bq.data||[]).find(function(b){return String(b.name||'').trim().toLowerCase()===nm.toLowerCase();});
-    if(bl){target={type:'blend',id:bl.id};brew=(bl.brew&&typeof bl.brew==='object')?bl.brew:{};}
-  }catch(e){}
-  if(!target){
-    var bean=null;
-    if(q.s.bean_id)bean=(DB.beans||[]).find(function(b){return String(b.id)===String(q.s.bean_id);});
-    if(!bean){
-      var proc=String(q.s.process||'').trim().toLowerCase();
-      var pool=(DB.beans||[]).filter(function(b){return String(b.name||'').trim().toLowerCase()===nm.toLowerCase();});
-      bean=(proc?pool.find(function(b){return String(b.process||'').trim().toLowerCase()===proc;}):null)||pool[0]||null;
-    }
-    if(bean){
-      target={type:'bean',id:bean.id};
-      try{var fr=await sb.from('beans').select('brew').eq('id',bean.id).maybeSingle();
-        var v=fr&&fr.data&&fr.data.brew;if(v&&typeof v==='object')brew=v;}catch(e){}
-    }
-  }
-  if(!target){alert('No matching bean or blend for "'+nm+'" — check the name in the classic app.');return;}
-  IMM={q:q,target:target,brew:brew};
-  var cur=(brew.immersion&&typeof brew.immersion==='object')?brew.immersion:{};
-  openDrawerHTML('<div class="t" style="font-size:19px">Immersion · '+esc(nm)+'</div>'
-    +'<div class="s" style="margin-top:2px">cupper recipe — other methods stay with the baristas</div>'
-    +IMM_FIELDS.map(function(f){
-      return '<div class="dlab">'+f[1]+'</div><input class="din" id="im-'+f[0]+'" placeholder="'+esc(f[2])+'" value="'+esc(cur[f[0]]||'')+'">';
-    }).join('')
-    +'<div class="s" id="im-ratio" style="margin-top:8px"></div>'
-    +'<button class="act" id="im-save">Save immersion recipe</button>'
-    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
-  function ratio(){
-    var d=parseFloat($('im-dose').value),w=parseFloat($('im-water').value);
-    var el=$('im-ratio');if(!el)return;
-    if(d>0&&w>0){var r=Math.round((w/d)*10)/10;el.textContent='Ratio 1:'+(r%1===0?String(Math.round(r)):String(r))+' (auto)';}
-    else el.textContent='';
-  }
-  ['im-dose','im-water'].forEach(function(id){$(id).addEventListener('input',ratio);});
-  ratio();
-  $('im-save').addEventListener('click',saveImmersion);
-  $('d-cl').addEventListener('click',closeDrawer);
-}
-async function saveImmersion(){
-  var v={};IMM_FIELDS.forEach(function(f){v[f[0]]=($('im-'+f[0]).value||'').trim();});
-  var filled=IMM_FIELDS.some(function(f){return v[f[0]]!=='';});
-  var brew=Object.assign({},IMM.brew);
-  if(filled)brew.immersion=v;else delete brew.immersion;
-  var btn=$('im-save');if(btn){btn.disabled=true;btn.textContent='Saving…';}
-  try{
-    var u=IMM.target.type==='blend'
-      ?await sb.from('blends').update({brew:brew}).eq('id',IMM.target.id)
-      :await sb.from('beans').update({brew:brew}).eq('id',IMM.target.id);
-    if(u.error)throw new Error(u.error.message);
-    closeDrawer();toast(filled?'Immersion recipe saved ✓':'Immersion recipe cleared');
-  }catch(e){
-    if(btn){btn.disabled=false;btn.textContent='Save immersion recipe';}
-    alert('Save failed: '+(e&&e.message||e));
-  }
 }
 /* ===== Info cards：148.5×105mm 摺疊印刷卡（攤平 297×105 對摺，雙面短邊翻）=====
    老闆的品牌理念：專業/咖啡實驗室/整潔/風味一眼 focus；QR 指豆子公開頁 ?bean= */
@@ -4372,7 +4306,7 @@ async function applyPouroverToAll(btn){
   if(!list.length){alert('No QC-passed coffees to apply to yet.');return;}
   if(!confirm('Add the house pour-over recipe to all '+list.length+' shelf coffee'+(list.length===1?'':'s')+'?\n\nIt then shows in dispatch emails and on the QR bean page. This overwrites any existing pour-over (infusion) notes on those coffees.'))return;
   if(btn){btn.disabled=true;btn.textContent='Applying…';}
-  /* 解析不重複的 blend / bean target（比對照抄 openImmersionSheet） */
+  /* 解析不重複的 blend / bean target（blends 表同名優先，否則生豆表 bean_id → 名字+process 備援） */
   var blendIds={},beanIds={},blendRows=[];
   try{var bq=await sb.from('blends').select('id,name,brew');blendRows=bq.data||[];}catch(e){}
   for(var i=0;i<list.length;i++){
@@ -4389,7 +4323,7 @@ async function applyPouroverToAll(btn){
     if(bean)beanIds[bean.id]=1;
   }
   var ok=0,fail=0;
-  /* 只覆寫 infusion，其他方法原封不動（照 saveImmersion） */
+  /* 只覆寫 infusion，其他沖煮方法原封不動 */
   for(var bid in blendIds){
     var row=blendRows.find(function(b){return String(b.id)===String(bid);});
     var brew=(row&&row.brew&&typeof row.brew==='object')?Object.assign({},row.brew):{};
