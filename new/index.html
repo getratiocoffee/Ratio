@@ -2242,6 +2242,20 @@ function _socMark(src,h){
    平均一片紗做不到——壓到照片看得見字就糊，壓到字清楚照片就沒了。
    中心 50% 48% 略低於正中，涵蓋評語那一行（實測評語常壓在照片最亮的東西上）。
    html2canvas 1.4.1 完整支援 radial-gradient（驗證過：中心 25／四角 255／中段 157） */
+/* ===== Social 四張圖 ↔ Folding Info Card 共用內容（單一事實源）=====
+   兩邊版面各自排（1080 社群圖 vs A4 印刷卡），但「說什麼」全從這裡取：
+   改這一份＝兩邊同時生效。豆子資料（豆名/風味/評語/產地明細/雷達）本來就同一份資料庫，
+   不用列在這裡；這裡只管兩邊都要印的固定文案與連結組法 */
+var CARD_TEXT={
+  brand:'Ratio Coffee',
+  tagline:'Specialty Coffee Lab',
+  scan:'Scan for this coffee',
+  ig:'@ratio.crowsnest',
+  email:'caffeine@coffeeratio.com',
+  footer:'Roasted in Sydney'
+};
+function cardBeanUrl(nm){return 'https://ratio-theta.vercel.app/?bean='+encodeURIComponent(beanSlug(nm));}
+function cardQrSrc(nm){return 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(cardBeanUrl(nm));}
 function _socScrimBg(tint,scrim){
   var mid=(scrim*0.86).toFixed(3), edge=Math.max(0,scrim*0.25).toFixed(3);
   return 'radial-gradient(ellipse 74% 58% at 50% 48%,'
@@ -2278,8 +2292,8 @@ function socialCoverHTML(nm,feats,comment,col,o){
     :feats.map(function(f){return '<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:40px;font-weight:600;line-height:1.5;color:'+col+'">'+esc(f)+'</div>';}).join('');
   return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:110px 100px">'
     +'<img src="'+((o&&o.logo)||'/logo.png')+'" crossorigin="anonymous" style="width:118px;height:118px" alt="">'
-    +'<div style="font-family:Fraunces,Georgia,serif;font-size:50px;font-weight:600;margin-top:26px">Ratio Coffee</div>'
-    +'<div style="font-size:21px;letter-spacing:9px;text-transform:uppercase;color:'+T.muted+';margin-top:12px">Specialty Coffee Lab</div>'
+    +'<div style="font-family:Fraunces,Georgia,serif;font-size:50px;font-weight:600;margin-top:26px">'+esc(CARD_TEXT.brand)+'</div>'
+    +'<div style="font-size:21px;letter-spacing:9px;text-transform:uppercase;color:'+T.muted+';margin-top:12px">'+esc(CARD_TEXT.tagline)+'</div>'
     /* 菱形帶這支豆的點色（同雷達多邊形）——它落在 logo 與豆名之間，是視線的落點，
        一眼就能認出是哪一支。兩側橫線與其餘版面仍是黑白 */
     +_socOrn((o&&o.dot)||col,T)
@@ -2314,13 +2328,13 @@ function socialOriginHTML(nm,info,col,o){
 function socialQrHTML(qrSrc,col,o){
   var T=(o&&o.T)||_socTheme(false);
   return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:110px 100px">'
-    +'<div style="font-size:22px;letter-spacing:8px;text-transform:uppercase;color:'+col+'">Scan for this coffee</div>'
+    +'<div style="font-size:22px;letter-spacing:8px;text-transform:uppercase;color:'+col+'">'+esc(CARD_TEXT.scan)+'</div>'
     /* QR 白框永遠保留（透明或深底都要有淺底才掃得到） */
     +'<div style="border:16px solid #fff;outline:1px solid '+T.orn+';background:#fff;margin:46px 0 52px"><img src="'+qrSrc+'" crossorigin="anonymous" style="width:360px;height:360px;display:block" alt=""></div>'
     /* 一行一個資訊：帳號、信箱、產地——擠成一行讀不清 */
-    +'<div style="font-size:31px;line-height:1.62;color:'+T.soft+'">@ratio.crowsnest</div>'
-    +'<div style="font-size:31px;line-height:1.62;color:'+T.soft+'">caffeine@coffeeratio.com</div>'
-    +'<div style="font-size:26px;line-height:1.62;color:'+T.muted+';margin-top:10px">Roasted in Sydney</div>'
+    +'<div style="font-size:31px;line-height:1.62;color:'+T.soft+'">'+esc(CARD_TEXT.ig)+'</div>'
+    +'<div style="font-size:31px;line-height:1.62;color:'+T.soft+'">'+esc(CARD_TEXT.email)+'</div>'
+    +'<div style="font-size:26px;line-height:1.62;color:'+T.muted+';margin-top:10px">'+esc(CARD_TEXT.footer)+'</div>'
     +'</div>',o);
 }
 /* Daily task 快速入口（暫放）：列 QC 通過的豆 → 選一支就地產四張社群圖，不用繞進 Social post kit */
@@ -2477,8 +2491,7 @@ async function renderSocialImages(full,info,feats,nm,col,mode,opts){
   var sc={fragrance:full.fragrance,acidity:full.acidity,sweetness:full.sweetness,body:full.body,aftertaste:full.aftertaste};
   var radar=printRadarPNG(sc,radarCol,dark?{grid:'rgba(247,242,237,.32)',label:T.muted}:{});
   var comment=String(full.comment||'').trim();
-  var beanUrl='https://ratio-theta.vercel.app/?bean='+encodeURIComponent(beanSlug(nm));
-  var qrSrc='https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl);
+  var qrSrc=cardQrSrc(nm);
   /* 順序固定：封面 → 雷達 → 產區 → QR（Square 商品圖的輪播順序照這個） */
   var defs=[['cover',socialCoverHTML(nm,feats,comment,col,o)],['radar',socialRadarHTML(radar,feats,col,o)],['origin',socialOriginHTML(nm,info,col,o)],['qr',socialQrHTML(qrSrc,col,o)]];
   var out=[];
@@ -4038,7 +4051,6 @@ async function openInfoCardPrint(s){
   var col=dotColorFor(full.sample_id,dots)||'#B25E6A';
   var nm=String(full.sample_id||'').trim();
   var info=await beanInfoRows(full,{omit:['Roasted','Harvest']});
-  var beanUrl='https://ratio-theta.vercel.app/?bean='+encodeURIComponent(beanSlug(nm));
   var feats=(full.features||[]).filter(Boolean).slice(0,3);
   var comment=String(full.comment||'').trim();
   var sc={fragrance:full.fragrance,acidity:full.acidity,sweetness:full.sweetness,body:full.body,aftertaste:full.aftertaste};
@@ -4051,14 +4063,14 @@ async function openInfoCardPrint(s){
     +'<div style="width:1.9mm;height:1.9mm;background:'+col+';transform:rotate(45deg)"></div>'
     +'<div style="width:11mm;border-top:.2mm solid #C9C2BB"></div></div>';
   var radar=printRadarPNG(sc,col);
-  var qrImg='<div style="border:.25mm solid #E1DAD3;padding:1.1mm;background:#fff;display:inline-block"><img src="https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl)+'" style="width:21mm;height:21mm;display:block" alt="QR"></div>';
+  var qrImg='<div style="border:.25mm solid #E1DAD3;padding:1.1mm;background:#fff;display:inline-block"><img src="'+cardQrSrc(nm)+'" style="width:21mm;height:21mm;display:block" alt="QR"></div>';
   /* 面 1＝封面＋QR（對摺卡：上半＝封面轉 180°、下半＝QR 不變；折後兩半皆正立）。中線＝對摺虛線 */
   var cardCover='<div class="card4"><div class="frame frame2"></div>'
     +'<div class="inner" style="padding:0">'
     +'<div style="flex:1;transform:rotate(180deg);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:3mm 5mm">'
     +'<img src="/logo.png" style="width:11mm;height:11mm" alt="Ratio">'
-    +'<div class="serif" style="font-size:12pt;font-weight:700;margin-top:1.2mm;letter-spacing:.01em">Ratio Coffee</div>'
-    +'<div class="lab" style="letter-spacing:.28em;margin-top:.6mm">Specialty Coffee Lab</div>'
+    +'<div class="serif" style="font-size:12pt;font-weight:700;margin-top:1.2mm;letter-spacing:.01em">'+esc(CARD_TEXT.brand)+'</div>'
+    +'<div class="lab" style="letter-spacing:.28em;margin-top:.6mm">'+esc(CARD_TEXT.tagline)+'</div>'
     +orn
     +'<div class="serif" style="font-style:italic;font-size:14pt;font-weight:600;line-height:1.1">'+esc(nm)+'</div>'
     +'<div style="width:9mm;border-top:.5mm solid '+col+';margin:1.6mm 0 1.4mm"></div>'
@@ -4066,8 +4078,8 @@ async function openInfoCardPrint(s){
     +'</div>'
     +'<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:3mm 5mm;border-top:.2mm dashed #C9C2BB">'
     +qrImg
-    +'<div class="lab" style="margin-top:1.6mm">Scan for this coffee</div>'
-    +'<div style="font-size:6pt;color:#5A534C;line-height:1.7;margin-top:.9mm">@ratio.crowsnest · caffeine@coffeeratio.com<br><span style="color:#8A837C">Roasted in Sydney</span></div>'
+    +'<div class="lab" style="margin-top:1.6mm">'+esc(CARD_TEXT.scan)+'</div>'
+    +'<div style="font-size:6pt;color:#5A534C;line-height:1.7;margin-top:.9mm">'+esc(CARD_TEXT.ig)+' · '+esc(CARD_TEXT.email)+'<br><span style="color:#8A837C">'+esc(CARD_TEXT.footer)+'</span></div>'
     +'</div></div></div>';
   /* 面 2＝風味雷達＋產區明細（對摺卡：上半＝雷達置中、下半＝明細置中）。中線＝對摺虛線 */
   var cardInfo='<div class="card4"><div class="frame"></div>'

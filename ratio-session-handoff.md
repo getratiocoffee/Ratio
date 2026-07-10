@@ -57,6 +57,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-10 之四（Social Images ↔ Folding Info Card 內容單一事實源）
+- **背景**：老闆要「Social Images 四張圖＝Folding Info Card 四頁，改一邊內容另一邊要同步」。盤點結論：**豆子資料本來就同步**（兩邊同樣走 samples flavour_locked 優先 row＋cardDots 點色＋beanInfoRows 明細＋features/comment/雷達）；真正各抄一份的是**固定文案與連結組法**。
+- **做法**：新殼 `renderSocialImages` 區塊頂新增單一事實源（約 L2245）：`CARD_TEXT`（brand/tagline/scan/ig/email/footer 六句）＋`cardBeanUrl(nm)`/`cardQrSrc(nm)`（?bean 連結與 qrserver 組法）。social 四張（socialCoverHTML/socialQrHTML/renderSocialImages）與 `openInfoCardPrint`（A4 摺卡）全部改引用，grep 確認舊字串歸零只剩定義一份。**以後改店帳號/email/標語/掃描語＝只改 CARD_TEXT，兩邊（含 Square 商品圖——它走同一個 renderSocialImages）一起變。**
+- **驗證**：jscheck ✓；本機 serve（8125，8124 被別 session 佔）未登入 boot 無 console error ✓；console 實測改 `CARD_TEXT.scan` 後 socialQrHTML 輸出即時跟變 ✓。
+- **注意**：IG caption（L2030 'Roasted fresh in Crows Nest'）與公開豆頁 footer（L6712）措辭刻意不同、不在同步範圍。
+
 ## 〇、補記 — 2026-07-10 之三（🚑 上線事故＋hotfix：boot 炸在已拆除的 #chips）
 - **事故**：老闆 push 今日流 v3＋閹割階段一後回報「生豆熟豆完全空白」「購物車沒連 Square」。真因＝chips 列退役時**只刪了 renderChips 函式與 #chips div，漏刪三處 `$('chips').innerHTML=''` 直接引用**（boot/renderPublicMenu/renderCustomerPortal）→ boot 一進場就 TypeError 中斷，**loadAll 沒跑**→ 登入後 DB 全空（生豆/熟豆/今日流）、店面/購物車綁定沒掛上。兩個症狀同一病灶。
 - **修**：三行刪除，`$('chips')` 引用歸零（commit 89f099e）。修後實測：未登入 boot 走通進店面、加購物車 2 件、POST public-shop checkout 回 200＋Square 付款連結（total $50，未付款無交易）——**購物車↔Square 鏈本來就是好的**。
