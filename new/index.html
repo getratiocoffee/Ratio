@@ -1704,8 +1704,12 @@ async function _tintArt(src,col,w,h){
 function _socLogo(col){return _tintArt('/logo.png',col,236,236);}
 function _socDrop(col){return _tintArt('/drop.svg',col,590,824);}
 function _socBean(col){return _tintArt('/bean.svg',col,715,704);}
-/* 符號永遠置中、掛在 kicker 標題正上方 */
-function _socMark(src,h){return src?'<img src="'+src+'" style="height:'+h+'px;display:block;margin:0 auto 20px" alt="">':'';}
+/* 符號永遠置中、貼在版面底部固定位置當落款（放內容上方會跟標題與資料打架）。
+   ⚠ 用 absolute 拉出 flex 流：留在流裡的話，icon 距下緣的高度會隨每張內容多寡而變
+   （實測雷達 190px、產區 114px），四張就對不齊了 */
+function _socMark(src,h){
+  return src?'<div style="position:absolute;left:0;right:0;bottom:96px;text-align:center"><img src="'+src+'" style="height:'+h+'px;display:inline-block" alt=""></div>':'';
+}
 /* ===== 社群四連圖：把 Folding Info Card 拆成 4 張 1080×1080 PNG（版面/雷達/產區/QR），各自下載做輪播 =====
    資料源同 Folding Info Card。截圖直接呼叫 html2canvas 對元素本身取景（輸出＝元素的 1080 見方）。
    ⚠ 不可改回 html2pdf 的 toCanvas＋width/windowWidth:1080：那組參數會用「原視窗量到的座標」去裁
@@ -1758,24 +1762,27 @@ function socialCoverHTML(nm,feats,comment,col,o){
     +body
     +'</div>',o);
 }
+/* radarCol＝這支豆自己的點色（雷達是資料視覺化，該用豆子的識別色）；
+   其餘文字一律 col＝T.ink 黑白。不放「Cup profile」標題——雷達圖自己已經寫著
+   AROMA/ACIDITY/SWEETNESS，符號的用途就是取代標籤。水滴落款在最底 */
 function socialRadarHTML(radar,feats,col,o){
   return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:110px 90px">'
-    /* 水滴＝濕的一半：這杯喝起來如何。不放「Cup profile」標題——雷達圖自己已經寫著
-       AROMA/ACIDITY/SWEETNESS，符號的用途就是取代標籤；留著標題，符號就只是裝飾 */
-    +_socMark(o&&o.drop,58)
-    +'<img src="'+radar+'" style="width:860px;max-width:100%;margin:40px 0" alt="">'
+    +'<img src="'+radar+'" style="width:860px;max-width:100%;margin:0 0 40px" alt="">'
     +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:40px;font-weight:600;color:'+col+'">'+feats.map(esc).join('  ·  ')+'</div>'
+    +_socMark(o&&o.drop,58)
     +'</div>',o);
 }
 function socialOriginHTML(nm,info,col,o){
   var T=(o&&o.T)||_socTheme(false);
-  return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:120px 110px">'
+  /* padding-bottom 加大＝把 8 行明細往上推，讓表格與底部落款之間有呼吸
+     （不加的話表格底緣離 icon 只剩 10px，看起來像撞在一起） */
+  return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:120px 110px 210px">'
     /* 豆＝乾的一半：這支豆從哪來。同樣不放「The coffee」標題（整頁都是產地資料）；
-       但豆名留著——這張是資料頁，單張被轉發時要知道資料屬於誰 */
-    +_socMark(o&&o.bean,Math.round(58*SOC_BEAN_RATIO))
+       但豆名留著——這張是資料頁，單張被轉發時要知道資料屬於誰。豆落款在最底 */
     +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:46px;font-weight:600;text-align:center">'+esc(nm)+'</div>'
     +'<div style="width:84px;height:4px;background:'+col+';margin:26px auto 40px"></div>'
     +'<table style="width:100%;border-collapse:collapse">'+info.map(function(r){return '<tr><td style="font-size:22px;letter-spacing:3px;text-transform:uppercase;color:'+T.muted+';padding:20px 0;border-bottom:1px solid '+T.line+'">'+esc(r[0])+'</td><td style="font-family:Fraunces,Georgia,serif;font-size:32px;text-align:right;padding:20px 0;border-bottom:1px solid '+T.line+'">'+esc(String(r[1]))+'</td></tr>';}).join('')+'</table>'
+    +_socMark(o&&o.bean,Math.round(58*SOC_BEAN_RATIO))
     +'</div>',o);
 }
 function socialQrHTML(qrSrc,col,o){
@@ -1927,14 +1934,16 @@ async function renderSocialImages(full,info,feats,nm,col,mode,opts){
   var dark=photo?await photoIsDark(photo):false;
   var T=_socTheme(dark);
   var scrim=socScrim(dark);
-  /* 品牌素材固定黑白：呼叫端傳進來的 col 是 dotColorFor() 的罐標色（黃/藍/紅），
-     那是店裡貨架辨識用的內部管理色，不可洩漏到對外素材——不然同一支豆換個點色，
-     整張圖就變全黃或全紅。用 T.ink：淺底是墨黑，深照片上自動翻成米白，明暗天生對稱。 */
+  /* 版面固定黑白：呼叫端傳進來的 col 是 dotColorFor() 的罐標色（黃/藍/紅），那是店裡貨架
+     辨識用的管理色，不可拿來當版面主色——不然同一支豆換個點色，整張圖就變全黃或全紅。
+     用 T.ink：淺底是墨黑，深照片上自動翻成米白，明暗天生對稱。
+     ⚠ 唯一例外＝雷達多邊形：那是資料視覺化，該用這支豆自己的識別色（老闆定案）。 */
+  var radarCol=col||'#B25E6A';
   col=T.ink;
   var o={mode:mode,photo:photo,scrim:scrim,dark:dark,T:T,
     logo:await _socLogo(T.ink), drop:await _socDrop(col), bean:await _socBean(col)};
   var sc={fragrance:full.fragrance,acidity:full.acidity,sweetness:full.sweetness,body:full.body,aftertaste:full.aftertaste};
-  var radar=printRadarPNG(sc,col,dark?{grid:'rgba(247,242,237,.32)',label:T.muted}:{});
+  var radar=printRadarPNG(sc,radarCol,dark?{grid:'rgba(247,242,237,.32)',label:T.muted}:{});
   var comment=String(full.comment||'').trim();
   var beanUrl='https://ratio-theta.vercel.app/?bean='+encodeURIComponent(beanSlug(nm));
   var qrSrc='https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl);
