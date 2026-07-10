@@ -62,7 +62,9 @@
 - **做法**：`openRetailSheet` 每行加判斷 `unlocked=!inQC&&!(rep&&rep.flavour_locked)` → 行內紅字「not in shop — flavour unlocked」＋頂部摘要計數「N not in shop — flavour unlocked」。**QC 重審中的不重複標**（已有黃字 re-checking in QC，那是正常流程）；售罄的照標（paused 一樣被閘門擋）。
 - **驗證**：jscheck ✓；mock 四情境（已鎖乾淨/沒鎖標紅/重審只黃/售罄沒鎖標紅）DOM 逐行 ✓；截圖 ✓；boot 無 error ✓。
 - **注意**：這只是標示，鎖風味仍要走原流程（QC Pass 自動鎖，或上架抽屜的 Lock flavour）。
-- **追加（老闆要更強烈）**：紅字之外整顆泡泡上警示色——新 CSS `.hit.warn`（淡紅底 #FBEDEA＋var(--danger) 紅框；深色主題底 #3A2623），漏網豆的 .hit 加 warn class。深淺主題截圖驗證 ✓。
+- **追加①（老闆要更強烈）**：曾做整顆泡泡警示 `.hit.warn`（淡紅底＋紅框）——**已在追加②被取代移除**。
+- **追加②（定案·膠囊紅綠燈）**：老闆嫌泡泡紅底「顏色太多」，改用右側狀態膠囊的亮/不亮當紅綠燈——**亮（實心 accent）＝完全正常不用管；熄燈（空心灰框）＝有附屬狀態要處理（QC 重審／風味沒鎖）、字仍是 Live；紅實心＝Sold out**。行內彩色說明文字全保留，掃「沒亮的膠囊」就知道動哪支。CSS 新增 `.hit .k.pill{/.off/.sold}`（**只掛 .k.pill，不動全域 .k**——IG 清單/生豆 kg/訂單 channel 共用它）；`.hit.warn` 三條規則刪除。膠章文字 On sale→**Live**（Sold out 不動）。
+- **驗證**：jscheck ✓、warn 殘留 grep 歸零 ✓、mock 四情境 computed style 逐行對（實心 rgb(178,94,106)／空心透明＋灰框／紅 rgb(192,57,43)／泡泡回白底）✓、深淺主題截圖 ✓、boot 無 error ✓。
 
 ## 〇、補記 — 2026-07-10 之八（Square Online 商品頁主圖 3:4→1:1，沒改碼）
 - **背景**：老闆發現 coffeeratio.com.au（Square Online 網店，客人真正下單的站）商品詳情頁主圖是直式長方——我們的 1080 正方四連圖被塞進 3:4 框上下留白。⚠ 這個站跟新殼 ?shop 是兩回事：**Ratio 有一個 Square Online 建站**（自訂網域 coffeeratio.com.au，2026-07-09 有發布過），商品從 Square 目錄自動帶入。
