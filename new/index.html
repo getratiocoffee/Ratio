@@ -418,6 +418,8 @@ function todayKey(){var d=new Date();return d.getFullYear()+'-'+String(d.getMont
 /* 貪睡與晨報收起：存 localStorage，到明天自動失效 */
 /* 貪睡改存 app_state（key: new_snooze）＝跨裝置同步：手機睡掉的卡，電腦也不再冒出來；到明天自動失效（只認今天的 key）。全店共用——誰睡掉就是大家都先不看 */
 var SNOOZE_ALL={};
+/* Bean rotation：吧台目前這支濃縮豆＋換上日期＋預計用幾天（app_state key bean_swap，單一當前一筆） */
+var BEAN_SWAP=null;
 var NUDGE_LOG={}; /* 回購提醒紀錄（app_state 'nudge_log'，扁平 {customer_id:'YYYY-MM-DD'}）——送過就記，這輪不再出卡 */
 function snoozeMap(){return SNOOZE_ALL[todayKey()]||{};}
 var SNOOZED_SESSION=0;
@@ -469,7 +471,9 @@ async function loadAll(){
     sb.from('staff_na').select('*').lte('start_date',dPlus(30)).gte('end_date',todayKey()),
     sb.from('app_state').select('value').eq('key','new_closing_items').maybeSingle(),
     sb.from('app_state').select('value').eq('key','new_closing').maybeSingle(),
-    sb.from('app_state').select('value').eq('key','new_assign').maybeSingle()
+    sb.from('app_state').select('value').eq('key','new_assign').maybeSingle(),
+    sb.from('app_state').select('value').eq('key','soc_bg').maybeSingle(),
+    sb.from('app_state').select('value').eq('key','bean_swap').maybeSingle()
   ]);
   DB={orders:rs[0].data||[],customers:rs[1].data||[],tasks:rs[2].data||[],dialins:rs[3].data||[],
       syncs:rs[4].data||[],samples:rs[5].data||[],roasts:rs[6].data||[],beans:rs[7].data||[],
@@ -494,6 +498,15 @@ async function loadAll(){
   var asg=rs[17]&&rs[17].data&&rs[17].data.value;
   if(typeof asg==='string'){try{asg=JSON.parse(asg);}catch(e){asg=null;}}
   ASSIGN_ALL=(asg&&typeof asg==='object')?asg:{};
+  var sbg=rs[18]&&rs[18].data&&rs[18].data.value;
+  if(typeof sbg==='string'){try{sbg=JSON.parse(sbg);}catch(e){sbg=null;}}
+  if(sbg&&typeof sbg==='object'){
+    SOC_SAVED=(Array.isArray(sbg.saved)?sbg.saved:[]).map(socHexNorm).filter(Boolean).slice(0,8);
+    if(sbg.last&&/^#[0-9a-f]{6}$/i.test(sbg.last))SOC_BG=sbg.last;  /* B 記住上次底色 */
+  }
+  var bsw=rs[19]&&rs[19].data&&rs[19].data.value;
+  if(typeof bsw==='string'){try{bsw=JSON.parse(bsw);}catch(e){bsw=null;}}
+  BEAN_SWAP=(bsw&&bsw.bean)?bsw:null;
   buildItems();
 }
 function dPlus(n){var t=new Date();t.setDate(t.getDate()+n);return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
@@ -2404,6 +2417,9 @@ var SOC_SCRIM=null;    /* 紗的濃度：null=自動（深照片配白字不用�
 var SOC_BG='#FAF8F4';  /* white 模式的底色（老闆可換色）；預設米白＝原本的固定值 */
 /* 底色色票：貼紙白玫瑰語言——米白（預設）/亞麻/淡玫瑰/鼠尾草/深棕/墨黑；自訂色盤在最後 */
 var SOC_SWATCHES=['#FAF8F4','#EFE6D8','#E9D5D0','#D8DFD3','#3E322B','#241E1B'];
+/* 使用者存下的自訂底色（上限 8，可刪）；Social Images 與 Coffee Info 兩處共用，跟 app_state soc_bg 同步 */
+var SOC_SAVED=[];
+var SOC_SAVE_T=null;
 /* 底色深淺（luma 公式同 photoIsDark）：深底自動沿用 photo 深照片那套翻淺字機制 */
 function socBgIsDark(hex){
   var m=/^#?([0-9a-f]{6})$/i.exec(String(hex||''));
@@ -2412,6 +2428,72 @@ function socBgIsDark(hex){
   return (0.2126*((n>>16)&255)+0.7152*((n>>8)&255)+0.0722*(n&255))<140;
 }
 function socScrim(dark){return SOC_SCRIM==null?(dark?0.48:0.72):SOC_SCRIM;}
+/* HEX 正規化：接受 #EFE6D8 或 EFE6D8（6 碼），回小寫 #xxxxxx；無效回空字串 */
+function socHexNorm(s){
+  var m=/^#?([0-9a-f]{6})$/i.exec(String(s||'').trim());
+  return m?('#'+m[1].toLowerCase()):'';
+}
+/* 防抖 800ms 存 last＋saved 到 app_state soc_bg（唯讀情境 try/catch 吞錯，不擋 UI） */
+function socBgSave(){
+  clearTimeout(SOC_SAVE_T);
+  SOC_SAVE_T=setTimeout(async function(){
+    try{await sb.from('app_state').upsert({key:'soc_bg',value:{last:SOC_BG,saved:SOC_SAVED},updated_at:new Date().toISOString()},{onConflict:'key'});}catch(e){}
+  },800);
+}
+/* 單顆色票圓鈕（內建與自訂共用）：選中（cur 不分大小寫）描 accent 邊，其餘 line2 */
+function socSwatchBtn(c,cur){
+  var sel=String(c).toLowerCase()===String(cur||'').toLowerCase();
+  return '<button data-bg="'+c+'" aria-label="'+c+'" style="flex:none;width:34px;height:34px;border-radius:50%;background:'+c+';border:2px solid '+(sel?'var(--accent)':'var(--line2)')+';cursor:pointer;padding:0"></button>';
+}
+/* 色票列 inner HTML：內建 6 顆＋自訂顆（editMode 疊 ✕）＋「＋」展開鈕＋「Edit」鈕＋隱藏輸入面板 */
+function socBgSwatchesHTML(cur,editMode){
+  var built=SOC_SWATCHES.map(function(c){return socSwatchBtn(c,cur);}).join('');
+  var saved=SOC_SAVED.map(function(c){
+    var del=editMode?'<span data-bgdel="'+c+'" role="button" aria-label="Remove '+c+'" style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:rgba(0,0,0,.62);color:#fff;font-size:10px;line-height:16px;text-align:center;cursor:pointer">✕</span>':'';
+    return '<span style="position:relative;flex:none;display:inline-flex">'+socSwatchBtn(c,cur)+del+'</span>';
+  }).join('');
+  var plus='<button data-bgadd="1" aria-label="Custom colour" style="flex:none;width:34px;height:34px;border-radius:50%;border:2px dashed var(--line2);background:transparent;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px;cursor:pointer;padding:0">+</button>';
+  var edit=SOC_SAVED.length>0?'<button data-bgedit="1" style="flex:none;padding:5px 11px;border:1px solid var(--line2);background:transparent;color:var(--muted);border-radius:999px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">'+(editMode?'Done':'Edit')+'</button>':'';
+  var cn=socHexNorm(cur);
+  var panel='<div data-bgpanel="1" style="display:none;width:100%;margin-top:8px;padding:10px;border:1px solid var(--line2);border-radius:12px">'
+    +'<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">'
+      +'<label style="flex:none;width:34px;height:34px;border-radius:50%;border:2px solid var(--line2);position:relative;overflow:hidden;cursor:pointer;background:'+(cn||'#FAF8F4')+'"><input type="color" data-bgcolor="1" value="'+(cn||'#FAF8F4')+'" style="position:absolute;inset:-4px;width:200%;height:200%;border:none;padding:0;cursor:pointer"></label>'
+      +'<input type="text" data-bghex="1" maxlength="7" placeholder="#EFE6D8" value="'+(cn||'')+'" style="flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line2);border-radius:8px;background:var(--paper,transparent);color:var(--ink);font-family:inherit;font-size:14px">'
+      +'<button data-bgsave="1" style="flex:none;padding:8px 12px;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:999px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer">Save colour</button>'
+    +'</div>'
+  +'</div>';
+  return built+saved+plus+edit+panel;
+}
+/* 綁事件：rootSel 容器內——選色/展開面板/即時預覽/存色/Edit 切換/刪除。repaint(tog) 由呼叫端提供，
+   只重畫色票列容器（不重繪整抽屜）；tog=true 時翻轉呼叫端的 editMode 閉包變數 */
+function wireSocBgPicker(rootSel,getCur,onPick,repaint){
+  var root=document.querySelector(rootSel);
+  if(!root)return;
+  root.querySelectorAll('[data-bg]').forEach(function(b){b.addEventListener('click',function(){onPick(b.dataset.bg);});});
+  var panel=root.querySelector('[data-bgpanel]');
+  var addBtn=root.querySelector('[data-bgadd]');
+  if(addBtn&&panel)addBtn.addEventListener('click',function(){panel.style.display=(panel.style.display==='none'||!panel.style.display)?'block':'none';});
+  var col=root.querySelector('[data-bgcolor]');
+  var tx=root.querySelector('[data-bghex]');
+  if(col)col.addEventListener('input',function(){var h=socHexNorm(this.value);if(h){onPick(h);if(tx)tx.value=h;var lb=this.parentNode;if(lb)lb.style.background=h;}});
+  if(tx)tx.addEventListener('input',function(){var h=socHexNorm(this.value);if(h){onPick(h);if(col){col.value=h;if(col.parentNode)col.parentNode.style.background=h;}}});
+  var sv=root.querySelector('[data-bgsave]');
+  if(sv)sv.addEventListener('click',function(){
+    var h=socHexNorm(getCur());
+    if(!h)return;
+    var built=SOC_SWATCHES.map(function(x){return x.toLowerCase();});
+    if(built.indexOf(h)>=0||SOC_SAVED.indexOf(h)>=0){toast('Already saved');return;}
+    if(SOC_SAVED.length>=8){toast('Remove one first · max 8');return;}
+    SOC_SAVED.push(h);socBgSave();repaint();
+  });
+  var ed=root.querySelector('[data-bgedit]');
+  if(ed)ed.addEventListener('click',function(){repaint(true);});
+  root.querySelectorAll('[data-bgdel]').forEach(function(x){x.addEventListener('click',function(){
+    var h=String(x.dataset.bgdel).toLowerCase(),i=SOC_SAVED.indexOf(h);
+    if(i>=0)SOC_SAVED.splice(i,1);
+    socBgSave();repaint();
+  });});
+}
 var SOC_PHOTOS={};     /* {slug:true} 哪些豆子已經有照片 */
 var SOC_NOTE={
   white:'Ready to post straight to Instagram.',
@@ -2445,11 +2527,7 @@ async function openSocialSplitSheet(){
     /* 底色列（只在 Colour 模式顯示）：色票一鍵選＋最後一顆自訂色盤；深底會自動翻淺字 */
     +'<div id="soc-bgwrap" style="margin-top:12px">'
       +'<div class="dlab" style="display:flex;justify-content:space-between"><span>Background colour</span><span id="soc-bghex">'+SOC_BG.toUpperCase()+'</span></div>'
-      +'<div style="display:flex;gap:9px;align-items:center;margin-top:6px;flex-wrap:wrap">'
-        +SOC_SWATCHES.map(function(c){return '<button data-bg="'+c+'" aria-label="'+c+'" style="flex:none;width:34px;height:34px;border-radius:50%;background:'+c+';border:2px solid '+(c.toLowerCase()===SOC_BG.toLowerCase()?'var(--accent)':'var(--line2)')+';cursor:pointer;padding:0"></button>';}).join('')
-        +'<label style="flex:none;width:34px;height:34px;border-radius:50%;border:2px dashed var(--line2);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px;cursor:pointer;position:relative">+'
-          +'<input type="color" id="soc-bgpick" value="'+SOC_BG+'" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>'
-      +'</div>'
+      +'<div id="soc-bgpicker" style="display:flex;gap:9px;align-items:center;margin-top:6px;flex-wrap:wrap">'+socBgSwatchesHTML(SOC_BG,false)+'</div>'
       +'<div class="s" style="color:var(--muted);font-size:12.5px;margin-top:6px">Dark colours flip the text to light automatically</div>'
     +'</div>'
     +'<div id="soc-scrimwrap" style="display:none;margin-top:12px">'
@@ -2474,14 +2552,20 @@ async function openSocialSplitSheet(){
     $('soc-bgwrap').style.display=m==='white'?'':'none';
   }
   function bgSet(c){
-    SOC_BG=c;
-    $('soc-bghex').textContent=c.toUpperCase();
-    document.querySelectorAll('#soc-bgwrap [data-bg]').forEach(function(b){
-      b.style.borderColor=b.dataset.bg.toLowerCase()===c.toLowerCase()?'var(--accent)':'var(--line2)';
+    SOC_BG=socHexNorm(c)||c;
+    $('soc-bghex').textContent=SOC_BG.toUpperCase();
+    document.querySelectorAll('#soc-bgpicker [data-bg]').forEach(function(b){
+      b.style.borderColor=b.dataset.bg.toLowerCase()===SOC_BG.toLowerCase()?'var(--accent)':'var(--line2)';
     });
+    socBgSave();  /* B 記住上次 */
   }
-  document.querySelectorAll('#soc-bgwrap [data-bg]').forEach(function(b){b.addEventListener('click',function(){bgSet(b.dataset.bg);});});
-  $('soc-bgpick').addEventListener('input',function(){bgSet(this.value);});
+  var socEdit=false;
+  function socRepaint(tog){
+    if(tog)socEdit=!socEdit;
+    var w=$('soc-bgpicker');
+    if(w){w.innerHTML=socBgSwatchesHTML(SOC_BG,socEdit);wireSocBgPicker('#soc-bgpicker',function(){return SOC_BG;},bgSet,socRepaint);}
+  }
+  wireSocBgPicker('#soc-bgpicker',function(){return SOC_BG;},bgSet,socRepaint);
   $('soc-w').addEventListener('click',function(){segSet('white');});
   $('soc-t').addEventListener('click',function(){segSet('clear');});
   $('soc-p').addEventListener('click',function(){segSet('photo');});
@@ -3288,12 +3372,9 @@ function paintListSheet(){
     +'<div class="dlab">Product images · 4-up carousel</div>'
     +'<div class="pm-seg">'+[['colour','Colour'],['transparent','Transparent'],['photo','Photo']].map(function(m){return '<button data-im="'+m[0]+'"'+(LST.imgMode===m[0]?' class="on"':'')+'>'+m[1]+'</button>';}).join('')+'</div>'
     +(LST.imgMode==='colour'
-      ?'<div style="display:flex;gap:9px;align-items:center;margin-top:10px;flex-wrap:wrap">'
-        +SOC_SWATCHES.map(function(c){return '<button data-imbg="'+c+'" aria-label="'+c+'" style="flex:none;width:30px;height:30px;border-radius:50%;background:'+c+';border:2px solid '+(c.toLowerCase()===LST.imgBg.toLowerCase()?'var(--accent)':'var(--line2)')+';cursor:pointer;padding:0"></button>';}).join('')
-        +'<label style="flex:none;width:30px;height:30px;border-radius:50%;border:2px dashed var(--line2);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:16px;cursor:pointer;position:relative">+'
-          +'<input type="color" id="ls-imbgpick" value="'+LST.imgBg+'" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>'
-        +'<span class="s" style="color:var(--muted);font-size:12.5px">'+LST.imgBg.toUpperCase()+'</span>'
-      +'</div>':'')
+      ?'<div class="dlab" style="display:flex;justify-content:space-between"><span>Background colour</span><span id="ls-imbghex">'+String(LST.imgBg).toUpperCase()+'</span></div>'
+        +'<div id="ls-imbgpicker" style="display:flex;gap:9px;align-items:center;margin-top:6px;flex-wrap:wrap">'+socBgSwatchesHTML(LST.imgBg,false)+'</div>'
+      :'')
     +(LST.imgMode==='transparent'?'<div class="s" style="color:var(--muted);font-size:12.5px;margin-top:8px">Square photos cannot be transparent — a white version is pushed. Transparent stays in Social Images for IG layering.</div>':'')
     +(LST.imgMode==='photo'?'<div class="s" style="margin-top:8px;font-size:12.5px;color:'+(LST.hasPhoto?'var(--accent)':'var(--muted)')+'">'
       +(LST.hasPhoto?'✓ photo saved':'No photo yet — you will pick one when pushing')
@@ -3310,9 +3391,24 @@ function paintListSheet(){
   function grab(){LST.price=$('ls-p').value;LST.p500=$('ls-p5').value;LST.p1k=$('ls-p1').value;}
   document.querySelectorAll('#drawer [data-g]').forEach(function(el){el.addEventListener('click',function(){grab();LST.grams=+el.dataset.g;paintListSheet();});});
   document.querySelectorAll('#drawer [data-im]').forEach(function(el){el.addEventListener('click',function(){grab();LST.imgMode=el.dataset.im;paintListSheet();});});
-  document.querySelectorAll('#drawer [data-imbg]').forEach(function(el){el.addEventListener('click',function(){grab();LST.imgBg=el.dataset.imbg;paintListSheet();});});
-  /* 自訂色盤用 change（放開才觸發）——input 每拖一格就重繪會把色盤關掉 */
-  var ibp=$('ls-imbgpick');if(ibp)ibp.addEventListener('change',function(){grab();LST.imgBg=this.value;paintListSheet();});
+  /* 共用底色選色器（與 Social Images 同一份自訂色）：onPick 只局部更新選中框＋hex，不整抽屜重繪（否則清掉 Edit/面板狀態） */
+  var imp=$('ls-imbgpicker');
+  if(imp){
+    var lsImgEdit=false;
+    var lsImgPick=function(hex){
+      LST.imgBg=socHexNorm(hex)||hex;
+      var hx=$('ls-imbghex');if(hx)hx.textContent=String(LST.imgBg).toUpperCase();
+      document.querySelectorAll('#ls-imbgpicker [data-bg]').forEach(function(b){
+        b.style.borderColor=b.dataset.bg.toLowerCase()===String(LST.imgBg).toLowerCase()?'var(--accent)':'var(--line2)';
+      });
+    };
+    var lsImgRepaint=function(tog){
+      if(tog)lsImgEdit=!lsImgEdit;
+      var w=$('ls-imbgpicker');
+      if(w){w.innerHTML=socBgSwatchesHTML(LST.imgBg,lsImgEdit);wireSocBgPicker('#ls-imbgpicker',function(){return LST.imgBg;},lsImgPick,lsImgRepaint);}
+    };
+    wireSocBgPicker('#ls-imbgpicker',function(){return LST.imgBg;},lsImgPick,lsImgRepaint);
+  }
   var iph=$('ls-imph');if(iph)iph.addEventListener('click',async function(){grab();var ok=await changeBeanPhoto(LST.name,iph);if(ok){LST.hasPhoto=true;paintListSheet();}});
   /* 拉桿只改值＋更新顯示，不 repaint（重繪會讓正在拖的滑桿失焦跳掉） */
   var imsc=$('ls-imscrim');if(imsc)imsc.addEventListener('input',function(){LST.imgScrim=Number(this.value)/100;var v=$('ls-imscrimval');if(v)v.textContent=this.value+'%';});
@@ -4013,6 +4109,70 @@ function passedBeans(){
     if(r&&r.qc==='pass')out.push(s);
   });
   return out;
+}
+/* ===== Bean rotation：吧台目前這支濃縮豆＋何時換下一支 =====
+   唯讀者能看 On the bar，改（Swap）要 canWrite；資料存 app_state bean_swap（單一當前一筆） */
+async function openBeanRotSheet(showForm){
+  var dots={};try{dots=await cardDots();}catch(e){}
+  var bsc=beanSwapCalc();
+  var barHTML;
+  if(BEAN_SWAP&&BEAN_SWAP.bean&&bsc){
+    var col=uiDot(dotColorFor(BEAN_SWAP.bean,dots))||'var(--accent)';
+    var pct=bsc.total>0?Math.max(0,Math.min(100,Math.round(bsc.elapsed/bsc.total*100))):0;
+    var leftLabel=bsc.daysLeft<0?('overdue '+(-bsc.daysLeft)+'d'):bsc.daysLeft===0?'due today':(bsc.daysLeft+' days left');
+    var leftCol=bsc.daysLeft<=0?'var(--danger)':'var(--muted)';
+    var barCol=bsc.daysLeft<=0?'var(--danger)':'var(--accent)';
+    barHTML='<div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
+      +'<span class="t" style="font-size:16px"><span style="color:'+col+'">●</span> '+esc(BEAN_SWAP.bean)+'</span>'
+      +'<span class="s" style="color:var(--muted);white-space:nowrap">swap '+fmtD(bsc.swapKey)+'</span></div>'
+      +'<div class="s" style="margin-top:3px;color:var(--muted)">changed '+fmtD(BEAN_SWAP.changed)+' · lasts '+bsc.total+' days</div>'
+      +'<div style="height:6px;border-radius:6px;background:var(--line);margin-top:9px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+barCol+'"></div></div>'
+      +'<div class="s" style="margin-top:5px;color:'+leftCol+';font-weight:600">'+leftLabel+'</div></div>';
+  }else{
+    barHTML='<div class="empty" style="margin-top:12px">Nothing set yet — tap below to record the bean on the bar</div>';
+  }
+  var formHTML='';
+  if(showForm){
+    var beans=passedBeans();
+    var curBean=(BEAN_SWAP&&BEAN_SWAP.bean)||'';
+    var opts=beans.map(function(s){var v=esc(s.sample_id||'');return '<option value="'+v+'"'+(s.sample_id===curBean?' selected':'')+'>'+v+(s.process?' · '+esc(s.process):'')+'</option>';});
+    if(curBean&&!beans.some(function(s){return s.sample_id===curBean;}))opts.unshift('<option value="'+esc(curBean)+'" selected>'+esc(curBean)+' · current</option>');
+    if(!opts.length)opts.push('<option value="">no QC-passed coffees yet</option>');
+    var defDays=(BEAN_SWAP&&BEAN_SWAP.days)||7;
+    formHTML='<div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:12px">'
+      +'<div class="dlab" style="margin-top:0">Which bean</div>'
+      +'<select class="din" id="br-bean" style="padding:12px">'+opts.join('')+'</select>'
+      +'<div class="dlab">Lasts how long</div>'
+      +'<div style="display:flex;align-items:center;gap:8px"><input class="din" id="br-days" type="number" min="1" inputmode="numeric" value="'+defDays+'" style="flex:0 0 100px"><span class="s" style="color:var(--muted)">days</span></div>'
+      +'<div class="s" id="br-prev" style="margin-top:8px;color:var(--muted)">→ swap '+fmtD(dPlus(Number(defDays)||7))+'</div>'
+      +'<button class="act" id="br-save" style="margin-top:12px">Save</button></div>';
+  }
+  openDrawerHTML('<div class="t" style="font-size:19px">Bean rotation</div>'
+    +'<div class="s" style="margin-top:2px">what is on the bar and when to swap</div>'
+    +'<div class="dlab">On the bar now</div>'+barHTML
+    +(showForm?formHTML:'<button class="act" id="br-swap" style="margin-top:12px">Swap in a new bean</button>')
+    +'<button class="dclose" id="br-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  var swb=$('br-swap');if(swb)swb.addEventListener('click',function(){
+    if(!canWrite()){roToast();return;}
+    openBeanRotSheet(true);
+  });
+  var days=$('br-days'),prev=$('br-prev');
+  if(days&&prev)days.addEventListener('input',function(){
+    var n=Math.max(1,parseInt(days.value,10)||0);
+    prev.textContent='→ swap '+fmtD(dPlus(n));
+  });
+  var sv=$('br-save');if(sv)sv.addEventListener('click',function(){
+    if(!canWrite()){roToast();return;}
+    var bean=$('br-bean')?$('br-bean').value:'';
+    if(!bean){toast('Pick a bean first');return;}
+    var d=Math.max(1,parseInt($('br-days').value,10)||7);
+    BEAN_SWAP={bean:bean,changed:todayKey(),days:d};
+    beanSwapSave();
+    toast('Bean rotation saved ✓');
+    openBeanRotSheet();
+  });
+  $('br-cl').addEventListener('click',closeDrawer);
 }
 async function openInfoCardsSheet(){
   var list=passedBeans();
