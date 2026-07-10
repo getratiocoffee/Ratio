@@ -46,6 +46,39 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 .grphead .garr{font-size:10px;width:12px}
 .grphead .gdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .tundo{background:none;border:none;color:var(--inv-t);font-family:inherit;font-size:14px;font-weight:700;text-decoration:underline;margin-left:10px;cursor:pointer;padding:0}
+/* ===== 公開頁（免登入，蓋在最上層）：?fb 回饋表單＋?bean 豆頁——2026-07-10 從 classic 移植，根網址換新殼後由這裡接手實體 QR/email 連結 ===== */
+#fb-ov{position:fixed;inset:0;z-index:9999;background:var(--bg);overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:34px 16px}
+.fb-card{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 22px}
+.fb-title{font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--accent);margin-bottom:4px}
+.fb-sub{font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5}
+.fb-stars{display:flex;gap:8px;margin:4px 0 14px}
+.fb-star{font-size:30px;background:none;border:none;cursor:pointer;color:var(--line2);padding:2px;line-height:1}
+.fb-star.on{color:#E0B341}
+.fb-card textarea,.fb-card input{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:11px;padding:11px 12px;font-size:14px;color:var(--ink);outline:none;font-family:inherit;margin-bottom:10px}
+.fb-card textarea{min-height:90px;resize:vertical}
+.fb-thanks{text-align:center;padding:30px 0;font-size:15px;line-height:1.7}
+.fb-send{display:block;width:100%;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;background:var(--accent);color:#fff}
+.fb-send[disabled]{opacity:.5}
+.fb-msg{font-size:12px;color:var(--muted);min-height:14px;margin-bottom:8px}
+.fb-msg.err{color:var(--accent)}
+#pb-ov{position:fixed;inset:0;z-index:9998;background:var(--bg);overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:30px 16px 50px}
+.pb-card{width:100%;max-width:460px}
+.pb-brand{font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--accent);margin-bottom:14px}
+.pb-name{font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--ink);line-height:1.2}
+.pb-sub{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.55}
+.pb-sec{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px}
+.pb-sec-h{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.pb-flav{display:flex;gap:8px;flex-wrap:wrap}
+.pb-chip{background:var(--tint);color:var(--ink);border-radius:999px;padding:6px 13px;font-size:13px;font-weight:600}
+.pb-radar svg{display:block;margin:0 auto;max-width:260px;width:100%;height:auto}
+.pb-brew-m{margin-top:10px}
+.pb-brew-m:first-child{margin-top:0}
+.pb-brew-h{font-weight:700;color:var(--accent);font-size:13px;margin-bottom:3px}
+.pb-brew-l{font-size:13px;line-height:1.7}
+.pb-brew-l b{font-family:ui-monospace,monospace;font-weight:600}
+.pb-foot{text-align:center;font-size:12px;color:var(--muted);margin-top:18px;line-height:1.7}
+.pb-foot a{color:var(--accent);font-weight:600}
+.pb-empty{text-align:center;color:var(--muted);font-size:13px;padding:56px 24px}
 .cattag{position:absolute;top:13px;right:14px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .actsm{border:none;border-radius:999px;padding:10px 20px;min-height:44px;font-size:15px;font-weight:700;font-family:'Inter',sans-serif;background:var(--accent);color:#fff;cursor:pointer}
 .cfoot{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
@@ -295,7 +328,7 @@ sb.from=function(table){
     return (typeof v==='function')?v.bind(target):v;
   }});
 };
-const CLASSIC='/index.html';
+const CLASSIC='/classic.html'; /* 2026-07-10 閹割階段一：根網址已換新殼接管，classic 搬到 /classic.html 苟活 */
 const ESP_STALE_DAYS=7, GREEN_LOW_KG=5, ORD_OVERDUE_DAYS=7, CLOSING_HOUR=14;
 const VAPID_PUBLIC='BFPC3UdlUFbYeowrMvVn-eJWjES_PHYuy34_7v7XbgPSb88CRdG5pjyT30Ht-1Ok4C0dj25Ut-ahokw-9STRY9o';
 var view='feed', filter='all', selQC=null, ITEMS=[], QCQ=[], ROLE='director', WHO='', LEAD=false;
@@ -6568,6 +6601,119 @@ async function enablePush(btn){
 }
 if('serviceWorker' in navigator){try{navigator.serviceWorker.register('/new/sw.js');}catch(e){}}
 (function(){var hb=$('hbell');if(hb)hb.addEventListener('click',openBriefSheet);})();
+/* ===== 公開頁（免登入）：?fb 回饋表單＋?bean 豆頁 =====
+   2026-07-10 從 classic 移植（classic 原 IIFE ~L2521/L2558）——根網址換由新殼服務後，
+   實體 QR（罐標/袋標/資訊卡）與 email 連結由這裡接手。overlay 蓋在 app 上層，不擋 boot */
+function fmtDate(d){if(!d||d==='—')return 'No date';var p=String(d).split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0].slice(-2)):d;}
+function sampleRadarSVG(s,force){
+  var axes=[['fragrance','Fragrance'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
+  if(!force&&!axes.some(function(a){return s[a[0]]!=null;}))return '';
+  var W=232,H=176,cx=W/2,cy=H/2+4,R=46,n=axes.length;
+  function pt(i,r){var a=i*2*Math.PI/n;return [cx+r*Math.sin(a),cy-r*Math.cos(a)];}
+  function poly(r){return axes.map(function(_,i){var p=pt(i,r);return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ');}
+  var grid='';[1,2,3].forEach(function(l){grid+='<polygon points="'+poly(R*l/3)+'" fill="none" stroke="rgba(128,120,115,0.22)" stroke-width="1"/>';});
+  var spokes='';for(var i=0;i<n;i++){var p=pt(i,R);spokes+='<line x1="'+cx+'" y1="'+cy+'" x2="'+p[0].toFixed(1)+'" y2="'+p[1].toFixed(1)+'" stroke="rgba(128,120,115,0.18)" stroke-width="1"/>';}
+  var dpts=axes.map(function(a,i){var v=(s[a[0]]==null?0:s[a[0]]);return pt(i,R*(v/3));});
+  var dpoly=dpts.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ');
+  var dots=dpts.map(function(p){return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="2" fill="#B25E6A"/>';}).join('');
+  var labels='';axes.forEach(function(a,i){
+    var lp=pt(i,R+15),anc=(lp[0]<cx-2?'end':(lp[0]>cx+2?'start':'middle'));
+    labels+='<text x="'+lp[0].toFixed(1)+'" y="'+(lp[1]+3).toFixed(1)+'" font-size="9" font-weight="700" fill="#8C8079" text-anchor="'+anc+'">'+a[1]+'</text>';
+  });
+  return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" xmlns="http://www.w3.org/2000/svg">'
+    +grid+spokes
+    +'<polygon points="'+dpoly+'" fill="rgba(178,94,106,0.18)" stroke="#B25E6A" stroke-width="1.6" stroke-linejoin="round"/>'
+    +dots+labels+'</svg>';
+}
+/* 回饋表單：ref＝訂單 id 或 'store'；內部「Leave feedback」鈕也走這裡（不再跳頁） */
+function showFbOverlay(ref){
+  var old=document.getElementById('fb-ov');if(old)old.remove();
+  var rating=0;
+  var ov=document.createElement('div');ov.id='fb-ov';
+  var stars='';for(var i=1;i<=5;i++)stars+='<button class="fb-star" data-star="'+i+'" aria-label="'+i+' stars">★</button>';
+  ov.innerHTML='<div class="fb-card">'
+    +'<div class="fb-title">Ratio Coffee</div>'
+    +'<div class="fb-sub">How was your coffee? Your feedback goes straight to the roaster.</div>'
+    +'<div class="fb-stars">'+stars+'</div>'
+    +'<textarea id="fb-cmt" placeholder="What did you like? What could be better?"></textarea>'
+    +'<input id="fb-name" type="text" placeholder="Your name (optional)" />'
+    +'<input id="fb-email" type="email" placeholder="Email (optional, if you would like a reply)" />'
+    +'<div class="fb-msg" id="fb-msg"></div>'
+    +'<button class="fb-send" id="fb-send">Send feedback</button>'
+    +'</div>';
+  ov.querySelectorAll('.fb-star').forEach(function(b){b.addEventListener('click',function(){
+    rating=+b.dataset.star;
+    ov.querySelectorAll('.fb-star').forEach(function(x){x.classList.toggle('on',+x.dataset.star<=rating);});
+  });});
+  ov.querySelector('#fb-send').addEventListener('click',async function(){
+    var send=ov.querySelector('#fb-send'),msg=ov.querySelector('#fb-msg');
+    var cmt=ov.querySelector('#fb-cmt').value.trim();
+    if(!rating&&!cmt){msg.textContent='Tap a star rating or write a note first';msg.className='fb-msg err';return;}
+    send.disabled=true;msg.textContent='Sending…';msg.className='fb-msg';
+    var rec={order_ref:ref,rating:rating||null,comment:cmt||null,
+      name:ov.querySelector('#fb-name').value.trim()||null,
+      email:ov.querySelector('#fb-email').value.trim()||null};
+    var r=await sb.from('feedback').insert(rec);
+    if(r.error){send.disabled=false;msg.textContent='Could not send: '+r.error.message;msg.className='fb-msg err';return;}
+    ov.innerHTML='<div class="fb-card"><div class="fb-title">Ratio Coffee</div><div class="fb-thanks">Thank you! ☕<br>Your feedback is on its way to the roaster.</div></div>';
+  });
+  document.body.appendChild(ov);
+}
+(function(){
+  var ref='';try{ref=new URLSearchParams(location.search).get('fb')||'';}catch(e){}
+  if(ref)showFbOverlay(ref);
+})();
+/* 公開豆頁：?bean=<slug>（只給風味已鎖定的豆；public-bean edge 免登入） */
+(function(){
+  var q='';try{q=new URLSearchParams(location.search).get('bean')||'';}catch(e){}
+  if(!q)return;
+  var ov=document.createElement('div');ov.id='pb-ov';
+  ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div><div class="pb-empty">Loading…</div></div>';
+  document.body.appendChild(ov);
+  var FLD=[['temp','Temp'],['ppm','PPM'],['grind','Grind'],['dose','Dose'],['yield','Yield'],['water','Water'],['ice_ratio','Ice'],['time','Time']];
+  var METH=[['espresso','Espresso'],['infusion','Pour-Over'],['immersion','Immersion'],['ice','Ice Filter']];
+  function pbBrewHTML(brew){
+    if(!brew||typeof brew!=='object')return '';
+    var out='';
+    METH.forEach(function(m){
+      var v=brew[m[0]];if(!v||typeof v!=='object')return;
+      var lines=[];
+      FLD.forEach(function(f){
+        if(f[0]==='yield'&&m[0]!=='espresso')return;
+        var val=String(v[f[0]]||'').trim();if(!val)return;
+        lines.push(f[1]+' <b>'+esc(val)+'</b>');
+      });
+      var dose=parseFloat(v.dose||''),liq=parseFloat(m[0]==='espresso'?(v.yield||''):(v.water||''));
+      if(dose>0&&liq>0){var r=Math.round(liq/dose*10)/10;lines.push('Ratio <b>1:'+(r%1===0?Math.round(r):r)+'</b>');}
+      if(!lines.length)return;
+      out+='<div class="pb-brew-m"><div class="pb-brew-h">'+m[1]+'</div><div class="pb-brew-l">'+lines.join(' · ')+'</div></div>';
+    });
+    return out;
+  }
+  fetch(SUPABASE_URL+'/functions/v1/public-bean?name='+encodeURIComponent(q))
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(!d||!d.ok){ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div><div class="pb-empty">This coffee page is not available.</div></div>';return;}
+      var sub=[];
+      if(d.kind==='blend'&&d.recipe&&d.recipe.length)sub.push(d.recipe.map(function(p){return esc(p.bean)+' '+p.pct+'%';}).join(' · '));
+      else if(d.process)sub.push(esc(d.process));
+      if(d.origin&&d.origin.region)sub.push(esc(d.origin.region));
+      if(d.roast_date)sub.push('Roasted '+esc(fmtDate(d.roast_date)));
+      var radar='';
+      try{radar=sampleRadarSVG(d.scores,true);}catch(e){}
+      var brewH=pbBrewHTML(d.brew);
+      ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div>'
+        +'<div class="pb-name">'+esc(d.name)+'</div>'
+        +(sub.length?'<div class="pb-sub">'+sub.join(' · ')+'</div>':'')
+        +((d.flavour&&d.flavour.length)?'<div class="pb-sec"><div class="pb-sec-h">Flavour</div><div class="pb-flav">'+d.flavour.map(function(f){return '<span class="pb-chip">'+esc(f)+'</span>';}).join('')+'</div>'+(d.comment?'<div class="pb-sub" style="margin-top:10px">'+esc(d.comment)+'</div>':'')+'</div>':'')
+        +(radar?'<div class="pb-sec"><div class="pb-sec-h">Cup profile</div><div class="pb-radar">'+radar+'</div></div>':'')
+        +(brewH?'<div class="pb-sec"><div class="pb-sec-h">How to brew it</div>'+brewH+'</div>':'')
+        +(d.origin&&(d.origin.variety||d.origin.altitude)?'<div class="pb-sec"><div class="pb-sec-h">Origin</div><div class="pb-brew-l">'+[d.origin.variety?('Variety <b>'+esc(d.origin.variety)+'</b>'):'',d.origin.altitude?('Altitude <b>'+esc(d.origin.altitude)+' m</b>'):''].filter(Boolean).join(' · ')+'</div></div>':'')
+        +'<div class="pb-foot">Ratio Coffee · Crows Nest, Sydney<br><a href="?fb=store">Tried it? Tell us what you think →</a></div>'
+        +'</div>';
+    })
+    .catch(function(){ov.innerHTML='<div class="pb-card"><div class="pb-brand">Ratio Coffee</div><div class="pb-empty">Could not load this page — please try again.</div></div>';});
+})();
 function render(){
   /* 浮水印只給今日流：內容少的頁（QC/Tools）整塊露出來像破圖 */
   var bgl=document.querySelector('.bglogo');if(bgl)bgl.style.display='';
@@ -7066,7 +7212,7 @@ async function renderCustomerPortal(sess){
   renderShopTabs();
   paintShopBody();
   m.querySelectorAll('[data-wspay]').forEach(function(b){b.addEventListener('click',function(){openWsPaySheet(orders[+b.dataset.wspay]);});});
-  $('cp-fb').addEventListener('click',function(){location.href='/?fb=store';});
+  $('cp-fb').addEventListener('click',function(){showFbOverlay('store');});
   /* 登入/開 app 後彈一次批發條款提示（抽屜沒開著才彈，避免蓋掉別的） */
   if(WS_MODE&&!WS_WELCOME_SEEN){WS_WELCOME_SEEN=true;setTimeout(function(){var dr=$('drawer');if(!(dr&&dr.classList.contains('show')))openWsWelcomeSheet(custName);},500);}
   /* 更高權限入口：登出這個客戶 → 原地開登入抽屜換帳號，全程不離開 /new */
