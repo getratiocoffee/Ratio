@@ -6,8 +6,8 @@
 
 ## 這是什麼
 Ratio Coffee（雪梨烘豆生意）的內部管理系統。**兩個 app 並行**，各自一個單檔（HTML+CSS+JS 全包，UI 文字一律英文、註解可中文）：
-- **新殼 `new/index.html`** → `/new/`：日常營運主力（手機優先 PWA）。今日流卡片＋QC 拇指台＋Tools（開單/記烘豆/盤點/收豆/各清單）；生產線全鏈：收生豆→烘（單品/拼配）→杯測→QC→鎖風味→上架 Square→接單→出貨→收款
-- **classic `index.html`** → `/`：低頻後勤（印刷/財務/排班/配方編輯/行銷群發）＋12 站泡泡面板；登入在這裡做（新殼同網域共用 session）
+- **新殼 `new/index.html`** → `/new/`，**且自 2026-07-10 起根 `/` 也由它接管**（vercel.json rewrite；?shop/?bean/?fb 公開頁全在新殼）：日常營運主力（手機優先 PWA）。今日流卡片＋QC 拇指台＋Tools；生產線全鏈：收生豆→烘→杯測→QC→鎖風味→上架 Square→接單→出貨→收款
+- **classic `classic.html`** → `/classic.html`（閹割中，長期淘汰）：低頻後勤（財務/發票/群發/配方編輯等，移植 backlog 見交接檔補記）；登入兩殼各自有、同網域共用 session
 
 ## 架構
 - **前端**：push 到 GitHub（getratiocoffee/Ratio）→ Vercel 自動部署到 https://ratio-theta.vercel.app

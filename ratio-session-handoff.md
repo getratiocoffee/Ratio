@@ -1,6 +1,7 @@
-# Ratio 開發交接 — 至 2026-07-10（今日流 v3：分組/派工/公告板/記名）
+# Ratio 開發交接 — 至 2026-07-10（今日流 v3＋閹割階段一：根網址已換新殼）
 
 ## ⚡ 當前狀態速覽（2026-07-10 更新，新 session 先讀這段）
+- **⚠ 路徑大變（閹割階段一，2026-07-10）**：**根 `/` 已由新殼接管**（vercel.json rewrite → /new/），classic 改名 **`/classic.html`**（repo 裡 index.html 已不存在！）；?bean/?fb 公開頁已移植進新殼；階段二缺口移植/丟棄 backlog 見補記之二
 - **兩個 app 並行**：
   - **新殼 `/new`**（new/index.html，獨立檔案）＝日常營運主力：**今日流 v3（2026-07-10 大改，見補記）**＝briefing 每日彈窗（班表＋公告板＋今日事件，喇叭隨開）＋My day/Everything 視角＋lead 派工（Assign 模式＋進度行）＋站別分組摺疊＋兩段式滑卡（左滑露 Later 再點才睡）＋Closing checklist（下午例行打勾記名）＋activity_log 操作記名（Tools→Activity 時間軸）＋Upcoming 30 天事件流；QC 拇指工作台＋Tools；紙白玫瑰＋炭紙自動夜版、PWA＋Web Push、角色過濾。與 classic 同網域共用登入
   - **classic `/`**（index.html 單檔）＝低頻功能：上架/印刷/盤點/庫存/財務儀表板等，12 站泡泡面板全亮；**完全沒被新殼改動**
@@ -55,6 +56,15 @@
 2. ~~Tools「Team」抽屜~~ ✅ 已完工（2026-07-08 派工層內建：Tools→Team director 區＝改名＋角色 chips＋Lead 開關）——老闆開完帳號進去把 8 人切 staff、**點 Yi 的 Make lead**（老闆拍板的主管）
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
+
+## 〇、補記 — 2026-07-10 之二（閹割 classic 階段一·換門面：根網址改由新殼接管）
+- **背景**：老闆下令開始閹割 classic。盤點發現 classic 握三條對外命脈（?bean 罐標 QR／?fb 回饋 QR＋新殼 feedback 鈕／?shop email 連結，全指根網址）——所以第一刀是**換門面不砍功能**：網址不動、門後換人。
+- **① 根換新殼**：新建 `vercel.json` `{"rewrites":[{"source":"/","destination":"/new/"}]}`；`index.html` → git mv `classic.html`（歷史保留）。已印出的實體 QR／寄出的 email 連結全部無痛沿用；員工 PWA `/new/` 不動。classic 入口＝`/classic.html`（登入頁加一行「Back office — daily ops now lives at /new」告示）。
+- **② 新殼移植兩個公開處理器**（皆免登入 overlay，蓋 app 上層不擋 boot；CSS 用新殼 tokens 明暗自適應）：`?fb` 回饋表單（重構成 `showFbOverlay(ref)`——內部 Leave feedback 鈕改呼叫它、不再跳頁）＋ `?bean` 公開豆頁（含 `sampleRadarSVG`/`fmtDate` 一併搬入；`?shop` 免移植——新殼 signed-out 本來就是店面）。
+- **③ CLASSIC 常數** → `'/classic.html'`（8 個跳轉點跟著走）。
+- **④ 安檢結論**：新殼 manifest/icon/sw 全絕對路徑 ✓；classic 無自引 ✓；根目錄 `logo.png` 等實體檔不受 rewrite 影響 ✓；**push-send 的 url 預設 `/new/`**（查過 edge 原始碼）推播不受影響 ✓。
+- **驗證**：jscheck 兩檔 ✓；本機 serve——`?fb=store` 表單→真寫入 feedback（端到端過，測試筆已刪）；`?bean=Kii AB` 真資料豆頁（風味 chips/雷達/品種海拔）夜版截圖 ✓；classic.html 改名後登入頁完好。**部署後必驗（老闆 push 後）**：curl 根 grep `swipewrap`＝新殼接管；`/classic.html` 完好；**拿實體罐標掃 QR** → 新殼豆頁（最重要）；客戶開根下單到 Square；`?checkout=done` 清購物車。⚠ ruby 本機不吃 vercel.json，「根→新殼」的 rewrite 行為只能上線驗。
+- **階段二 backlog（每項移植或丟棄，老闆逐項拍板後另開工）**：建議移植＝Finance P&L／Announce 群發／Invoice GST PDF／拼配編輯／Dial-in 編輯／Buy log；待老闆答＝C-Market（開 TradingView 就好？）／Files（改雲端硬碟？）／Contacts（併 Customers？）／生豆樣品分析（還用嗎？）／Admin 開帳號（改 Supabase 後台？Stage C 快到）。**階段三＝缺口清完後 classic.html 整檔刪除**。
 
 ## 〇、補記 — 2026-07-10（今日流 v3：防誤滑＋分組＋晨報彈窗公告板＋收尾清單＋記名＋派工——一次五需求，5 commits 等 push）
 - **背景**：老闆連發五需求①滑卡誤觸把工作滑掉②工作多不好讀③晨報卡不想點（改 popup）④要公告板（停水/客訴/VIP 上報）＋30 天事件行事曆⑤做完要記名字＋早上派工每人只看自己的。計畫檔 `~/.claude/plans/today-to-do-list-elegant-teapot.md`（九改動全記錄）。**全部完工並逐項 preview stub 驗證**，5 個 commit 在本地 main（26509ad→c4b1e97）**等老闆 GitHub Desktop push**。色彩紀律＝老闆要求「不要太花」：不新增色相、色只出現在色條/色點/icon、公告用細色條不用大色塊。
