@@ -1672,6 +1672,15 @@ async function photoIsDark(dataUrl){
     return sum/1024<140;
   }catch(e){return false;}
 }
+/* 深色照片上把豆子的點色往米白提亮：深藍 #22386B 直接畫在暗底上對比只剩 9（看不見），
+   紅色也只有 17。混白後保住色相、拉開亮度，還是認得出是哪一支豆 */
+function _liftColour(hex,amt){
+  var m=/^#?([0-9a-f]{6})$/i.exec(String(hex||''));
+  if(!m)return hex;
+  var n=parseInt(m[1],16), r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+  function mix(c,t){return Math.round(c+(t-c)*amt);}
+  return 'rgb('+mix(r,247)+','+mix(g,242)+','+mix(b,237)+')';
+}
 function _socTheme(dark){
   return dark
     ?{ink:'#F7F2ED',muted:'#C6BEB6',soft:'#DED6CE',line:'rgba(247,242,237,.26)',orn:'rgba(247,242,237,.34)'}
@@ -1756,7 +1765,9 @@ function socialCoverHTML(nm,feats,comment,col,o){
     +'<img src="'+((o&&o.logo)||'/logo.png')+'" crossorigin="anonymous" style="width:118px;height:118px" alt="">'
     +'<div style="font-family:Fraunces,Georgia,serif;font-size:50px;font-weight:600;margin-top:26px">Ratio Coffee</div>'
     +'<div style="font-size:21px;letter-spacing:9px;text-transform:uppercase;color:'+T.muted+';margin-top:12px">Specialty Coffee Lab</div>'
-    +_socOrn(col,T)
+    /* 菱形帶這支豆的點色（同雷達多邊形）——它落在 logo 與豆名之間，是視線的落點，
+       一眼就能認出是哪一支。兩側橫線與其餘版面仍是黑白 */
+    +_socOrn((o&&o.dot)||col,T)
     +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:78px;font-weight:600;line-height:1.05">'+esc(nm)+'</div>'
     +'<div style="width:84px;height:4px;background:'+col+';margin:30px 0"></div>'
     +body
@@ -1789,8 +1800,12 @@ function socialQrHTML(qrSrc,col,o){
   var T=(o&&o.T)||_socTheme(false);
   return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:110px 100px">'
     +'<div style="font-size:22px;letter-spacing:8px;text-transform:uppercase;color:'+col+'">Scan for this coffee</div>'
-    +'<div style="border:14px solid #fff;outline:1px solid '+T.orn+';background:#fff;margin:44px 0"><img src="'+qrSrc+'" crossorigin="anonymous" style="width:440px;height:440px;display:block" alt=""></div>'
-    +'<div style="font-size:28px;color:'+T.soft+';line-height:1.7">@ratio.crowsnest · caffeine@coffeeratio.com<br><span style="color:'+T.muted+'">Roasted in Sydney</span></div>'
+    /* QR 白框永遠保留（透明或深底都要有淺底才掃得到） */
+    +'<div style="border:16px solid #fff;outline:1px solid '+T.orn+';background:#fff;margin:46px 0 52px"><img src="'+qrSrc+'" crossorigin="anonymous" style="width:360px;height:360px;display:block" alt=""></div>'
+    /* 一行一個資訊：帳號、信箱、產地——擠成一行讀不清 */
+    +'<div style="font-size:31px;line-height:1.62;color:'+T.soft+'">@ratio.crowsnest</div>'
+    +'<div style="font-size:31px;line-height:1.62;color:'+T.soft+'">caffeine@coffeeratio.com</div>'
+    +'<div style="font-size:26px;line-height:1.62;color:'+T.muted+';margin-top:10px">Roasted in Sydney</div>'
     +'</div>',o);
 }
 /* Daily task 快速入口（暫放）：列 QC 通過的豆 → 選一支就地產四張社群圖，不用繞進 Social post kit */
@@ -1937,10 +1952,12 @@ async function renderSocialImages(full,info,feats,nm,col,mode,opts){
   /* 版面固定黑白：呼叫端傳進來的 col 是 dotColorFor() 的罐標色（黃/藍/紅），那是店裡貨架
      辨識用的管理色，不可拿來當版面主色——不然同一支豆換個點色，整張圖就變全黃或全紅。
      用 T.ink：淺底是墨黑，深照片上自動翻成米白，明暗天生對稱。
-     ⚠ 唯一例外＝雷達多邊形：那是資料視覺化，該用這支豆自己的識別色（老闆定案）。 */
+     ⚠ 例外＝雷達多邊形與封面菱形：那是這支豆的識別色，用來一眼認出是哪一支（老闆定案）。
+     深色照片上要先提亮，否則深藍/紅點色會整個沉進暗底。 */
   var radarCol=col||'#B25E6A';
+  if(dark)radarCol=_liftColour(radarCol,0.45);
   col=T.ink;
-  var o={mode:mode,photo:photo,scrim:scrim,dark:dark,T:T,
+  var o={mode:mode,photo:photo,scrim:scrim,dark:dark,T:T,dot:radarCol,
     logo:await _socLogo(T.ink), drop:await _socDrop(col), bean:await _socBean(col)};
   var sc={fragrance:full.fragrance,acidity:full.acidity,sweetness:full.sweetness,body:full.body,aftertaste:full.aftertaste};
   var radar=printRadarPNG(sc,radarCol,dark?{grid:'rgba(247,242,237,.32)',label:T.muted}:{});
