@@ -57,6 +57,10 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-10 之七（拼配明細的百分比放大＋Dark Knight「沒上架」診斷）
+- **百分比突顯（老闆點名）**：social origin 圖與摺卡明細頁的拼配行，左欄比例（50%）原是灰色小標樣式不顯眼——兩處 render 加判斷 `/^\d+(\.\d+)?%$/`，命中改 serif 大字正文色（social 40px／摺卡 9.5pt inline 蓋 .br span），一般標籤行（ORIGIN/ROASTED）不受影響。截圖驗證 ✓。
+- **Dark Knight 沒進店面＝快取誤會（沒改碼）**：實查 product_sync synced ✓、samples flavour_locked ✓、curl public-shop 菜單有它＋4 圖 ✓——是 public-shop 的 5 分鐘 Cache-Control，別台裝置/已開頁面吃舊快取（SHOP_STALE 只救推的那台）。已告知老闆重新整理即可。順帶提醒：菜單只 3 支＝其他 synced 豆風味沒鎖被 QC 閘門濾掉（設計如此）。
+
 ## 〇、補記 — 2026-07-10 之六（Push to Live 商品圖模式可選＋per-bean 記憶）
 - **背景**：Square 商品圖原是寫死規則（有背景照→自動 photo 四連圖、否則單張品牌卡），抽屜看不到也選不了——老闆 Social Images 選白底、June Project 上架卻照片版的困惑源頭。老闆拍板：①上架抽屜加選擇（同 Social Images 三模式）②透明自動轉白底（Square 走 JPEG 無透明，UI 註明）③每支豆各自記住。計畫檔同 `social-media-valiant-raven.md`（覆寫）。
 - **做法**：①`renderSocialImages` 加 `opts.bg` 覆蓋（上架用 per-bean 底色、不動全域 SOC_BG）②app_state 新 key **`rtl_imgstyle`**＝`{豆名:{mode:'colour'|'transparent'|'photo',bg:'#hex'}}`，openListSheet 批次讀（併入 rtl_* 那組）、push 成功 read-modify-write 寫回③`paintListSheet` 加「Product images · 4-up carousel」段選＋Colour 色票列（重用 SOC_SWATCHES）＋Transparent 說明＋Photo 有無照片狀態/Replace 鈕（自訂色盤用 change 事件——input 每拖一格重繪會關色盤）④`pushListToSquare` 拆 havePhoto 自動規則改依 `LST.imgMode`：photo 沒照片→push 前先挑（取消＝中止）；colour/transparent→render 'white'（bg=記憶色/米白）JPEG 0.88；失敗仍退 makeSquareCard 兜底。
