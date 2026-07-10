@@ -6264,7 +6264,30 @@ async function saveTaskAdd(){
 }
 /* ===== 利潤計算機（從 classic CALC_HTML 移植；計算邏輯逐字照抄 getBase/calcRetail/calcWholesale，
    UI 改用新殼 tokens；零售/批發雙模式。參考案例：4 鍋·10kg·13%·$30豆·150g@$25 → 232 包·利潤 $4159·71.7%）===== */
-var CX={mode:'retail',pots:4,bean:30,greenKg:10,shrink:13,cbag:0,cstick:0,cbox:0,packRate:30,packSpeed:60,venue:125,staff:50,transport:100,pkg:0,wsPrice:12,wsQty:20,pkgs:[{g:150,p:25},{g:250,p:25}]};
+var CX={mode:'retail',pots:4,bean:30,greenKg:10,shrink:13,cbag:0,cstick:0,cbox:0,packRate:30,packSpeed:60,venue:125,staff:50,transport:100,pkg:0,wsPrice:12,wsQty:20,pkgs:[{g:150,p:25},{g:250,p:25}],costsOpen:false};
+/* 成本設定記憶（app_state calc_prefs，跨裝置）：包材/工資/場地這些「一年調一次」的值調完就記住；
+   批次數字（鍋數/生豆價/損耗/賣價）刻意不存——每批不同，存了反而誤導 */
+var CX_LOADED=false,CX_SAVE_T=null;
+var CX_PREF_KEYS=['cbag','cstick','cbox','packRate','packSpeed','venue','staff','transport'];
+async function cxLoadPrefs(){
+  if(CX_LOADED)return;CX_LOADED=true;
+  try{
+    var r=await sb.from('app_state').select('value').eq('key','calc_prefs').maybeSingle();
+    var v=r&&r.data&&r.data.value;
+    if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
+    if(v&&typeof v==='object'){
+      CX_PREF_KEYS.forEach(function(k){if(typeof v[k]==='number')CX[k]=v[k];});
+      if(Array.isArray(v.pkgs)&&v.pkgs.length){CX.pkgs=v.pkgs;if(CX.pkg>=CX.pkgs.length)CX.pkg=0;}
+    }
+  }catch(e){}
+}
+function cxSavePrefs(){
+  clearTimeout(CX_SAVE_T);
+  CX_SAVE_T=setTimeout(async function(){
+    var v={pkgs:CX.pkgs};CX_PREF_KEYS.forEach(function(k){v[k]=CX[k];});
+    try{await sb.from('app_state').upsert({key:'calc_prefs',value:v,updated_at:new Date().toISOString()},{onConflict:'key'});}catch(e){}
+  },800);
+}
 function cxBase(){
   var roastedKg=CX.pots*CX.greenKg*(1-CX.shrink/100), totalGreenKg=CX.pots*CX.greenKg;
   var roastMin=CX.pots*15, totalMin=30+roastMin+30, venueHrs=roastMin/60, staffHrs=totalMin/60;
@@ -6325,14 +6348,28 @@ function cxNum(id,label,val,unit,step,min){
     +'<input class="cx-in" id="'+id+'" type="number" inputmode="decimal" value="'+val+'" step="'+(step||1)+'"'+(min!=null?' min="'+min+'"':'')+'>'
     +(unit?'<span class="cx-unit">'+unit+'</span>':'')+'</label>';
 }
-function cxRenderOut(){var o=$('cx-out');if(o)o.innerHTML=cxResults();}
-function openCalcSheet(){
+/* 生豆→熟豆換算行（前台主角，老闆點名）：投入多少生豆、烘完剩多少、裝成幾包 */
+function cxFlowLine(){
+  var b=cxBase(),pkg=CX.pkgs[CX.pkg]||CX.pkgs[0];
+  var bags=Math.floor(b.roastedKg/(pkg.g/1000));
+  return esc(b.totalGreenKg+' kg green → '+b.roastedKg.toFixed(1)+' kg roasted · '+bags+' × '+pkg.g+'g bags');
+}
+function cxRenderOut(){
+  var o=$('cx-out');if(o)o.innerHTML=cxResults();
+  var f=$('cx-flow');if(f)f.innerHTML=cxFlowLine();
+}
+async function openCalcSheet(){
+  await cxLoadPrefs();
+  /* 重繪（切模式/選尺寸）時保留捲動位置——原本每次跳回頂端，滑來滑去很難點（老闆點名） */
+  var keep=$('drawer').classList.contains('show')?$('drawer').scrollTop:0;
   var sizeSeg=CX.pkgs.map(function(p,i){return '<button data-cxpkg="'+i+'"'+(i===CX.pkg?' class="on"':'')+'>'+p.g+'g</button>';}).join('');
   var priceRow=CX.mode==='retail'
     ? cxNum('cx-price','Sell price / bag',CX.pkgs[CX.pkg].p,'$',1,0)
     : cxNum('cx-wsprice','Wholesale price / bag',CX.wsPrice,'$',0.5,0)+cxNum('cx-wsqty','Order bags',CX.wsQty,'bags',1,1);
+  /* 版面：前台一屏＝批次＋生豆→熟豆換算行＋尺寸/價格＋結果；
+     包材/工資/場地收進 Costs & labour 摺疊（一年調一次，調了會記住） */
   openDrawerHTML('<div class="t" style="font-size:19px">Calculator</div>'
-    +'<div class="s" style="margin-top:2px">model roast cost, price and margin — nothing is saved</div>'
+    +'<div class="s" style="margin-top:2px">batch numbers reset each time — costs below are remembered</div>'
     +'<div class="pm-seg" id="cx-mode" style="margin-top:12px">'
       +'<button data-cxmode="retail"'+(CX.mode==='retail'?' class="on"':'')+'>Retail</button>'
       +'<button data-cxmode="wholesale"'+(CX.mode==='wholesale'?' class="on"':'')+'>Wholesale</button></div>'
@@ -6341,36 +6378,51 @@ function openCalcSheet(){
     +cxNum('cx-bean','Green price',CX.bean,'$/kg',1,0)
     +cxNum('cx-greenKg','Green per pot',CX.greenKg,'kg',1,1)
     +cxNum('cx-shrink','Roast loss',CX.shrink,'%',1,0)
+    +'<div id="cx-flow" style="text-align:center;font-size:15px;font-weight:700;color:var(--accent);margin:10px 0 2px">'+cxFlowLine()+'</div>'
     +'<div class="dlab">Package size</div>'
     +'<div class="pm-seg" id="cx-sizes">'+sizeSeg+'</div>'
     +'<div class="cx-add"><input class="cx-in" id="cx-cg" type="number" inputmode="numeric" placeholder="new g" min="50" step="50"><input class="cx-in" id="cx-cp" type="number" inputmode="decimal" placeholder="price $" min="1" step="1"><button class="chip" id="cx-addpkg">Add size</button></div>'
     +'<div class="dlab">Price</div><div id="cx-pricebox">'+priceRow+'</div>'
-    +'<div class="dlab">Packaging cost / bag</div>'
-    +cxNum('cx-cbag','Coffee bag',CX.cbag,'$',0.1,0)
-    +cxNum('cx-cstick','Sticker',CX.cstick,'$',0.1,0)
-    +cxNum('cx-cbox','Box',CX.cbox,'$',0.1,0)
-    +'<div class="dlab">Packing labour</div>'
-    +cxNum('cx-packRate','Pay rate',CX.packRate,'$/hr',1,0)
-    +cxNum('cx-packSpeed','Speed',CX.packSpeed,'bags/hr',5,1)
-    +'<div class="dlab">Fixed cost</div>'
-    +cxNum('cx-venue','Venue (incl. GST)',CX.venue,'$/hr',5,0)
-    +cxNum('cx-staff','Roast staff',CX.staff,'$/hr',5,0)
-    +cxNum('cx-transport','Transport',CX.transport,'$',10,0)
     +'<div class="dlab">Result</div><div id="cx-out">'+cxResults()+'</div>'
+    /* 摺疊列：點開才看得到成本設定；箭頭指示開合 */
+    +'<div class="dl" id="cx-costs-t" style="cursor:pointer;margin-top:14px;border-top:1px solid var(--line);border-bottom:none;padding-top:12px">'
+      +'<span style="color:var(--muted);font-weight:600">Costs &amp; labour — packaging, wages, venue</span>'
+      +'<span id="cx-costs-ar" style="text-align:right;color:var(--muted)">'+(CX.costsOpen?'⌄':'›')+'</span></div>'
+    +'<div id="cx-costs"'+(CX.costsOpen?'':' style="display:none"')+'>'
+      +'<div class="dlab">Packaging cost / bag</div>'
+      +cxNum('cx-cbag','Coffee bag',CX.cbag,'$',0.1,0)
+      +cxNum('cx-cstick','Sticker',CX.cstick,'$',0.1,0)
+      +cxNum('cx-cbox','Box',CX.cbox,'$',0.1,0)
+      +'<div class="dlab">Packing labour</div>'
+      +cxNum('cx-packRate','Pay rate',CX.packRate,'$/hr',1,0)
+      +cxNum('cx-packSpeed','Speed',CX.packSpeed,'bags/hr',5,1)
+      +'<div class="dlab">Fixed cost</div>'
+      +cxNum('cx-venue','Venue (incl. GST)',CX.venue,'$/hr',5,0)
+      +cxNum('cx-staff','Roast staff',CX.staff,'$/hr',5,0)
+      +cxNum('cx-transport','Transport',CX.transport,'$',10,0)
+    +'</div>'
     +'<button class="dclose" id="cx-close" style="border:none;background:none;color:var(--muted)">Close</button>');
   var d=$('drawer');
+  if(keep)d.scrollTop=keep;
   var map={'cx-pots':'pots','cx-bean':'bean','cx-greenKg':'greenKg','cx-shrink':'shrink','cx-cbag':'cbag','cx-cstick':'cstick','cx-cbox':'cbox','cx-packRate':'packRate','cx-packSpeed':'packSpeed','cx-venue':'venue','cx-staff':'staff','cx-transport':'transport','cx-wsprice':'wsPrice','cx-wsqty':'wsQty'};
-  d.addEventListener('input',function(e){
+  var prefSet={};CX_PREF_KEYS.forEach(function(k){prefSet[k]=1;});
+  /* oninput（非 addEventListener）：重繪不疊加監聽器 */
+  d.oninput=function(e){
     var id=e.target.id;
-    if(map[id]){CX[map[id]]=parseFloat(e.target.value)||0;cxRenderOut();return;}
-    if(id==='cx-price'){CX.pkgs[CX.pkg].p=parseFloat(e.target.value)||0;cxRenderOut();return;}
+    if(map[id]){CX[map[id]]=parseFloat(e.target.value)||0;cxRenderOut();if(prefSet[map[id]])cxSavePrefs();return;}
+    if(id==='cx-price'){CX.pkgs[CX.pkg].p=parseFloat(e.target.value)||0;cxRenderOut();cxSavePrefs();return;}
+  };
+  $('cx-costs-t').addEventListener('click',function(){
+    CX.costsOpen=!CX.costsOpen;
+    $('cx-costs').style.display=CX.costsOpen?'':'none';
+    $('cx-costs-ar').textContent=CX.costsOpen?'⌄':'›';
   });
   d.querySelectorAll('[data-cxmode]').forEach(function(b){b.addEventListener('click',function(){CX.mode=b.dataset.cxmode;openCalcSheet();});});
   d.querySelectorAll('[data-cxpkg]').forEach(function(b){b.addEventListener('click',function(){CX.pkg=+b.dataset.cxpkg;openCalcSheet();});});
   var ap=$('cx-addpkg');if(ap)ap.addEventListener('click',function(){
     var g=parseInt($('cx-cg').value,10), p=parseFloat($('cx-cp').value);
     if(!g||!p||g<50||p<1){toast('Enter grams and price');return;}
-    CX.pkgs.push({g:g,p:p});CX.pkg=CX.pkgs.length-1;openCalcSheet();
+    CX.pkgs.push({g:g,p:p});CX.pkg=CX.pkgs.length-1;cxSavePrefs();openCalcSheet();
   });
   $('cx-close').addEventListener('click',closeDrawer);
 }

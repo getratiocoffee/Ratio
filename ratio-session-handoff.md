@@ -65,6 +65,11 @@
 - **驗證**：jscheck ✓；preview mock——staff 喇叭 computed block 可見／customer none／未登入 boot 仍 none ✓；events 空＋一筆請假時晨報出現「Next 30 days: 1 item ›」✓；無 console error ✓。
 - **順帶發現**：老闆那台瀏覽器登入身分是 `WHO='Wu'`、role=**staff**（不是 director）——若那該是老闆帳號，profiles.role 要改。
 
+## 〇、補記 — 2026-07-11（Calculator 重整：前台一屏生豆→熟豆、成本摺疊＋app_state 記憶）
+- **老闆需求**：「滑來滑去很難點數字」＋「前台主要看生豆與產出熟豆的關係；人事成本收起來，一年調一次」。根因＝16 欄 6 區超過一屏＋切模式/選尺寸全量重繪 scrollTop 歸零＋完全無持久化（nothing is saved）。
+- **改法**（`openCalcSheet` 一帶，計算公式 cxBase/cxResults 一字未動）：①前台一屏＝模式段＋Roast batch＋**`#cx-flow` 生豆→熟豆換算行**（玫瑰粗體「40 kg green → 34.8 kg roasted · 232 × 150g bags」，cxRenderOut 一起更新）＋Package size＋Price＋Result；②包材/包裝工/場地/烘豆工資/運輸收進「Costs & labour」**摺疊列**（`#cx-costs-t` 切 display 不重繪、CX.costsOpen 記開合）；③重繪前記 `drawer.scrollTop` 重繪後還原（跳頂修掉）；④**app_state 新 key `calc_prefs`**＝{cbag,cstick,cbox,packRate,packSpeed,venue,staff,transport,pkgs}，開抽屜載入（CX_LOADED 一次性）、變更防抖 800ms upsert；批次數字（pots/bean/greenKg/shrink/wsQty）刻意不存；⑤input 監聽改 `d.oninput`（原 addEventListener 每次重繪疊加一支）。副標改「batch numbers reset each time — costs below are remembered」。
+- **驗證**：jscheck ✓；mock sb.from 驗 prefs 讀（venue/packRate/自訂尺寸載入）寫（防抖 800ms、value 不含 pots）✓；切模式 scrollTop 200→200 ✓；換算行即時更新（改 pots 4→2：40kg→20kg）✓；232 包＝classic 參考案例吻合（公式沒動壞）✓；摺疊開合＋箭頭 ✓；截圖 ✓；boot 無 error ✓。
+
 ## 〇、補記 — 2026-07-10 之九（Retail Info 標出「上架了但店面看不到」的漏網豆）
 - **背景**：老闆點名 highlight「已上架、不在 QC 裡」的豆——即被 public-shop QC 閘門（samples 要有 flavour_locked=true）濾掉的漏網之魚：掛著 On sale、客人在 app 店面卻看不到、也沒有任何流程會處理它們（Dark Knight 快取誤會那次順帶發現菜單只 3 支的根因）。
 - **做法**：`openRetailSheet` 每行加判斷 `unlocked=!inQC&&!(rep&&rep.flavour_locked)` → 行內紅字「not in shop — flavour unlocked」＋頂部摘要計數「N not in shop — flavour unlocked」。**QC 重審中的不重複標**（已有黃字 re-checking in QC，那是正常流程）；售罄的照標（paused 一樣被閘門擋）。
