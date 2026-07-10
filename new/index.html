@@ -338,7 +338,7 @@ const ESP_STALE_DAYS=7, GREEN_LOW_KG=5, ORD_OVERDUE_DAYS=7, CLOSING_HOUR=14;
 const VAPID_PUBLIC='BFPC3UdlUFbYeowrMvVn-eJWjES_PHYuy34_7v7XbgPSb88CRdG5pjyT30Ht-1Ok4C0dj25Ut-ahokw-9STRY9o';
 var view='feed', filter='all', selQC=null, ITEMS=[], QCQ=[], ROLE='director', WHO='', LEAD=false;
 /* 晨報彈窗狀態：BRIEF＝班表摘要（buildItems 算好）；NOTICES＝公告板（app_state new_notices）；BRIEF_AUTO＝本次啟動已自動彈過 */
-var BRIEF={rosterLine:'',rosterNames:''}, NOTICES=[], BRIEF_AUTO=false;
+var BRIEF={rosterLine:'',rosterNames:'',shifts:[]}, NOTICES=[], BRIEF_AUTO=false;
 /* 派工層：ASSIGN_ALL＝今天誰負責哪張卡（app_state new_assign，日期 key 隔天歸零＝每天早上重新分發）。
    VIEW_MODE mine/all＝員工只看自己的；VIEW_AS＝主管點進度行看某人的清單；ASSIGN_MODE＝派工模式 */
 var ASSIGN_ALL={}, VIEW_MODE='mine', VIEW_AS='', ASSIGN_MODE=false;
@@ -525,6 +525,8 @@ function buildItems(){
   /* 晨報卡退役（2026-07）：改為每日自動彈出的 briefing 抽屜（openBriefSheet）——班表摘要收進 BRIEF 全域；
      統計數字不再重複播報（分組組頭已有計數） */
   var shifts=todayShifts();
+  /* BRIEF.shifts＝晨報用（每人一行）；rosterLine 一串的舊格式留著給今日流卡片等既有呼叫端 */
+  BRIEF.shifts=shifts.map(function(s){return {name:s.name,hours:String(s.start||'').replace(/^0/,'')+'–'+String(s.end||'').replace(/^0/,'')};});
   BRIEF.rosterLine=shifts.map(function(s){return s.name+' '+String(s.start||'').replace(/^0/,'')+'–'+String(s.end||'').replace(/^0/,'');}).join(' · ');
   BRIEF.rosterNames=shifts.map(function(s){return s.name;}).filter(function(n,i,a){return a.indexOf(n)===i;}).join(', ');
   /* finance 常駐導向卡：finance 的今日流沒有營運卡（設計如此），這張帶她直達薪務；不進 snooze（pin） */
@@ -1431,8 +1433,18 @@ function openBriefSheet(){
   var nts=noticesToday();
   var offs=offToday();
   var h='<div style="display:flex;justify-content:space-between;align-items:baseline"><div class="t" style="font-size:19px">Today · '+niceDate()+'</div><span class="s">'+todo+' to do</span></div>'
-    +'<div class="dl" style="border:none;padding:8px 0 2px"><span style="color:var(--muted)">On shift</span><span style="text-align:right">'+(BRIEF.rosterLine?esc(BRIEF.rosterLine):'no one rostered')
-    +(offs.length?' <span style="color:var(--accent)">· '+esc(offs.join(', '))+' off</span>':'')+'</span></div>';
+    /* 一人一行（老闆點名）：名字左、時間右；休假的人接在後面各自一行，玫瑰色 off 標記 */
+    +'<div class="dlab">On shift</div>'
+    +((BRIEF.shifts||[]).length
+      ?(BRIEF.shifts||[]).map(function(s){
+        return '<div class="dl" style="border:none;padding:5px 0"><span style="font-weight:600">'+esc(s.name)+'</span>'
+          +'<span style="text-align:right;color:var(--muted)">'+esc(s.hours)+'</span></div>';
+      }).join('')
+      :'<div class="s" style="padding:2px 0">no one rostered</div>')
+    +offs.map(function(n){
+      return '<div class="dl" style="border:none;padding:5px 0"><span style="font-weight:600;color:var(--muted)">'+esc(n)+'</span>'
+        +'<span style="text-align:right;color:var(--accent)">off</span></div>';
+    }).join('');
   if(nts.length){
     h+=nts.map(function(n){
       return '<div style="border-left:3px solid '+(n.lvl==='warn'?'var(--accent)':'var(--line2)')+';padding:9px 12px;margin-top:9px;background:var(--tint);border-radius:0 10px 10px 0">'
