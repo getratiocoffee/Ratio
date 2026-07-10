@@ -87,6 +87,15 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 .pb-brew-g div{font-size:13px}
 .pb-brew-g span{color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;display:block}
 .pb-brew-g b{font-family:ui-monospace,monospace;font-weight:600;font-size:14px}
+/* Brew card 網頁版（通用手沖指南）：編號步驟＋左問題右解法的診斷行 */
+.pb-step{display:flex;gap:10px;padding:6px 0;font-size:13.5px;line-height:1.5;align-items:flex-start}
+.pb-step .n{flex:0 0 20px;height:20px;border-radius:50%;background:var(--tint);color:var(--accent);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.pb-step i{display:block;font-style:normal;color:var(--muted);font-size:12.5px}
+.pb-fix{display:flex;justify-content:space-between;gap:14px;padding:6px 0;font-size:13px;align-items:baseline;border-bottom:1px solid var(--line)}
+.pb-fix:last-child{border-bottom:none}
+.pb-fix span{color:var(--muted)}
+.pb-fix b{font-weight:600;text-align:right;flex:0 0 auto}
+.pb-note{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.5}
 .pb-foot{text-align:center;font-size:12px;color:var(--muted);margin-top:18px;line-height:1.7}
 .pb-foot a{color:var(--accent);font-weight:600}
 .pb-empty{text-align:center;color:var(--muted);font-size:13px;padding:56px 24px}
@@ -6832,6 +6841,33 @@ function showFbOverlay(ref){
       return d.getDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]+' '+d.getFullYear();
     }catch(e){return String(s||'');}
   }
+  /* Brew card 網頁版（老闆點名）：實體 A6 手沖卡（DEFAULT_POUROVER，全店通用）搬上豆頁——
+     參數格＋注水步驟＋味道診斷＋兩個習慣＋微調，內容與印刷卡同一份 */
+  function pbBrewCardHTML(){
+    var P=(typeof DEFAULT_POUROVER==='object'&&DEFAULT_POUROVER)||null;
+    if(!P)return '';
+    var steps=[[P.bloom.split(' — ')[0],P.bloom.split(' — ')[1]||'']]
+      .concat(P.pours.map(function(x){return [x,''];}))
+      .concat([[P.finish.split(' — ')[0],P.finish.split(' — ')[1]||'']]);
+    return '<div class="pb-sec"><div class="pb-sec-h">Pour-over guide · '+esc(P.method)+'</div>'
+      +'<div class="pb-brew-g">'
+        +'<div><span>Dose · water</span><b>'+esc(P.dose+' · '+P.water)+'</b></div>'
+        +'<div><span>Ratio</span><b>'+esc(P.ratio)+'</b></div>'
+        +'<div><span>Temp</span><b>'+esc(P.temp)+'</b></div>'
+        +'<div><span>Grind</span><b>'+esc(P.grind)+'</b></div>'
+        +'<div><span>Total time</span><b>'+esc(P.time)+'</b></div>'
+      +'</div>'
+      +'<div class="pb-brew-h" style="margin-top:14px">The pour</div>'
+      +steps.map(function(s,i){return '<div class="pb-step"><span class="n">'+(i+1)+'</span><span><b>'+esc(s[0])+'</b>'+(s[1]?'<i>'+esc(s[1])+'</i>':'')+'</span></div>';}).join('')
+      +'<div class="pb-brew-h" style="margin-top:14px">If it tastes…</div>'
+      +P.taste.map(function(t){return '<div class="pb-fix"><span>'+esc(t[0])+'</span><b>'+esc(t[1])+'</b></div>';}).join('')
+      +'<div class="pb-brew-h" style="margin-top:14px">Two habits</div>'
+      +P.habits.map(function(h){return '<div class="pb-step"><span class="n">·</span><span>'+esc(h)+'</span></div>';}).join('')
+      +'<div class="pb-brew-h" style="margin-top:14px">Fine-tune the flavour</div>'
+      +P.finetune.map(function(f){return '<div class="pb-fix"><span>Join pours '+esc(f[0])+' + '+esc(f[1])+'</span><b>'+esc(f[2])+'</b></div>';}).join('')
+      +'<div class="pb-note">“Join” = pour the two steps as one, without pausing between.</div>'
+      +'</div>';
+  }
   fetch(SUPABASE_URL+'/functions/v1/public-bean?name='+encodeURIComponent(q))
     .then(function(r){return r.json();})
     .then(function(d){
@@ -6859,6 +6895,7 @@ function showFbOverlay(ref){
           +rows.map(function(r){return '<div class="pb-row"><span>'+esc(r[0])+'</span><b>'+esc(String(r[1]))+'</b></div>';}).join('')+'</div>':'')
         +(radar?'<div class="pb-sec"><div class="pb-sec-h">Cup profile</div><div class="pb-radar">'+radar+'</div></div>':'')
         +(brewH?'<div class="pb-sec"><div class="pb-sec-h">How to brew it</div>'+brewH+'</div>':'')
+        +pbBrewCardHTML()
         +'<div class="pb-foot">Ratio Coffee · Crows Nest, Sydney<br><a href="?fb=store">Tried it? Tell us what you think →</a></div>'
         +'</div>';
     })

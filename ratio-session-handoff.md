@@ -65,6 +65,10 @@
 - **驗證**：jscheck ✓；preview mock——staff 喇叭 computed block 可見／customer none／未登入 boot 仍 none ✓；events 空＋一筆請假時晨報出現「Next 30 days: 1 item ›」✓；無 console error ✓。
 - **順帶發現**：老闆那台瀏覽器登入身分是 `WHO='Wu'`、role=**staff**（不是 director）——若那該是老闆帳號，profiles.role 要改。
 
+## 〇、補記 — 2026-07-11 之四（公開豆頁加 Brew Card）
+- **老闆需求**：QR 掃入的 ?bean 頁面加 Brew Card。做法＝實體 A6 手沖卡的內容（`DEFAULT_POUROVER` 常數，全店通用 V60）搬上豆頁成「Pour-over guide · V60」卡（`pbBrewCardHTML`，插在豆子專屬 How to brew it 之後、footer 之前）：參數格（Dose·Water/Ratio/Temp/Grind/Time，重用 .pb-brew-g）→ The pour 編號步驟（.pb-step 圓號碼）→ If it tastes… 診斷行（.pb-fix 左問題右解法）→ Two habits → Fine-tune＋Join 注腳。**內容與印刷卡同一份**——之後 DEFAULT_POUROVER 接 app_state.pourover 時兩邊自動同步。
+- **驗證**：?bean=kii-ab DOM（sections/steps=7/fixes=6）＋截圖 ✓；jscheck ✓；無 console error ✓。
+
 ## 〇、補記 — 2026-07-11 之三（公開豆頁排版重整：簡單易懂）
 - **老闆需求**：QR 掃入的 ?bean 豆頁排版優化。原版問題：評語藏在 Flavour 卡的小灰字、產區資訊拆兩處（副標＋底部 Origin 卡）、沖煮參數整行擠（Temp 92°C · PPM 80 · …）、日期 28/06/26。
 - **新版面**（?bean IIFE＋pb-* CSS）：品牌 → 豆名 → **評語升格 serif 斜體引言**（.pb-quote）→ 風味 chips 直接頂部 →「**The coffee**」兩欄清單卡（.pb-row：拼配＝每成分一行 70%｜Finca Milan · Nitro Culturing；單品＝Process/Origin/Variety/Altitude；共通 Roasted 人話日期 pbDate '28 Jun 2026'）→ Cup profile 雷達（點色版）→ How to brew it **格狀兩欄**（.pb-brew-g：灰標籤上、mono 值下，取代擠一行）→ footer。原 Flavour 卡與 Origin 卡拆併、副標移除。
