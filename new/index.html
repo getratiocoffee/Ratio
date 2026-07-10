@@ -29,6 +29,10 @@ header .hspace{flex:1}
 .sbar{position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#1A1A1A;z-index:100;pointer-events:none}
 header .brand{font-family:'Fraunces',serif;font-size:21px;font-weight:700}
 header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
+/* 晨報入口：喇叭＝隨時重開 briefing 抽屜；紅點＝有還沒看過的新公告 */
+#hbell{position:relative;background:none;border:none;color:var(--muted);padding:6px 4px;margin-left:2px;cursor:pointer;line-height:0;display:none}
+#hbell svg{width:19px;height:19px}
+#hbdot{position:absolute;top:3px;right:0;width:7px;height:7px;border-radius:50%;background:var(--accent);display:none}
 .wrap{padding:14px 22px 0;max-width:520px;margin:0 auto}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px;transition:transform .25s,opacity .25s;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 /* Today 流卡片 v2（老闆 manager 視角評審）：類別色條＋右上角分類＋小膠囊鈕；.feed 限定不波及商店卡 */
@@ -238,7 +242,7 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 </style></head><body class="appview">
 <div class="bglogo"></div>
 <div class="sbar"></div>
-<header><span class="hspace"></span><span class="brand" id="hbrand"><span class="brandlogo" role="img" aria-label="Ratio"></span></span><span class="cnt" id="hcnt">loading…</span></header>
+<header><span class="hspace"></span><span class="brand" id="hbrand"><span class="brandlogo" role="img" aria-label="Ratio"></span></span><button id="hbell" aria-label="Daily brief"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 0 1 0 6"/><path d="M10 8v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-5"/><path d="M12 8h0l4.5-3.8a.9.9 0 0 1 1.5.7v12.2a.9.9 0 0 1-1.5.7L12 14H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h8"/></svg><span id="hbdot"></span></button><span class="cnt" id="hcnt">loading…</span></header>
 <div class="wrap" id="main"><div class="empty">Loading your day…</div></div>
 <div class="deck" id="deck" style="display:none"></div>
 <nav>
@@ -295,6 +299,8 @@ const CLASSIC='/index.html';
 const ESP_STALE_DAYS=7, GREEN_LOW_KG=5, ORD_OVERDUE_DAYS=7;
 const VAPID_PUBLIC='BFPC3UdlUFbYeowrMvVn-eJWjES_PHYuy34_7v7XbgPSb88CRdG5pjyT30Ht-1Ok4C0dj25Ut-ahokw-9STRY9o';
 var view='feed', filter='all', selQC=null, ITEMS=[], QCQ=[], ROLE='director', WHO='', LEAD=false;
+/* 晨報彈窗狀態：BRIEF＝班表摘要（buildItems 算好）；NOTICES＝公告板（app_state new_notices）；BRIEF_AUTO＝本次啟動已自動彈過 */
+var BRIEF={rosterLine:'',rosterNames:''}, NOTICES=[], BRIEF_AUTO=false;
 var QCLOCK=true; /* 鎖風味的決定在 QC 當下（老闆定調）：pass＝判定＋鎖風味，判定板可關 */
 /* 黑白頁手動切換：auto=跟系統、light/dark=強制；記在本機（顯示偏好本來就該一台一台設） */
 function themeGet(){try{return localStorage.getItem('r2_theme')||'auto';}catch(e){return 'auto';}}
@@ -372,7 +378,10 @@ async function loadAll(){
     sb.from('feedback').select('*').is('reply',null).order('created_at',{ascending:false}),
     sb.from('rosters').select('week_start,shifts,deleted').eq('week_start',mondayStr()),
     sb.from('app_state').select('value').eq('key','new_snooze').maybeSingle(),
-    sb.from('app_state').select('value').eq('key','nudge_log').maybeSingle()
+    sb.from('app_state').select('value').eq('key','nudge_log').maybeSingle(),
+    sb.from('app_state').select('value').eq('key','new_notices').maybeSingle(),
+    sb.from('events').select('*').gte('date',todayKey()).lte('date',dPlus(30)).order('date',{ascending:true}),
+    sb.from('staff_na').select('*').lte('start_date',dPlus(30)).gte('end_date',todayKey())
   ]);
   DB={orders:rs[0].data||[],customers:rs[1].data||[],tasks:rs[2].data||[],dialins:rs[3].data||[],
       syncs:rs[4].data||[],samples:rs[5].data||[],roasts:rs[6].data||[],beans:rs[7].data||[],
@@ -383,8 +392,14 @@ async function loadAll(){
   var nl=rs[11]&&rs[11].data&&rs[11].data.value;
   if(typeof nl==='string'){try{nl=JSON.parse(nl);}catch(e){nl=null;}}
   NUDGE_LOG=(nl&&typeof nl==='object')?nl:{};
+  var nt=rs[12]&&rs[12].data&&rs[12].data.value;
+  if(typeof nt==='string'){try{nt=JSON.parse(nt);}catch(e){nt=null;}}
+  NOTICES=(nt&&Array.isArray(nt.notices))?nt.notices:[];
+  DB.events=(rs[13]&&rs[13].data)||[];
+  DB.staffNa=(rs[14]&&rs[14].data)||[];
   buildItems();
 }
+function dPlus(n){var t=new Date();t.setDate(t.getDate()+n);return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
 function mondayStr(){
   var t=new Date();t.setDate(t.getDate()-((t.getDay()+6)%7));
   return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
@@ -436,21 +451,11 @@ function buildItems(){
     var d=latest[String(x.bean_id||'').trim().toLowerCase()];
     if(!d||daysSince(d.created_at)>ESP_STALE_DAYS)stale.push({name:x.bean_id,last:d?daysSince(d.created_at):null});});
   var low=DB.beans.filter(function(b){var t=(b.low_stock_kg==null?GREEN_LOW_KG:Number(b.low_stock_kg));return b.quantity!=null&&t>0&&Number(b.quantity)<=t;});
-  var briefBits=[];
-  if(newQ.length)briefBits.push(newQ.length+' to accept');
-  if(packQ.length)briefBits.push(packQ.length+' to pack');
-  if(shipQ.length)briefBits.push(shipQ.length+' to ship');
-  if(QCQ.length)briefBits.push(QCQ.length+' QC');
-  if(stale.length)briefBits.push(stale.length+' dial-in');
-  if(low.length)briefBits.push(low.length+' bean low');
-  if(DB.tasks.length)briefBits.push(DB.tasks.length+' tasks');
+  /* 晨報卡退役（2026-07）：改為每日自動彈出的 briefing 抽屜（openBriefSheet）——班表摘要收進 BRIEF 全域；
+     統計數字不再重複播報（分組組頭已有計數） */
   var shifts=todayShifts();
-  var rosterLine=shifts.map(function(s){return s.name+' '+String(s.start||'').replace(/^0/,'')+'–'+String(s.end||'').replace(/^0/,'');}).join(' · ');
-  var rosterNames=shifts.map(function(s){return s.name;}).filter(function(n,i,a){return a.indexOf(n)===i;}).join(', ');
-  out.push({id:'brief',st:'Brief',pin:1,t:(new Date().getHours()<12?'Morning':'Today')+' brief',
-    s:(rosterNames?'On: '+esc(rosterNames)+(briefBits.length?' · ':''):'')+(briefBits.length?briefBits.join(' · '):(rosterNames?'':'all clear')),act:'Got it',
-    det:[['On shift',rosterLine||'no one rostered']].concat([['To accept',String(newQ.length)],['To pack',String(packQ.length)],['To ship',String(shipQ.length)],['QC waiting',String(QCQ.length)],['Dial-in stale',String(stale.length)],['Beans low',String(low.length)],['Open tasks',String(DB.tasks.length)]]),
-    roles:['director','roaster','retail','staff','finance'],kind:'dismiss'});
+  BRIEF.rosterLine=shifts.map(function(s){return s.name+' '+String(s.start||'').replace(/^0/,'')+'–'+String(s.end||'').replace(/^0/,'');}).join(' · ');
+  BRIEF.rosterNames=shifts.map(function(s){return s.name;}).filter(function(n,i,a){return a.indexOf(n)===i;}).join(', ');
   /* finance 常駐導向卡：finance 的今日流沒有營運卡（設計如此），這張帶她直達薪務；不進 snooze（pin） */
   if(myRole()==='finance')out.push({id:'fin-pay',st:'Brief',pin:1,t:'Timesheet & payroll',
     s:'hours, wages and weekly payroll email',act:'Open payroll',
@@ -683,6 +688,9 @@ function renderFeed(){
     var s=g.dataset.grp;if(FOLDED.has(s))FOLDED.delete(s);else FOLDED.add(s);foldPush();render();});});
   list.forEach(function(i){var el=document.getElementById('c-'+i.id);if(el)attachSwipe(el,i.id);});
   var cl=$('ctxline');if(cl)cl.addEventListener('click',function(){ctxIdx=(ctxIdx+1)%CTXS.length;render();toast(CTXS[ctxIdx].label);});
+  /* 每天第一次進 app：自動彈 briefing（今天看過就不吵；本次啟動只彈一次） */
+  var seen='';try{seen=localStorage.getItem('brief_seen')||'';}catch(e){}
+  if(!BRIEF_AUTO&&myRole()!=='customer'&&seen!==todayKey()){BRIEF_AUTO=true;setTimeout(openBriefSheet,450);}
 }
 /* 貪睡統一入口：點 Later 鈕（或抽屜 det2）走這裡——toast 直接給 Undo */
 function snoozeCard(id){addSnooze(id);dropCard(id,true);toast('Snoozed — back tomorrow','Undo',undoSnooze);}
@@ -1224,6 +1232,182 @@ function openPackSheet(i){
     var cl=$('d-cl');if(cl)cl.addEventListener('click',closeDrawer);
   }
   paint();
+}
+/* ===== 每日 briefing 彈窗＋公告板 =====
+   晨報不是 to do、是「讀的東西」：班表＋公告（停水/客訴/VIP…）＋今日事件。
+   每天第一次進 app 自動彈出；header 喇叭隨時重開；新公告亮紅點。
+   公告存 app_state 'new_notices'（全店同步）；「今天已看」存 localStorage（個人、per 裝置） */
+function niceDate(s){var d=s?new Date(s+'T00:00:00'):new Date();
+  return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+d.getDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];}
+function noticesToday(){var t=todayKey();return NOTICES.filter(function(n){return String(n.from||t)<=t&&t<=String(n.to||t);});}
+function noticePush(){return sb.from('app_state').upsert({key:'new_notices',value:{notices:NOTICES},updated_at:new Date().toISOString()},{onConflict:'key'});}
+function markBriefSeen(){
+  var first=false;
+  try{
+    first=localStorage.getItem('brief_seen')!==todayKey();
+    localStorage.setItem('brief_seen',todayKey());
+    var mx='';noticesToday().forEach(function(n){if(String(n.ts||'')>mx)mx=String(n.ts);});
+    if(mx)localStorage.setItem('brief_seen_ts',mx);
+  }catch(e){}
+  if(first)logAct('read brief');
+  updateBell();
+}
+function updateBell(){
+  var b=$('hbell');if(!b)return;
+  b.style.display=(myRole()==='customer')?'none':'';
+  var seen='';try{seen=localStorage.getItem('brief_seen_ts')||'';}catch(e){}
+  var fresh=noticesToday().some(function(n){return String(n.ts||'')>seen;});
+  $('hbdot').style.display=fresh?'block':'none';
+}
+function openBriefSheet(){
+  markBriefSeen();
+  var t=todayKey();
+  var todo=0;try{todo=myItems().filter(function(i){return !i.pin;}).length;}catch(e){}
+  var evToday=(DB.events||[]).filter(function(e){return String(e.date)===t;});
+  var evAhead=(DB.events||[]).filter(function(e){return String(e.date)>t;});
+  var nts=noticesToday();
+  var offs=offToday();
+  var h='<div style="display:flex;justify-content:space-between;align-items:baseline"><div class="t" style="font-size:19px">Today · '+niceDate()+'</div><span class="s">'+todo+' to do</span></div>'
+    +'<div class="dl" style="border:none;padding:8px 0 2px"><span style="color:var(--muted)">On shift</span><span style="text-align:right">'+(BRIEF.rosterLine?esc(BRIEF.rosterLine):'no one rostered')
+    +(offs.length?' <span style="color:var(--accent)">· '+esc(offs.join(', '))+' off</span>':'')+'</span></div>';
+  if(nts.length){
+    h+=nts.map(function(n){
+      return '<div style="border-left:3px solid '+(n.lvl==='warn'?'var(--accent)':'var(--line2)')+';padding:9px 12px;margin-top:9px;background:var(--tint);border-radius:0 10px 10px 0">'
+        +'<div style="display:flex;justify-content:space-between;gap:8px"><b style="font-size:14.5px">'+esc(n.txt)+'</b>'
+        +(canWrite()?'<button data-ndel="'+esc(n.id)+'" style="background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:0 2px;line-height:1">✕</button>':'')+'</div>'
+        +(n.body?'<div class="s" style="margin-top:3px;color:var(--ink)">'+esc(n.body)+'</div>':'')
+        +'<div class="s" style="margin-top:4px;font-size:12px">'+esc(n.by||'—')+' · '+(String(n.ts||'').slice(0,10)===t?String(n.ts).slice(11,16):fmtD(n.ts))+'</div></div>';
+    }).join('');
+  }else h+='<div class="s" style="margin-top:9px">No notices today — all quiet ☕</div>';
+  if(evToday.length){
+    h+='<div class="dlab">Happening today</div>'
+      +evToday.map(function(e){return '<div class="dl" style="border:none;padding:6px 0"><span style="color:var(--muted);flex:0 0 62px">'+esc(e.kind||'event')+'</span><span style="flex:1;text-align:left">'+esc(e.txt)+'</span></div>';}).join('');
+  }
+  if(evAhead.length)h+='<button class="more" id="bf-upc" style="text-align:left;padding:8px 0 0">Next 30 days: '+evAhead.length+' event'+(evAhead.length===1?'':'s')+' ›</button>';
+  h+=(canWrite()?'<div style="display:flex;gap:9px;margin-top:14px"><button class="dclose" id="bf-post" style="flex:1;margin-top:0">+ Post a notice</button><button class="act" id="bf-ok" style="flex:2;margin-top:0">Got it — start the day</button></div>'
+    :'<button class="act" id="bf-ok">Got it — start the day</button>');
+  openDrawerHTML(h);
+  $('bf-ok').addEventListener('click',closeDrawer);
+  var bp=$('bf-post');if(bp)bp.addEventListener('click',openNoticeSheet);
+  var bu=$('bf-upc');if(bu)bu.addEventListener('click',openUpcomingSheet);
+  document.querySelectorAll('[data-ndel]').forEach(function(b){b.addEventListener('click',async function(){
+    if(!confirm('Remove this notice for everyone?'))return;
+    NOTICES=NOTICES.filter(function(n){return String(n.id)!==b.dataset.ndel;});
+    try{await noticePush();}catch(e){}
+    openBriefSheet();
+  });});
+}
+var NT={lvl:'warn',span:'today'};
+function openNoticeSheet(){
+  if(!canWrite()){roToast();return;}
+  NT={lvl:'warn',span:'today'};
+  openDrawerHTML('<div class="t" style="font-size:19px">Post a notice</div>'
+    +'<div class="s" style="margin-top:2px">the whole team sees it in the daily brief</div>'
+    +'<div class="dlab">What is happening</div>'
+    +'<input class="din" id="nt-txt" placeholder="e.g. Water off 7:00–9:00 — mains repair">'
+    +'<div class="dlab">Details (optional)</div>'
+    +'<textarea class="din" id="nt-body" rows="3" style="resize:none;height:auto" placeholder="anything the team should prepare for"></textarea>'
+    +'<div class="dlab">Type</div><div id="nt-lvl">'
+    +'<button class="chip" data-lvl="warn">heads-up</button> <button class="chip" data-lvl="info">info</button></div>'
+    +'<div class="dlab">Shows</div><div id="nt-span">'
+    +'<button class="chip" data-span="today">Today</button> <button class="chip" data-span="tomorrow">Tomorrow</button> <button class="chip" data-span="week">This week</button></div>'
+    +'<button class="act" id="nt-post">Post</button>'
+    +'<button class="dclose" id="nt-cl" style="border:none;background:none;color:var(--muted)">Back</button>');
+  function paintSeg(){
+    document.querySelectorAll('#nt-lvl .chip').forEach(function(c){var on=c.dataset.lvl===NT.lvl;c.style.borderColor=on?'var(--accent)':'';c.style.color=on?'var(--accent)':'';});
+    document.querySelectorAll('#nt-span .chip').forEach(function(c){var on=c.dataset.span===NT.span;c.style.borderColor=on?'var(--accent)':'';c.style.color=on?'var(--accent)':'';});
+  }
+  paintSeg();
+  document.querySelectorAll('#nt-lvl .chip').forEach(function(c){c.addEventListener('click',function(){NT.lvl=c.dataset.lvl;paintSeg();});});
+  document.querySelectorAll('#nt-span .chip').forEach(function(c){c.addEventListener('click',function(){NT.span=c.dataset.span;paintSeg();});});
+  $('nt-cl').addEventListener('click',openBriefSheet);
+  $('nt-post').addEventListener('click',async function(){
+    var txt=($('nt-txt').value||'').trim();
+    if(!txt){toast('Say what is happening first');return;}
+    var body=($('nt-body').value||'').trim();
+    var from=NT.span==='tomorrow'?dPlus(1):todayKey();
+    var to=NT.span==='week'?dPlus(6):from;
+    var b=$('nt-post');b.disabled=true;b.textContent='Posting…';
+    /* 順手清掉過期公告（同 addSnooze 清舊日期的精神） */
+    var t=todayKey();
+    NOTICES=NOTICES.filter(function(n){return String(n.to||t)>=t;});
+    NOTICES.push({id:'n'+Date.now(),txt:txt,body:body||null,lvl:NT.lvl,by:WHO||null,ts:new Date().toISOString(),from:from,to:to});
+    try{
+      var u=await noticePush();
+      if(u&&u.error)throw new Error(u.error.message);
+      logAct('posted notice',txt);
+      toast('Posted — the team sees it in the brief');
+      openBriefSheet();
+    }catch(e){b.disabled=false;b.textContent='Post';alert('Post failed: '+(e&&e.message||e));}
+  });
+}
+/* ===== Upcoming 事件流（events 表 + staff_na 休假唯讀併入）：未來 30 天的預約/包裹/請假/VIP/客戶關照 ===== */
+var EV_KINDS=['booking','parcel','vip','care','other'];
+function offToday(){var t=todayKey();return (DB.staffNa||[]).filter(function(x){return String(x.start_date)<=t&&t<=String(x.end_date);}).map(function(x){return x.name;});}
+function openUpcomingSheet(){
+  var t=todayKey();
+  /* 事件＋休假合流：休假顯示在 max(開始日, 今天)，一段假一條 */
+  var rows=(DB.events||[]).map(function(e){return {date:String(e.date),kind:e.kind||'other',txt:e.txt,by:e.by,id:e.id,ev:1};});
+  (DB.staffNa||[]).forEach(function(x){
+    var d=String(x.start_date)>t?String(x.start_date):t;
+    rows.push({date:d,kind:'off',txt:x.name+' off ('+fmtD(x.start_date)+(x.end_date!==x.start_date?'–'+fmtD(x.end_date):'')+')',by:'roster',id:null,ev:0});
+  });
+  rows.sort(function(a,b){return a.date<b.date?-1:(a.date>b.date?1:0);});
+  var h='<div style="display:flex;justify-content:space-between;align-items:baseline"><div class="t" style="font-size:19px">Upcoming · 30 days</div>'
+    +(canWrite()?'<button class="chip" id="ev-add">+ Add</button>':'')+'</div>';
+  if(!rows.length)h+='<div class="empty">Nothing coming up — add bookings, parcels or visits with + Add</div>';
+  var lastD=null;
+  rows.forEach(function(r){
+    if(r.date!==lastD){lastD=r.date;
+      h+='<div class="dlab">'+(r.date===t?'Today':(r.date===dPlus(1)?'Tomorrow':niceDate(r.date)))+'</div>';}
+    var canDel=r.ev&&canWrite()&&(isLead()||r.by===WHO);
+    h+='<div class="dl" style="border:none;padding:7px 0"><span style="color:'+(r.date===t?'var(--accent)':'var(--muted)')+';flex:0 0 62px;font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">'+esc(r.kind)+'</span>'
+      +'<span style="flex:1;text-align:left">'+esc(r.txt)+(r.by&&r.by!=='roster'?' <span style="color:var(--muted);font-size:12px">· '+esc(r.by)+'</span>':'')+'</span>'
+      +(canDel?'<button data-evdel="'+esc(r.id)+'" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:0 2px">✕</button>':'')+'</div>';
+  });
+  h+='<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
+  openDrawerHTML(h);
+  var ea=$('ev-add');if(ea)ea.addEventListener('click',openEventAdd);
+  $('d-cl').addEventListener('click',closeDrawer);
+  document.querySelectorAll('[data-evdel]').forEach(function(b){b.addEventListener('click',async function(){
+    if(!confirm('Remove this event?'))return;
+    var q=await sb.from('events').delete().eq('id',b.dataset.evdel);
+    if(q.error){alert('Remove failed: '+q.error.message);return;}
+    DB.events=DB.events.filter(function(e){return String(e.id)!==b.dataset.evdel;});
+    openUpcomingSheet();
+  });});
+}
+var EVN={kind:'booking'};
+function openEventAdd(){
+  if(!canWrite()){roToast();return;}
+  EVN={kind:'booking'};
+  openDrawerHTML('<div class="t" style="font-size:19px">Add an event</div>'
+    +'<div class="s" style="margin-top:2px">bookings, parcels, visits — it shows in the brief on the day</div>'
+    +'<div class="dlab">When</div>'
+    +'<input class="din" id="ev-date" type="date" value="'+todayKey()+'" min="'+todayKey()+'" max="'+dPlus(30)+'">'
+    +'<div class="dlab">Type</div><div id="ev-kinds">'
+    +EV_KINDS.map(function(k){return '<button class="chip" data-k="'+k+'" style="margin-bottom:6px">'+k+'</button>';}).join(' ')+'</div>'
+    +'<div class="dlab">What</div>'
+    +'<input class="din" id="ev-txt" placeholder="e.g. Cupping booking — 2pm, 4 guests">'
+    +'<button class="act" id="ev-save">Add</button>'
+    +'<button class="dclose" id="ev-cl" style="border:none;background:none;color:var(--muted)">Back</button>');
+  function paint(){document.querySelectorAll('#ev-kinds .chip').forEach(function(c){var on=c.dataset.k===EVN.kind;c.style.borderColor=on?'var(--accent)':'';c.style.color=on?'var(--accent)':'';});}
+  paint();
+  document.querySelectorAll('#ev-kinds .chip').forEach(function(c){c.addEventListener('click',function(){EVN.kind=c.dataset.k;paint();});});
+  $('ev-cl').addEventListener('click',openUpcomingSheet);
+  $('ev-save').addEventListener('click',async function(){
+    var txt=($('ev-txt').value||'').trim(),d=$('ev-date').value;
+    if(!txt){toast('Say what it is first');return;}
+    if(!d){toast('Pick a date');return;}
+    var b=$('ev-save');b.disabled=true;b.textContent='Adding…';
+    var q=await sb.from('events').insert({date:d,txt:txt,kind:EVN.kind,by:WHO||null}).select();
+    if(q.error){b.disabled=false;b.textContent='Add';alert('Add failed: '+q.error.message);return;}
+    if(q.data&&q.data[0])DB.events.push(q.data[0]);
+    DB.events.sort(function(a,b2){return String(a.date)<String(b2.date)?-1:1;});
+    logAct('added event',txt,d);
+    toast('Added ✓');
+    openUpcomingSheet();
+  });
 }
 /* ===== Activity 時間軸（activity_log 表）：誰·幾點·做了什麼；50 筆一頁、Earlier 再載 ===== */
 var ACT_ROWS=[],ACT_PAGE=0;
@@ -6014,7 +6198,7 @@ function renderTools(){
       +_off([['Invoice','GST PDF · classic'],['Bookkeeping','expenses · classic']])):'')
     +_sec('Daily task',DEPT.day,
       (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'))+_mkTile('t-label','Labels','bag / tin'):'')
-      +_tiles([['Menus','menu PDFs · in-store','menus'],['Folding Info Card','A4 · 4 fold cards','infocards'],['Brew Card','A4 · pour-over guide','brewcard'],['Social Images','4-up · pick a coffee','social4']]))
+      +_tiles([['Upcoming','30 days · bookings · parcels','upcoming'],['Menus','menu PDFs · in-store','menus'],['Folding Info Card','A4 · 4 fold cards','infocards'],['Brew Card','A4 · pour-over guide','brewcard'],['Social Images','4-up · pick a coffee','social4']]))
     +_sec('Team',DEPT.team,
       _tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster',_mk?1:0],['Team notes','notes · problems','notes',_mk?1:0],['Activity','who did what · when','activity']].concat(isLead()?[['Team','who is on · assign','team',1]]:[])))
     +_sec('App',DEPT.app,
@@ -6078,6 +6262,7 @@ function renderTools(){
     if(k==='classic'){location.href=CLASSIC;return;}
     if(k==='notes'){openNotesSheet();return;}
     if(k==='activity'){openActivitySheet();return;}
+    if(k==='upcoming'){openUpcomingSheet();return;}
     if(k==='orders'){openOrdersSheet();return;}
     if(k==='greens'){openGreensSheet();return;}
     if(k==='batches'){openBatchesSheet();return;}
@@ -6206,6 +6391,7 @@ async function enablePush(btn){
   }catch(e){alert('Enable failed: '+(e&&e.message||e));}
 }
 if('serviceWorker' in navigator){try{navigator.serviceWorker.register('/new/sw.js');}catch(e){}}
+(function(){var hb=$('hbell');if(hb)hb.addEventListener('click',openBriefSheet);})();
 function render(){
   /* 浮水印只給今日流：內容少的頁（QC/Tools）整塊露出來像破圖 */
   var bgl=document.querySelector('.bglogo');if(bgl)bgl.style.display='';
@@ -6216,6 +6402,7 @@ function render(){
   $('nav-feed').classList.toggle('on',view==='feed');
   $('nav-qc').classList.toggle('on',view==='qc');
   $('nav-tools').classList.toggle('on',view==='tools');
+  updateBell();
 }
 var LAST_LOAD=0;
 async function reload(){await loadAll();LAST_LOAD=Date.now();render();}
