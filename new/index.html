@@ -2628,6 +2628,7 @@ async function pushListToSquare(){
     var desc=[s.process||'',(s.features||[]).slice(0,3).join(', ')].filter(Boolean).join(' · ');
     await callFn('sync-to-square',{action:'push',sample_id:nm,name:nm,description:desc,grams:LST.grams,price:price,variations:variations,
       image_b64:imgs64?null:img64, images_b64:imgs64, image_mime:imgs64?'image/jpeg':'image/png'});
+    SHOP_STALE=true; /* 商品圖剛換過——下次看店面別吃 5 分鐘的舊快取 */
     /* 價格記憶寫回 app_state（讀回最新再改，避免蓋掉別台改的） */
     try{
       var mem=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes']);
@@ -5986,10 +5987,16 @@ $('nav-tools').addEventListener('click',function(){view='tools';render();});
 $('nav-refresh').addEventListener('click',async function(){this.textContent='…';await reload();this.textContent='Refresh';toast('Refreshed');});
 /* ===== 客戶介面（老闆定調：進來直接看到豆單）＝沒登入的店面＋客戶登入的門戶共用菜單
    ⚠ 目前只是 UI 隔離——RLS 還是小團隊信任模型，真開放客戶帳號前要先鎖資料庫政策（設定階段） ===== */
-async function loadShopMenu(){
+/* public-shop 回應帶 Cache-Control: max-age=300，瀏覽器會存 5 分鐘（含圖片網址）。
+   上架剛換過商品圖時那 5 分鐘會看到舊圖 → SHOP_STALE 或員工按 Refresh 就繞過快取抓一次。
+   客戶端平常照吃快取（省流量、店面本來就允許 5 分鐘延遲） */
+var SHOP_STALE=false;
+async function loadShopMenu(fresh){
   try{
-    var r=await fetch(SUPABASE_URL+'/functions/v1/public-shop');
+    var bust=(fresh||SHOP_STALE);
+    var r=await fetch(SUPABASE_URL+'/functions/v1/public-shop'+(bust?('?t='+Date.now()):''),bust?{cache:'no-store'}:undefined);
     var d=await r.json();
+    if(bust)SHOP_STALE=false;
     return (d&&d.ok&&d.beans)?d.beans:[];
   }catch(e){return [];}
 }
