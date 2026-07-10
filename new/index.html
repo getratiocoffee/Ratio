@@ -7159,7 +7159,6 @@ function openSignInSheet(){
 async function renderPublicMenu(){
   document.body.classList.remove('appview');
   var nav=document.querySelector('nav');if(nav)nav.style.display='none';
-  $('chips').innerHTML='';
   mountCartIcon();
   var m=$('main');
   m.innerHTML='<div class="empty">Loading the shelf…</div>';
@@ -7176,7 +7175,6 @@ async function renderCustomerPortal(sess){
   document.body.classList.remove('appview');
   WS_MODE=(ROLE==='wholesale');
   var nav=document.querySelector('nav');if(nav)nav.style.display='none';
-  $('chips').innerHTML='';
   mountCartIcon();
   var m=$('main');
   m.innerHTML='<div class="empty">Loading the shelf…</div>';
@@ -7234,7 +7232,6 @@ async function boot(){
   }
   var nav=document.querySelector('nav');if(nav)nav.style.display='';
   $('shoptabs').style.display='none';
-  $('chips').innerHTML='';
   WS_MODE=false;WS_INFO=null;WS_WELCOME_SEEN=false; /* 批發模式只在 wholesale 門戶內開；員工/店面一律零售車；歡迎彈窗每次登入/開 app 重置 */
   paintCartBar();
   var g=await sb.auth.getSession();
