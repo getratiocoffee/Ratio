@@ -296,11 +296,19 @@ sb.from=function(table){
   }});
 };
 const CLASSIC='/index.html';
-const ESP_STALE_DAYS=7, GREEN_LOW_KG=5, ORD_OVERDUE_DAYS=7;
+const ESP_STALE_DAYS=7, GREEN_LOW_KG=5, ORD_OVERDUE_DAYS=7, CLOSING_HOUR=14;
 const VAPID_PUBLIC='BFPC3UdlUFbYeowrMvVn-eJWjES_PHYuy34_7v7XbgPSb88CRdG5pjyT30Ht-1Ok4C0dj25Ut-ahokw-9STRY9o';
 var view='feed', filter='all', selQC=null, ITEMS=[], QCQ=[], ROLE='director', WHO='', LEAD=false;
 /* 晨報彈窗狀態：BRIEF＝班表摘要（buildItems 算好）；NOTICES＝公告板（app_state new_notices）；BRIEF_AUTO＝本次啟動已自動彈過 */
 var BRIEF={rosterLine:'',rosterNames:''}, NOTICES=[], BRIEF_AUTO=false;
+/* 每日收尾清單：CLOSING_ITEMS＝項目（app_state new_closing_items，老闆可編）；CLOSING_ALL＝勾選（new_closing，日期 key 隔天自動全新） */
+var CLOSING_ITEMS=[], CLOSING_ALL={};
+function closingMap(){return CLOSING_ALL[todayKey()]||{};}
+function closingPush(){
+  var t=todayKey(),m={};m[t]=CLOSING_ALL[t]||{};CLOSING_ALL=m; /* 只留今天，順手清舊日期（同 snooze） */
+  return sb.from('app_state').upsert({key:'new_closing',value:CLOSING_ALL,updated_at:new Date().toISOString()},{onConflict:'key'});
+}
+function closingItemsPush(){return sb.from('app_state').upsert({key:'new_closing_items',value:{items:CLOSING_ITEMS},updated_at:new Date().toISOString()},{onConflict:'key'});}
 var QCLOCK=true; /* 鎖風味的決定在 QC 當下（老闆定調）：pass＝判定＋鎖風味，判定板可關 */
 /* 黑白頁手動切換：auto=跟系統、light/dark=強制；記在本機（顯示偏好本來就該一台一台設） */
 function themeGet(){try{return localStorage.getItem('r2_theme')||'auto';}catch(e){return 'auto';}}
@@ -381,7 +389,9 @@ async function loadAll(){
     sb.from('app_state').select('value').eq('key','nudge_log').maybeSingle(),
     sb.from('app_state').select('value').eq('key','new_notices').maybeSingle(),
     sb.from('events').select('*').gte('date',todayKey()).lte('date',dPlus(30)).order('date',{ascending:true}),
-    sb.from('staff_na').select('*').lte('start_date',dPlus(30)).gte('end_date',todayKey())
+    sb.from('staff_na').select('*').lte('start_date',dPlus(30)).gte('end_date',todayKey()),
+    sb.from('app_state').select('value').eq('key','new_closing_items').maybeSingle(),
+    sb.from('app_state').select('value').eq('key','new_closing').maybeSingle()
   ]);
   DB={orders:rs[0].data||[],customers:rs[1].data||[],tasks:rs[2].data||[],dialins:rs[3].data||[],
       syncs:rs[4].data||[],samples:rs[5].data||[],roasts:rs[6].data||[],beans:rs[7].data||[],
@@ -397,6 +407,12 @@ async function loadAll(){
   NOTICES=(nt&&Array.isArray(nt.notices))?nt.notices:[];
   DB.events=(rs[13]&&rs[13].data)||[];
   DB.staffNa=(rs[14]&&rs[14].data)||[];
+  var cki=rs[15]&&rs[15].data&&rs[15].data.value;
+  if(typeof cki==='string'){try{cki=JSON.parse(cki);}catch(e){cki=null;}}
+  CLOSING_ITEMS=(cki&&Array.isArray(cki.items))?cki.items:[];
+  var ckm=rs[16]&&rs[16].data&&rs[16].data.value;
+  if(typeof ckm==='string'){try{ckm=JSON.parse(ckm);}catch(e){ckm=null;}}
+  CLOSING_ALL=(ckm&&typeof ckm==='object')?ckm:{};
   buildItems();
 }
 function dPlus(n){var t=new Date();t.setDate(t.getDate()+n);return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
@@ -574,6 +590,19 @@ function buildItems(){
       act:'Done',det:[['For',t.assigned_to||'whole team'],['Due',fmtD(t.due_date)||'—'],['Added by',t.created_by||'—'],['Added',fmtD(t.created_at)||'—']],
       det2:'Later',roles:['director','roaster','retail','staff'],kind:'task',ref:t});
   });
+  /* Closing checklist 聚合卡：下午（CLOSING_HOUR 起）才長出來、固定沉底（sink）、滑不掉（nosnooze）；
+     全勾完＝收工，卡片自己消失。清單空時只給 lead 一張引導卡 */
+  if(new Date().getHours()>=CLOSING_HOUR){
+    var ckm2=closingMap(),ckDone=CLOSING_ITEMS.filter(function(x){return ckm2[x.id];}).length;
+    if(CLOSING_ITEMS.length&&ckDone<CLOSING_ITEMS.length){
+      out.push({id:'closing',st:'Daily Task',t:'Closing checklist',s:ckDone+' of '+CLOSING_ITEMS.length+' done',
+        act:'Open',det:CLOSING_ITEMS.map(function(x){return [x.txt,ckm2[x.id]?('✓ '+ckm2[x.id]):'—'];}),
+        roles:['director','roaster','retail','staff'],kind:'closing',sink:1,nosnooze:1});
+    }else if(!CLOSING_ITEMS.length&&isLead()){
+      out.push({id:'closing',st:'Daily Task',t:'Closing checklist',s:'set up the daily closing routine',
+        act:'Set up',det:[],roles:['director'],kind:'closing',sink:1,nosnooze:1});
+    }
+  }
   (DB.feedback||[]).forEach(function(f){
     var stars='★★★★★'.slice(0,Math.max(0,Math.min(5,Number(f.rating)||0)))||'☆';
     out.push({id:'fb:'+f.id,st:'Customers',hot:0,t:stars+' · '+esc(f.name||'Anonymous'),
@@ -629,8 +658,8 @@ function myItems(){
   var c=CTXS[ctxIdx],r=myRole();
   return ITEMS.filter(function(i){return i.roles.indexOf(r)>-1&&(filter==='all'||i.st===filter);})
     .sort(function(a,b){
-      var ka=(a.pin?-99:0)+(a.mine?-50:0)+(c.pr[a.st]||8)+(a.hot?0:.5);
-      var kb=(b.pin?-99:0)+(b.mine?-50:0)+(c.pr[b.st]||8)+(b.hot?0:.5);
+      var ka=(a.pin?-99:0)+(a.mine?-50:0)+(c.pr[a.st]||8)+(a.hot?0:.5)+(a.sink?90:0);
+      var kb=(b.pin?-99:0)+(b.mine?-50:0)+(c.pr[b.st]||8)+(b.hot?0:.5)+(b.sink?90:0);
       return ka-kb;});
 }
 /* 站別 chips 列已退役（2026-07）：計數交給分組組頭、「只看某站」＝摺疊其他組；filter 機制保留備用 */
@@ -644,7 +673,7 @@ function cardHTML(i){
   /* 標題右內距＝依 cattag 實際寬度（狀態字長＋「· now」）動態算，長標籤（如 Wholesale · now）才加寬，短的維持 92px 不浪費空間 */
   var pr=Math.max(92, 22 + String(i.st).length*8 + (i.hot?46:0));
   return '<div class="swipewrap" id="w-'+esc(i.id)+'">'
-    +'<button class="swipeact" data-snz="'+esc(i.id)+'">Later</button>'
+    +(i.nosnooze?'':'<button class="swipeact" data-snz="'+esc(i.id)+'">Later</button>')
     +'<div class="card feed'+(i.hot?' hot':'')+(i.pin?' brief':'')+'" style="border-left-color:'+bar+'" id="c-'+esc(i.id)+'">'
     +'<span class="cattag"'+(i.pin?'':' style="color:'+cc+'"')+'>● '+esc(i.st)+(i.hot?' <span style="color:var(--accent)">· now</span>':'')+'</span>'
     +'<div class="t" style="padding-right:'+pr+'px">'+i.t+'</div><div class="s s1">'+i.s+'</div>'
@@ -715,6 +744,7 @@ async function runAction(id,btn){
       dropCard(id);toast('Task done ✓');return;
     }
     if(i.kind==='qcnav'){view='qc';render();return;}
+    if(i.kind==='closing'){if(CLOSING_ITEMS.length)openClosingSheet();else openClosingEdit();return;}
     if(i.kind==='paynav'){openPayrollSheet();return;}
     if(i.kind==='pack'){openPackSheet(i);return;}
     if(i.kind==='fb'){
@@ -1340,6 +1370,58 @@ function openNoticeSheet(){
       openBriefSheet();
     }catch(e){b.disabled=false;b.textContent='Post';alert('Post failed: '+(e&&e.message||e));}
   });
+}
+/* ===== 每日收尾清單（closing checklist）：固定例行事逐項記名打勾；隔天自動全新（日期 key）===== */
+function openClosingSheet(){
+  var cm=closingMap(),done=CLOSING_ITEMS.filter(function(x){return cm[x.id];}).length;
+  var h='<div style="display:flex;justify-content:space-between;align-items:baseline"><div class="t" style="font-size:19px">Closing checklist</div><span class="s">'+done+'/'+CLOSING_ITEMS.length+'</span></div>'
+    +'<div class="s" style="margin-top:2px">tick as you go — resets every morning</div>';
+  if(!CLOSING_ITEMS.length)h+='<div class="empty">No items yet — Edit list to add the daily routine</div>';
+  h+=CLOSING_ITEMS.map(function(x){var by=cm[x.id];
+    return '<button class="dl" data-ck="'+esc(x.id)+'" style="width:100%;background:none;border:none;border-bottom:1px solid var(--line);font-family:inherit;cursor:pointer;align-items:center;min-height:48px">'
+      +'<span style="font-size:19px;line-height:1;color:'+(by?'var(--ink)':'var(--muted)')+'">'+(by?'●':'○')+'</span>'
+      +'<span style="flex:1;text-align:left;font-size:15px;color:'+(by?'var(--muted)':'var(--ink)')+';'+(by?'text-decoration:line-through':'')+'">'+esc(x.txt)+'</span>'
+      +'<span style="font-size:12px;color:var(--muted)">'+(by?esc(by):'')+'</span></button>';}).join('');
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">'
+    +(canWrite()?'<button class="chip" id="ck-edit">Edit list</button>':'<span></span>')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted);margin-top:0">Close</button></div>';
+  openDrawerHTML(h);
+  var ce=$('ck-edit');if(ce)ce.addEventListener('click',openClosingEdit);
+  $('d-cl').addEventListener('click',function(){closeDrawer();buildItems();render();});
+  document.querySelectorAll('[data-ck]').forEach(function(b){b.addEventListener('click',async function(){
+    if(!canWrite()){roToast();return;}
+    var id=b.dataset.ck,t=todayKey(),m=closingMap();
+    var it=CLOSING_ITEMS.find(function(x){return x.id===id;});
+    if(m[id])delete m[id];else{m[id]=WHO||'—';logAct('ticked closing',it?it.txt:id);}
+    CLOSING_ALL[t]=m;
+    try{closingPush();}catch(e){} /* 樂觀更新：先畫、後台存（同 nudge「寫失敗不擋」精神） */
+    var allDone=CLOSING_ITEMS.length&&CLOSING_ITEMS.every(function(x){return m[x.id];});
+    if(allDone){logAct('closing complete');closeDrawer();toast('Closing done — nice work ✓');buildItems();render();}
+    else openClosingSheet();
+  });});
+}
+function openClosingEdit(){
+  if(!canWrite()){roToast();return;}
+  var h='<div class="t" style="font-size:19px">Edit closing list</div>'
+    +'<div class="s" style="margin-top:2px">the same list comes back fresh every day</div>'
+    +(CLOSING_ITEMS.length?CLOSING_ITEMS.map(function(x){
+      return '<div class="dl"><span style="flex:1;text-align:left">'+esc(x.txt)+'</span><button data-ckdel="'+esc(x.id)+'" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px">✕</button></div>';}).join('')
+    :'<div class="empty">Nothing yet — add the first item below (e.g. Fill up chocolate)</div>')
+    +'<div style="display:flex;gap:8px;margin-top:12px"><input class="din" id="ck-new" style="flex:1;margin-top:0" placeholder="e.g. Milk rotation"><button class="chip" id="ck-addbtn" style="white-space:nowrap">Add</button></div>'
+    +'<button class="act" id="ck-done">Done</button>';
+  openDrawerHTML(h);
+  $('ck-addbtn').addEventListener('click',async function(){
+    var txt=($('ck-new').value||'').trim();if(!txt){toast('Type the item first');return;}
+    CLOSING_ITEMS.push({id:'c'+Date.now(),txt:txt});
+    try{closingItemsPush();}catch(e){}
+    openClosingEdit();
+  });
+  document.querySelectorAll('[data-ckdel]').forEach(function(b){b.addEventListener('click',async function(){
+    CLOSING_ITEMS=CLOSING_ITEMS.filter(function(x){return x.id!==b.dataset.ckdel;});
+    try{closingItemsPush();}catch(e){}
+    openClosingEdit();
+  });});
+  $('ck-done').addEventListener('click',function(){buildItems();render();if(CLOSING_ITEMS.length)openClosingSheet();else closeDrawer();});
 }
 /* ===== Upcoming 事件流（events 表 + staff_na 休假唯讀併入）：未來 30 天的預約/包裹/請假/VIP/客戶關照 ===== */
 var EV_KINDS=['booking','parcel','vip','care','other'];
@@ -3472,7 +3554,8 @@ function attachSwipe(el,id){
     var w=el.offsetWidth,end=(wasOpen?-88:0)+dx;
     if(locked&&end>w*0.35){var i=item(id);reset(true);if(i)runAction(id,null);return;}
     el.style.transition='transform .2s';el.style.borderColor='';el.style.borderLeftColor=barC;
-    if(locked&&end<-60){el.style.transform='translateX(-88px)';SWIPE_OPEN=id;} /* 停在滑開態，等點 Later */
+    var itm=item(id);
+    if(locked&&end<-60&&!(itm&&itm.nosnooze)){el.style.transform='translateX(-88px)';SWIPE_OPEN=id;} /* 停在滑開態，等點 Later（nosnooze 卡直接彈回） */
     else{el.style.transform='';if(SWIPE_OPEN===id)SWIPE_OPEN=null;}
     x0=null;dx=0;locked=false;dead=false;
   });
