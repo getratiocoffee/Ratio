@@ -951,7 +951,7 @@ async function qcVerdict(r,v,btn,cardId,s){
   }
   /* 開關關著 pass＝沒鎖要講明（老闆踩過：以為壞掉，其實是膠囊被切掉了） */
   var lockNote=locked?' · flavours locked'
-    :lockFail?' · ⚠ flavour lock failed — lock it from Retail Info'
+    :lockFail?' · ⚠ flavour lock failed — lock it from Coffee Info'
     :(v==='pass'&&s&&!s.flavour_locked&&!QCLOCK)?' · flavours not locked (toggle off)':'';
   toast('QC '+v+' ✓'+lockNote);
   if(cardId)dropCard(cardId);
@@ -1863,7 +1863,7 @@ function shelfFreshness(nm){
   return {txt:'roasted '+age+'d — fading'+(age>SHELF_STALE_DAYS?' · re-roast?':''),cls:'fr-red',days:age};
 }
 async function openRetailSheet(){
-  openDrawerHTML('<div class="t" style="font-size:19px">Retail Info</div><div class="empty">Loading…</div>');
+  openDrawerHTML('<div class="t" style="font-size:19px">Coffee Info</div><div class="empty">Loading…</div>');
   /* 價格/規格/售罄記憶（classic 同款 app_state 鑰匙） */
   var m={rtl_price:{},rtl_g:{},rtl_sizes:{},rtl_sold:{}};
   try{var r=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes','rtl_sold']);
@@ -1910,7 +1910,7 @@ async function openRetailSheet(){
   }).join('');
   var errs=(DB.syncs||[]).filter(function(x){return x.status&&x.status!=='synced'&&x.status!=='paused';});
   var toList=ITEMS.filter(function(i){return i.kind==='list';});
-  openDrawerHTML('<div class="t" style="font-size:19px">Retail Info</div>'
+  openDrawerHTML('<div class="t" style="font-size:19px">Coffee Info</div>'
     +'<div class="s" style="margin-top:2px">'+live.length+' live on Square'+(soldN?' · <span class="red">'+soldN+' sold out</span>':'')
     +(hidN?' · <span class="red">'+hidN+' not in shop — flavour unlocked</span>':'')+' · tap a coffee for flavour and dossier</div>'
     +(rows||'<div class="empty">Nothing on the shelf yet</div>')
@@ -1987,7 +1987,7 @@ async function openShelfBeanDetail(nm,m){
     +'<button class="dclose" id="sb-card">Folding Info Card PDF</button>'
     +'<button class="dclose" id="sb-promo">Social Post Kit - IG &amp; Red</button>'
     +'<button class="dclose" id="sb-ann">Announce by email - new coffee</button>'
-    +'<button class="dclose" id="sb-back">‹ Back to Retail Info</button>'
+    +'<button class="dclose" id="sb-back">‹ Back to Coffee Info</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('sb-edit').addEventListener('click',function(){openListSheet({ref:s});});
   /* 放錯資訊退回 QC 重審（老闆點名）：清最近判定＋解鎖風味 → 重杯修正 → Pass 重鎖；Square 上架不動 */
@@ -5151,7 +5151,7 @@ function openMenuBlendSheet(){
   ready.concat(MENU_SLOTS).forEach(function(n){var k=String(n||'').trim();if(!k||seen[k.toLowerCase()])return;seen[k.toLowerCase()]=1;opts.push(k);});
   var pos=['Top left','Top right','Bottom left','Bottom right'];
   openDrawerHTML('<div class="t" style="font-size:19px">Blend Menu</div>'
-    +'<div class="s" style="margin-top:2px">choose 4 blends — flavour and recipe pulled live from Retail Info</div>'
+    +'<div class="s" style="margin-top:2px">choose 4 blends — flavour and recipe pulled live from Coffee Info</div>'
     +pos.map(function(p,i){
       var cur=MENU_SLOTS[i]||'';
       var info=cur?menuInfoFor(cur):null;
@@ -6512,8 +6512,10 @@ function renderTools(){
       +_tiles([['Green stock','full list','greens'],['Roasted Stock','FIFO shelf','batches']].concat(_mk?[['Delete a coffee','remove · careful','delbean',1]]:[])))
     +_sec('QC &amp; Recipe',DEPT.qc,
       _tiles([['QC','cup and judge','qcgo'],['Recipe','blends · dial-in','recipe']]))
-    +_sec('Shelf',DEPT.shelf,
-      _tiles([['Retail Info','live on Square','retail']]))
+    /* Retail 區＝店面這一側的全部工具：豆子上架資訊＋貼標＋店內菜單 */
+    +_sec('Retail',DEPT.shelf,
+      (_mk?_mkTile('t-label','Labels','bag / tin'):'')
+      +_tiles([['Coffee Info','live on Square','retail'],['Menus','menu PDFs · in-store','menus']]))
     +_sec('Marketing',DEPT.mkt,
       _tiles([['IG asset','post card · caption','igasset'],['Folding Info Card','A4 · 4 fold cards','infocards'],['Brew Card','A4 · pour-over guide','brewcard'],['Social Images','4-up · pick a coffee','social4']])
       +_off([['Announce','email blast · classic'],['QR codes','shop / feedback · classic']]))
@@ -6524,8 +6526,8 @@ function renderTools(){
       _tiles([['Payroll','wages · weeks','payroll',_mk?1:0],['Calculator','cost · margins','calc']])
       +_off([['Invoice','GST PDF · classic'],['Bookkeeping','expenses · classic']])):'')
     +_sec('Daily task',DEPT.day,
-      (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'))+_mkTile('t-label','Labels','bag / tin'):'')
-      +_tiles([['Upcoming','30 days · bookings · parcels','upcoming'],['Menus','menu PDFs · in-store','menus']]))
+      (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team')):'')
+      +_tiles([['Upcoming','30 days · bookings · parcels','upcoming']]))
     +_sec('Team',DEPT.team,
       _tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster',_mk?1:0],['Team notes','notes · problems','notes',_mk?1:0],['Activity','who did what · when','activity']].concat(isLead()?[['Team','who is on · assign','team',1]]:[])))
     +_sec('App',DEPT.app,
