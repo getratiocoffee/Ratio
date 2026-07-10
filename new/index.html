@@ -1438,7 +1438,13 @@ async function openShelfBeanDetail(nm,m){
      判斷方式同 cardDataFor：名字命中 blends 就是拼配 */
   var bd=null;
   try{var bq=await sb.from('blends').select('name,parts,note').ilike('name',nm);bd=(bq.data||[])[0]||null;}catch(e){}
-  var recipe=bd?(bd.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}):[];
+  var recipe=bd?(bd.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}).map(function(p){
+    var g=greenForPart(p);
+    return {pct:parseFloat(p.pct),bean:p.bean,
+      country:(g&&g.country)||'',
+      process:(g&&g.process)||p.process||'',
+      variety:(g&&g.variety)||''};
+  }):[];
   var feats=(s.features||[]).filter(Boolean).slice(0,3);
   var hasScores=['fragrance','acidity','sweetness','body','aftertaste'].some(function(k){return s[k]!=null;});
   var sc={fragrance:s.fragrance,acidity:s.acidity,sweetness:s.sweetness,body:s.body,aftertaste:s.aftertaste};
@@ -1467,11 +1473,17 @@ async function openShelfBeanDetail(nm,m){
     +(s.comment||(bd&&bd.note)?'<div class="s" style="font-style:italic;margin-top:6px">“'+esc(s.comment||bd.note)+'”</div>':'')
     +(s.cupper?'<div class="s" style="margin-top:4px">Analysed by '+esc(s.cupper)+'</div>':'')
     +(!feats.length&&!s.comment&&!hasScores&&!recipe.length?'<div class="s" style="margin-top:4px">No cupping record yet — cup it in QC first</div>':'')
-    /* 拼配的身世＝配方成分；單品的身世＝產區履歷。兩者不會同時出現 */
+    /* 拼配的身世＝配方成分（處理法與品種都從 green stock 撈）；單品的身世＝產區履歷。兩者不會同時出現 */
     +(recipe.length?'<div class="dlab" style="color:'+col+'">Recipe</div>'
-      +recipe.map(function(p){return '<div class="dl"><span>'+esc(parseFloat(p.pct)+'% '+p.bean)+'</span>'
-        +(p.process?'<span style="text-align:right;color:var(--muted)">'+esc(p.process)+'</span>':'<span></span>')+'</div>';}).join(''):'')
-    +(info.length?'<div class="dlab" style="color:'+col+'">The coffee</div>'
+      +recipe.map(function(p){
+        var sub=[p.process,p.variety].filter(Boolean).join(' · ');
+        return '<div class="dl" style="align-items:flex-start">'
+          +'<span style="flex:1;min-width:0"><span style="color:var(--ink);font-weight:600">'+esc(p.pct+'% '+p.bean)+'</span>'
+          +(sub?'<span style="display:block;font-size:12.5px;color:var(--muted);margin-top:2px">'+esc(sub)+'</span>':'')+'</span>'
+          +'<span style="flex:none;text-align:right;color:var(--muted)">'+esc(p.country||'—')+'</span></div>';
+      }).join(''):'')
+    /* 拼配不畫 The coffee：它在 beans 表沒有列，那區只會剩一個 Roasted，而烘焙日抽屜頂端已經有了 */
+    +(!recipe.length&&info.length?'<div class="dlab" style="color:'+col+'">The coffee</div>'
       +info.map(function(r){return '<div class="dl"><span>'+esc(r[0])+'</span><span style="text-align:right">'+esc(String(r[1]))+'</span></div>';}).join(''):'')
     +'<button class="act" id="sb-edit">Push to Live</button>'
     +'<button class="dclose" id="sb-sold">'+(sold?'Put back on sale':'Mark Sold Out')+'</button>'
@@ -1572,7 +1584,7 @@ async function openPromoSheet(s,m){
     var blendMap={};
     try{var bq=await sb.from('blends').select('name,parts,note');
       (bq.data||[]).forEach(function(b){if(b.name)blendMap[String(b.name).trim().toLowerCase()]={parts:b.parts||[],note:b.note||''};});}catch(e){}
-    var info=[];try{info=await beanInfoRows(full);}catch(e){}
+    var info=[];try{info=await beanInfoRows(full,{omit:['Roasted','Harvest']});}catch(e){}
     var col=dotColorFor(nm,dots)||'#B25E6A';
     var b64=await makeSquareCard(await cardDataFor(full,blendMap,dots),{tight:true});
     var feats=(full.features||[]).filter(Boolean).slice(0,3);
@@ -1941,7 +1953,7 @@ async function socialSplitPick(s){
     if(fq.data&&fq.data[0])full=fq.data[0];}catch(e){}
   var dots={};try{dots=await cardDots();}catch(e){}
   var col=dotColorFor(nm,dots)||'#B25E6A';
-  var info=[];try{info=await beanInfoRows(full);}catch(e){}
+  var info=[];try{info=await beanInfoRows(full,{omit:['Roasted','Harvest']});}catch(e){}
   var feats=(full.features||[]).filter(Boolean).slice(0,3);
   await exportSocialImages(full,info,feats,nm,col,null,SOC_MODE);
 }
@@ -2710,7 +2722,7 @@ async function pushListToSquare(){
         try{havePhoto=!!(await listBeanPhotos())[beanSlug(nm)];}catch(e){}
         if(havePhoto){
           try{
-            var info=[];try{info=await beanInfoRows(full);}catch(e){}
+            var info=[];try{info=await beanInfoRows(full,{omit:['Roasted','Harvest']});}catch(e){}
             var feats=(full.features||[]).filter(Boolean).slice(0,3);
             var col=dotColorFor(nm,dots)||'#B25E6A';
             var r=await renderSocialImages(full,info,feats,nm,col,'photo',{fmt:'image/jpeg',quality:0.88,
@@ -3463,7 +3475,29 @@ function printRadarPNG(sc,color,opts){
   return cv.toDataURL('image/png');
 }
 /* 豆子履歷全欄位（產區/處理廠/品種/海拔/處理法/產季/烘豆日/生豆商）——資訊卡與 Retail shelf 明細共用；生豆查法同 cardDataFor */
-async function beanInfoRows(full){
+/* 拼配成分的身世：拿配方裡的成分豆去 green stock（DB.beans，記憶體現成的）對。
+   ⚠ 處理法是消歧的關鍵，不能只比名字：
+     · Finca Milan 生豆表有 6 支同名（不同 culturing）
+     · Hakuna Matata 兩支——Honey 是 Sidra、Washed 是 Typica，比錯品種就寫錯
+   ⚠ 配方寫泛稱、生豆帶版本號（配方 "Danche" ↔ 生豆 "Danche v1/v2/v3"），
+     所以精確比對落空時再退一步用「前綴＋空白」比，仍以處理法挑對的那支 */
+function greenForPart(p){
+  var nm=String(p.bean||'').trim().toLowerCase();
+  if(!nm)return null;
+  var proc=String(p.process||'').trim().toLowerCase();
+  var all=DB.beans||[];
+  function pick(pool){
+    if(!pool.length)return null;
+    return (proc&&pool.filter(function(b){return String(b.process||'').trim().toLowerCase()===proc;})[0])||pool[0];
+  }
+  var exact=all.filter(function(b){return String(b.name||'').trim().toLowerCase()===nm;});
+  return pick(exact)||pick(all.filter(function(b){return String(b.name||'').trim().toLowerCase().indexOf(nm+' ')===0;}));
+}
+/* opts.omit＝要略過的列名。對外素材（摺卡／社群圖／Square 商品圖）不印 Roasted 與 Harvest：
+   烘焙日一印就過期，產季對客人也不是重點；店內的 Retail Info 抽屜照樣要看得到 */
+async function beanInfoRows(full,opts){
+  opts=opts||{};
+  var omit={};(opts.omit||[]).forEach(function(k){omit[k]=1;});
   var nm=String(full.sample_id||'').trim();
   var gb=null;
   try{
@@ -3473,17 +3507,16 @@ async function beanInfoRows(full){
     gb=(proc?pool.find(function(b){return String(b.process||'').trim().toLowerCase()===proc;}):null)||pool[0]||null;
   }catch(e){}
   var info=[];
-  var region=gb?[gb.region,gb.country].filter(Boolean).join(', '):'';
-  if(region)info.push(['Origin',region]);
-  if(gb&&gb.station)info.push(['Station',gb.station]);
-  if(gb&&gb.variety)info.push(['Variety',gb.variety]);
-  if(gb&&gb.altitude!=null&&gb.altitude!=='')info.push(['Altitude',gb.altitude+' MASL']);
-  var proc2=full.process||(gb&&gb.process)||'';
-  if(proc2)info.push(['Process',proc2]);
-  if(gb&&gb.harvest)info.push(['Harvest',gb.harvest]);
+  function add(k,v){if(!omit[k]&&v!=null&&v!=='')info.push([k,v]);}
+  add('Origin',gb?[gb.region,gb.country].filter(Boolean).join(', '):'');
+  add('Station',gb&&gb.station);
+  add('Variety',gb&&gb.variety);
+  add('Altitude',(gb&&gb.altitude!=null&&gb.altitude!=='')?gb.altitude+' MASL':'');
+  add('Process',full.process||(gb&&gb.process)||'');
+  add('Harvest',gb&&gb.harvest);
   var rd=full.roast_date||(matchRoast(full)||{}).roast_date;
-  if(rd)info.push(['Roasted',fmtD(rd)]);
-  if(gb&&gb.supplier)info.push(['Sourced via',gb.supplier]);
+  add('Roasted',rd?fmtD(rd):'');
+  add('Sourced via',gb&&gb.supplier);
   return info;
 }
 async function openInfoCardPrint(s){
@@ -3498,7 +3531,7 @@ async function openInfoCardPrint(s){
   var dots={};try{dots=await cardDots();}catch(e){}
   var col=dotColorFor(full.sample_id,dots)||'#B25E6A';
   var nm=String(full.sample_id||'').trim();
-  var info=await beanInfoRows(full);
+  var info=await beanInfoRows(full,{omit:['Roasted','Harvest']});
   var beanUrl='https://ratio-theta.vercel.app/?bean='+encodeURIComponent(beanSlug(nm));
   var feats=(full.features||[]).filter(Boolean).slice(0,3);
   var comment=String(full.comment||'').trim();
