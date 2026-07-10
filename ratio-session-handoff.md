@@ -62,6 +62,7 @@
 - **做法**：新殼 `renderSocialImages` 區塊頂新增單一事實源（約 L2245）：`CARD_TEXT`（brand/tagline/scan/ig/email/footer 六句）＋`cardBeanUrl(nm)`/`cardQrSrc(nm)`（?bean 連結與 qrserver 組法）。social 四張（socialCoverHTML/socialQrHTML/renderSocialImages）與 `openInfoCardPrint`（A4 摺卡）全部改引用，grep 確認舊字串歸零只剩定義一份。**以後改店帳號/email/標語/掃描語＝只改 CARD_TEXT，兩邊（含 Square 商品圖——它走同一個 renderSocialImages）一起變。**
 - **驗證**：jscheck ✓；本機 serve（8125，8124 被別 session 佔）未登入 boot 無 console error ✓；console 實測改 `CARD_TEXT.scan` 後 socialQrHTML 輸出即時跟變 ✓。
 - **注意**：IG caption（L2030 'Roasted fresh in Crows Nest'）與公開豆頁 footer（L6712）措辭刻意不同、不在同步範圍。
+- **追加（同日）：拼配豆明細空白修好**。老闆回報摺卡明細對拼配豆沒內容——根因＝`beanInfoRows` 只查 beans 表（單品生豆），拼配命中不了一律回空（原本只有 shelf 抽屜自己另寫了 Recipe 區塊）。修法＝在 `beanInfoRows` 開頭加拼配分支（判斷同 shelf/cardDataFor：名字命中 blends 就是拼配）：明細改列配方成分「比例｜成分豆·處理法·產國」，成分用 `greenForPart` 從 green stock 消歧（Danche→Danche v3 補產國實測 ✓），生豆庫沒有的退回配方 process，空成分濾掉；Roasted 行照舊尊重 omit。**改這一處＝摺卡/social origin 圖/Square 商品圖/email 卡全部生效**；shelf 抽屜不受影響（它 recipe.length>0 時本來就不畫 The coffee 區）。驗證：jscheck ✓、mock sb.from 實測拼配與單品輸出 ✓（本機 anon 被 RLS 擋、讀不到真 blends，真資料驗證＝部署後開一支拼配豆出摺卡 PDF 看明細頁）。
 
 ## 〇、補記 — 2026-07-10 之三（🚑 上線事故＋hotfix：boot 炸在已拆除的 #chips）
 - **事故**：老闆 push 今日流 v3＋閹割階段一後回報「生豆熟豆完全空白」「購物車沒連 Square」。真因＝chips 列退役時**只刪了 renderChips 函式與 #chips div，漏刪三處 `$('chips').innerHTML=''` 直接引用**（boot/renderPublicMenu/renderCustomerPortal）→ boot 一進場就 TypeError 中斷，**loadAll 沒跑**→ 登入後 DB 全空（生豆/熟豆/今日流）、店面/購物車綁定沒掛上。兩個症狀同一病灶。

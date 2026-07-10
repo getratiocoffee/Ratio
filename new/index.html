@@ -4018,6 +4018,24 @@ async function beanInfoRows(full,opts){
   opts=opts||{};
   var omit={};(opts.omit||[]).forEach(function(k){omit[k]=1;});
   var nm=String(full.sample_id||'').trim();
+  var info=[];
+  function add(k,v){if(!omit[k]&&v!=null&&v!=='')info.push([k,v]);}
+  /* 拼配豆：beans 表沒有同名生豆，身世＝blends 配方（判斷方式同 shelf 抽屜/cardDataFor：名字命中 blends 就是拼配）。
+     明細改列配方成分：左欄比例、右欄「成分豆 · 處理法 · 產國」——處理法/產國用 greenForPart
+     從 green stock 消歧（配方寫泛稱、生豆帶版本號，同名不同處理法要挑對那支）。
+     這裡是摺卡/社群 origin 圖/Square 商品圖的共用資料源，改這一處全部生效 */
+  var bd=null;
+  try{var bq=await sb.from('blends').select('name,parts').ilike('name',nm);bd=(bq.data||[])[0]||null;}catch(e){}
+  if(bd){
+    (bd.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}).forEach(function(p){
+      var g=greenForPart(p);
+      var v=[p.bean,(g&&g.process)||p.process||'',(g&&g.country)||''].filter(Boolean).join(' · ');
+      add(parseFloat(p.pct)+'%',v);
+    });
+    var brd=full.roast_date||(matchRoast(full)||{}).roast_date;
+    add('Roasted',brd?fmtD(brd):'');
+    return info;
+  }
   var gb=null;
   try{
     var gq=await sb.from('beans').select('process,variety,altitude,region,country,station,harvest,supplier').ilike('name',nm);
@@ -4025,8 +4043,6 @@ async function beanInfoRows(full,opts){
     var proc=String(full.process||'').trim().toLowerCase();
     gb=(proc?pool.find(function(b){return String(b.process||'').trim().toLowerCase()===proc;}):null)||pool[0]||null;
   }catch(e){}
-  var info=[];
-  function add(k,v){if(!omit[k]&&v!=null&&v!=='')info.push([k,v]);}
   add('Origin',gb?[gb.region,gb.country].filter(Boolean).join(', '):'');
   add('Station',gb&&gb.station);
   add('Variety',gb&&gb.variety);
