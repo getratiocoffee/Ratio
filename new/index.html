@@ -2571,7 +2571,8 @@ async function renderSocialImages(full,info,feats,nm,col,mode,opts){
   var bg=mode==='white'?(opts.bg||SOC_BG||'#FAF8F4'):'#FAF8F4';
   var dark=photo?await photoIsDark(photo):(mode==='white'?socBgIsDark(bg):false);
   var T=_socTheme(dark);
-  var scrim=socScrim(dark);
+  /* 紗濃度：opts.scrim（上架 per-bean 記憶）優先，否則全域 socScrim（Social Images 抽屜／自動） */
+  var scrim=(opts.scrim!=null?opts.scrim:socScrim(dark));
   /* 版面固定黑白：呼叫端傳進來的 col 是 dotColorFor() 的罐標色（黃/藍/紅），那是店裡貨架
      辨識用的管理色，不可拿來當版面主色——不然同一支豆換個點色，整張圖就變全黃或全紅。
      用 T.ink：淺底是墨黑，深照片上自動翻成米白，明暗天生對稱。
@@ -3267,7 +3268,9 @@ async function openListSheet(i){
     ||toCupList().some(function(r){return String(r.bean_name||'').trim().toLowerCase()===nm.toLowerCase();});
   LST={s:s,name:nm,grams:mem.rtl_g[nm]||250,price:mem.rtl_price[nm]!=null?String(mem.rtl_price[nm]):'',
     p500:sc.g500!=null?String(sc.g500):'',p1k:sc.g1000!=null?String(sc.g1000):'',lock:rq?false:!s.flavour_locked,requeue:rq,
-    imgMode:ist.mode||(hasPhoto?'photo':'colour'),imgBg:ist.bg||'#FAF8F4',hasPhoto:hasPhoto,
+    imgMode:ist.mode||(hasPhoto?'photo':'colour'),imgBg:ist.bg||'#FAF8F4',
+    /* imgScrim＝photo 模式紗濃度；null=Auto（跟 Social Images 一致，看照片深淺自動壓） */
+    imgScrim:(typeof ist.scrim==='number'?ist.scrim:null),hasPhoto:hasPhoto,
     /* 已上架＝更新模式（Retail shelf 的 Edit listing 走這裡；push 對 Square 是 upsert，同一條管線） */
     upd:!!((DB.syncs||[]).find(function(x){return x.status==='synced'&&String(x.bean_id||'').trim().toLowerCase()===nm.toLowerCase();}))};
   paintListSheet();
@@ -3294,7 +3297,12 @@ function paintListSheet(){
     +(LST.imgMode==='transparent'?'<div class="s" style="color:var(--muted);font-size:12.5px;margin-top:8px">Square photos cannot be transparent — a white version is pushed. Transparent stays in Social Images for IG layering.</div>':'')
     +(LST.imgMode==='photo'?'<div class="s" style="margin-top:8px;font-size:12.5px;color:'+(LST.hasPhoto?'var(--accent)':'var(--muted)')+'">'
       +(LST.hasPhoto?'✓ photo saved':'No photo yet — you will pick one when pushing')
-      +' <button id="ls-imph" style="margin-left:6px;padding:5px 11px;border:1px solid var(--line2);background:transparent;color:var(--muted);border-radius:999px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">'+(LST.hasPhoto?'Replace':'Pick now')+'</button></div>':'')
+      +' <button id="ls-imph" style="margin-left:6px;padding:5px 11px;border:1px solid var(--line2);background:transparent;color:var(--muted);border-radius:999px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">'+(LST.hasPhoto?'Replace':'Pick now')+'</button></div>'
+      /* 紗濃度拉桿（同 Social Images 的 Background fade，per-bean 記憶）：Auto=看照片深淺自動壓 */
+      +'<div style="margin-top:12px"><div class="dlab" style="display:flex;justify-content:space-between"><span>Background fade</span><span id="ls-imscrimval">'+(LST.imgScrim==null?'Auto':Math.round(LST.imgScrim*100)+'%')+'</span></div>'
+      +'<input type="range" id="ls-imscrim" min="20" max="92" value="'+(LST.imgScrim==null?60:Math.round(LST.imgScrim*100))+'" style="width:100%;accent-color:var(--accent)">'
+      +'<div class="s" style="color:var(--muted);font-size:12.5px">Fades the photo behind the text so it stays readable — higher = clearer text. Auto suits most photos.</div></div>'
+      :'')
     +(LST.requeue?'<div class="s fr-yellow" style="margin-top:12px">Re-checking in QC — the flavour description stays unlocked until it passes QC again</div>'
       :(s.flavour_locked?'':'<div class="pm-seg" style="margin-top:14px"><button id="ls-lk"'+(LST.lock?' class="on"':'')+'>'+(LST.lock?'✓ ':'')+'Lock flavour description</button></div>'))
     +'<button class="act" id="ls-push">'+(LST.upd?'Push update to Square':'Push to Square')+'</button>'
@@ -3306,6 +3314,8 @@ function paintListSheet(){
   /* 自訂色盤用 change（放開才觸發）——input 每拖一格就重繪會把色盤關掉 */
   var ibp=$('ls-imbgpick');if(ibp)ibp.addEventListener('change',function(){grab();LST.imgBg=this.value;paintListSheet();});
   var iph=$('ls-imph');if(iph)iph.addEventListener('click',async function(){grab();var ok=await changeBeanPhoto(LST.name,iph);if(ok){LST.hasPhoto=true;paintListSheet();}});
+  /* 拉桿只改值＋更新顯示，不 repaint（重繪會讓正在拖的滑桿失焦跳掉） */
+  var imsc=$('ls-imscrim');if(imsc)imsc.addEventListener('input',function(){LST.imgScrim=Number(this.value)/100;var v=$('ls-imscrimval');if(v)v.textContent=this.value+'%';});
   var lk=$('ls-lk');if(lk)lk.addEventListener('click',function(){grab();LST.lock=!LST.lock;paintListSheet();});
   $('ls-push').addEventListener('click',function(){grab();pushListToSquare();});
   $('d-cl').addEventListener('click',closeDrawer);
@@ -3344,7 +3354,8 @@ async function pushListToSquare(){
           var col=dotColorFor(nm,dots)||'#B25E6A';
           var rmode=LST.imgMode==='photo'?'photo':'white';
           var rbg=LST.imgMode==='colour'?(LST.imgBg||'#FAF8F4'):'#FAF8F4';
-          var r=await renderSocialImages(full,info,feats,nm,col,rmode,{fmt:'image/jpeg',quality:0.88,bg:rbg,
+          var rscrim=LST.imgMode==='photo'?LST.imgScrim:null;  /* photo 才吃紗濃度 */
+          var r=await renderSocialImages(full,info,feats,nm,col,rmode,{fmt:'image/jpeg',quality:0.88,bg:rbg,scrim:rscrim,
             onStep:function(m){if(btn)btn.textContent=m;}});
           imgs64=r.images.map(function(x){return x[1].split(',')[1];});
         }catch(e){console.error('product cards',e);imgs64=null;}
@@ -3366,7 +3377,7 @@ async function pushListToSquare(){
       (mem.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}if(v&&typeof v==='object')m[x.key]=v;});
       m.rtl_price[nm]=price;m.rtl_g[nm]=LST.grams;
       var sc={};if(p500>0)sc.g500=p500;if(p1k>0)sc.g1000=p1k;m.rtl_sizes[nm]=sc;
-      m.rtl_imgstyle[nm]={mode:LST.imgMode||'colour',bg:LST.imgBg||'#FAF8F4'};
+      m.rtl_imgstyle[nm]={mode:LST.imgMode||'colour',bg:LST.imgBg||'#FAF8F4',scrim:LST.imgScrim};
       for(var k in m)await sb.from('app_state').upsert({key:k,value:m[k],updated_at:new Date().toISOString()},{onConflict:'key'});
     }catch(e){console.error('price memory',e);}
     if(!s.flavour_locked&&LST.lock){try{await sb.from('samples').update({flavour_locked:true}).eq('id',s.id);}catch(e){}}
