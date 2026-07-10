@@ -57,6 +57,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-10 之八（Square Online 商品頁主圖 3:4→1:1，沒改碼）
+- **背景**：老闆發現 coffeeratio.com.au（Square Online 網店，客人真正下單的站）商品詳情頁主圖是直式長方——我們的 1080 正方四連圖被塞進 3:4 框上下留白。⚠ 這個站跟新殼 ?shop 是兩回事：**Ratio 有一個 Square Online 建站**（自訂網域 coffeeratio.com.au，2026-07-09 有發布過），商品從 Square 目錄自動帶入。
+- **修法（Chrome MCP 代跑，老闆登入態）**：Square Dashboard 左欄「Square Online」→ square.online 後台 → Edit site → 頁面下拉 → Item pages 任一頁 → 左欄「Item details」section →（模板：改一處套用全部商品頁）→ Content → Image gallery → **Aspect ratio 3:4 改 1:1**（Image fit 維持 Crop）→ Done → Publish。真機驗證 coffeeratio.com.au 商品頁主圖已正方滿版 ✓。
+- **備查**：Square Online 編輯器入口好藏——Dashboard `/dashboard/sites` 會轉跳 square.online/app/…；左欄捲到底「Square Online」最快。
+
 ## 〇、補記 — 2026-07-10 之七（拼配明細的百分比放大＋Dark Knight「沒上架」診斷）
 - **百分比突顯（老闆點名）**：social origin 圖與摺卡明細頁的拼配行，左欄比例（50%）原是灰色小標樣式不顯眼——兩處 render 加判斷 `/^\d+(\.\d+)?%$/`，命中改 serif 大字正文色（social 40px／摺卡 9.5pt inline 蓋 .br span），一般標籤行（ORIGIN/ROASTED）不受影響。截圖驗證 ✓。
 - **Dark Knight 沒進店面＝快取誤會（沒改碼）**：實查 product_sync synced ✓、samples flavour_locked ✓、curl public-shop 菜單有它＋4 圖 ✓——是 public-shop 的 5 分鐘 Cache-Control，別台裝置/已開頁面吃舊快取（SHOP_STALE 只救推的那台）。已告知老闆重新整理即可。順帶提醒：菜單只 3 支＝其他 synced 豆風味沒鎖被 QC 閘門濾掉（設計如此）。
