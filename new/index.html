@@ -1403,7 +1403,7 @@ async function openRetailSheet(){
     var sold=!!m.rtl_sold[nm]||x.status==='paused';if(sold)soldN++;
     var fr=shelfFreshness(nm);
     var rep=shelfSampleFor(nm);
-    var col=dotColorFor(nm,dots);
+    var col=uiDot(dotColorFor(nm,dots));
     var inQC=!!inQCSet[nm.toLowerCase()];
     return '<div class="hit" data-shelf="'+esc(nm)+'"><span><div class="t" style="font-size:16px">'
       +(col?'<span style="color:'+col+';font-size:12px">●</span> ':'')+esc(nm)
@@ -1432,7 +1432,7 @@ async function openShelfBeanDetail(nm,m){
   openDrawerHTML('<div class="t" style="font-size:19px">'+esc(nm)+'</div><div class="empty">Loading…</div>');
   var s=shelfSampleFor(nm)||{sample_id:nm};
   var dots={};try{dots=await cardDots();}catch(e){}
-  var col=dotColorFor(nm,dots)||'#B25E6A';
+  var col=uiDot(dotColorFor(nm,dots))||'#B25E6A';
   var info=[];try{info=await beanInfoRows(s);}catch(e){}
   var feats=(s.features||[]).filter(Boolean).slice(0,3);
   var hasScores=['fragrance','acidity','sweetness','body','aftertaste'].some(function(k){return s[k]!=null;});
@@ -1672,6 +1672,20 @@ async function photoIsDark(dataUrl){
     return sum/1024<140;
   }catch(e){return false;}
 }
+/* 螢幕 UI 上的豆子點色（QC 色鈕、貨架圓點、抽屜裡的雷達）：夜版要提亮，
+   不然深藍 #22386B 對 #1C1C1C 的 WCAG 對比只有 1.50（圖形元素最低要 3），紅也只有 3.13。
+   走的是跟社群圖深底照片同一條規則——你在 QC 選的藍，就是圖上那個藍。
+   ⚠ 只給螢幕用；產出的圖片/標籤自己決定明暗（renderSocialImages 看照片亮度，不看 app 主題） */
+function isDarkUI(){
+  var el=document.documentElement;
+  if(el.classList.contains('dark'))return true;
+  if(el.classList.contains('light'))return false;
+  try{return window.matchMedia('(prefers-color-scheme: dark)').matches;}catch(e){return false;}
+}
+/* 0.30 是掃出來的甜蜜點：四色全過 3:1（深藍 3.45），四色兩兩的最小色差還留 78（原色 112 的七成）。
+   提到 0.45 對比更好，但色差掉到 62——亮藍與深藍就開始糊在一起，而點色的用途正是分辨豆子。
+   社群圖那邊仍用 0.45：它壓在雜亂的照片上，需要更多亮度；螢幕背景是純色，不必。 */
+function uiDot(hex){return hex?(isDarkUI()?_liftColour(hex,0.30):hex):hex;}
 /* 深色照片上把豆子的點色往米白提亮：深藍 #22386B 直接畫在暗底上對比只剩 9（看不見），
    紅色也只有 17。混白後保住色相、拉開亮度，還是認得出是哪一支豆 */
 function _liftColour(hex,amt){
@@ -1827,7 +1841,7 @@ async function openSocialSplitSheet(){
     if(!list.length)return '<div class="empty">No QC-passed coffees yet</div>';
     return list.map(function(s){
       var nm=String(s.sample_id||'').trim();
-      var c=dotColorFor(nm,dots);
+      var c=uiDot(dotColorFor(nm,dots));
       var has=!!SOC_PHOTOS[beanSlug(nm)];
       return '<div class="dl" style="align-items:center;gap:10px">'
         +'<span data-sc="'+esc(s.id)+'" style="flex:1;min-width:0;cursor:pointer">'
@@ -2828,7 +2842,7 @@ function paintCupSheet(){
     /* 相對顏色（老闆定的四色：黃/藍/紅/深藍＝資訊卡 band 色）；None＝不標色 */
     +'<div style="display:flex;justify-content:center;align-items:center;gap:16px;margin-top:12px">'
     +['y','b','r','d'].map(function(k){
-      return '<button data-cupdot="'+k+'" aria-label="'+k+'" style="width:28px;height:28px;border-radius:50%;cursor:pointer;background:'+RTL_DOTCOL[k]+';border:2px solid '+(CUP.dot===k?'var(--ink)':'transparent')+';box-shadow:'+(CUP.dot===k?'0 0 0 2px var(--surface) inset':'none')+'"></button>';
+      return '<button data-cupdot="'+k+'" aria-label="'+k+'" style="width:28px;height:28px;border-radius:50%;cursor:pointer;background:'+uiDot(RTL_DOTCOL[k])+';border:2px solid '+(CUP.dot===k?'var(--ink)':'transparent')+';box-shadow:'+(CUP.dot===k?'0 0 0 2px var(--surface) inset':'none')+'"></button>';
     }).join('')
     +'<button data-cupdot="" aria-label="none" style="width:28px;height:28px;border-radius:50%;cursor:pointer;background:none;border:2px '+(CUP.dot===''?'solid var(--ink)':'dashed var(--line2)')+';color:var(--muted);font-size:13px;line-height:1">✕</button>'
     +'</div>'
@@ -2854,7 +2868,7 @@ function paintCupSheet(){
   /* 即時預覽：只動 SVG 錨點與文字，不整張重畫（拖霸重畫會炸手感） */
   function preview(){
     grab();
-    var tint=(CUP.dot&&RTL_DOTCOL[CUP.dot])||'var(--accent)';
+    var tint=(CUP.dot&&uiDot(RTL_DOTCOL[CUP.dot]))||'var(--accent)';
     var pts=K.map(function(k,i){return pt(i,R*(CUP.scores[k[0]]||0)/3);});
     var poly=document.getElementById('cup-poly');
     if(poly){
@@ -3396,7 +3410,7 @@ async function openInfoCardsSheet(){
   openDrawerHTML('<div class="t" style="font-size:19px">Folding Info Card</div>'
     +'<div class="s" style="margin-top:2px">QC-passed coffees · tap one for an A4 PDF — print double-sided, cut the cross into four 105 × 148.5 mm cards</div>'
     +(list.length?list.map(function(s){
-      var c=dotColorFor(s.sample_id,dots);
+      var c=uiDot(dotColorFor(s.sample_id,dots));
       return '<div class="dl" data-ic="'+esc(s.id)+'" style="cursor:pointer;align-items:center">'
         +'<span style="color:var(--ink);font-weight:600">'+(c?'<span style="color:'+c+'">●</span> ':'')+esc(s.sample_id||'—')
         +(s.process?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(s.process)+'</span>':'')+'</span>'
