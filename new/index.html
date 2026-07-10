@@ -1760,8 +1760,9 @@ function socialCoverHTML(nm,feats,comment,col,o){
 }
 function socialRadarHTML(radar,feats,col,o){
   return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:110px 90px">'
-    +_socMark(o&&o.drop,58)   /* 水滴＝濕的一半：這杯喝起來如何 */
-    +'<div style="font-size:22px;letter-spacing:8px;text-transform:uppercase;color:'+col+'">Cup profile</div>'
+    /* 水滴＝濕的一半：這杯喝起來如何。不放「Cup profile」標題——雷達圖自己已經寫著
+       AROMA/ACIDITY/SWEETNESS，符號的用途就是取代標籤；留著標題，符號就只是裝飾 */
+    +_socMark(o&&o.drop,58)
     +'<img src="'+radar+'" style="width:860px;max-width:100%;margin:40px 0" alt="">'
     +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:40px;font-weight:600;color:'+col+'">'+feats.map(esc).join('  ·  ')+'</div>'
     +'</div>',o);
@@ -1769,9 +1770,10 @@ function socialRadarHTML(radar,feats,col,o){
 function socialOriginHTML(nm,info,col,o){
   var T=(o&&o.T)||_socTheme(false);
   return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:120px 110px">'
-    +_socMark(o&&o.bean,Math.round(58*SOC_BEAN_RATIO))   /* 豆＝乾的一半：這支豆從哪來 */
-    +'<div style="font-size:22px;letter-spacing:8px;text-transform:uppercase;color:'+col+';text-align:center">The coffee</div>'
-    +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:46px;font-weight:600;text-align:center;margin-top:10px">'+esc(nm)+'</div>'
+    /* 豆＝乾的一半：這支豆從哪來。同樣不放「The coffee」標題（整頁都是產地資料）；
+       但豆名留著——這張是資料頁，單張被轉發時要知道資料屬於誰 */
+    +_socMark(o&&o.bean,Math.round(58*SOC_BEAN_RATIO))
+    +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:46px;font-weight:600;text-align:center">'+esc(nm)+'</div>'
     +'<div style="width:84px;height:4px;background:'+col+';margin:26px auto 40px"></div>'
     +'<table style="width:100%;border-collapse:collapse">'+info.map(function(r){return '<tr><td style="font-size:22px;letter-spacing:3px;text-transform:uppercase;color:'+T.muted+';padding:20px 0;border-bottom:1px solid '+T.line+'">'+esc(r[0])+'</td><td style="font-family:Fraunces,Georgia,serif;font-size:32px;text-align:right;padding:20px 0;border-bottom:1px solid '+T.line+'">'+esc(String(r[1]))+'</td></tr>';}).join('')+'</table>'
     +'</div>',o);
@@ -1925,7 +1927,10 @@ async function renderSocialImages(full,info,feats,nm,col,mode,opts){
   var dark=photo?await photoIsDark(photo):false;
   var T=_socTheme(dark);
   var scrim=socScrim(dark);
-  /* 符號跟 kicker 標題同色（col＝豆子的點色）；logo 是品牌本體，用主文字色 */
+  /* 品牌素材固定黑白：呼叫端傳進來的 col 是 dotColorFor() 的罐標色（黃/藍/紅），
+     那是店裡貨架辨識用的內部管理色，不可洩漏到對外素材——不然同一支豆換個點色，
+     整張圖就變全黃或全紅。用 T.ink：淺底是墨黑，深照片上自動翻成米白，明暗天生對稱。 */
+  col=T.ink;
   var o={mode:mode,photo:photo,scrim:scrim,dark:dark,T:T,
     logo:await _socLogo(T.ink), drop:await _socDrop(col), bean:await _socBean(col)};
   var sc={fragrance:full.fragrance,acidity:full.acidity,sweetness:full.sweetness,body:full.body,aftertaste:full.aftertaste};
