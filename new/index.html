@@ -74,7 +74,14 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 /* 資訊卡圖滿版：CSS 裁掉 Square 安全白邊——內容框在 1200×1200 佔 x217-983/y64-1136，
    裁切盒各留 12px 呼吸邊＝x0 205 w790 / y0 52 h1096。⚠ 數字綁 classic makeSquareCard 預設邊距，改邊距要跟著改 */
 .shopimghold{width:100%;aspect-ratio:790/1096;overflow:hidden;position:relative;border-bottom:1px solid var(--line)}
+/* 舊的品牌卡帶 Square 安全白邊，放大裁掉；照片版四連圖是滿版的，直接 cover（.sq） */
 .shopimghold .shopimg{position:absolute;width:151.9%;left:-25.95%;top:-4.74%;height:auto;display:block}
+.shopimghold.sq .shopimg{position:absolute;inset:0;width:100%;height:100%;left:0;top:0;object-fit:cover}
+/* 商品明細的四連圖：橫向滑，一次一張 */
+.shopgal{display:flex;align-items:flex-start;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;margin-top:12px;padding-bottom:2px}
+.shopgal::-webkit-scrollbar{display:none}
+/* min-width:0 不可拿掉——flex item 預設 min-width:auto，圖會撐成原始 1080px 不肯縮 */
+.shopgal img{flex:0 0 82%;min-width:0;width:82%;height:auto;aspect-ratio:1;scroll-snap-align:center;border-radius:12px;border:1px solid var(--line);display:block}
 .shopc .shopin{padding:14px 18px 18px}
 .shop-chip{background:var(--tint);color:var(--accent);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:600;display:inline-block;margin:0 6px 6px 0}
 .shopc .sl{flex:0 0 84px;text-transform:uppercase;font-size:11.5px;letter-spacing:.06em;padding-top:2px}
@@ -1840,14 +1847,56 @@ async function socialSplitPick(s){
 }
 /* 透明縮圖的棋盤格襯底——不然抽屜裡看不出哪張是透明的 */
 var _SOC_CHK='background-image:linear-gradient(45deg,#c9c4be 25%,transparent 25%),linear-gradient(-45deg,#c9c4be 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#c9c4be 75%),linear-gradient(-45deg,transparent 75%,#c9c4be 75%);background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0px;background-color:#fff';
-/* 保底：截圖尺寸不是 1080 見方就縮放補正（IG 要正方形）。透明版不補底色 */
-function _soc1080(cv,mode){
-  if(cv.width===1080&&cv.height===1080)return cv.toDataURL('image/png');
+/* 保底：截圖尺寸不是 1080 見方就縮放補正（IG 要正方形）。透明版不補底色也不能轉 JPEG */
+function _soc1080(cv,mode,fmt,q){
+  fmt=fmt||'image/png';
+  if(cv.width===1080&&cv.height===1080)return cv.toDataURL(fmt,q);
   var o=document.createElement('canvas');o.width=1080;o.height=1080;
   var g=o.getContext('2d');
   if(mode!=='clear'){g.fillStyle='#FAF8F4';g.fillRect(0,0,1080,1080);}
   g.drawImage(cv,0,0,1080,1080);
-  return o.toDataURL('image/png');
+  return o.toDataURL(fmt,q);
+}
+/* 產四張圖的核心（社群下載與 Square 商品圖共用這一份）
+   mode: 'white'｜'clear' 透明｜'photo' 該豆的背景照
+   opts: {fmt,quality,onStep} — Square 要 JPEG（四張 PNG 太肥，edge 的請求體塞不下） */
+async function renderSocialImages(full,info,feats,nm,col,mode,opts){
+  opts=opts||{};
+  var step=opts.onStep||function(){};
+  await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  var photo=null;
+  if(mode==='photo'){
+    step('Loading photo…');
+    photo=await loadBeanPhotoData(nm);
+    if(!photo)throw new Error('No photo saved for '+nm+' yet — tap Photo to choose one');
+  }
+  var dark=photo?await photoIsDark(photo):false;
+  var T=_socTheme(dark);
+  var scrim=socScrim(dark);
+  var o={mode:mode,photo:photo,scrim:scrim,dark:dark,T:T,logo:await _socLogo(T.ink)};
+  var sc={fragrance:full.fragrance,acidity:full.acidity,sweetness:full.sweetness,body:full.body,aftertaste:full.aftertaste};
+  var radar=printRadarPNG(sc,col,dark?{grid:'rgba(247,242,237,.32)',label:T.muted}:{});
+  var comment=String(full.comment||'').trim();
+  var beanUrl='https://ratio-theta.vercel.app/?bean='+encodeURIComponent(beanSlug(nm));
+  var qrSrc='https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl);
+  /* 順序固定：封面 → 雷達 → 產區 → QR（Square 商品圖的輪播順序照這個） */
+  var defs=[['cover',socialCoverHTML(nm,feats,comment,col,o)],['radar',socialRadarHTML(radar,feats,col,o)],['origin',socialOriginHTML(nm,info,col,o)],['qr',socialQrHTML(qrSrc,col,o)]];
+  var out=[];
+  for(var i=0;i<defs.length;i++){
+    step('Rendering image '+(i+1)+' of 4…');
+    var host=document.createElement('div');
+    host.style.cssText='position:absolute;left:-9999px;top:0';
+    host.innerHTML=defs[i][1];
+    document.body.appendChild(host);
+    await Promise.all(Array.prototype.map.call(host.querySelectorAll('img'),function(im){
+      if(im.src.slice(0,5)!=='data:')im.crossOrigin='anonymous';
+      return (im.complete&&im.naturalWidth)?Promise.resolve():new Promise(function(r){im.onload=r;im.onerror=r;});
+    }));
+    var canvas=await html2canvas(host.firstChild,{scale:1,useCORS:true,backgroundColor:mode==='clear'?null:'#FAF8F4'});
+    out.push([defs[i][0],_soc1080(canvas,mode,opts.fmt,opts.quality)]);
+    host.remove();
+  }
+  return {images:out,dark:dark,scrim:scrim};
 }
 /* mode: 'white'（預設）｜'clear' 透明｜'photo' 該豆的背景照鋪四張 */
 async function exportSocialImages(full,info,feats,nm,col,btn,mode){
@@ -1857,38 +1906,10 @@ async function exportSocialImages(full,info,feats,nm,col,btn,mode){
   if(btn){btn.disabled=true;btn.textContent='Rendering 4 images…';}
   var box=$('pk-social');if(box)box.innerHTML='<div class="s" style="margin-top:8px;color:var(--muted)">Rendering four square images…</div>';
   try{
-    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-    var photo=null;
-    if(mode==='photo'){
-      if(box)box.innerHTML='<div class="s" style="margin-top:8px;color:var(--muted)">Loading photo…</div>';
-      photo=await loadBeanPhotoData(nm);
-      if(!photo)throw new Error('No photo saved for '+nm+' yet — tap Photo to choose one');
-    }
-    var dark=photo?await photoIsDark(photo):false;
-    var T=_socTheme(dark);
-    var scrim=socScrim(dark);
-    var o={mode:mode,photo:photo,scrim:scrim,dark:dark,T:T,logo:await _socLogo(T.ink)};
-    var sc={fragrance:full.fragrance,acidity:full.acidity,sweetness:full.sweetness,body:full.body,aftertaste:full.aftertaste};
-    var radar=printRadarPNG(sc,col,dark?{grid:'rgba(247,242,237,.32)',label:T.muted}:{});
-    var comment=String(full.comment||'').trim();
-    var beanUrl='https://ratio-theta.vercel.app/?bean='+encodeURIComponent(beanSlug(nm));
-    var qrSrc='https://api.qrserver.com/v1/create-qr-code/?size=600x600&data='+encodeURIComponent(beanUrl);
-    var defs=[['cover',socialCoverHTML(nm,feats,comment,col,o)],['radar',socialRadarHTML(radar,feats,col,o)],['origin',socialOriginHTML(nm,info,col,o)],['qr',socialQrHTML(qrSrc,col,o)]];
-    var out=[];
-    for(var i=0;i<defs.length;i++){
-      if(box)box.innerHTML='<div class="s" style="margin-top:8px;color:var(--muted)">Rendering image '+(i+1)+' of 4…</div>';
-      var host=document.createElement('div');
-      host.style.cssText='position:absolute;left:-9999px;top:0';
-      host.innerHTML=defs[i][1];
-      document.body.appendChild(host);
-      await Promise.all(Array.prototype.map.call(host.querySelectorAll('img'),function(im){
-        if(im.src.slice(0,5)!=='data:')im.crossOrigin='anonymous';
-        return (im.complete&&im.naturalWidth)?Promise.resolve():new Promise(function(r){im.onload=r;im.onerror=r;});
-      }));
-      var canvas=await html2canvas(host.firstChild,{scale:1,useCORS:true,backgroundColor:mode==='clear'?null:'#FAF8F4'});
-      out.push([defs[i][0],_soc1080(canvas,mode)]);
-      host.remove();
-    }
+    var r=await renderSocialImages(full,info,feats,nm,col,mode,{onStep:function(m){
+      if(box)box.innerHTML='<div class="s" style="margin-top:8px;color:var(--muted)">'+esc(m)+'</div>';
+    }});
+    var out=r.images,dark=r.dark,scrim=r.scrim;
     var sfx=mode==='clear'?'-transparent':(mode==='photo'?'-photo':'');
     var thumbBg=mode==='clear'?_SOC_CHK:'';
     var lbl=mode==='clear'?' · transparent background':(mode==='photo'?' · photo background · '+(dark?'light text':'dark text')+' · fade '+Math.round(scrim*100)+'%':'');
@@ -2564,8 +2585,9 @@ async function pushListToSquare(){
   if(!s.flavour_locked&&!LST.lock&&!LST.requeue&&!confirm('Flavour description is not locked — push anyway?'))return;
   var btn=$('ls-push');if(btn){btn.disabled=true;btn.textContent='Drawing card…';}
   try{
-    /* 資訊卡：同出貨信管線（flavour_locked 紀錄優先） */
-    var img64=null;
+    /* 商品圖：這支豆有背景照 → 送社群四連圖（封面/雷達/產區/QR，JPEG）當 Square 商品輪播；
+       沒照片就退回單張品牌卡（同出貨信管線，flavour_locked 紀錄優先） */
+    var img64=null,imgs64=null;
     try{
       var fq=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',nm)
         .order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
@@ -2575,7 +2597,19 @@ async function pushListToSquare(){
         var blendMap={};
         try{var bq=await sb.from('blends').select('name,parts,note');
           (bq.data||[]).forEach(function(b){if(b.name)blendMap[String(b.name).trim().toLowerCase()]={parts:b.parts||[],note:b.note||''};});}catch(e){}
-        img64=await makeSquareCard(await cardDataFor(full,blendMap,dots));
+        var havePhoto=false;
+        try{havePhoto=!!(await listBeanPhotos())[beanSlug(nm)];}catch(e){}
+        if(havePhoto){
+          try{
+            var info=[];try{info=await beanInfoRows(full);}catch(e){}
+            var feats=(full.features||[]).filter(Boolean).slice(0,3);
+            var col=dotColorFor(nm,dots)||'#B25E6A';
+            var r=await renderSocialImages(full,info,feats,nm,col,'photo',{fmt:'image/jpeg',quality:0.88,
+              onStep:function(m){if(btn)btn.textContent=m;}});
+            imgs64=r.images.map(function(x){return x[1].split(',')[1];});
+          }catch(e){console.error('photo cards',e);imgs64=null;}
+        }
+        if(!imgs64)img64=await makeSquareCard(await cardDataFor(full,blendMap,dots));
       }
     }catch(e){console.error('card',e);}
     if(btn)btn.textContent='Pushing…';
@@ -2583,7 +2617,8 @@ async function pushListToSquare(){
     if(p500>0)variations.push({grams:500,price:p500});
     if(p1k>0)variations.push({grams:1000,price:p1k});
     var desc=[s.process||'',(s.features||[]).slice(0,3).join(', ')].filter(Boolean).join(' · ');
-    await callFn('sync-to-square',{action:'push',sample_id:nm,name:nm,description:desc,grams:LST.grams,price:price,variations:variations,image_b64:img64});
+    await callFn('sync-to-square',{action:'push',sample_id:nm,name:nm,description:desc,grams:LST.grams,price:price,variations:variations,
+      image_b64:imgs64?null:img64, images_b64:imgs64, image_mime:imgs64?'image/jpeg':'image/png'});
     /* 價格記憶寫回 app_state（讀回最新再改，避免蓋掉別台改的） */
     try{
       var mem=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes']);
@@ -6203,13 +6238,19 @@ function shopSpecsFor(b){
   return specs;
 }
 /* 明細抽屜：主卡只留圖＋價＋購買列，膠囊與規格表收進來（照 openSignInSheet 的 openDrawerHTML 路數） */
+/* 多於一張＝上架時推的社群四連圖（滿版無白邊）；單張＝舊的品牌卡（帶白邊） */
+function shopIsPhotoSet(b){return !!(b&&b.images&&b.images.length>1);}
 function openShopDetailSheet(name){
   var b=null;SHOP_BEANS.forEach(function(x){if(!b&&x.name===name)b=x;});
   if(!b)return;
   var chips=(b.flavour||[]).slice(0,3).map(function(f){return '<span class="shop-chip">'+esc(f)+'</span>';}).join('');
   var specs=shopSpecsFor(b);
+  var gal=shopIsPhotoSet(b)
+    ?'<div class="shopgal">'+b.images.map(function(u,i){return '<img src="'+esc(u)+'" alt="'+esc(b.name)+' '+(i+1)+'" loading="lazy">';}).join('')+'</div>'
+    :'';
   openDrawerHTML('<div class="t" style="font-size:19px">'+esc(b.name)+'</div>'
     +(b.sold_out?'<div class="s" style="margin-top:4px;color:var(--danger)">Sold out — the next roast is on its way</div>':'')
+    +gal
     +(chips?'<div style="margin-top:10px">'+chips+'</div>':'')
     +'<div style="margin-top:6px">'+specs.map(function(r,ix){
       return '<div class="dl"'+(ix===specs.length-1?' style="border-bottom:none"':'')+'><span class="sl" style="flex:0 0 84px;text-transform:uppercase;font-size:11.5px;letter-spacing:.06em;padding-top:2px">'+r[0]+'</span><span style="text-align:right">'+r[1]+'</span></div>';
@@ -6238,7 +6279,7 @@ function shopCardsHTML(beans){
         }).join('')+'</div>'
       :'';
     return '<div class="card shopc" data-bean="'+esc(b.name)+'" data-vid="'+esc(so?'':(s0.id||''))+'" data-price="'+(s0.price!=null?s0.price:'')+'" data-label="'+esc(s0.label||'')+'">'
-      +(b.image?'<div class="shopimghold"><img class="shopimg" src="'+esc(b.image)+'" alt="'+esc(b.name)+'" loading="'+(bx===0?'eager':'lazy')+'"'+(so?' style="opacity:.55;filter:grayscale(.35)"':'')+'></div>':'')
+      +(b.image?'<div class="shopimghold'+(shopIsPhotoSet(b)?' sq':'')+'"><img class="shopimg" src="'+esc(b.image)+'" alt="'+esc(b.name)+'" loading="'+(bx===0?'eager':'lazy')+'"'+(so?' style="opacity:.55;filter:grayscale(.35)"':'')+'></div>':'')
       +'<div class="shopin">'
       /* 翻頁圓點在圖與價之間：每張卡自帶一排、亮自己那顆（滑到哪張看到的就是哪張的點，不用捲動監聽） */
       +(beans.length>1?'<div class="shopdots" style="margin:0 0 12px">'+beans.map(function(_,i){return '<span'+(i===bx?' class="on"':'')+'></span>';}).join('')+'</div>':'')
