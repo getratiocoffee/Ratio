@@ -1881,7 +1881,7 @@ async function openRetailSheet(){
   (QCQ||[]).forEach(function(q){inQCSet[String(q.s.sample_id||'').trim().toLowerCase()]=1;});
   toCupList().forEach(function(r){inQCSet[String(r.bean_name||'').trim().toLowerCase()]=1;});
   /* 漏網之魚 highlight（老闆點名）：上架了、也不在 QC 重審流程、但風味沒鎖＝被 public-shop 的
-     QC 閘門濾掉，掛著 On sale 客人卻看不到，且沒有任何流程會去處理它——標紅提醒去鎖風味 */
+     QC 閘門濾掉，掛著 Live 客人卻看不到，且沒有任何流程會去處理它——整顆泡泡標紅提醒去鎖風味 */
   var hidN=0;
   var rows=live.map(function(x){
     var nm=String(x.bean_id).trim();
@@ -1899,7 +1899,7 @@ async function openRetailSheet(){
       +' · <span class="'+fr.cls+'"'+(fr.cls?'':' style="color:var(--muted)"')+'>'+esc(fr.txt)+'</span>'
       +(inQC?' · <span class="fr-yellow">re-checking in QC</span>':'')
       +(unlocked?' · <span class="red">not in shop — flavour unlocked</span>':'')+'</div></span>'
-      +'<span class="k'+(sold?' red':'')+'">'+(sold?'Sold out':'On sale')+'</span></div>';
+      +'<span class="k'+(sold?' red':'')+'">'+(sold?'Sold out':'Live')+'</span></div>';
   }).join('');
   var errs=(DB.syncs||[]).filter(function(x){return x.status&&x.status!=='synced'&&x.status!=='paused';});
   var toList=ITEMS.filter(function(i){return i.kind==='list';});
