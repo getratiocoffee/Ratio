@@ -315,6 +315,10 @@ function toast(m,act,fn){var t=$('toast');
     t.querySelector('.tundo').addEventListener('click',function(){t.classList.remove('show','act');clearTimeout(t._h);fn();});}
   else{t.textContent=m;t.classList.remove('act');}
   t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('show','act');},act?4500:2000);}
+/* 操作記名：誰·幾點·做了什麼（activity_log 表，append-only）。fire-and-forget——記錄失敗絕不擋正事 */
+function logAct(action,ref,note){
+  try{sb.from('activity_log').insert({who:WHO||null,action:action,ref:ref||null,note:note||null}).then(function(){},function(){});}catch(e){}
+}
 function money(n){return '$'+(Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function daysSince(ts){if(!ts)return 0;var d=new Date(ts);return isNaN(d)?0:Math.floor((Date.now()-d)/86400000);}
 function fmtD(s){if(!s)return '';var p=String(s).slice(0,10).split('-');return p.length===3?(p[2]+'/'+p[1]):s;}
@@ -699,6 +703,7 @@ async function runAction(id,btn){
       if(btn){btn.disabled=true;btn.textContent='Saving…';}
       var u=await sb.from('tasks').update({done:true,done_at:new Date().toISOString(),done_by:WHO||null}).eq('id',i.ref.id);
       if(u.error)throw new Error(u.error.message);
+      logAct('task done',i.t);
       dropCard(id);toast('Task done ✓');return;
     }
     if(i.kind==='qcnav'){view='qc';render();return;}
@@ -716,6 +721,7 @@ async function runAction(id,btn){
       if(btn){btn.disabled=true;btn.textContent='Saving…';}
       var u3=await sb.from('orders').update({payment_status:'paid'}).eq('id',i.ref.id);
       if(u3.error)throw new Error(u3.error.message);
+      logAct('marked paid',i.t,money(i.ref.total));
       try{await callFn('send-email',{action:'payment_received',order_id:i.ref.id});}catch(e){toast('Paid ✓ but email failed');dropCard(id);return;}
       dropCard(id);toast('Paid ✓ receipt sent');return;
     }
@@ -753,6 +759,7 @@ async function acceptOrder(i,btn){
     var u=await sb.from('orders').update({status:'Confirmed'}).eq('id',o.id);
     if(u.error)throw new Error(u.error.message);
     o.status='Confirmed';
+    logAct('accepted order',i.t);
     try{await callFn('send-email',{action:'order_confirmation',order_id:o.id});toast('Accepted ✓ confirmation sent');}
     catch(e){toast('Accepted ✓ but email failed');}
     await reload();
@@ -767,6 +774,7 @@ async function qcVerdict(r,v,btn,cardId,s){
   var u=await sb.from('roasts').update({qc:v}).eq('id',r.id);
   if(u.error){if(btn){btn.disabled=false;}alert('QC failed: '+u.error.message);return;}
   r.qc=v;
+  logAct('qc '+v,r.bean_name||('roast '+r.id));
   /* pass＋開關開＝杯測紀錄就地鎖風味（資訊卡/上架直接用這筆）；鎖失敗不擋判定但要說出來（曾靜默吞掉害老闆以為鎖了） */
   var locked=false,lockFail=false;
   if(v==='pass'&&s&&QCLOCK&&!s.flavour_locked){
@@ -843,12 +851,14 @@ function openDetails(id){
     if(i.det2==='Decline order'){
       if(!confirm('Decline and email the customer a cancellation notice?'))return;
       try{var u=await sb.from('orders').update({status:'Cancelled'}).eq('id',i.ref.id);if(u.error)throw new Error(u.error.message);
+        logAct('declined order',i.t);
         try{await callFn('send-email',{action:'order_cancelled',order_id:i.ref.id});}catch(e){}
         toast('Declined');await reload();}catch(e){alert('Decline failed: '+(e&&e.message||e));}
     }else if(i.det2==='Cancel order'){
       var warn=i.ref.payment_status==='paid'?'\n\nThis order is PAID - the email will mention a refund.':'';
       if(!confirm('Cancel this order and email the customer?'+warn))return;
       try{var u2=await sb.from('orders').update({status:'Cancelled'}).eq('id',i.ref.id);if(u2.error)throw new Error(u2.error.message);
+        logAct('cancelled order',i.t);
         try{await callFn('send-email',{action:'order_cancelled',order_id:i.ref.id});}catch(e){}
         toast('Cancelled');await reload();}catch(e){alert('Cancel failed: '+(e&&e.message||e));}
     }else if(i.det2==='Send reminder email'){
@@ -879,6 +889,7 @@ function openDispatch(i){
     try{
       var u=await sb.from('orders').update({status:'Dispatched',dispatched_at:new Date().toISOString(),tracking_no:track||null}).eq('id',o.id);
       if(u.error)throw new Error(u.error.message);
+      logAct('dispatched',i.t,track||null);
       if(mail){try{var cards={};try{cards=await uploadCardsFor(o);}catch(e2){console.error('cards',e2);}await callFn('send-email',{action:'dispatch_notice',order_id:o.id,cards:cards});toast('Dispatched ✓ email sent');}
         catch(e){toast('Dispatched ✓ but email failed');}}
       else toast('Dispatched ✓');
@@ -1207,11 +1218,52 @@ function openPackSheet(i){
       pr.disabled=true;pr.textContent='Saving…';
       var u=await sb.from('orders').update({pack_state:ps,status:'Ready'}).eq('id',o.id);
       if(u.error){pr.disabled=false;pr.textContent='All packed — move to Ready';alert('Save failed: '+u.error.message);return;}
+      logAct('packed',i.t);
       closeDrawer();toast('Ready to ship ✓');await reload();
     });
     var cl=$('d-cl');if(cl)cl.addEventListener('click',closeDrawer);
   }
   paint();
+}
+/* ===== Activity 時間軸（activity_log 表）：誰·幾點·做了什麼；50 筆一頁、Earlier 再載 ===== */
+var ACT_ROWS=[],ACT_PAGE=0;
+async function openActivitySheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Activity</div><div class="empty">Loading…</div>');
+  ACT_ROWS=[];ACT_PAGE=0;
+  await actLoadMore();
+}
+async function actLoadMore(){
+  var q=await sb.from('activity_log').select('*').order('ts',{ascending:false}).range(ACT_PAGE*50,ACT_PAGE*50+49);
+  if(q.error){
+    openDrawerHTML('<div class="t" style="font-size:19px">Activity</div><div class="empty">Load failed: '+esc(q.error.message)+'</div>'
+      +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+    $('d-cl').addEventListener('click',closeDrawer);return;
+  }
+  ACT_ROWS=ACT_ROWS.concat(q.data||[]);
+  ACT_PAGE++;
+  paintActivity((q.data||[]).length===50);
+}
+function paintActivity(more){
+  var days={},order=[];
+  ACT_ROWS.forEach(function(r){var d=String(r.ts).slice(0,10);if(!days[d]){days[d]=[];order.push(d);}days[d].push(r);});
+  var today=todayKey();
+  var h='<div class="t" style="font-size:19px">Activity</div>'
+    +'<div class="s" style="margin-top:2px">who did what — newest first</div>';
+  if(!ACT_ROWS.length)h+='<div class="empty">Nothing logged yet — actions appear here as the team works</div>';
+  order.forEach(function(d){
+    h+='<div class="dlab">'+(d===today?'Today':fmtD(d))+'</div>';
+    days[d].forEach(function(r){
+      var t=new Date(r.ts),hm=t.getHours()+':'+String(t.getMinutes()).padStart(2,'0');
+      h+='<div class="dl"><span style="color:var(--muted);flex:0 0 42px">'+hm+'</span>'
+        +'<span style="flex:1;text-align:left"><b>'+esc(r.who||'—')+'</b> '+esc(r.action)+(r.ref?' · '+esc(r.ref):'')
+        +(r.note?' <span style="color:var(--muted)">· '+esc(r.note)+'</span>':'')+'</span></div>';
+    });
+  });
+  if(more)h+='<button class="more" id="act-more">Earlier ▾</button>';
+  h+='<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
+  openDrawerHTML(h);
+  var am=$('act-more');if(am)am.addEventListener('click',actLoadMore);
+  $('d-cl').addEventListener('click',closeDrawer);
 }
 /* ===== 回饋回覆（走 send-email feedback_reply：寄信＋蓋章）===== */
 function openReplySheet(i){
@@ -1344,6 +1396,7 @@ function openDialinForm(i){
     var b=$('dl-save');b.disabled=true;b.textContent='Saving…';
     var ins=await sb.from('dialins').insert({coffee:i.ref.name,grind:($('dl-g').value||'').trim()||null,dose:num('dl-d'),yield:num('dl-y'),time_s:num('dl-t'),barista:WHO||null});
     if(ins.error){b.disabled=false;b.textContent='Log dial-in';alert('Save failed: '+ins.error.message);return;}
+    logAct('dial-in logged',i.ref.name);
     closeDrawer();toast('Dial-in logged ✓');dropCard(i.id);
   });
   $('dl-cl').addEventListener('click',closeDrawer);
@@ -1355,7 +1408,7 @@ function openHelpSheet(){
     +'<div class="dlab">Today feed</div>'
     +P('Everything that needs doing today shows up as a card — orders to accept, batches to cup or QC, coffees to dial in, payments to chase. Do the big button, or open <b>details</b> for the full picture. Cards disappear when the work is done and new ones appear as things happen.')
     +'<div class="dlab">Gestures</div>'
-    +P('<b>Swipe right</b> = do it now (same as the big button). <b>Swipe left</b> = snooze until tomorrow — the card hides on every device, and the undo row at the bottom brings everything back. The chips up top filter by station.')
+    +P('<b>Swipe right</b> = do it now (same as the big button). <b>Swipe left</b> = the card slides open and shows a <b>Later</b> button — tap it to snooze until tomorrow (the card hides on every device; tap Undo on the toast or the undo row at the bottom to bring it back). Tap a group heading to fold or unfold that station.')
     +'<div class="dlab">QC tab</div>'
     +P('Batches waiting for a verdict. Tap one to select, then hit <b>Pass</b>, <b>Re-roast</b> or <b>Down</b> with your thumb. Judged batches move on automatically — passed coffees line up for flavour locking and Square listing.')
     +'<div class="dlab">Tools tab</div>'
@@ -2625,6 +2678,7 @@ async function saveReceiveSheet(){
       beanId=rec.id;after=kg;
     }
     try{await sb.from('stock_moves').insert({bean_id:beanId,kind:'receive',delta_kg:kg,after_kg:after,note:'Received'+(sup?' — '+sup:'')+(lot?' · lot '+lot:'')});}catch(e){}
+    logAct('received green','+'+kg+' kg',sup||null);
     closeDrawer();toast('Received ✓ +'+kg+' kg');
     await reload();
   }catch(e){
@@ -2686,6 +2740,7 @@ async function saveStocktakeSheet(){
     alert(ok+' saved, '+fail+' failed: '+failMsg);
     return;
   }
+  logAct('stocktake',ok+' bean'+(ok>1?'s':'')+' adjusted');
   closeDrawer();toast('Stocktake saved — '+ok+' bean'+(ok>1?'s':'')+' adjusted ✓');
   await reload();
 }
@@ -2998,6 +3053,7 @@ async function saveCupSheet(){
     var u=await sb.from('roasts').update({status:'cupped'}).eq('id',r.id);
     if(u.error)throw new Error('sample saved but batch status update failed: '+u.error.message);
     if(CUP.dot!==CUP.dot0){try{await saveDotFor(name,CUP.dot);}catch(e){toast('Saved, but colour failed');}}
+    logAct('cupped',name);
     closeDrawer();toast('Cupped ✓ now in the QC queue');
     await reload();
   }catch(e){
@@ -3112,6 +3168,7 @@ async function saveBlendBatch(){
     if(ins.error){var r2=Object.assign({},rec);delete r2.kind;delete r2.recipe;ins=await sb.from('roasts').insert(r2).select();}
     if(ins.error)throw new Error(ins.error.message);
     if(ins.data&&ins.data[0])DB.roasts.unshift(ins.data[0]);
+    logAct('roasted blend',rec.bean_name,(bkg>0?bkg+' kg':null));
     var short=[];
     if(bkg>0&&parts.length)short=await consumeBlendParts(parts,bkg);
     closeDrawer();
@@ -3177,6 +3234,7 @@ async function saveRoastSheet(){
     b.quantity=newQty;
     try{await sb.from('stock_moves').insert({bean_id:b.id,kind:'roast',delta_kg:-kg,after_kg:newQty,note:'Roast'+(RO.date?' '+RO.date:'')});}catch(e){}
     if(ins.data&&ins.data[0])DB.roasts.unshift(ins.data[0]);
+    logAct('roasted',rec.bean_name||b.name,kg+' kg green');
     closeDrawer();toast('Roast logged ✓ stock −'+kg+' kg');
     await reload();
   }catch(e){
@@ -3367,6 +3425,7 @@ async function saveBackfill(){
     var ins=await sb.from('roasts').insert(rec).select();
     if(ins.error)throw new Error(ins.error.message);
     if(ins.data&&ins.data[0])DB.roasts.unshift(ins.data[0]);
+    logAct('added to qc pipeline',name);
     closeDrawer();
     var hasCup=(DB.samples||[]).some(function(s){
       if(rec.bean_id&&s.bean_id)return String(s.bean_id)===String(rec.bean_id);
@@ -5957,7 +6016,7 @@ function renderTools(){
       (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'))+_mkTile('t-label','Labels','bag / tin'):'')
       +_tiles([['Menus','menu PDFs · in-store','menus'],['Folding Info Card','A4 · 4 fold cards','infocards'],['Brew Card','A4 · pour-over guide','brewcard'],['Social Images','4-up · pick a coffee','social4']]))
     +_sec('Team',DEPT.team,
-      _tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster',_mk?1:0],['Team notes','notes · problems','notes',_mk?1:0]].concat(isLead()?[['Team','who is on · assign','team',1]]:[])))
+      _tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster',_mk?1:0],['Team notes','notes · problems','notes',_mk?1:0],['Activity','who did what · when','activity']].concat(isLead()?[['Team','who is on · assign','team',1]]:[])))
     +_sec('App',DEPT.app,
       _tiles([['Classic app','full interface','classic'],['How it works','gestures and cards','help'],['Sign out','back to the shop menu','signout']]));
   m.innerHTML='<input class="search" id="tsearch" type="search" placeholder="Search beans, customers, orders…">'
@@ -6018,6 +6077,7 @@ function renderTools(){
     var k=b.dataset.t;
     if(k==='classic'){location.href=CLASSIC;return;}
     if(k==='notes'){openNotesSheet();return;}
+    if(k==='activity'){openActivitySheet();return;}
     if(k==='orders'){openOrdersSheet();return;}
     if(k==='greens'){openGreensSheet();return;}
     if(k==='batches'){openBatchesSheet();return;}
