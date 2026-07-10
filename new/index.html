@@ -1677,20 +1677,35 @@ function _socTheme(dark){
     ?{ink:'#F7F2ED',muted:'#C6BEB6',soft:'#DED6CE',line:'rgba(247,242,237,.26)',orn:'rgba(247,242,237,.34)'}
     :{ink:'#241E1B',muted:'#8C857E',soft:'#5A534C',line:'#E8E2DB',orn:'#E4DDD5'};
 }
-/* logo.png 是深色線稿，深底上會看不見。用 canvas 就地上色成 dataURL
-   （不能用 CSS mask——html2canvas 不吃 mask，會畫成一塊實心方塊） */
-async function _socLogo(col){
+/* ===== Ratio 符號系統 =====
+   logo＝「豆 ／ 水滴」，中間那道斜線是分數線：豆是分子、水是分母，那就是 ratio。
+   拆出來的兩個元素本來就帶語義，是一組乾/濕的對立：
+     豆   ＝ 水碰到豆「之前」：產地、品種、處理法、烘焙
+     水滴 ＝ 水碰到豆「之後」：沖煮、萃取、風味、杯測
+   規則：只掛在區塊標題上方、單色、不加外框（框住就變成 logo 了）。
+   ⚠ 豆是實心、水滴是細線輪廓（同高時墨水量是 2.6 倍）——豆要畫成水滴的 0.78 倍才等重。
+   logo.png / drop.svg / bean.svg 都是深色線稿，深底上會看不見。用 canvas 就地上色成 dataURL
+   （不能用 CSS mask——html2canvas 不吃 mask，會畫成一塊實心方塊）
+   失敗就退回原檔（至少淺底看得到） */
+var SOC_BEAN_RATIO=0.78; /* 實心的豆對細線水滴的光學尺寸校正 */
+async function _tintArt(src,col,w,h){
   try{
-    var im=new Image();im.crossOrigin='anonymous';im.src='/logo.png';
+    var im=new Image();im.crossOrigin='anonymous';im.src=src;
     await new Promise(function(r,b){im.onload=r;im.onerror=b;});
-    var c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;
+    var c=document.createElement('canvas');
+    c.width=im.naturalWidth||w;c.height=im.naturalHeight||h;
     var g=c.getContext('2d');
-    g.drawImage(im,0,0);
+    g.drawImage(im,0,0,c.width,c.height);
     g.globalCompositeOperation='source-in';
     g.fillStyle=col;g.fillRect(0,0,c.width,c.height);
     return c.toDataURL('image/png');
-  }catch(e){return '/logo.png';}
+  }catch(e){return src;}
 }
+function _socLogo(col){return _tintArt('/logo.png',col,236,236);}
+function _socDrop(col){return _tintArt('/drop.svg',col,590,824);}
+function _socBean(col){return _tintArt('/bean.svg',col,715,704);}
+/* 符號永遠置中、掛在 kicker 標題正上方 */
+function _socMark(src,h){return src?'<img src="'+src+'" style="height:'+h+'px;display:block;margin:0 auto 20px" alt="">':'';}
 /* ===== 社群四連圖：把 Folding Info Card 拆成 4 張 1080×1080 PNG（版面/雷達/產區/QR），各自下載做輪播 =====
    資料源同 Folding Info Card。截圖直接呼叫 html2canvas 對元素本身取景（輸出＝元素的 1080 見方）。
    ⚠ 不可改回 html2pdf 的 toCanvas＋width/windowWidth:1080：那組參數會用「原視窗量到的座標」去裁
@@ -1745,6 +1760,7 @@ function socialCoverHTML(nm,feats,comment,col,o){
 }
 function socialRadarHTML(radar,feats,col,o){
   return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:110px 90px">'
+    +_socMark(o&&o.drop,58)   /* 水滴＝濕的一半：這杯喝起來如何 */
     +'<div style="font-size:22px;letter-spacing:8px;text-transform:uppercase;color:'+col+'">Cup profile</div>'
     +'<img src="'+radar+'" style="width:860px;max-width:100%;margin:40px 0" alt="">'
     +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:40px;font-weight:600;color:'+col+'">'+feats.map(esc).join('  ·  ')+'</div>'
@@ -1753,6 +1769,7 @@ function socialRadarHTML(radar,feats,col,o){
 function socialOriginHTML(nm,info,col,o){
   var T=(o&&o.T)||_socTheme(false);
   return _socShell('<div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:120px 110px">'
+    +_socMark(o&&o.bean,Math.round(58*SOC_BEAN_RATIO))   /* 豆＝乾的一半：這支豆從哪來 */
     +'<div style="font-size:22px;letter-spacing:8px;text-transform:uppercase;color:'+col+';text-align:center">The coffee</div>'
     +'<div style="font-family:Fraunces,Georgia,serif;font-style:italic;font-size:46px;font-weight:600;text-align:center;margin-top:10px">'+esc(nm)+'</div>'
     +'<div style="width:84px;height:4px;background:'+col+';margin:26px auto 40px"></div>'
@@ -1908,7 +1925,9 @@ async function renderSocialImages(full,info,feats,nm,col,mode,opts){
   var dark=photo?await photoIsDark(photo):false;
   var T=_socTheme(dark);
   var scrim=socScrim(dark);
-  var o={mode:mode,photo:photo,scrim:scrim,dark:dark,T:T,logo:await _socLogo(T.ink)};
+  /* 符號跟 kicker 標題同色（col＝豆子的點色）；logo 是品牌本體，用主文字色 */
+  var o={mode:mode,photo:photo,scrim:scrim,dark:dark,T:T,
+    logo:await _socLogo(T.ink), drop:await _socDrop(col), bean:await _socBean(col)};
   var sc={fragrance:full.fragrance,acidity:full.acidity,sweetness:full.sweetness,body:full.body,aftertaste:full.aftertaste};
   var radar=printRadarPNG(sc,col,dark?{grid:'rgba(247,242,237,.32)',label:T.muted}:{});
   var comment=String(full.comment||'').trim();
