@@ -275,6 +275,12 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .cx-metric.hi{outline:1.5px solid var(--accent);outline-offset:-1.5px}
 .cx-note{margin-top:10px;font-size:13px;font-weight:600;color:var(--danger);background:var(--surface);border:1px solid var(--line2);border-radius:10px;padding:9px 12px}
 .cx-note.ok{color:var(--accent);border-color:var(--accent)}
+.cmk-chart{position:relative;height:46vh;min-height:260px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface);margin-top:12px}
+.cmk-load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted)}
+.cmk-total{background:var(--tint);border-radius:12px;padding:14px 16px;margin-top:12px}
+.cmk-total .l{font-size:12px;color:var(--accent);margin-bottom:4px}
+.cmk-total .v{font-size:26px;font-weight:700;color:var(--accent);line-height:1.05}
+.cmk-total .s2{font-size:12px;color:var(--accent);opacity:.85;margin-top:5px}
 .rs-day{border:1px solid var(--line);border-radius:12px;margin-top:9px;overflow:hidden}
 .rs-day-h{display:flex;justify-content:space-between;align-items:center;padding:9px 13px;background:var(--bg);font-size:13px;font-weight:700;color:var(--ink)}
 .rs-add{border:none;background:none;color:var(--accent);font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;padding:3px 4px}
@@ -8093,6 +8099,70 @@ function cxRenderOut(){
   var o=$('cx-out');if(o)o.innerHTML=cxResults();
   var f=$('cx-flow');if(f)f.innerHTML=cxFlowLine();
 }
+/* ===== C Market 生豆行情（缺口 #2，自 classic renderCMarket/cmCalcHTML/initCMarketCalc 移植）=====
+   TradingView 期貨圖（Coffee C CFD）＋落地成本試算：FOB = C + differential → A$/kg → +運費 = landed。
+   純看盤試算、不寫 DB；輸入列重用 .cx-* 樣式；匯率 live 鈕打 open.er-api.com（同 classic） */
+var CMK_SYMBOL='CAPITALCOM:COFFEE'; /* Coffee CFD, tracks the ICE C market, free real-time on TV widgets */
+function openCMarketSheet(){
+  var root=document.documentElement;
+  var dark=root.classList.contains('dark')||(!root.classList.contains('light')&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+  function row(id,lab,val,step,unit){return '<div class="cx-row"><span class="cx-lab">'+lab+'</span><input class="cx-in" id="'+id+'" type="number" inputmode="decimal" value="'+val+'" step="'+step+'"><span class="cx-unit">'+unit+'</span></div>';}
+  openDrawerHTML('<div class="t" style="font-size:19px">C Market</div>'
+    +'<div class="s" style="margin-top:2px">Coffee C futures · landed cost estimate</div>'
+    +'<div class="cmk-chart" id="cmk-chart"><div class="cmk-load">Loading Coffee C Market…</div><div class="tradingview-widget-container" style="height:100%;width:100%"><div class="tradingview-widget-container__widget" style="height:100%;width:100%"></div></div></div>'
+    +'<div class="dlab">Estate purchase</div>'
+    +row('cmk-c','Coffee C','298.8','0.01','¢/lb')
+    +row('cmk-diff','Differential','60','1','¢/lb')
+    +'<div class="cx-row"><span class="cx-lab">AUD / USD</span><input class="cx-in" id="cmk-fx" type="number" inputmode="decimal" value="0.6894" step="0.0001"><button class="chip" id="cmk-fxlive" style="flex:0 0 auto">live</button></div>'
+    +'<div class="s" id="cmk-fxinfo" style="margin-top:4px;text-align:right">AUD/USD <span id="cmk-fxinfo-rate">0.6894</span> · <span id="cmk-fxinfo-time">tap live</span></div>'
+    +row('cmk-qty','Lot size','35','1','kg')
+    +row('cmk-freight','Freight + import','0','0.10','A$/kg')
+    +'<div class="s" style="margin-top:10px;line-height:1.55">The chart above is in US$/lb — multiply by 100 for ¢/lb (2.988 → 298.8). FOB = C + differential; for a fixed-price lot enter the FOB as C and set differential to 0. Freight + import is your per-kg estimate (shipping, biosecurity); excludes GST. 1 lb = 0.4536 kg.</div>'
+    +'<div class="cmk-total"><div class="l">Total landed cost</div><div class="v" id="cmk-total">—</div><div class="s2" id="cmk-total-sub">—</div></div>'
+    +'<div class="cx-mgrid"><div class="cx-metric"><span>Landed / kg</span><b id="cmk-landed">—</b></div><div class="cx-metric"><span>FOB / kg</span><b id="cmk-fob">—</b></div></div>'
+    +'<button class="dclose" id="cmk-close" style="border:none;background:none;color:var(--muted)">Close</button>');
+  /* TradingView embed 照 classic：script.text 塞設定 JSON；theme 跟新殼當前明暗 */
+  var host=document.querySelector('#cmk-chart .tradingview-widget-container');
+  if(host){
+    var sc=document.createElement('script');
+    sc.src='https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+    sc.async=true;
+    sc.text=JSON.stringify({symbol:CMK_SYMBOL,interval:'D',range:'6M',timezone:'Australia/Sydney',theme:dark?'dark':'light',style:'3',locale:'en',hide_side_toolbar:true,allow_symbol_change:true,save_image:false,autosize:true});
+    sc.onload=function(){var l=document.querySelector('#cmk-chart .cmk-load');if(l)l.style.display='none';};
+    host.appendChild(sc);
+  }
+  /* 試算邏輯照抄 classic initCMarketCalc（id 前綴 cmc-→cmk-） */
+  var LB=0.45359237;
+  function n(id){var el=$(id);var v=el?parseFloat(el.value):NaN;return isNaN(v)?0:v;}
+  function moneyFmt(x){return x.toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  function set(id,txt){var el=$(id);if(el)el.textContent=txt;}
+  function calc(){
+    var fobC=n('cmk-c')+n('cmk-diff');
+    var fx=n('cmk-fx')||0.0001;
+    var fobAudKg=((fobC/100)/LB)/fx;
+    var landedKg=fobAudKg+n('cmk-freight');
+    var qty=n('cmk-qty');
+    set('cmk-fob','A$'+fobAudKg.toFixed(2));
+    set('cmk-landed','A$'+landedKg.toFixed(2));
+    set('cmk-total','A$'+moneyFmt(landedKg*qty));
+    set('cmk-total-sub',qty.toFixed(0)+' kg × A$'+landedKg.toFixed(2)+'/kg');
+  }
+  ['cmk-c','cmk-diff','cmk-fx','cmk-qty','cmk-freight'].forEach(function(id){var el=$(id);if(el)el.addEventListener('input',calc);});
+  var fxBtn=$('cmk-fxlive');
+  function stamp(){var d=new Date();return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}
+  function refreshFx(){
+    if(fxBtn)fxBtn.textContent='…';
+    return fetch('https://open.er-api.com/v6/latest/AUD').then(function(r){return r.json();}).then(function(d){
+      var u=d&&d.rates&&d.rates.USD;
+      if(u){var v=(Math.round(u*10000)/10000).toFixed(4);var fxEl=$('cmk-fx');if(fxEl)fxEl.value=v;set('cmk-fxinfo-rate',v);set('cmk-fxinfo-time','updated '+stamp());calc();if(fxBtn)fxBtn.textContent='live ✓';}
+      else{if(fxBtn)fxBtn.textContent='n/a';set('cmk-fxinfo-time','unavailable');}
+    }).catch(function(){if(fxBtn)fxBtn.textContent='offline';set('cmk-fxinfo-time','offline · manual');});
+  }
+  if(fxBtn)fxBtn.addEventListener('click',refreshFx);
+  $('cmk-close').addEventListener('click',closeDrawer);
+  calc();
+  refreshFx();
+}
 async function openCalcSheet(){
   await cxLoadPrefs();
   /* 重繪（切模式/選尺寸）時保留捲動位置——原本每次跳回頂端，滑來滑去很難點（老闆點名） */
@@ -8244,7 +8314,7 @@ function renderTools(){
   function _sec(title,color,inner){return '<div class="gsec" style="color:'+color+'"><span class="gdot"></span>'+title+'</div><div class="tgrid" style="--dept:'+color+'">'+inner+'</div>';}
   var _groups=_sec('Production',DEPT.prod,
       (_mk?_mkTile('t-recv','Receive green','delivery in')+_mkTile('t-roast','Log roast','green in')+_mkTile('t-stk','Stocktake','weigh greens'):'')
-      +_tiles([['Green stock','full list','greens'],['Roasted Stock','FIFO shelf','batches'],['Sample analyse','green cupping','sampleana',1],['Buy log','green purchases','buylog',1]].concat(_mk?[['Delete a coffee','remove · careful','delbean',1]]:[])))
+      +_tiles([['Green stock','full list','greens'],['Roasted Stock','FIFO shelf','batches'],['Sample analyse','green cupping','sampleana',1],['Buy log','green purchases','buylog',1],['C Market','futures · landed cost','cmarket']].concat(_mk?[['Delete a coffee','remove · careful','delbean',1]]:[])))
     +_sec('QC &amp; Recipe',DEPT.qc,
       _tiles([['QC','cup and judge','qcgo'],['Recipe','blends · dial-in','recipe'],['Dial in','espresso shots','dialin',1]]))
     /* Retail 區＝店面這一側的全部工具：豆子上架資訊＋貼標＋店內菜單 */
@@ -8346,6 +8416,7 @@ function renderTools(){
     if(k==='announce'){openAnnounceSheet();return;}
     if(k==='payroll'){openPayrollSheet();return;}
     if(k==='calc'){openCalcSheet();return;}
+    if(k==='cmarket'){openCMarketSheet();return;}
     if(k==='infocards'){openInfoCardsSheet();return;}
     if(k==='brewcard'){openBrewCardSheet();return;}
     if(k==='social4'){openSocialSplitSheet();return;}

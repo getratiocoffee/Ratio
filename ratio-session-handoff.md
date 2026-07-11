@@ -109,6 +109,13 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之六（C Market 生豆行情移植：缺口 #2）
+- **老闆點單「2」**：C-Market 移植（我原建議「開 TradingView 就好」，老闆拍板要搬進新殼）。classic renderCMarket/cmCalcHTML/initCMarketCalc 移植。
+- **改動（new/index.html）**：①Production 區磁貼 `['C Market','futures · landed cost','cmarket']`（唯讀不上玫瑰色）＋dispatch→`openCMarketSheet` ②**openCMarketSheet**（openCalcSheet 前）：TradingView advanced-chart embed（`CMK_SYMBOL='CAPITALCOM:COFFEE'` 同 classic；**theme 跟新殼當前明暗**——root.classList dark/light＋matchMedia auto 判斷，classic 固定 light）＋落地成本試算（Coffee C ¢/lb＋Differential→FOB→÷0.4536÷AUD/USD→A$/kg＋freight＝landed×lot size；**公式逐字照抄** initCMarketCalc）＋匯率 live 鈕（open.er-api.com，同 classic）③CSS 只加 `.cmk-chart/.cmk-load/.cmk-total` 三組，輸入列/stat 卡**重用 .cx-\*／.dlab／.chip**（比 classic 的 .cmc-* 整套省）。純看盤試算、不寫 DB、無 logAct。
+- **驗證**：jscheck ✓；本機 stub——預設值 FOB A$11.47/kg（=classic 公式手算一致）、改 C 250＋freight 1.5 即時重算 ✓、live 匯率真抓到 0.6951＋updated 時戳 ✓、TradingView 真圖載入（Coffee US 3.30275 即時報價、暗色主題跟上）✓、Tools 磁貼在 Production 區＋點擊開抽屜 ✓、亮色模式重開正常 ✓、console 零錯誤。
+- **小陷阱**：TradingView iframe 上的觸控/滾輪被 iframe 吃掉——抽屜要捲動得摸圖表以外的區域（classic 全頁面板沒這問題，抽屜版接受）。
+- **等老闆**：GitHub Desktop push→真機 Tools→C Market 看圖＋試算一遍。
+
 ## 〇、補記 — 2026-07-12 之五（Announce 群發磁貼：缺口 #6 收尾——核心原來早就在）
 - **發現**：Announce 核心（`announceShelfBean` 3140 起＝QC 閘門/收件人數 confirm/`uploadCardForBean` 卡圖/`announce_coffee` 群發/結果 toast）**早在 Coffee Info 詳情的 sb-ann 鈕做好了**（07-10 Retail Info 輪順手做的，缺口清單 07-09 盤點時還是 off 所以沒記到）。本輪只補 Tools 直達入口。
 - **改動（new/index.html）**：Marketing 區 off 磁貼轉正 `['Announce','new coffee email','announce',1]`＋dispatch→`openAnnounceSheet`（薄層：`shelfLiveBeans` 上架豆清單＋風味預覽，點豆→`shelfSampleFor` 拿杯測列→跑現成 announceShelfBean）。edge function announce_coffee 零改動。
@@ -304,7 +311,7 @@
 classic 功能樹＝12 泡泡站（onOpen）＋ DOCK 模組。逐一比對 /new：
 **A. 新殼完全沒有（要嘛移植、要嘛老闆確認不要）**
 1. **利潤計算機 Retail/Wholesale Calculator**（classic fx:calc/order:calc＝`CALC_HTML` iframe，零售+批發雙模式、烘豆參數/包裝/固定成本→利潤率）——/new 完全沒有。Finance 儀表板也連它（model margins）。
-2. **Coffee C-Market 生豆行情**（classic green:cmarket＝TradingView 期貨圖＋生豆成本試算）——/new 沒有。
+2. ~~**Coffee C-Market 生豆行情**~~ ✅ **2026-07-12 之六移植完成**：/new Production「C Market」磁貼＝TradingView 圖（明暗自適應）＋落地成本試算＋live 匯率，公式照 classic；細節見補記。**A 組剩 #7 Files／#8 Contacts／#9 Admin 三項等拍板。**
 3. ~~**生豆採購紀錄/買入帳 Buy log**~~ ✅ **2026-07-12 之二移植完成**：/new Tools「Buy log」磁貼＝Buy shortlist 預填下單→On order→收貨併批入庫＋stock_moves；細節見補記。**生產線 100% 住進新殼。**
 4. ~~**財務儀表板 Finance P&L**~~ ✅ **2026-07-12 之三移植完成**：/new Tools Finance 區「P&L」磁貼＝本月/上月已收、未收/逾期前 6、庫存價值、本月買豆，口徑照 classic；細節見補記。
 5. ~~**GST 稅務發票 Invoice**~~ ✅ **2026-07-12 之四移植完成**：/new Finance「Invoice」磁貼＝手填表單＋GST 口徑照抄＋jsPDF＋發票號 app_state 接續；細節見補記。
