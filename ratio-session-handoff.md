@@ -109,6 +109,15 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-11 之八（配方貫穿全系統：New order＋Labels 解鎖「建好即用」）
+- **老闆需求**：「我會時常做配方豆、取名字，以後這個配方豆可以從其他工具裡面使用」＝配方是全系統一等公民。
+- **盤點結論**（探索代理逐工具查證，行號見該輪 session）：配方建好立刻能用的原本只有 Menus(dine-in)＋Sub run（直讀 blends）；其餘被三層 gate 擋——上架 gate（New order/Coffee Info/IG/Post to socials/Dial-in 卡）、杯測 gate（Labels/Social Images/Info Card/Brew Card/上架佇列）。生產鏈本身全通（Log roast blend→QC→上架不被擋）。
+- **設計判斷（老闆批准）**：QC 牆不拆——行銷/風味輸出工具維持 gate（沒過 QC 不對外）；**只解鎖兩個內部作業工具**到「建好即用」：①**New order**（批發/熟客會在上架前先訂）②**Labels bag＋tin**（拼好就要裝袋貼標）。
+- **改動（new/index.html ×6 處）**：①paintNewOrder 豆單＝beanNames() ∪ DB.blends 名字（Set 去重防上架後 syncs 同名重複；**不動 beanNames() 本體**——Sub run 用它當單品清單會撞）②labelBlendOptions ③labelBeanNameList blend 分支 ④tinBlendNameList——三個名單改直接列 loadBlendDefs() 全部配方（原本 ∩ RETAIL_BEANS 杯測列）⑤applyRetailToBlend 加第二參數 nm、s 可 null（沒杯測＝成分/comment 直讀配方定義、風味/日期留空）⑥labelApplyByName blend 分支放行無 sample 配方。
+- **驗證**：jscheck 0 錯；本機假資料（Test Blend＝未烘未杯測未上架新配方）——New order 真抽屜選單有 Test Blend、已上架 Dark Knight 不重複 ✓；Labels bag/tin 名單都有 ✓；未杯測 autofill 帶成分風味空、已杯測風味照帶（不退化）✓；shelfLiveBeans 無 Test Blend（行銷 gate 沒破）✓；console 零錯誤。
+- **不做（跟老闆說明過）**：行銷/風味工具 gate 維持；Dial-in 手動入口＝缺口清單第 11 項另輪。
+- **注意**：Labels 的配方名單來源是 MENUS_DATA.blends（menusEnsureData 抓）——與 DB.blends（loadAll rs[22]）是兩份快取，將來如果出現「Recipe 剛存的配方 Labels 看不到」的回報，就是 MENUS_DATA 沒重抓（menusEnsureData 有快取判斷），重開 app 或補 invalidate 即可。
+
 ## 〇、補記 — 2026-07-11 之七（做拼配 Blending：熟豆血條庫存＋比例聯動＋低量/超量警訊）
 - **老闆需求**（多輪拍板）：每支熟豆（**拼配＋單品分開看**）一條**分段血條**（每批次一段、不同日期不同深淺**舊深新淺**＋1px 縫、介面乾淨）；低於自訂低血線＝該做下一批、超過準備值＝警訊庫存太多；做拼配照配方比例**輸一支成分自動反推其他成分與總量**；烘完直接加血；**手動扣血可選批次**（推估新舊剩量）＋原因（瑕疵 Defect／調撥 Transfer 含去向／Other）。
 - **Migration `roasted_stock_thresholds`**：blends 加 `target_kg,low_stock_kg`；beans 加 `roast_target_kg,roast_low_kg`（單品熟豆閾值——**跟既有 low_stock_kg＝生豆低線區隔**）。null＝警訊關。

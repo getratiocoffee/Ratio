@@ -1820,7 +1820,11 @@ function beanNames(){
   return names.sort();
 }
 function paintNewOrder(){
+  /* 點單豆單＝豆∪配方（配方建好即可接單，不必等上架——批發/熟客會先訂）；Set 去重防配方上架後 syncs 同名重複 */
   var names=beanNames();
+  var nset={};names.forEach(function(n){nset[n.toLowerCase()]=1;});
+  (DB.blends||[]).forEach(function(b){var n=(b.name||'').trim();if(n&&!nset[n.toLowerCase()]){nset[n.toLowerCase()]=1;names.push(n);}});
+  names.sort();
   var custs=(DB.customers||[]).slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
   var total=0;NO.items.forEach(function(it){total+=(Number(it.price)||0)*(it.qty||1);});
   openDrawerHTML('<div class="t" style="font-size:19px">New order</div>'
@@ -6206,20 +6210,22 @@ function applyRetailToSO(s){
     soForm.region=[b.region,b.country].filter(Boolean).join(', ');
   }
 }
-function applyRetailToBlend(s){
-  if(!s)return;
-  labelForm.name=s.sample_id||labelForm.name;
-  var feats=(s.features||[]).filter(Boolean);
+function applyRetailToBlend(s,nm){
+  /* s 可為 null（配方建好還沒杯測）——成分/comment 直讀配方定義，風味/日期留空 */
+  var name=(s&&s.sample_id)||nm||'';
+  if(!name)return;
+  labelForm.name=name;
+  var feats=((s&&s.features)||[]).filter(Boolean);
   labelForm.flavour1=feats[0]||'';labelForm.flavour2=feats[1]||'';labelForm.flavour3=feats[2]||'';
-  var rd=roastDateForSample(s);
-  var dm=soReadyDM(rd||s.cupping_date||'');labelForm.date_d=dm.d;labelForm.date_m=dm.m;
-  var g=loadGrams()[s.sample_id||''];labelForm.net=g?String(g):'';
-  var def=blendDefByName(s.sample_id||'');
+  var rd=s?roastDateForSample(s):'';
+  var dm=soReadyDM(rd||(s&&s.cupping_date)||'');labelForm.date_d=dm.d;labelForm.date_m=dm.m;
+  var g=loadGrams()[name];labelForm.net=g?String(g):'';
+  var def=blendDefByName(name);
   var parts=def?(def.parts||[]).filter(function(p){return (p.bean||'').trim();}):[];
   labelForm.region1=parts[0]?parts[0].bean:'';
   labelForm.region2=parts[1]?parts[1].bean:'';
   labelForm.region3=parts[2]?parts[2].bean:'';
-  var bcmt=(def&&(def.comment||'').trim())||(s.comment||'');
+  var bcmt=(def&&(def.comment||'').trim())||(s&&s.comment)||'';
   if(bcmt)labelForm.comment=bcmt;
 }
 function syncBlendInputs(){
@@ -6237,20 +6243,23 @@ function labelBeanOptions(){
   return opts;
 }
 function labelBlendOptions(){
-  var bset={};loadBlendDefs().forEach(function(b){var n=(b.name||'').trim().toLowerCase();if(n)bset[n]=true;});
+  /* 配方建好即可印標——直接列全部配方，不再要求先有杯測列（沒杯測＝風味留空，成分/比例照印） */
   var seen={},opts='';
-  (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k]||!bset[k])return;seen[k]=true;opts+='<option value="'+esc(nm)+'"></option>';});
+  loadBlendDefs().forEach(function(b){var nm=(b.name||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;seen[k]=true;opts+='<option value="'+esc(nm)+'"></option>';});
   return opts;
 }
 function labelBeanNameList(){
   var seen={},out=[],blendSet={};
   loadBlendDefs().forEach(function(b){var n=(b.name||'').trim().toLowerCase();if(n)blendSet[n]=true;});
   var wantBlend=(labelMode!=='single');
+  if(wantBlend){ /* 配方名單直接來自 blends 表——建好即可印，不等杯測 */
+    loadBlendDefs().forEach(function(b){var nm=(b.name||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;seen[k]=true;out.push(nm);});
+    return out;
+  }
   (RETAIL_BEANS||[]).forEach(function(s){
     var nm=(s.sample_id||'').trim();if(!nm)return;
-    var isBlend=!!blendSet[nm.toLowerCase()];
-    if(wantBlend!==isBlend)return;
-    var disp=wantBlend?nm:sampleDisp(s);
+    if(blendSet[nm.toLowerCase()])return;
+    var disp=sampleDisp(s);
     var k=disp.toLowerCase();if(seen[k])return;
     seen[k]=true;out.push(disp);
   });
@@ -6258,9 +6267,11 @@ function labelBeanNameList(){
 }
 function labelApplyByName(name){
   var s=retailByDisp(name);
-  if(!s)return;
-  if(labelMode==='single'){applyRetailToSO(s);syncSOInputs();}
-  else{applyRetailToBlend(s);syncBlendInputs();}
+  if(labelMode==='single'){if(!s)return;applyRetailToSO(s);syncSOInputs();}
+  else{ /* blend：沒杯測列也放行（成分直讀配方定義） */
+    if(!s&&!blendDefByName(name))return;
+    applyRetailToBlend(s,name);syncBlendInputs();
+  }
 }
 function renderLabel(msg){
   var el=document.getElementById('lbl-body');if(!el)return;
@@ -6474,8 +6485,9 @@ function tinBeanNameList(){
   return out;
 }
 function tinBlendNameList(){
+  /* 配方名單直讀 blends 表——建好即可印 tin 標，不等杯測（tinApplyBlend 本就直讀配方定義） */
   var seen={},out=[];
-  (RETAIL_BEANS||[]).forEach(function(s){var nm=(s.sample_id||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;var isB=false;try{isB=!!blendDefByName(nm);}catch(e){}if(!isB)return;seen[k]=true;out.push(nm);});
+  loadBlendDefs().forEach(function(b){var nm=(b.name||'').trim();var k=nm.toLowerCase();if(!nm||seen[k])return;seen[k]=true;out.push(nm);});
   return out;
 }
 function syncTinInputs(){TIN_FORM.forEach(function(f){var i=document.getElementById('tf-'+f.k);if(i)i.value=tinForm[f.k]||'';});}
