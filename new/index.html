@@ -4680,6 +4680,168 @@ async function saveSampleForm(){
     alert('Save failed: '+(e&&e.message||e));
   }
 }
+/* ===== Buy log 生豆採購帳（缺口 #3，自 classic loadPurchases/savePurchase/receivePurchase 移植）=====
+   鏈：Sample analyse 標 Buy → shortlist 點一下預填開單 → On order → Received 收貨（同名豆併批或新建
+   ＋stock_moves receive＋purchases 蓋 received）→ 生豆庫存。取消＝軟刪（status:'cancelled'），無硬刪。
+   purchases 表 classic 已在用、零 migration；ordered_at classic 沒寫過——這裡下單時補 todayKey()。 */
+var BUY={pos:[],shortlist:[]};
+function buyCard(p,pi){
+  var badge=p.status==='received'?'<span class="s" style="color:var(--accent);font-weight:700">Received</span>'
+    :(p.status==='cancelled'?'<span class="s" style="color:var(--muted);opacity:.6">Cancelled</span>'
+    :'<span class="s" style="color:var(--muted);font-weight:700">Ordered</span>');
+  var kg=Number(p.kg)||0,cost=p.cost_per_kg!=null?Number(p.cost_per_kg):null;
+  var sub=[];
+  if(p.supplier)sub.push(esc(p.supplier));
+  if(p.lot_no)sub.push('Lot '+esc(p.lot_no));
+  if(kg)sub.push(kg+' kg'+(cost!=null?' × $'+cost+' = '+money(kg*cost):''));
+  if(p.ordered_at)sub.push('ordered '+esc(fmtD(String(p.ordered_at).slice(0,10))));
+  if(p.received_at)sub.push('received '+esc(fmtD(String(p.received_at).slice(0,10))));
+  if(p.note)sub.push(esc(p.note));
+  var h='<div style="border:1px solid var(--line);border-radius:12px;padding:10px 13px;margin-top:8px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
+    +'<span class="t" style="font-size:14.5px">'+esc(p.name||'—')+(p.process?' <span class="s" style="color:var(--muted)">· '+esc(p.process)+'</span>':'')+'</span>'+badge+'</div>'
+    +(sub.length?'<div class="s" style="margin-top:3px;color:var(--muted)">'+sub.join(' · ')+'</div>':'');
+  if(p.status==='ordered'&&canWrite()){
+    h+='<div style="display:flex;gap:8px;margin-top:9px">'
+      +'<button class="chip" data-borecv="'+pi+'" style="flex:1;margin:0;color:var(--accent)">Received →</button>'
+      +'<button class="chip" data-bocxl="'+pi+'" style="flex:0 0 auto;margin:0;color:var(--muted)">Cancel</button></div>';
+  }
+  return h+'</div>';
+}
+async function openBuyLogSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Buy log</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  var pos=[],sl=[];
+  try{
+    var pr=await sb.from('purchases').select('*').order('created_at',{ascending:false}).limit(60);
+    pos=pr.data||[];
+    var sm=await sb.from('samples').select('id,sample_id,process,supplier').eq('decision','buy').order('cupping_date',{ascending:false});
+    var used={};pos.forEach(function(p){if(p.sample_ref)used[p.sample_ref]=1;});
+    sl=(sm.data||[]).filter(function(s){return !used[s.id];}); /* Buy 樣品未下單的才進 shortlist */
+  }catch(e){}
+  BUY.pos=pos;BUY.shortlist=sl;
+  var ed=canWrite();
+  var onOrder=pos.filter(function(p){return p.status==='ordered';});
+  var hist=pos.filter(function(p){return p.status!=='ordered';}).slice(0,10);
+  var h='<div class="t" style="font-size:19px">Buy log</div>'
+    +'<div class="s" style="margin-top:2px">green purchases — order from the Buy shortlist, tick off arrivals into stock</div>';
+  if(ed&&sl.length){
+    h+='<div class="dlab">Cupping shortlist · marked Buy</div>'
+      +sl.map(function(s,si){return '<div class="hit" data-bsl="'+si+'"><span><div class="t">'+esc(s.sample_id||'—')+(s.process?' <span class="s" style="color:var(--muted)">· '+esc(s.process)+'</span>':'')+'</div>'
+        +(s.supplier?'<div class="s">'+esc(s.supplier)+'</div>':'')+'</span><span class="k" style="font-size:13px;color:var(--accent)">Order →</span></div>';}).join('');
+  }
+  if(ed)h+='<button class="act" id="bo-new" style="margin-top:12px">+ New purchase order</button>';
+  if(onOrder.length)h+='<div class="dlab">On order</div>'+onOrder.map(function(p){return buyCard(p,pos.indexOf(p));}).join('');
+  if(hist.length)h+='<div class="dlab">History</div>'+hist.map(function(p){return buyCard(p,pos.indexOf(p));}).join('');
+  if(!onOrder.length&&!hist.length&&!sl.length)h+='<div class="empty">No purchases yet — mark a sample as Buy in Sample analyse, or add an order</div>';
+  h+='<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
+  openDrawerHTML(h);
+  $('d-cl').addEventListener('click',closeDrawer);
+  var nb=$('bo-new');if(nb)nb.addEventListener('click',function(){openBuyForm(null);});
+  document.querySelectorAll('#drawer [data-bsl]').forEach(function(el){el.addEventListener('click',function(){
+    var s=BUY.shortlist[+el.dataset.bsl];
+    openBuyForm({sample_ref:s.id,name:s.sample_id||'',process:s.process||'',supplier:s.supplier||''});
+  });});
+  document.querySelectorAll('#drawer [data-borecv]').forEach(function(el){el.addEventListener('click',function(){openBuyReceive(BUY.pos[+el.dataset.borecv]);});});
+  document.querySelectorAll('#drawer [data-bocxl]').forEach(function(el){el.addEventListener('click',async function(){
+    var p=BUY.pos[+el.dataset.bocxl];
+    if(!confirm('Cancel this purchase order for "'+(p.name||'—')+'"?'))return;
+    var u=await sb.from('purchases').update({status:'cancelled'}).eq('id',p.id);
+    if(u.error){alert('Cancel failed: '+u.error.message);return;}
+    p.status='cancelled';
+    logAct('purchase cancelled',p.name||'—');
+    toast('Cancelled');
+    openBuyLogSheet();
+  });});
+}
+/* 開採購單（seed＝shortlist 帶入 {sample_ref,name,process,supplier}）——payload 照 classic savePurchase */
+function openBuyForm(seed){
+  if(!canWrite()){roToast();return;}
+  var v=seed||{};
+  openDrawerHTML('<div class="t" style="font-size:19px">New purchase order</div>'
+    +'<div class="s" style="margin-top:2px">'+(v.sample_ref?'from the cupping shortlist — check the numbers and order':'order green beans from a supplier')+'</div>'
+    +'<div class="dlab">Supplier</div><input class="din" id="bf-sup" value="'+esc(v.supplier||'')+'" placeholder="e.g. Melbourne Coffee Merchants">'
+    +'<div class="dlab">Bean name</div><input class="din" id="bf-name" value="'+esc(v.name||'')+'" placeholder="e.g. Kii AB">'
+    +'<div class="dlab">Process</div><input class="din" id="bf-proc" value="'+esc(v.process||'')+'" placeholder="e.g. Washed">'
+    +'<div class="dlab">Country</div><input class="din" id="bf-ctry" placeholder="e.g. Kenya">'
+    +'<div class="dlab">Quantity (kg)</div><input class="din" id="bf-kg" inputmode="decimal" placeholder="e.g. 30">'
+    +'<div class="dlab">Cost per kg (AUD)</div><input class="din" id="bf-cost" inputmode="decimal" placeholder="e.g. 18.50">'
+    +'<div class="dlab">Note · optional</div><input class="din" id="bf-note" placeholder="—">'
+    +'<button class="act" id="bf-save">Save order</button>'
+    +'<button class="dclose" id="bf-back">‹ Back to Buy log</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  $('bf-back').addEventListener('click',openBuyLogSheet);
+  $('d-cl').addEventListener('click',closeDrawer);
+  $('bf-save').addEventListener('click',async function(){
+    var num=function(id){var x=($(id).value||'').trim();var n=parseFloat(x);return (x===''||isNaN(n))?null:n;};
+    var name=($('bf-name').value||'').trim();
+    var kg=num('bf-kg');
+    if(!name){toast('Bean name cannot be empty');return;}
+    if(!(kg>0)){toast('Enter the ordered quantity in kg');return;}
+    var btn=$('bf-save');btn.disabled=true;btn.textContent='Saving…';
+    var rec={status:'ordered',ordered_at:todayKey(),sample_ref:v.sample_ref||null,
+      supplier:($('bf-sup').value||'').trim()||null,name:name,process:($('bf-proc').value||'').trim()||null,
+      country:($('bf-ctry').value||'').trim()||null,kg:kg,cost_per_kg:num('bf-cost'),note:($('bf-note').value||'').trim()||null};
+    var ins=await sb.from('purchases').insert(rec).select();
+    if(ins.error){btn.disabled=false;btn.textContent='Save order';alert('Save failed: '+ins.error.message);return;}
+    logAct('purchase ordered',name,kg+' kg'+(rec.supplier?' — '+rec.supplier:''));
+    toast('Order saved ✓');
+    openBuyLogSheet();
+  });
+}
+/* 收貨入庫（照 classic receivePurchase＝同名+處理法併批或新建＋stock_moves＋purchases 蓋 received） */
+function openBuyReceive(p){
+  if(!canWrite()){roToast();return;}
+  openDrawerHTML('<span class="tag">Receive</span><div class="t" style="font-size:19px">'+esc(p.name||'—')+(p.process?' · '+esc(p.process):'')+'</div>'
+    +'<div class="s" style="margin-top:2px">'+(p.supplier?esc(p.supplier)+' · ':'')+'adds to green stock and closes the order</div>'
+    +'<div class="dlab">Received quantity (kg)</div><input class="din" id="br-kg" inputmode="decimal" value="'+esc(p.kg!=null?String(p.kg):'')+'">'
+    +'<div class="dlab">Lot / batch no · optional</div><input class="din" id="br-lot" value="'+esc(p.lot_no||'')+'">'
+    +'<button class="act" id="br-save">Add to stock</button>'
+    +'<button class="dclose" id="br-back">‹ Back to Buy log</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  $('br-back').addEventListener('click',openBuyLogSheet);
+  $('d-cl').addEventListener('click',closeDrawer);
+  $('br-save').addEventListener('click',async function(){
+    var kg=parseFloat(($('br-kg').value||'').trim());
+    if(isNaN(kg)||kg<=0){toast('Enter the received kg');return;}
+    var lot=($('br-lot').value||'').trim();
+    var btn=$('br-save');btn.disabled=true;btn.textContent='Saving…';
+    try{
+      /* 同名＋同處理法併批，否則新建（照 classic；bean id 前端生成同 saveReceiveSheet） */
+      var n=String(p.name||'').trim().toLowerCase(),pr=String(p.process||'').trim().toLowerCase();
+      var bean=(DB.beans||[]).find(function(b){return String(b.name||'').trim().toLowerCase()===n&&String(b.process||'').trim().toLowerCase()===pr;});
+      var beanId,after;
+      if(bean){
+        var nq=Math.round(((Number(bean.quantity)||0)+kg)*1000)/1000;
+        var upd={quantity:nq};
+        if(p.cost_per_kg!=null)upd.cost_per_kg=p.cost_per_kg;
+        if(p.supplier)upd.supplier=p.supplier;
+        var u=await sb.from('beans').update(upd).eq('id',bean.id);
+        if(u.error)throw new Error(u.error.message);
+        Object.assign(bean,upd);
+        beanId=bean.id;after=nq;
+      }else{
+        var rec={id:'bean_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8),
+          name:p.name,process:p.process||null,country:p.country||null,quantity:kg,cost_per_kg:p.cost_per_kg,supplier:p.supplier||null};
+        var ins=await sb.from('beans').insert(rec).select();
+        if(ins.error)throw new Error(ins.error.message);
+        DB.beans.push((ins.data&&ins.data[0])||rec);
+        beanId=rec.id;after=kg;
+      }
+      try{await sb.from('stock_moves').insert({bean_id:beanId,kind:'receive',delta_kg:kg,after_kg:after,note:'PO received'+(p.supplier?' — '+p.supplier:'')+(lot?' · lot '+lot:'')});}catch(e){}
+      var today=todayKey();
+      var pu=await sb.from('purchases').update({status:'received',received_at:today,bean_id:beanId,kg:kg,lot_no:lot||null}).eq('id',p.id);
+      if(pu.error)throw new Error('Stock added, but the order status update failed: '+pu.error.message);
+      p.status='received';p.received_at=today;p.bean_id=beanId;p.kg=kg;p.lot_no=lot||null;
+      logAct('received green',p.name,kg+' kg · PO'+(lot?' lot '+lot:''));
+      toast('In stock ✓ '+kg+' kg');
+      await reload(); /* beans 變了——重載讓低庫存卡/血條/需求全對 */
+      openBuyLogSheet();
+    }catch(e){
+      btn.disabled=false;btn.textContent='Add to stock';
+      alert('Receive failed: '+(e&&e.message||e));
+    }
+  });
+}
 /* ===== 記烘豆（單批：選豆→生豆 kg→選填產出/快錄；照 classic saveRoast 規則寫 roasts＋扣庫存＋stock_moves）===== */
 var RO=null;
 function todayStr(){var t=new Date();return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
@@ -7758,7 +7920,7 @@ function renderTools(){
   function _sec(title,color,inner){return '<div class="gsec" style="color:'+color+'"><span class="gdot"></span>'+title+'</div><div class="tgrid" style="--dept:'+color+'">'+inner+'</div>';}
   var _groups=_sec('Production',DEPT.prod,
       (_mk?_mkTile('t-recv','Receive green','delivery in')+_mkTile('t-roast','Log roast','green in')+_mkTile('t-stk','Stocktake','weigh greens'):'')
-      +_tiles([['Green stock','full list','greens'],['Roasted Stock','FIFO shelf','batches'],['Sample analyse','green cupping','sampleana',1]].concat(_mk?[['Delete a coffee','remove · careful','delbean',1]]:[])))
+      +_tiles([['Green stock','full list','greens'],['Roasted Stock','FIFO shelf','batches'],['Sample analyse','green cupping','sampleana',1],['Buy log','green purchases','buylog',1]].concat(_mk?[['Delete a coffee','remove · careful','delbean',1]]:[])))
     +_sec('QC &amp; Recipe',DEPT.qc,
       _tiles([['QC','cup and judge','qcgo'],['Recipe','blends · dial-in','recipe'],['Dial in','espresso shots','dialin',1]]))
     /* Retail 區＝店面這一側的全部工具：豆子上架資訊＋貼標＋店內菜單 */
@@ -7845,6 +8007,7 @@ function renderTools(){
     if(k==='greens'){openGreensSheet();return;}
     if(k==='batches'){openBatchesSheet();return;}
     if(k==='sampleana'){openSampleSheet();return;}
+    if(k==='buylog'){openBuyLogSheet();return;}
     if(k==='customers'){openCustomersSheet();return;}
     if(k==='help'){openHelpSheet();return;}
     if(k==='retail'){openRetailSheet();return;}
