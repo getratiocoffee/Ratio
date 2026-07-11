@@ -58,6 +58,17 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-11 之九（遊戲風首頁 Home：手遊磁貼牆＋紅點＋今日進度條 ✅）
+- **成果**：新殼加**第四頁 `view==='home'`**（nav 第一顆 Home，暫不搶預設落地頁）＝手遊主畫面：3×3 站台磁貼（inline SVG 圖示＋待辦數）＋紅點（有沒看過的新卡）＋今日進度條（done X / Y）。老闆想要「少字、像遊戲」＋「新東西冒紅點」——此輪全交付
+- **結構（全新增、舊路徑零改動）**：CSS `hm-` 前綴塊（</style> 前）＋ JS 塊（render() 前）＝`HOME_TILES`（9 塊：Orders/Wholesale/Roast(+Green)/QC/Shelf/Recipe/Pay(=Transaction)/Tasks(=Daily Task)/Customers＋finance 專屬 Payroll 磁貼）、`HOME_ICONS`（照喇叭鈕成例 viewBox24/currentColor）、`tileItems/tileCount/tileIds/tileFresh/homeMarkSeen/todayProgress/goTile/renderHome`。wire-in 僅 6 點：nav 按鈕、render() 分派、.on toggle、click 綁定、loadAll append、`todayStartISO()` helper
+- **磁貼數字**＝該站現存非 pin 卡（自行按 i.roles 過濾——staff 看不到 Pay/Customers/Shelf，防財務洩漏）；QC 特例＝toCupList()+QCQ（與 QC 頁同源）。**紅點**＝tileIds 有 localStorage `home_seen_v1`（每磁貼已見 id 集合）沒有的 id → 點磁貼 markSeen（只存現存 id＝自動修剪）；存 localStorage 不存 app_state＝唯讀 Proxy 擋非 lead 寫入、staff 才滅得掉（照 brief_seen_ts 前例，換裝置紅點重亮＝已接受的特性）
+- **進度條**：分子＝當日 activity_log 符合 `DONE_ACTS` 白名單（前綴比對，字串照抄 logAct 實際值；ticked closing 不算、closing complete 才算防灌水）；分母＝分子＋現存待辦；actToday 讀不到→降級「N to go」無條。loadAll Promise.all **尾端** append（rs[0..20] 索引不能動）→ `DB.actToday`（rs[21]）
+- **跳轉**：QC→QC 頁；Payroll→openPayrollSheet()；其餘→markSeen＋`VIEW_MODE='all'`＋FOLDED=其他全站＋跳 feed 捲到 [data-grp] 組頭（'all' 因磁貼數字是全站量）
+- **nav 五顆**：加 `body.appview nav button{font-size:13px;padding:10px 2px}`——375px 寬實測五顆各 61px 不溢出
+- **驗證**：jscheck ✓；stub DOM 全過＝director 9 塊數字全對（4/15 done 27%）、點 Orders→只開 Orders 組＋紅點滅→新單復燃、staff 只見 4 塊、finance 只見 Payroll、actToday=null 降級、全清態 ✓+100%+All clear、亮/夜版截圖、feed/QC/Tools 回歸 ok、console 零錯誤（QC 一度報錯是 stub 少 r 欄位，非回歸）
+- **⏭ 輪 5（等老闆試用拍板）**：把預設落地頁換成 Home＝boot 尾 `view='feed'` 改 `'home'` 一行；嫌 9 塊多刪 HOME_TILES 元素即減塊
+- **⚠ 陷阱備忘**：磁貼數字與今日流「N to do」口徑不同（磁貼含全站、feed 計數看視角）；進度條分子是全店完成數（activity_log 不分人）——設計如此（團隊共同血條）
+
 ## 〇、補記 — 2026-07-11 之八（Meta 授權嚮導完成：Post to socials 已接通 ✅）
 - **成果**：三顆 secrets 已設進 Supabase（META_PAGE_TOKEN/META_PAGE_ID/META_IG_ID），app Tools→Marketing→Post to socials 引導面消失、顯示「@ratio.crowsnest · Ratio ✓」＋豆清單——**功能通車**。第 3 輪（真發一支豆＋防呆驗證）還沒跑。
 - **走的路（跟原藍圖不同，備查）**：Graph Explorer 的權限下拉在老闆 Chrome 上壞死（新增權限點不開、combobox 無 suggestions，疑擴充功能干擾）→ 改走 **Business Manager 系統用戶**路線（更正規、天生永不過期）：
