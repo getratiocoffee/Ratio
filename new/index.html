@@ -4426,6 +4426,218 @@ async function saveCupSheet(){
     alert('Save failed: '+(e&&e.message||e));
   }
 }
+/* ===== 生豆樣品分析 Sample analyse（缺口 #12，自 classic loadSamples/saveSample 移植）=====
+   samples 表雙用途靠 supplier 分流：'Ratio Coffee'＝自家熟豆 QC（現有管線全硬編此條件）、
+   其他值/null＝外部生豆樣品——同一張表天然隔離，這裡讀取「抓全再前端濾」（.neq 會漏 null）。
+   評完手動標 Buy/Maybe/Skip；Buy 的下游（採購帳）等 Buy log 移植再接。 */
+var SMPL={list:[],open:null};
+var SMP={};
+function smpDecBadge(d){
+  if(d==='buy')return '<span class="s" style="color:var(--accent);font-weight:700">Buy</span>';
+  if(d==='maybe')return '<span class="s" style="color:var(--muted);font-weight:700">Maybe</span>';
+  if(d==='skip')return '<span class="s" style="color:var(--muted);opacity:.6">Skip</span>';
+  return '';
+}
+async function openSampleSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Sample analyse</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  var rows=[];
+  try{
+    var q=await sb.from('samples').select('*').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}).limit(120);
+    rows=(q.data||[]).filter(function(s){return s.supplier!=='Ratio Coffee';}); /* 前端濾——null（沒填供應商）也要留 */
+  }catch(e){}
+  SMPL.list=rows;
+  renderSampleSheetHTML(rows);
+}
+/* 列表渲染（decision/展開等就地操作走這裡重畫，不重查 DB） */
+function renderSampleSheetHTML(rows){
+  var ed=canWrite();
+  var h='<div class="t" style="font-size:19px">Sample analyse</div>'
+    +'<div class="s" style="margin-top:2px">green samples from suppliers — cup, score, then mark Buy / Maybe / Skip</div>'
+    +(ed?'<button class="act" id="smp-new" style="margin-top:12px">+ New sample</button>':'');
+  if(!rows.length)h+='<div class="empty">No green samples yet'+(ed?' — cup the first one with + New sample':'')+'</div>';
+  var lastD=null;
+  rows.forEach(function(s,si){
+    var d=String(s.cupping_date||'').slice(0,10);
+    if(d!==lastD){lastD=d;h+='<div class="dlab">'+esc(fmtD(d)||'—')+'</div>';}
+    var openRow=SMPL.open===s.id;
+    h+='<div style="border:1px solid '+(openRow?'var(--accent)':'var(--line)')+';border-radius:12px;padding:10px 13px;margin-top:8px">'
+      +'<div data-smp="'+si+'" style="cursor:pointer;display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
+      +'<span><span class="t" style="font-size:14.5px">'+esc(s.sample_id||'—')+'</span>'
+      +'<span class="s" style="color:var(--muted)">'+(s.process?' · '+esc(s.process):'')+(s.supplier?' · '+esc(s.supplier):'')+'</span></span>'
+      +smpDecBadge(s.decision)+'</div>';
+    if(openRow){
+      var feats=(s.features||[]).filter(Boolean);
+      h+='<div style="margin-top:8px">'+(sampleRadarSVG(s)||'')
+        +(feats.length?'<div style="text-align:center;margin-top:4px;font-weight:700">'+feats.map(esc).join(' · ')+'</div>':'')
+        +(s.comment?'<div class="s" style="text-align:center;margin-top:3px;color:var(--muted);font-style:italic">“'+esc(s.comment)+'”</div>':'')
+        +'<div class="s" style="text-align:center;margin-top:4px;color:var(--muted)">'+(s.cupper?'cupped by '+esc(s.cupper):'')+'</div>';
+      if(ed){
+        h+='<div style="display:flex;gap:8px;margin-top:10px">'
+          +['skip','maybe','buy'].map(function(k){return '<button class="chip" data-smpd="'+k+'" style="flex:1;margin:0'+(s.decision===k?';border-color:var(--accent);color:var(--accent)':'')+'">'+k.charAt(0).toUpperCase()+k.slice(1)+'</button>';}).join('')
+          +'</div>'
+          +'<div style="display:flex;gap:8px;margin-top:8px">'
+          +'<button class="chip" id="smp-edit" style="flex:1;margin:0">Edit</button>'
+          +'<button class="chip" id="smp-del" style="flex:1;margin:0;color:var(--muted)">Delete</button></div>';
+      }
+      h+='</div>';
+    }
+    h+='</div>';
+  });
+  h+='<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
+  openDrawerHTML(h);
+  $('d-cl').addEventListener('click',closeDrawer);
+  var nb=$('smp-new');if(nb)nb.addEventListener('click',function(){openSampleForm(null);});
+  document.querySelectorAll('#drawer [data-smp]').forEach(function(el){el.addEventListener('click',function(){
+    var s=SMPL.list[+el.dataset.smp];SMPL.open=(SMPL.open===s.id)?null:s.id;renderSampleSheetHTML(SMPL.list);
+  });});
+  wireSampleRowActions();
+}
+function wireSampleRowActions(){
+  var cur=SMPL.list.find(function(x){return x.id===SMPL.open;});
+  document.querySelectorAll('#drawer [data-smpd]').forEach(function(b){b.addEventListener('click',async function(){
+    if(!cur)return;
+    var v=b.dataset.smpd;
+    var u=await sb.from('samples').update({decision:v}).eq('id',cur.id);
+    if(u.error){alert('Save failed: '+u.error.message);return;}
+    cur.decision=v;
+    logAct('sample marked '+v,cur.sample_id||cur.supplier||'—');
+    toast(v.charAt(0).toUpperCase()+v.slice(1)+' ✓');
+    renderSampleSheetHTML(SMPL.list);
+  });});
+  var eb=$('smp-edit');if(eb)eb.addEventListener('click',function(){if(cur)openSampleForm(cur);});
+  var db=$('smp-del');if(db)db.addEventListener('click',async function(){
+    if(!cur)return;
+    if(!confirm('Delete this sample record?'))return;
+    var u=await sb.from('samples').delete().eq('id',cur.id);
+    if(u.error){alert('Delete failed: '+u.error.message);return;}
+    SMPL.list=SMPL.list.filter(function(x){return x.id!==cur.id;});SMPL.open=null;
+    logAct('sample deleted',cur.sample_id||'—');
+    toast('Deleted');
+    renderSampleSheetHTML(SMPL.list);
+  });
+}
+/* 表單：抄 paintCupSheet 的活雷達＋滑桿（獨立於 CUP 熟豆流程）；s=null 新增、s=紀錄 編輯 */
+function openSampleForm(s){
+  if(!canWrite()){roToast();return;}
+  SMP={editId:s?s.id:null,date:(s&&String(s.cupping_date||'').slice(0,10))||todayStr(),name:(s&&s.sample_id)||'',supplier:(s&&s.supplier)||'',process:(s&&s.process)||'',
+    scores:{fragrance:(s&&s.fragrance)||2,acidity:(s&&s.acidity)||2,sweetness:(s&&s.sweetness)||2,body:(s&&s.body)||2,aftertaste:(s&&s.aftertaste)||2},
+    feats:(s&&(s.features||[]).filter(Boolean))||[],comment:(s&&s.comment)||''};
+  paintSampleForm();
+}
+function paintSampleForm(){
+  var K=CUP_FIELDS;
+  var cx=150,cy=118,R=84;
+  function pt(i,rad){var a=i*2*Math.PI/5;return [cx+rad*Math.sin(a),cy-rad*Math.cos(a)];}
+  var rings=[1,2,3].map(function(l){
+    var p='';for(var i=0;i<=5;i++){var q=pt(i%5,R*l/3);p+=(i?'L':'M')+q[0].toFixed(1)+','+q[1].toFixed(1);}
+    return '<path d="'+p+'Z" fill="none" stroke="var(--line2)" stroke-width="1"/>';
+  }).join('');
+  var spokes=K.map(function(_,i){var q=pt(i,R);return '<line x1="'+cx+'" y1="'+cy+'" x2="'+q[0].toFixed(1)+'" y2="'+q[1].toFixed(1)+'" stroke="var(--line2)" stroke-width="1"/>';}).join('');
+  var labels=K.map(function(k,i){
+    var q=pt(i,R+16);var anch=q[0]<cx-4?'end':(q[0]>cx+4?'start':'middle');
+    return '<text x="'+q[0].toFixed(1)+'" y="'+(q[1]+4).toFixed(1)+'" text-anchor="'+anch+'" font-size="11.5" font-weight="600" fill="var(--muted)">'+k[1]+'</text>';
+  }).join('');
+  var dots=K.map(function(_,i){return '<circle id="smp-dot'+i+'" r="3.5" fill="var(--accent)"/>';}).join('');
+  openDrawerHTML('<div class="t" style="font-size:19px">'+(SMP.editId?'Edit sample':'New sample')+'</div>'
+    +'<div class="s" style="margin-top:2px">green sample cupping — scores, flavours and a one-liner</div>'
+    +'<div class="dlab">Cupping date</div><input class="din" id="sf-date" type="date" value="'+esc(SMP.date)+'">'
+    +'<div class="dlab">Sample name</div><input class="din" id="sf-name" placeholder="e.g. Kii AB" value="'+esc(SMP.name)+'">'
+    +'<div class="dlab">Supplier</div><input class="din" id="sf-sup" placeholder="e.g. Melbourne Coffee Merchants" value="'+esc(SMP.supplier)+'">'
+    +'<div class="dlab">Process</div><input class="din" id="sf-proc" placeholder="e.g. Washed" value="'+esc(SMP.process)+'">'
+    +'<div style="border:1.5px solid var(--ink);border-radius:14px;padding:12px 10px;margin-top:12px;background:var(--surface)">'
+    +'<svg viewBox="0 0 300 236" style="width:100%;max-width:300px;display:block;margin:0 auto">'+rings+spokes
+    +'<polygon id="smp-poly" points="" fill="var(--accent)" fill-opacity=".18" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>'
+    +dots+labels+'</svg>'
+    +'<div id="smp-flprev" style="text-align:center;margin-top:4px;font-family:\'Fraunces\',serif;font-weight:700;font-size:17px"></div>'
+    +'<div id="smp-cprev" style="text-align:center;margin-top:3px;font-size:13px;color:var(--muted);font-style:italic"></div>'
+    +'</div>'
+    +K.map(function(k){
+      return '<div style="display:flex;align-items:center;gap:10px;margin-top:13px">'
+        +'<span style="flex:0 0 76px;font-size:13px;font-weight:600;color:var(--muted)">'+k[1]+'</span>'
+        +'<span style="font-size:10.5px;color:var(--muted)">light</span>'
+        +'<input type="range" data-sf="'+k[0]+'" min="1" max="3" step="0.5" value="'+SMP.scores[k[0]]+'" style="flex:1;accent-color:var(--accent)">'
+        +'<span style="font-size:10.5px;color:var(--muted)">heavy</span></div>';
+    }).join('')
+    +'<div class="dlab">Flavours</div>'
+    +[0,1,2].map(function(ix){return '<input class="din" id="sf-f'+ix+'" maxlength="22" placeholder="e.g. Blueberry" value="'+esc(SMP.feats[ix]||'')+'">';}).join('')
+    +'<div class="dlab">Comment · 30 chars · blank = auto</div>'
+    +'<input class="din" id="sf-c" maxlength="30" placeholder="—" value="'+esc(SMP.comment)+'">'
+    +'<button class="act" id="sf-save">'+(SMP.editId?'Update sample':'Save sample')+'</button>'
+    +'<button class="dclose" id="sf-back">‹ Back to samples</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  function grab(){
+    document.querySelectorAll('#drawer [data-sf]').forEach(function(el){SMP.scores[el.dataset.sf]=parseFloat(el.value)||2;});
+    SMP.feats=[0,1,2].map(function(ix){return ($('sf-f'+ix).value||'').trim();});
+    SMP.comment=($('sf-c').value||'').trim();
+    SMP.date=$('sf-date').value||todayStr();SMP.name=($('sf-name').value||'').trim();
+    SMP.supplier=($('sf-sup').value||'').trim();SMP.process=($('sf-proc').value||'').trim();
+  }
+  function preview(){ /* 只動 SVG 錨點與文字，不整張重畫（拖霸重畫會炸手感——同 paintCupSheet） */
+    grab();
+    var pts=K.map(function(k,i){return pt(i,R*(SMP.scores[k[0]]||0)/3);});
+    var poly=document.getElementById('smp-poly');
+    if(poly)poly.setAttribute('points',pts.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' '));
+    pts.forEach(function(p,i){var d=document.getElementById('smp-dot'+i);if(d){d.setAttribute('cx',p[0].toFixed(1));d.setAttribute('cy',p[1].toFixed(1));}});
+    var fl=SMP.feats.filter(Boolean);
+    $('smp-flprev').textContent=fl.length?fl.join(' · '):'— add flavours below —';
+    var auto=cupAutoComment(SMP.scores,fl);
+    $('smp-cprev').textContent='“'+(SMP.comment||auto||'…')+'”';
+    $('sf-c').placeholder=auto||'—';
+  }
+  document.querySelectorAll('#drawer [data-sf]').forEach(function(el){el.addEventListener('input',preview);});
+  [0,1,2].forEach(function(ix){$('sf-f'+ix).addEventListener('input',preview);});
+  $('sf-c').addEventListener('input',preview);
+  $('sf-back').addEventListener('click',openSampleSheet);
+  $('d-cl').addEventListener('click',closeDrawer);
+  $('sf-save').addEventListener('click',saveSampleForm);
+  preview();
+}
+async function saveSampleForm(){
+  var btn=$('sf-save');
+  /* 收欄位（preview 的 grab 已同步 SMP，但保險再收一次） */
+  document.querySelectorAll('#drawer [data-sf]').forEach(function(el){SMP.scores[el.dataset.sf]=parseFloat(el.value)||2;});
+  SMP.feats=[0,1,2].map(function(ix){return ($('sf-f'+ix).value||'').trim();}).filter(Boolean);
+  SMP.comment=($('sf-c').value||'').trim();
+  SMP.date=$('sf-date').value||todayStr();SMP.name=($('sf-name').value||'').trim();
+  SMP.supplier=($('sf-sup').value||'').trim();SMP.process=($('sf-proc').value||'').trim();
+  if(!SMP.name&&!SMP.supplier){toast('Enter at least a name or a supplier');return;} /* 照 classic */
+  var sc=SMP.scores;
+  btn.disabled=true;btn.textContent='Saving…';
+  try{
+    if(SMP.editId){
+      var upd={cupping_date:SMP.date,supplier:SMP.supplier||null,sample_id:SMP.name||null,process:SMP.process||null,
+        fragrance:sc.fragrance||null,acidity:sc.acidity||null,sweetness:sc.sweetness||null,body:sc.body||null,aftertaste:sc.aftertaste||null,
+        features:SMP.feats,comment:(SMP.comment||cupAutoComment(sc,SMP.feats))||null};
+      var u=await sb.from('samples').update(upd).eq('id',SMP.editId);
+      if(u.error)throw new Error(u.error.message);
+      var i=SMPL.list.findIndex(function(x){return x.id===SMP.editId;});
+      if(i>=0)SMPL.list[i]=Object.assign({},SMPL.list[i],upd);
+      logAct('sample updated',SMP.name||SMP.supplier);
+      toast('Updated ✓');
+    }else{
+      /* 防呆：同名同日已有 → confirm（classic 是按兩次，新殼慣例用 confirm） */
+      var dupKey=SMP.name.toLowerCase();
+      var isDup=dupKey&&SMPL.list.some(function(x){return String(x.cupping_date||'').slice(0,10)===SMP.date&&String(x.sample_id||'').trim().toLowerCase()===dupKey;});
+      if(isDup&&!confirm('"'+SMP.name+'" already has a record on '+fmtD(SMP.date)+' — save another?')){btn.disabled=false;btn.textContent='Save sample';return;}
+      /* no＝當日連號（照 saveCupSheet 存檔時現查） */
+      var no=1;
+      try{var nq=await sb.from('samples').select('no').eq('cupping_date',SMP.date).order('no',{ascending:false}).limit(1);
+        if(nq.data&&nq.data[0]&&nq.data[0].no!=null)no=(Number(nq.data[0].no)||0)+1;}catch(e){}
+      var rec={no:no,cupping_date:SMP.date,supplier:SMP.supplier||null,sample_id:SMP.name||null,process:SMP.process||null,
+        fragrance:sc.fragrance||null,acidity:sc.acidity||null,sweetness:sc.sweetness||null,body:sc.body||null,aftertaste:sc.aftertaste||null,
+        features:SMP.feats,comment:(SMP.comment||cupAutoComment(sc,SMP.feats))||null,decision:null,cupper:WHO||null};
+      var ins=await sb.from('samples').insert(rec).select();
+      if(ins.error)throw new Error(ins.error.message);
+      if(ins.data&&ins.data[0])SMPL.list.unshift(ins.data[0]);
+      logAct('sample analysed',SMP.name||SMP.supplier);
+      toast('Saved ✓ mark Buy / Maybe / Skip on the card');
+    }
+    openSampleSheet();
+  }catch(e){
+    btn.disabled=false;btn.textContent=SMP.editId?'Update sample':'Save sample';
+    alert('Save failed: '+(e&&e.message||e));
+  }
+}
 /* ===== 記烘豆（單批：選豆→生豆 kg→選填產出/快錄；照 classic saveRoast 規則寫 roasts＋扣庫存＋stock_moves）===== */
 var RO=null;
 function todayStr(){var t=new Date();return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
@@ -7504,7 +7716,7 @@ function renderTools(){
   function _sec(title,color,inner){return '<div class="gsec" style="color:'+color+'"><span class="gdot"></span>'+title+'</div><div class="tgrid" style="--dept:'+color+'">'+inner+'</div>';}
   var _groups=_sec('Production',DEPT.prod,
       (_mk?_mkTile('t-recv','Receive green','delivery in')+_mkTile('t-roast','Log roast','green in')+_mkTile('t-stk','Stocktake','weigh greens'):'')
-      +_tiles([['Green stock','full list','greens'],['Roasted Stock','FIFO shelf','batches']].concat(_mk?[['Delete a coffee','remove · careful','delbean',1]]:[])))
+      +_tiles([['Green stock','full list','greens'],['Roasted Stock','FIFO shelf','batches'],['Sample analyse','green cupping','sampleana',1]].concat(_mk?[['Delete a coffee','remove · careful','delbean',1]]:[])))
     +_sec('QC &amp; Recipe',DEPT.qc,
       _tiles([['QC','cup and judge','qcgo'],['Recipe','blends · dial-in','recipe'],['Dial in','espresso shots','dialin',1]]))
     /* Retail 區＝店面這一側的全部工具：豆子上架資訊＋貼標＋店內菜單 */
@@ -7590,6 +7802,7 @@ function renderTools(){
     if(k==='orders'){openOrdersSheet();return;}
     if(k==='greens'){openGreensSheet();return;}
     if(k==='batches'){openBatchesSheet();return;}
+    if(k==='sampleana'){openSampleSheet();return;}
     if(k==='customers'){openCustomersSheet();return;}
     if(k==='help'){openHelpSheet();return;}
     if(k==='retail'){openRetailSheet();return;}
