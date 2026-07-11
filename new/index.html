@@ -7416,6 +7416,229 @@ function rsWeekHours(shifts){
   return names.map(function(nm){return {name:nm,wd:Math.round((wd[nm]||0)*10)/10,we:Math.round((we[nm]||0)*10)/10};});
 }
 var PAY_WK=[], PAY_RATES={}, PAY_META={}, PAY_OPEN=null;
+/* ===== Invoice GST 發票（缺口 #5，自 classic openInvoice/generateInvoicePDF 移植）=====
+   手填表單（不挑訂單/客戶，照 classic）：Bill To＋分類品項（Roasted/Green＝GST-free、
+   Green 可掛 $5 handling inc GST、Shipping/Catering 10% 可切外加 plus/內含 inc＝total/11 反推）。
+   PDF＝jsPDF A4（重用 menusPDF 按需載引擎＋logo）；公司常數（ABN/地址/BSB）照 classic 逐字。
+   發票號 INV-YYYYMMDD-NNN：classic 走 localStorage 雙軌——新殼**直讀寫 app_state 'inv_seq'**
+   （產生時當場查最新 map→當日 max+1→PDF 成功才 upsert 寫回＝跨裝置不倒退、格式相容 classic）。 */
+var INV_CATS=['Roasted Beans','Green Beans','Shipping','Catering'];
+var ROAST_PACKS=['100g','150g','200g','250g'];
+var INV_HANDLE=5; /* per green-bean line, GST inclusive */
+var INV={buyerName:'',buyerEmail:'',buyerAddr:'',items:[],notes:'',date:'',due:''};
+function invIsGreen(it){return it.cat==='Green Beans';}
+function invHasHandle(it){return invIsGreen(it)&&!!it.beanId;}
+function blankInvItem(cat){return {cat:cat||INV_CATS[0],desc:'',qty:'1',unit:'',gstMode:'plus',pack:'250g',beanId:'',beanName:'',country:''};}
+function invRaw(it){return (parseFloat(it.qty)||0)*(parseFloat(it.unit)||0);}
+function invEx(it){
+  if(invIsGreen(it)){var ex=invRaw(it);if(invHasHandle(it))ex+=INV_HANDLE/1.1;return ex;}
+  if(it.cat==='Roasted Beans')return invRaw(it);
+  var amt=invRaw(it);return it.gstMode==='inc'?amt/1.1:amt;
+}
+function invGstLine(it){
+  if(invIsGreen(it))return invHasHandle(it)?(INV_HANDLE-INV_HANDLE/1.1):0;
+  if(it.cat==='Roasted Beans')return 0;
+  var amt=invRaw(it);return it.gstMode==='inc'?(amt-amt/1.1):amt*0.1;
+}
+function invLineTotal(it){return invEx(it)+invGstLine(it);}
+function invSubtotal(){var t=0;INV.items.forEach(function(it){t+=invEx(it);});return t;}
+function invGstAmt(){var t=0;INV.items.forEach(function(it){t+=invGstLine(it);});return t;}
+function invTotal(){return invSubtotal()+invGstAmt();}
+function invLineHTML(it){
+  if(invIsGreen(it))return 'Green '+money(invRaw(it))+' · GST-free'+(invHasHandle(it)?' + Handle $5.00':'')+' — <b>'+money(invLineTotal(it))+'</b>';
+  if(it.cat==='Roasted Beans')return 'GST-free — <b>'+money(invLineTotal(it))+'</b>';
+  return 'Ex '+money(invEx(it))+' · GST '+money(invGstLine(it))+' — <b>'+money(invLineTotal(it))+'</b>';
+}
+function openInvoiceSheet(){
+  if(!rsMoney()){roToast();return;}
+  if(!INV.date)INV.date=todayKey();
+  if(!INV.items.length)INV.items=[blankInvItem('Roasted Beans')];
+  paintInvoice();
+}
+function paintInvoice(){
+  var itemsHTML=INV.items.map(function(it,i){
+    var opts=INV_CATS.map(function(c){return '<option'+(c===it.cat?' selected':'')+'>'+c+'</option>';}).join('');
+    var head='<div style="display:flex;gap:8px;align-items:center"><select class="din" data-ic="'+i+'" style="flex:1;margin:0">'+opts+'</select>'
+      +'<button class="chip" data-ix="'+i+'" style="margin:0;padding:4px 10px;color:var(--muted)">✕</button></div>';
+    var mid='';
+    if(invIsGreen(it)){
+      var bo='<option value="">— pick green bean —</option>'+(DB.beans||[]).map(function(b){
+        return '<option value="'+esc(b.id)+'"'+(String(b.id)===String(it.beanId)?' selected':'')+'>'+esc(b.name)+(b.process?' · '+esc(b.process):'')+' — $'+(b.cost_per_kg!=null?b.cost_per_kg:'?')+'/kg</option>';}).join('');
+      mid='<select class="din" data-ib="'+i+'" style="margin-top:8px">'+bo+'</select>'
+        +'<div style="display:flex;gap:8px;margin-top:8px">'
+        +'<input class="din" data-if="qty" data-i="'+i+'" inputmode="decimal" placeholder="Qty kg" value="'+esc(it.qty)+'" style="flex:1;margin:0">'
+        +'<input class="din" data-if="unit" data-i="'+i+'" inputmode="decimal" placeholder="$/kg" value="'+esc(it.unit)+'" style="flex:1;margin:0"></div>'
+        +'<div class="s" style="margin-top:4px;color:var(--muted)">GST-free beans · +$5 handle / item (inc GST)</div>';
+    }else if(it.cat==='Roasted Beans'){
+      var pk=ROAST_PACKS.map(function(p){return '<option'+(p===it.pack?' selected':'')+'>'+p+'</option>';}).join('');
+      mid='<input class="din" data-if="desc" data-i="'+i+'" placeholder="Roast name" value="'+esc(it.desc)+'" style="margin-top:8px">'
+        +'<div style="display:flex;gap:8px;margin-top:8px">'
+        +'<select class="din" data-if="pack" data-i="'+i+'" style="flex:1;margin:0">'+pk+'</select>'
+        +'<input class="din" data-if="qty" data-i="'+i+'" inputmode="decimal" placeholder="Qty packs" value="'+esc(it.qty)+'" style="flex:1;margin:0">'
+        +'<input class="din" data-if="unit" data-i="'+i+'" inputmode="decimal" placeholder="$/pack" value="'+esc(it.unit)+'" style="flex:1;margin:0"></div>'
+        +'<div class="s" style="margin-top:4px;color:var(--muted)">GST-free</div>';
+    }else{
+      mid='<input class="din" data-if="desc" data-i="'+i+'" placeholder="'+esc(it.cat==='Shipping'?'Freight / courier':'Catering — event')+'" value="'+esc(it.desc)+'" style="margin-top:8px">'
+        +'<div style="display:flex;gap:8px;margin-top:8px">'
+        +'<input class="din" data-if="qty" data-i="'+i+'" inputmode="decimal" placeholder="Qty" value="'+esc(it.qty)+'" style="flex:1;margin:0">'
+        +'<input class="din" data-if="unit" data-i="'+i+'" inputmode="decimal" placeholder="'+(it.gstMode==='inc'?'Unit inc GST':'Unit ex GST')+'" value="'+esc(it.unit)+'" style="flex:1;margin:0"></div>'
+        +'<div style="display:flex;gap:8px;margin-top:8px">'
+        +'<button class="chip" data-ig="plus" data-i="'+i+'" style="flex:1;margin:0'+(it.gstMode!=='inc'?';border-color:var(--accent);color:var(--accent)':'')+'">Plus GST</button>'
+        +'<button class="chip" data-ig="inc" data-i="'+i+'" style="flex:1;margin:0'+(it.gstMode==='inc'?';border-color:var(--accent);color:var(--accent)':'')+'">GST inc</button></div>';
+    }
+    return '<div style="border:1px solid var(--line);border-radius:12px;padding:10px 13px;margin-top:8px">'+head+mid
+      +'<div class="s" style="margin-top:7px;text-align:right" data-il="'+i+'">'+invLineHTML(it)+'</div></div>';
+  }).join('');
+  openDrawerHTML('<div class="t" style="font-size:19px">Invoice</div>'
+    +'<div class="s" style="margin-top:2px">GST tax invoice PDF — beans GST-free, shipping and catering at 10%</div>'
+    +'<div class="dlab">Bill to</div>'
+    +'<input class="din" id="iv-name" placeholder="Buyer / company" value="'+esc(INV.buyerName)+'">'
+    +'<input class="din" id="iv-email" type="email" placeholder="Email" value="'+esc(INV.buyerEmail)+'" style="margin-top:6px">'
+    +'<input class="din" id="iv-addr" placeholder="Address" value="'+esc(INV.buyerAddr)+'" style="margin-top:6px">'
+    +'<div style="display:flex;gap:8px;margin-top:6px">'
+    +'<input class="din" id="iv-date" type="date" value="'+esc(INV.date)+'" style="flex:1;margin:0">'
+    +'<input class="din" id="iv-due" type="date" value="'+esc(INV.due||'')+'" style="flex:1;margin:0"></div>'
+    +'<div class="s" style="margin-top:3px;color:var(--muted)">invoice date · due date</div>'
+    +'<div class="dlab">Items</div>'+itemsHTML
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">'+INV_CATS.map(function(c){return '<button class="chip" data-ia="'+esc(c)+'" style="margin:0">+ '+c+'</button>';}).join('')+'</div>'
+    +'<div style="border-top:1px solid var(--line);margin-top:12px;padding-top:8px" id="iv-totals"></div>'
+    +'<div class="dlab">Notes · optional</div>'
+    +'<input class="din" id="iv-notes" placeholder="Payment terms, PO number…" value="'+esc(INV.notes||'')+'">'
+    +'<button class="act" id="iv-gen">Generate PDF invoice</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  function totalsHTML(){
+    return '<div class="dl"><span>Subtotal (ex GST)</span><span>'+money(invSubtotal())+'</span></div>'
+      +'<div class="dl"><span>GST 10%</span><span>'+money(invGstAmt())+'</span></div>'
+      +'<div class="dl"><span style="font-weight:700">Total</span><span style="font-weight:700">'+money(invTotal())+'</span></div>';
+  }
+  $('iv-totals').innerHTML=totalsHTML();
+  function grabTop(){
+    INV.buyerName=$('iv-name').value;INV.buyerEmail=$('iv-email').value;INV.buyerAddr=$('iv-addr').value;
+    INV.date=$('iv-date').value||todayKey();INV.due=$('iv-due').value;INV.notes=$('iv-notes').value;
+  }
+  ['iv-name','iv-email','iv-addr','iv-date','iv-due','iv-notes'].forEach(function(id){$(id).addEventListener('input',grabTop);});
+  document.querySelectorAll('#drawer [data-ic]').forEach(function(s){s.addEventListener('change',function(){grabTop();INV.items[+s.dataset.ic].cat=s.value;paintInvoice();});});
+  document.querySelectorAll('#drawer [data-ix]').forEach(function(b){b.addEventListener('click',function(){grabTop();INV.items.splice(+b.dataset.ix,1);paintInvoice();});});
+  document.querySelectorAll('#drawer [data-ia]').forEach(function(b){b.addEventListener('click',function(){grabTop();INV.items.push(blankInvItem(b.dataset.ia));paintInvoice();});});
+  document.querySelectorAll('#drawer [data-ig]').forEach(function(b){b.addEventListener('click',function(){grabTop();INV.items[+b.dataset.i].gstMode=b.dataset.ig;paintInvoice();});});
+  document.querySelectorAll('#drawer [data-ib]').forEach(function(s){s.addEventListener('change',function(){
+    grabTop();var i=+s.dataset.ib,bn=(DB.beans||[]).find(function(x){return String(x.id)===s.value;});
+    if(bn){INV.items[i].beanId=bn.id;INV.items[i].beanName=bn.name;INV.items[i].country=bn.country||'';INV.items[i].unit=(bn.cost_per_kg!=null?String(bn.cost_per_kg):'');}
+    else{INV.items[i].beanId='';INV.items[i].beanName='';}
+    paintInvoice();
+  });});
+  document.querySelectorAll('#drawer [data-if]').forEach(function(inp){inp.addEventListener('input',function(){
+    var i=+inp.dataset.i;INV.items[i][inp.dataset.if]=inp.value;
+    var le=document.querySelector('#drawer [data-il="'+i+'"]');if(le)le.innerHTML=invLineHTML(INV.items[i]);
+    $('iv-totals').innerHTML=totalsHTML();
+  });});
+  $('iv-gen').addEventListener('click',async function(){
+    grabTop();
+    if(!invSubtotal()){toast('Add at least one item with a price first');return;}
+    var b=$('iv-gen');b.disabled=true;b.textContent='Drawing…';
+    try{
+      var seq=await invNextNo(INV.date);
+      await menusPDF(function(logo){buildInvoicePDF(logo,seq.no);});
+      await seq.commit();
+      logAct('invoice generated',seq.no,money(invTotal()));
+      toast('Invoice '+seq.no+' ✓');
+      b.disabled=false;b.textContent='Generate PDF invoice';
+    }catch(e){b.disabled=false;b.textContent='Generate PDF invoice';alert('PDF failed: '+(e&&e.message||e));}
+  });
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+/* 發票號：app_state 'inv_seq' map {"YYYYMMDD":n}（格式相容 classic）——產生時查最新、成功才寫回＝跨裝置不倒退 */
+async function invNextNo(dateStr){
+  var d=(dateStr||todayKey()).replace(/-/g,'');
+  var map={};
+  try{
+    var q=await sb.from('app_state').select('value').eq('key','inv_seq').maybeSingle();
+    var v=q.data&&q.data.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
+    if(v&&typeof v==='object')map=v;
+  }catch(e){}
+  var n=(parseInt(map[d],10)||0)+1;
+  return {no:'INV-'+d+'-'+String(n).padStart(3,'0'),commit:async function(){
+    map[d]=n;
+    try{await sb.from('app_state').upsert({key:'inv_seq',value:map,updated_at:new Date().toISOString()},{onConflict:'key'});}catch(e){}
+  }};
+}
+/* PDF 版面【照 classic buildInvoicePDF 逐字口徑】：A4 直式、公司常數 verbatim、TAX INVOICE 僅在有 GST 時 */
+function buildInvoicePDF(logo,invNo){
+  var JS=window.jspdf.jsPDF;
+  var doc=new JS({unit:'pt',format:'a4'});
+  var L=48,R=547,y=60;
+  var m=function(n){return '$'+(Number(n)||0).toFixed(2);};
+  if(logo){try{doc.addImage(logo,'PNG',L,y-6,46,46);}catch(e){}}
+  var cx=logo?(L+62):L;
+  doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(20);
+  doc.text('Ratio Coffee Pty Ltd',cx,y+8);
+  doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(120);
+  doc.text('ABN 57 658 829 899',cx,y+22);
+  doc.text('Shop 2, 473 Pacific Highway, Crows Nest NSW 2065',cx,y+34);
+  doc.text('getratiocoffee@gmail.com',cx,y+46);
+  doc.setFont('helvetica','bold');doc.setFontSize(18);doc.setTextColor(20);
+  doc.text(invGstAmt()>0?'TAX INVOICE':'INVOICE',R,y+6,{align:'right'});
+  doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(120);
+  doc.text(invNo,R,y+22,{align:'right'});
+  doc.text('Date: '+(INV.date||todayKey()),R,y+34,{align:'right'});
+  if(INV.due)doc.text('Due: '+INV.due,R,y+46,{align:'right'});
+  y+=72;doc.setDrawColor(210);doc.line(L,y,R,y);
+  y+=24;doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.setTextColor(20);
+  doc.text('Bill To',L,y);
+  doc.setFont('helvetica','normal');doc.setFontSize(10.5);doc.setTextColor(60);
+  y+=15;doc.text(INV.buyerName||'—',L,y);
+  if(INV.buyerEmail){y+=14;doc.text(INV.buyerEmail,L,y);}
+  if(INV.buyerAddr){y+=14;doc.text(INV.buyerAddr,L,y);}
+  var cDesc=L,cQty=350,cUnit=410,cAmt=R;
+  y+=28;doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(20);
+  doc.text('Description',cDesc,y);doc.text('Qty',cQty,y,{align:'right'});doc.text('Unit',cUnit,y,{align:'right'});doc.text('Amount',cAmt,y,{align:'right'});
+  y+=8;doc.setDrawColor(210);doc.line(L,y,R,y);
+  doc.setFont('helvetica','normal');doc.setFontSize(10.5);
+  var rows=[];
+  INV.items.forEach(function(it){
+    var q=parseFloat(it.qty)||0;
+    if(invIsGreen(it)){
+      var gc=invRaw(it);
+      if(gc>0||it.beanName)rows.push({desc:it.beanName||'Green beans',cat:'Green Beans  (GST-free)',qty:q,unit:(parseFloat(it.unit)||0),amt:gc});
+      if(invHasHandle(it))rows.push({desc:'Handling fee',cat:'GST inc $5.00 / item',qty:1,unit:INV_HANDLE/1.1,amt:INV_HANDLE/1.1});
+    }else if(it.cat==='Roasted Beans'){
+      if(invRaw(it)>0||it.desc)rows.push({desc:(it.desc||'Roasted beans')+(it.pack?' · '+it.pack:''),cat:'Roasted Beans  (GST-free)',qty:q,unit:(parseFloat(it.unit)||0),amt:invRaw(it)});
+    }else{
+      if(invRaw(it)>0||it.desc){var ex=invEx(it);rows.push({desc:it.desc||it.cat,cat:it.cat,qty:q,unit:(q?ex/q:ex),amt:ex});}
+    }
+  });
+  rows.forEach(function(r){
+    if(y>770){doc.addPage();y=60;}
+    y+=20;doc.setTextColor(20);doc.setFontSize(10.5);
+    doc.text(String(r.desc).substring(0,52),cDesc,y);
+    doc.setTextColor(130);doc.setFontSize(8.5);doc.text(r.cat,cDesc,y+11);
+    doc.setFontSize(10.5);doc.setTextColor(20);
+    doc.text(String(r.qty),cQty,y,{align:'right'});
+    doc.text(m(r.unit),cUnit,y,{align:'right'});
+    doc.text(m(r.amt),cAmt,y,{align:'right'});
+    y+=8;
+  });
+  y+=4;doc.setDrawColor(210);doc.line(L,y,R,y);
+  var tl=380;
+  y+=22;doc.setFont('helvetica','normal');doc.setFontSize(10.5);doc.setTextColor(60);
+  doc.text('Subtotal (ex GST)',tl,y);doc.setTextColor(20);doc.text(m(invSubtotal()),cAmt,y,{align:'right'});
+  y+=16;doc.setTextColor(60);doc.text('GST 10%',tl,y);doc.setTextColor(20);doc.text(m(invGstAmt()),cAmt,y,{align:'right'});
+  y+=20;doc.setFont('helvetica','bold');doc.setFontSize(12.5);
+  doc.text('Total',tl,y);doc.text(m(invTotal()),cAmt,y,{align:'right'});
+  y+=30;if(y>720){doc.addPage();y=60;}
+  doc.setDrawColor(210);doc.setFillColor(247,242,239);doc.rect(L,y,R-L,78,'F');
+  var by=y+20;doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(20);
+  doc.text('Payment — Bank Transfer',L+14,by);
+  doc.setFont('helvetica','normal');doc.setFontSize(10.5);doc.setTextColor(60);
+  by+=17;doc.text('Account Name: Ratio Coffee Pty Ltd',L+14,by);
+  by+=14;doc.text('BSB: 062-151',L+14,by);
+  by+=14;doc.text('Account Number: 10497845',L+14,by);
+  y+=78;
+  if(INV.notes){y+=22;doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(90);doc.text(String(INV.notes).substring(0,120),L,y);}
+  y+=22;doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(150);
+  doc.text('Generated '+new Date().toLocaleString()+' · Ratio Coffee Pty Ltd',L,y);
+  doc.save(invNo+'.pdf');
+}
 /* ===== Finance P&L 財務總覽（缺口 #4，自 classic openFinance/renderFinance 移植，口徑一模一樣）=====
    唯讀儀表板：本月/上月已收（paid 依 created_at 分桶，UTC YYYY-MM、上月用 15 號防跨月）、
    未收全累加（pending_payment/overdue，只讀持久化的 overdue 標記——轉換仍在 Orders 流程）、
@@ -8008,8 +8231,8 @@ function renderTools(){
       (_mk?_mkTile('t-neworder','New order','right here'):'')
       +_tiles([['Orders','recent list','orders'],['Customers','book','customers']].concat(ROLE==='director'?[['Subscriptions','fortnightly beans · plans','subs',1],['Wholesale','discount % · accounts','wholesale',1]]:[])))
     +(rsMoney()?_sec('Finance',DEPT.fin,
-      _tiles([['P&amp;L','money overview','pnl'],['Payroll','wages · weeks','payroll',_mk?1:0],['Calculator','cost · margins','calc']])
-      +_off([['Invoice','GST PDF · classic'],['Bookkeeping','expenses · classic']])):'')
+      _tiles([['P&amp;L','money overview','pnl'],['Invoice','GST PDF','invoice',1],['Payroll','wages · weeks','payroll',_mk?1:0],['Calculator','cost · margins','calc']])
+      +_off([['Bookkeeping','expenses · classic']])):'')
     +_sec('Daily task',DEPT.day,
       (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team')):'')
       +_tiles([['Upcoming','30 days · bookings · parcels','upcoming']]))
@@ -8091,6 +8314,7 @@ function renderTools(){
     if(k==='igasset'){openIGSheet();return;}
     if(k==='socialpost'){openSocialPostSheet();return;}
     if(k==='pnl'){openPnlSheet();return;}
+    if(k==='invoice'){openInvoiceSheet();return;}
     if(k==='payroll'){openPayrollSheet();return;}
     if(k==='calc'){openCalcSheet();return;}
     if(k==='infocards'){openInfoCardsSheet();return;}
