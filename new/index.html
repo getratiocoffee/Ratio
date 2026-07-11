@@ -7299,29 +7299,145 @@ function renderTools(){
     inp.focus();toast('Type in the search box above');
   });});
 }
-/* ===== Recipe（Production 類的新入口）：拼配配方＋近期 dial-in，唯讀；
-   blends 直接查表（name/parts/note），dial-in 用 DB.dialins；配方編輯仍在 classic ===== */
+/* ===== Recipe（Production 類的新入口）：拼配配方 blends ＋近期 dial-in =====
+   自 classic openBlending 移植：有寫入權（lead/director）可直接編配方，其他人維持唯讀。
+   資料＝blends 表（id/name/hname/parts/note/comment/brew/pos）；成分豆與成本取自 DB.beans。
+   不搬 classic 的 localStorage 雙軌同步，走新殼慣例：開抽屜當場 select、按 Save 直接 upsert。 */
+var RCP={defs:[],dins:[],open:{},knownIds:[]};
+var BL_SEP=''; /* 隱形分隔符：把「name<sep>process」編進 <option> value，消歧同名不同處理法 */
+function blPartVal(n,pr){return String(n||'').trim()+BL_SEP+String(pr||'').trim();}
+function blBeanOptions(selName,selProc){
+  var o='<option value="">— Single Origin —</option>';
+  var selVal=blPartVal(selName,selProc),matched=false;
+  (DB.beans||[]).slice().sort(function(a,b){var n=(a.name||'').localeCompare(b.name||'');return n!==0?n:(a.process||'').localeCompare(b.process||'');}).forEach(function(b){
+    var nm=(b.name||'').trim();if(!nm)return;var proc=(b.process||'').trim();var val=blPartVal(nm,proc);
+    var sel=(val===selVal)?' selected':'';if(sel)matched=true;
+    o+='<option value="'+esc(val)+'"'+sel+'>'+esc(nm)+(proc?' · '+esc(proc):'')+'</option>';
+  });
+  if(selName&&!matched){var v=blPartVal(selName,selProc);o+='<option value="'+esc(v)+'" selected>'+esc(selName)+(selProc?' · '+esc(selProc):'')+'</option>';} /* 保留已刪但仍被引用的豆 */
+  return o;
+}
+function blTotal(bl){return ((bl&&bl.parts)||[]).reduce(function(s,p){var v=parseFloat(p.pct);return s+(isNaN(v)?0:v);},0);}
+function blCostPerKg(bl){
+  var parts=(bl&&bl.parts)||[],sum=0,any=false;
+  parts.forEach(function(p){
+    var nm=(p.bean||'').trim();if(!nm)return;var pct=parseFloat(p.pct);if(isNaN(pct))return;
+    var b=(DB.beans||[]).find(function(x){return (x.name||'').trim()===nm&&(x.process||'').trim()===String(p.process||'').trim();})
+        ||(DB.beans||[]).find(function(x){return (x.name||'').trim()===nm;});
+    if(!b||b.cost_per_kg==null||b.cost_per_kg==='')return;
+    var c=parseFloat(b.cost_per_kg);if(isNaN(c))return;
+    sum+=c*(pct/100);any=true; /* 加權平均成本 */
+  });
+  return any?sum:null;
+}
+function blCostHTML(bl){if(!rsMoney())return '';var ck=blCostPerKg(bl);return 'Cost/KG '+(ck==null?'<b>&mdash;</b>':'<b>$'+ck.toFixed(2)+'</b>');}
+function blUid(){try{return crypto.randomUUID();}catch(e){return null;}}
+function blankBlend(name){return {id:blUid(),name:name||'',hname:name||'',parts:[{bean:'',process:'',pct:''},{bean:'',process:'',pct:''},{bean:'',process:'',pct:''}],note:'',comment:'',brew:null};}
+function blDupNames(defs){var cnt={},dups={};(defs||[]).forEach(function(b){var k=String(b&&b.name||'').trim().toLowerCase();if(!k)return;cnt[k]=(cnt[k]||0)+1;if(cnt[k]>1)dups[k]=true;});return dups;}
 async function openRecipeSheet(){
   openDrawerHTML('<div class="t" style="font-size:19px">Recipe</div><div class="empty" style="margin-top:16px">Loading…</div>');
   var blends=[];
-  try{var bq=await sb.from('blends').select('name,parts,note').order('name');blends=(bq.data||[]).filter(function(b){return b.name;});}catch(e){}
-  var blendHTML=blends.length?blends.map(function(b){
-    var parts=(b.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;});
-    var line=parts.length?parts.map(function(p){return esc((p.bean||'').trim())+' '+parseFloat(p.pct)+'%';}).join(' · '):'<span class="red">no parts — edit in classic</span>';
-    return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-top:8px"><div class="t" style="font-size:15px">'+esc(b.name)+'</div><div class="s" style="margin-top:3px">'+line+'</div>'+(b.note?'<div class="s" style="margin-top:2px;color:var(--muted)">'+esc(b.note)+'</div>':'')+'</div>';
-  }).join(''):'<div class="sempty">No blends yet — add them in the classic app</div>';
-  var dins=(DB.dialins||[]).slice(0,12);
-  var dinHTML=dins.length?dins.map(function(d){
+  try{var bq=await sb.from('blends').select('*').order('pos',{ascending:true});blends=(bq.data||[]).filter(function(b){return b&&(b.name||b.id);});}catch(e){}
+  RCP.defs=blends.map(function(b){return {id:b.id,name:b.name||'',hname:(b.hname!=null?b.hname:(b.name||'')),parts:(Array.isArray(b.parts)&&b.parts.length)?b.parts:[{bean:'',process:'',pct:''},{bean:'',process:'',pct:''},{bean:'',process:'',pct:''}],note:b.note||'',comment:b.comment||'',brew:(b.brew&&typeof b.brew==='object')?b.brew:null};});
+  RCP.knownIds=RCP.defs.map(function(b){return b.id;}).filter(Boolean);
+  RCP.open={};
+  RCP.dins=(DB.dialins||[]).slice(0,12);
+  paintRecipe();
+}
+function paintRecipe(){
+  var ed=canWrite(),defs=RCP.defs,dups=blDupNames(defs);
+  var blendHTML;
+  if(!defs.length){
+    blendHTML='<div class="sempty">No blends yet'+(ed?' — tap + New blend to start':' — add them in the classic app')+'</div>';
+  }else{
+    blendHTML=defs.map(function(bl,bi){
+      if(!ed){ /* 唯讀：同移植前的清單樣子 */
+        var vp=(bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;});
+        var line=vp.length?vp.map(function(p){return esc((p.bean||'').trim())+' '+parseFloat(p.pct)+'%';}).join(' · '):'<span class="red">no parts</span>';
+        return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-top:8px"><div class="t" style="font-size:15px">'+esc(bl.name)+'</div><div class="s" style="margin-top:3px">'+line+'</div>'+(bl.note?'<div class="s" style="margin-top:2px;color:var(--muted)">'+esc(bl.note)+'</div>':'')+'</div>';
+      }
+      var open=!!RCP.open[bi],tot=blTotal(bl),totOk=tot===100,dup=!!dups[String(bl.name||'').trim().toLowerCase()];
+      var head='<div style="display:flex;align-items:center;gap:8px">'
+        +'<button data-bo="'+bi+'" class="chip" style="padding:4px 9px;margin:0">'+(open?'▾':'▸')+'</button>'
+        +'<input class="din" data-bn="'+bi+'" value="'+esc(bl.name||'')+'" placeholder="Blend name" style="flex:1;margin:0'+(dup?';border-color:var(--accent)':'')+'">'
+        +'<button data-bdel="'+bi+'" class="chip" style="padding:4px 9px;margin:0;color:var(--muted)">✕</button></div>';
+      var body='';
+      if(open){
+        var rows=(bl.parts||[]).map(function(p,pi){
+          return '<div style="display:flex;gap:6px;align-items:center;margin-top:6px">'
+            +'<select class="din" data-bs="'+bi+'" data-pi="'+pi+'" style="flex:1;margin:0">'+blBeanOptions(p.bean||'',p.process||'')+'</select>'
+            +'<input class="din" type="number" inputmode="numeric" data-bp="'+bi+'" data-pi="'+pi+'" value="'+esc((p.pct===0||p.pct)?String(p.pct):'')+'" placeholder="0" min="0" max="100" style="width:68px;margin:0;text-align:right">'
+            +'<span class="s" style="color:var(--muted)">%</span></div>';
+        }).join('');
+        body='<div style="margin-top:8px">'+rows
+          +'<input class="din" data-bnote="'+bi+'" value="'+esc(bl.note||'')+'" placeholder="Note" style="margin-top:8px">'
+          +'<input class="din" data-bcmt="'+bi+'" value="'+esc(bl.comment||'')+'" placeholder="Special comment · e.g. V3.0 Competition Blend" style="margin-top:6px">'
+          +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px">'
+          +'<span class="s" style="color:var(--muted)" data-bcost="'+bi+'">'+blCostHTML(bl)+'</span>'
+          +'<span class="s" data-btot="'+bi+'" style="color:'+(totOk?'var(--muted)':'var(--accent)')+'">Total <b>'+tot+'%</b>'+(totOk?'':' · should be 100%')+'</span></div></div>';
+      }
+      return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-top:8px">'+head+body+'</div>';
+    }).join('');
+  }
+  var dinHTML=RCP.dins.length?RCP.dins.map(function(d){
     var bits=[];if(d.grind)bits.push('grind '+esc(d.grind));if(d.dose)bits.push(d.dose+'g');if(d.yield)bits.push('→ '+d.yield+'g');if(d.time_s)bits.push(d.time_s+'s');
     return '<div class="dl"><span>'+esc(d.coffee||'—')+'</span><span style="color:var(--muted)">'+(bits.join(' · ')||'—')+'</span></div>';
   }).join(''):'<div class="sempty">No dial-ins logged yet</div>';
+  var addSave=ed
+    ?'<div style="display:flex;gap:8px;margin-top:12px"><button class="chip" id="rcp-add" style="flex:1">+ New blend</button><button class="act" id="rcp-save" style="flex:1;margin:0">Save recipe</button></div><div class="s" id="rcp-saved" style="text-align:center;margin-top:6px;opacity:0;transition:opacity .2s">✓ Saved</div>'
+    :'<a class="dclose" style="text-decoration:none;text-align:center;display:block;margin-top:14px" href="'+CLASSIC+'">Edit blends in classic</a>';
   openDrawerHTML('<div class="t" style="font-size:19px">Recipe</div>'
-    +'<div class="s" style="margin-top:2px">blend recipes and recent dial-ins — read-only here, edit blends in the classic app</div>'
+    +'<div class="s" style="margin-top:2px">'+(ed?'blend recipes — pick single origins and set % to 100':'blend recipes and recent dial-ins — read-only')+'</div>'
     +'<div class="dlab">Blends</div>'+blendHTML
+    +addSave
     +'<div class="dlab">Recent dial-ins</div>'+dinHTML
-    +'<a class="dclose" style="text-decoration:none;text-align:center;display:block;margin-top:14px" href="'+CLASSIC+'">Edit blends in classic</a>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);
+  if(!ed)return;
+  document.querySelectorAll('[data-bo]').forEach(function(b){b.addEventListener('click',function(){var i=+b.dataset.bo;RCP.open[i]=!RCP.open[i];paintRecipe();});});
+  document.querySelectorAll('[data-bdel]').forEach(function(b){b.addEventListener('click',function(){var i=+b.dataset.bdel;if(!confirm('Delete this blend?'))return;RCP.defs.splice(i,1);var no={};Object.keys(RCP.open).forEach(function(k){var kn=+k;if(kn<i)no[kn]=RCP.open[kn];else if(kn>i)no[kn-1]=RCP.open[kn];});RCP.open=no;paintRecipe();});});
+  document.querySelectorAll('[data-bn]').forEach(function(inp){inp.addEventListener('input',function(){RCP.defs[+inp.dataset.bn].name=inp.value;});});
+  document.querySelectorAll('[data-bnote]').forEach(function(inp){inp.addEventListener('input',function(){RCP.defs[+inp.dataset.bnote].note=inp.value;});});
+  document.querySelectorAll('[data-bcmt]').forEach(function(inp){inp.addEventListener('input',function(){RCP.defs[+inp.dataset.bcmt].comment=inp.value;});});
+  document.querySelectorAll('[data-bs]').forEach(function(s){s.addEventListener('change',function(){var parsed=String(s.value||'').split(BL_SEP);var pt=RCP.defs[+s.dataset.bs].parts[+s.dataset.pi];pt.bean=parsed[0]||'';pt.process=parsed[1]||'';var ce=document.querySelector('[data-bcost="'+s.dataset.bs+'"]');if(ce)ce.innerHTML=blCostHTML(RCP.defs[+s.dataset.bs]);});});
+  document.querySelectorAll('[data-bp]').forEach(function(i){i.addEventListener('input',function(){var bi=+i.dataset.bp;RCP.defs[bi].parts[+i.dataset.pi].pct=i.value;var tt=blTotal(RCP.defs[bi]);var te=document.querySelector('[data-btot="'+bi+'"]');if(te){te.style.color=(tt===100?'var(--muted)':'var(--accent)');te.innerHTML='Total <b>'+tt+'%</b>'+(tt===100?'':' · should be 100%');}var ce=document.querySelector('[data-bcost="'+bi+'"]');if(ce)ce.innerHTML=blCostHTML(RCP.defs[bi]);});});
+  var add=$('rcp-add');if(add)add.addEventListener('click',function(){RCP.defs.push(blankBlend(''));RCP.open[RCP.defs.length-1]=true;paintRecipe();});
+  var save=$('rcp-save');if(save)save.addEventListener('click',recipeSave);
+}
+/* Save：重名擋存 → upsert blends → 刪本地移除的 → rename cascade relink 三張歷史表（照抄 classic renderBlending）*/
+async function recipeSave(){
+  var defs=RCP.defs,sv=$('rcp-saved');
+  var dups=blDupNames(defs);
+  if(Object.keys(dups).length){if(sv){sv.textContent='⚠️ Blend names must be unique';sv.style.color='var(--accent)';sv.style.opacity='1';}paintRecipe();return;}
+  var btn=$('rcp-save');if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  var renames=[];
+  defs.forEach(function(bl){var nn=(bl.name||'').trim(),on=(bl.hname||'').trim();if(!nn)return;if(!on){bl.hname=nn;return;}if(on!==nn)renames.push({bl:bl,o:on,n:nn});});
+  var now=new Date().toISOString();
+  var rows=defs.map(function(b,i){if(!b.id)b.id=blUid();return {id:b.id,name:b.name||'',hname:b.hname||null,parts:Array.isArray(b.parts)?b.parts:[],note:b.note||null,comment:b.comment||null,brew:(b.brew&&typeof b.brew==='object')?b.brew:null,pos:i,updated_at:now};}).filter(function(r){return !!r.id;});
+  try{
+    if(rows.length){var up=await sb.from('blends').upsert(rows,{onConflict:'id'});if(up.error)throw new Error(up.error.message);}
+    var keep={};rows.forEach(function(r){keep[r.id]=1;});
+    var gone=(RCP.knownIds||[]).filter(function(id){return !keep[id];});
+    if(gone.length){var dl=await sb.from('blends').delete().in('id',gone);if(dl.error)throw new Error(dl.error.message);}
+    for(var ri=0;ri<renames.length;ri++){
+      var rn=renames[ri];
+      var e1=(await sb.from('roasts').update({bean_name:rn.n}).eq('bean_name',rn.o)).error;
+      var e2=(await sb.from('samples').update({sample_id:rn.n}).eq('sample_id',rn.o)).error;
+      var e3=(await sb.from('product_sync').update({bean_id:rn.n}).eq('bean_id',rn.o)).error;
+      if(e1||e2||e3)throw new Error((e1||e2||e3).message);
+      (DB.roasts||[]).forEach(function(r){if((r.bean_name||'')===rn.o)r.bean_name=rn.n;});
+      (DB.samples||[]).forEach(function(s){if((s.sample_id||'')===rn.o)s.sample_id=rn.n;});
+      rn.bl.hname=rn.n;
+    }
+    RCP.knownIds=Object.keys(keep);
+    logAct('edited blends',rows.length+' blends'+(renames.length?(', '+renames.length+' renamed'):''),null);
+    if(btn){btn.disabled=false;btn.textContent='Save recipe';}
+    if(sv){sv.textContent='✓ Saved';sv.style.color='var(--muted)';sv.style.opacity='1';setTimeout(function(){if(sv)sv.style.opacity='0';},1800);}
+    toast('Saved ✓');
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Save recipe';}
+    alert('Save failed: '+(e&&e.message||e));
+  }
 }
 /* ===== Wholesale 設定（director only）：全店折扣％＋批發帳號切換 =====
    折扣存 app_state 'ws_discount' {pct:20}——單一 scalar，plain upsert 即可；
