@@ -3137,6 +3137,33 @@ async function uploadCardForBean(nm){
     return u?(u+'?v='+Date.now()):'';
   }catch(e){return '';}
 }
+/* Announce 磁貼入口（缺口 #6 收尾）：挑上架豆→跑現成 announceShelfBean（QC 閘門/收件人數/卡圖/群發全在裡面）。
+   核心早在 Coffee Info 詳情的 sb-ann 鈕做好了——這裡只補 Tools 直達（照 classic renderMarketing 的挑豆介面）。 */
+async function openAnnounceSheet(){
+  if(!canWrite()){roToast();return;}
+  openDrawerHTML('<div class="t" style="font-size:19px">Announce</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  var sl=await shelfLiveBeans(),live=sl.live;
+  var seen={},rows='';
+  live.forEach(function(e){
+    var nm=e.nm,k=nm.toLowerCase();if(seen[k])return;seen[k]=true;
+    var rep=null;try{rep=shelfSampleFor(nm);}catch(e2){}
+    rows+='<div class="hit" data-ann="'+esc(nm)+'"><span><div class="t">'+esc(nm)
+      +(rep&&rep.process?' <span class="s" style="color:var(--muted)">· '+esc(rep.process)+'</span>':'')+'</div>'
+      +(rep&&rep.features&&rep.features.length?'<div class="s">'+esc(rep.features.slice(0,3).join(' · '))+'</div>':'')
+      +'</span><span class="k" style="font-size:13px;color:var(--accent)">Announce ›</span></div>';
+  });
+  openDrawerHTML('<div class="t" style="font-size:19px">Announce</div>'
+    +'<div class="s" style="margin-top:2px">email every customer about a new coffee — info card attached, QC gate applies</div>'
+    +(rows||'<div class="empty">No live coffees on the shelf yet — list one first</div>')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('d-cl').addEventListener('click',closeDrawer);
+  document.querySelectorAll('#drawer [data-ann]').forEach(function(el){el.addEventListener('click',function(){
+    var nm=el.dataset.ann,s=null;
+    try{s=shelfSampleFor(nm);}catch(e){}
+    if(!s){alert('No cupping record found for "'+nm+'"');return;}
+    announceShelfBean(s,nm,el.querySelector('.k')||el);
+  });});
+}
 async function announceShelfBean(s,nm,btn){
   /* QC 閘門同 classic listingGate：打槍批擋死，沒 pass/沒鎖風味只警告 */
   var qr=null;try{qr=matchRoast(s);}catch(e){}
@@ -8226,7 +8253,8 @@ function renderTools(){
       +_tiles([['Coffee Info','live on Square','retail'],['Menus','menu PDFs · in-store','menus']]))
     +_sec('Marketing',DEPT.mkt,
       _tiles([['Post to socials','IG + FB · one tap','socialpost',1],['IG asset','post card · caption','igasset'],['Folding Info Card','A4 · 4 fold cards','infocards'],['Brew Card','A4 · pour-over guide','brewcard'],['Social Images','4-up · pick a coffee','social4']])
-      +_off([['Announce','email blast · classic'],['QR codes','shop / feedback · classic']]))
+      +_tiles([['Announce','new coffee email','announce',1]])
+      +_off([['QR codes','shop / feedback · classic']]))
     +_sec('Orders &amp; customers',DEPT.ord,
       (_mk?_mkTile('t-neworder','New order','right here'):'')
       +_tiles([['Orders','recent list','orders'],['Customers','book','customers']].concat(ROLE==='director'?[['Subscriptions','fortnightly beans · plans','subs',1],['Wholesale','discount % · accounts','wholesale',1]]:[])))
@@ -8315,6 +8343,7 @@ function renderTools(){
     if(k==='socialpost'){openSocialPostSheet();return;}
     if(k==='pnl'){openPnlSheet();return;}
     if(k==='invoice'){openInvoiceSheet();return;}
+    if(k==='announce'){openAnnounceSheet();return;}
     if(k==='payroll'){openPayrollSheet();return;}
     if(k==='calc'){openCalcSheet();return;}
     if(k==='infocards'){openInfoCardsSheet();return;}
