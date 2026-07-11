@@ -107,6 +107,14 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之九（刪 classic 後孤兒巡檢 debug）
+- **老闆要求「看有沒有孤兒 debug」**（切 opus-4-8）。系統掃描（python 抽 533 個函式定義 vs 全檔呼叫次數；磁貼 data-t vs dispatch 分支；classic 引用全掃）。
+- **結論① 刪 classic 沒斷任何新殼功能**：classic 是獨立檔案，新殼函式從不被它呼叫→刪檔不可能產生孤兒函式。磁貼 33 顆 key 與 dispatch 分支一對一完整、det2 分派對稱、CLASSIC 常數/data-classic/_off 引用全歸零（前一輪已清）。
+- **結論② 但留 5 處活 UI 文案指向死 app（本輪修）**——前一輪手改漏網，措辭變體 grep 沒抓全：①訂單抽屜副標 `cancelled orders live in the classic app`→`are not shown`（loadAll neq Cancelled，新殼本就不顯示）②訂單抽屜 `N older orders in the classic app`→`are not shown`（只顯前 25）③拼配庫存不足 alert `Fix batch numbers in the classic app (History → Batch stock)`→`Check the batch levels under Tools → Roasted Stock`④Recipe 唯讀者空狀態 `add them in the classic app`→`ask a manager to add them`⑤罐標無配方 `add it in classic F(x) → Blending`→`add it under Tools → Recipe`。
+- **結論③ 附帶清 1 個既有死碼**：`fmtDate`（8804，07-10 移植 ?bean 時搬入但全檔零呼叫，實際用 fmtD）刪除。init 是 IIFE 標籤名（誤報）。
+- **驗證**：jscheck ✓；classic 活 UI 殘留全掃歸零（僅剩程式碼註解提「照 classic …」＝來源說明，無害）；本機 stub——訂單抽屜副標＋舊訂單提示新文案、抽屜內零 classic 字 ✓；console 零錯誤。
+- **教訓**：文案類殘留手改必漏——措辭變體多（in the/live in/add it in classic F(x)）。**應一開始就 grep 全檔 classic 字樣排除註解**，別靠肉眼。
+
 ## 〇、補記 — 2026-07-12 之八（🏁 閹割階段三：classic.html 整檔刪除＋#7 Files 薄殼收尾）
 - **老闆拍板「可以刪classic」**＝#7 不另移植、階段三開跑。刪之前全面盤點依賴，發現並處理：
 - **陪葬品盤點（刪之前查清楚）**：①**Bookkeeping off 磁貼＝空頭支票**——classic 裡根本沒這功能（4003 行自己寫著 expenses are not tracked yet），磁貼直接刪 ②**QR codes off 磁貼**——刪（?shop/?fb URL 沒變，要 QR 隨時可再生）③**classic Files 三份文件**＝repo 根靜態檔（刪 classic 檔案還在）→ **補薄殼**：Tools App 區「Files」磁貼＋openFilesSheet 三連結（Agreement docx download／SCA forms／Roasting manual PDF target=_blank）。classic 列的 Agreement **PDF 版檔案根本不在 repo**（死鈕）——只列存在的三份 ④**Team notes 刪除原本「留在 classic」**→ 補進新殼：note 行尾 × 鈕（canWrite）＋confirm＋delete messages by id

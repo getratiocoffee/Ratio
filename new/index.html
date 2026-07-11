@@ -3976,14 +3976,14 @@ function openRstDeduct(x){
 function openOrdersSheet(){
   var list=(DB.orders||[]).slice(0,25);
   openDrawerHTML('<div class="t" style="font-size:19px">Recent orders</div>'
-    +'<div class="s" style="margin-top:2px">newest first · tap one for details · cancelled orders live in the classic app</div>'
+    +'<div class="s" style="margin-top:2px">newest first · tap one for details · cancelled orders are not shown</div>'
     +(list.length?list.map(function(o,ix){
       var c=custById(o.customer_id);
       return '<div class="hit" data-o="'+ix+'"><span><div class="t">#'+String(o.order_no||'—').padStart(4,'0')+' · '+esc((c&&c.name)||'Walk-in')+'</div>'
         +'<div class="s">'+esc(o.status||'—')+' · '+money(o.total)+' · '+(o.payment_status==='paid'?'paid':'<span class="red">unpaid</span>')+' · '+(fmtD(o.created_at)||'—')+'</div></span>'
         +'<span class="k">'+esc(o.channel||'')+'</span></div>';
     }).join(''):'<div class="empty">No orders yet</div>')
-    +((DB.orders||[]).length>25?'<div class="s" style="margin-top:8px;text-align:center">'+((DB.orders||[]).length-25)+' older orders in the classic app</div>':'')
+    +((DB.orders||[]).length>25?'<div class="s" style="margin-top:8px;text-align:center">'+((DB.orders||[]).length-25)+' older orders are not shown</div>':'')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   document.querySelectorAll('#drawer [data-o]').forEach(function(el){el.addEventListener('click',function(){openOrderDetail(list[+el.dataset.o]);});});
   $('d-cl').addEventListener('click',closeDrawer);
@@ -5073,7 +5073,7 @@ async function saveBlendBatch(){
     var short=[];
     if(bkg>0&&parts.length)short=await consumeBlendParts(parts,bkg);
     closeDrawer();
-    if(short.length)alert('Blend logged, but batch stock came up short:\n'+short.join('\n')+'\n\nFix batch numbers in the classic app (History → Batch stock).');
+    if(short.length)alert('Blend logged, but batch stock came up short:\n'+short.join('\n')+'\n\nCheck the batch levels under Tools → Roasted Stock.');
     else toast('Blend batch logged ✓');
     await reload();
   }catch(e){
@@ -7113,7 +7113,7 @@ function tinWireSingle(){
 function tinRecipeHtml(){
   var parts=(tinBlend.parts||[]).filter(function(p){return (p.bean||'').trim();});
   if(parts.length)return '<div class="smp-sec-h" style="margin:14px 0 6px">Recipe</div><div class="rtl-recipe">'+parts.map(function(p){var pct=(p.pct||p.pct===0)?('<b>'+esc(String(p.pct))+'%</b> '):'';return '<span class="rtl-rchip">'+pct+esc(p.bean)+'</span>';}).join('')+'</div>';
-  if((tinBlend.name||'').trim())return '<div class="rtl-noflav" style="margin-top:10px">No recipe set · add it in classic F(x) → Blending</div>';
+  if((tinBlend.name||'').trim())return '<div class="rtl-noflav" style="margin-top:10px">No recipe set · add it under Tools → Recipe</div>';
   return '';
 }
 function renderTinRecipe(){var el=document.getElementById('tin-recipe');if(el)el.innerHTML=tinRecipeHtml();}
@@ -8627,7 +8627,7 @@ function paintRecipe(){
   var ed=canWrite(),defs=RCP.defs,dups=blDupNames(defs);
   var blendHTML;
   if(!defs.length){
-    blendHTML='<div class="sempty">No blends yet'+(ed?' — tap + New blend to start':' — add them in the classic app')+'</div>';
+    blendHTML='<div class="sempty">No blends yet'+(ed?' — tap + New blend to start':' — ask a manager to add them')+'</div>';
   }else{
     blendHTML=defs.map(function(bl,bi){
       if(!ed){ /* 唯讀：同移植前的清單樣子 */
@@ -8801,7 +8801,6 @@ if('serviceWorker' in navigator){try{navigator.serviceWorker.register('/new/sw.j
 /* ===== 公開頁（免登入）：?fb 回饋表單＋?bean 豆頁 =====
    2026-07-10 從 classic 移植（classic 原 IIFE ~L2521/L2558）——根網址換由新殼服務後，
    實體 QR（罐標/袋標/資訊卡）與 email 連結由這裡接手。overlay 蓋在 app 上層，不擋 boot */
-function fmtDate(d){if(!d||d==='—')return 'No date';var p=String(d).split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0].slice(-2)):d;}
 function sampleRadarSVG(s,force,col){
   /* col＝這支豆的罐標點色（Coffee Info 的 rtl_dot，public-bean 帶出）；沒有就退回玫瑰主色 */
   col=col||'#B25E6A';
