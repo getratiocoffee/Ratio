@@ -2735,8 +2735,8 @@ async function exportSocialImages(full,info,feats,nm,col,btn,mode){
 }
 /* ===== Marketing → IG asset 直接入口：列上架中的豆 → 點一支開現成的 Social post kit（openPromoSheet）=====
    清單建置照 openRetailSheet（載 rtl_* 記憶＋DB.syncs 上架豆），但 IG 用最新烘焙排最上（先介紹新鮮的） */
-async function openIGSheet(){
-  openDrawerHTML('<div class="t" style="font-size:19px">IG asset</div><div class="empty" style="margin-top:16px">Loading…</div>');
+/* 上架豆清單＋rtl_* 記憶（IG asset 與 Post to socials 共用）：synced/paused 豆按最新烘焙排序 */
+async function shelfLiveBeans(){
   var m={rtl_price:{},rtl_g:{},rtl_sizes:{},rtl_sold:{}};
   try{var r=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes','rtl_sold']);
     (r.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
@@ -2745,6 +2745,11 @@ async function openIGSheet(){
   var live=(DB.syncs||[]).filter(function(x){return (x.status==='synced'||x.status==='paused')&&String(x.bean_id||'').trim()&&!isSubName(x.bean_id);})
     .map(function(x){var nm=String(x.bean_id).trim();var d=null;try{d=shelfLatestRoast(nm);}catch(e){}return {nm:nm,d:d};})
     .sort(function(a,b){if(!!a.d!==!!b.d)return a.d?-1:1;return String(b.d||'').localeCompare(String(a.d||''))||a.nm.localeCompare(b.nm);});
+  return {m:m,live:live};
+}
+async function openIGSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">IG asset</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  var sl=await shelfLiveBeans(),m=sl.m,live=sl.live;
   var seen={},rows='';
   live.forEach(function(e){
     var nm=e.nm,k=nm.toLowerCase();if(seen[k])return;seen[k]=true;
@@ -2763,6 +2768,148 @@ async function openIGSheet(){
     openPromoSheet(s||{sample_id:nm},m);
   });});
   $('d-cl').addEventListener('click',closeDrawer);
+}
+/* ===== Post to socials（一鍵發 IG＋FB）：挑豆→四連圖預覽→caption→發文。
+   發文本體在 social-post edge（Meta Graph API；HANDLERS 插座——日後加 Threads/GBP 只是多一個 target）。
+   圖片走 mail-assets 公開圖床（Meta 要抓公開 URL），檔名 social-<slug>-<n>.jpg 照 uploadCardForBean 慣例。
+   IG 只收 JPEG，故圖模式只給 Colour/Photo（透明壓 JPEG 會變黑底） ===== */
+var SPS=null;
+var SP_LABEL={ig:'Instagram',fb:'Facebook'};
+async function openSocialPostSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Post to socials</div><div class="empty" style="margin-top:16px">Checking connection…</div>');
+  var st=null;
+  try{st=await callFn('social-post',{action:'status'});}
+  catch(e){st={connected:false,reason:'error',error:String(e&&e.message||e)};}
+  if(!st||!st.connected){
+    var msg=(st&&st.reason==='token_expired')
+      ?'The Meta connection has expired. Ask Claude to reconnect Instagram and Facebook — it is a quick redo of the key step.'
+      :(st&&st.reason==='not_configured')
+        ?'Instagram and Facebook are not connected yet. Ask Claude to connect your accounts — a one-time setup of about 20 minutes, then this button posts with one tap.'
+        :'Could not check the connection: '+((st&&st.error)||'unknown');
+    openDrawerHTML('<div class="t" style="font-size:19px">Post to socials</div>'
+      +'<div class="empty" style="margin-top:16px">'+esc(msg)+'</div>'
+      +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+    $('d-cl').addEventListener('click',closeDrawer);return;
+  }
+  var sl=await shelfLiveBeans();
+  var who=[st.targets&&st.targets.ig&&st.targets.ig.name,st.targets&&st.targets.fb&&st.targets.fb.name].filter(Boolean).join(' · ');
+  var seen={},rows='';
+  sl.live.forEach(function(e){
+    var nm=e.nm,k=nm.toLowerCase();if(seen[k])return;seen[k]=true;
+    rows+='<div class="hit" data-sp="'+esc(nm)+'"><span><div class="t" style="font-size:16px">'+esc(nm)+'</div>'
+      +'<div class="s">'+(e.d?('roasted '+(fmtD(e.d)||'')):'')+'</div></span><span class="k">post ›</span></div>';
+  });
+  openDrawerHTML('<div class="t" style="font-size:19px">Post to socials</div>'
+    +'<div class="s" style="margin-top:2px">'+esc(who||'connected')+' ✓ · pick a coffee</div>'
+    +(rows||'<div class="empty">Nothing on the shelf to post yet</div>')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  document.querySelectorAll('#drawer [data-sp]').forEach(function(el){el.addEventListener('click',function(){
+    openSocialPostBean(el.dataset.sp,sl.m,st);
+  });});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+async function openSocialPostBean(nm,m,st){
+  openDrawerHTML('<div class="t" style="font-size:19px">'+esc(nm)+'</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  /* 資料管線照 openPromoSheet：full row（flavour_locked 優先）＋點色＋產區明細＋caption */
+  var full={sample_id:nm};
+  try{
+    var fq=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',nm)
+      .order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
+    if(fq.data&&fq.data[0])full=fq.data[0];
+  }catch(e){}
+  var dots={};try{dots=await cardDots();}catch(e){}
+  var info=[];try{info=await beanInfoRows(full,{omit:['Roasted','Harvest']});}catch(e){}
+  var col=dotColorFor(nm,dots)||'#B25E6A';
+  var feats=(full.features||[]).filter(Boolean).slice(0,3);
+  var cap=promoCaptions(nm,info,feats,full.comment||'',m.rtl_price[nm],m.rtl_g[nm]||250,full.process||'');
+  /* 重複發文防呆：activity_log 今天已有這支豆的 posted socials 就提醒 */
+  var postedToday=false;
+  try{
+    var al=await sb.from('activity_log').select('created_at').eq('action','posted socials').eq('ref',nm)
+      .gte('created_at',todayKey()+'T00:00:00').limit(1);
+    postedToday=!!(al.data&&al.data.length);
+  }catch(e){}
+  SPS={nm:nm,full:full,info:info,feats:feats,col:col,mode:'white',images:null,postedToday:postedToday,st:st};
+  var tg=(st&&st.targets)||{ig:{ok:true},fb:{ok:true}};
+  openDrawerHTML('<span class="tag">Post to socials</span>'
+    +'<div class="t" style="font-size:19px">'+esc(nm)+'</div>'
+    +(postedToday?'<div class="s" style="margin-top:4px;color:#B8860B">⚠ already posted today</div>':'')
+    +'<div class="dlab">Image style</div>'
+    +'<div class="pm-seg"><button id="sp-white" class="on">Colour</button><button id="sp-photo">Photo</button></div>'
+    +'<button class="dclose" id="sp-gen">Generate preview</button>'
+    +'<div id="sp-grid"></div>'
+    +'<div class="dlab">Caption</div>'
+    +'<textarea class="dta" id="sp-cap" style="min-height:170px">'+esc(cap.en)+'</textarea>'
+    +'<div class="dlab">Post to</div>'
+    +Object.keys(SP_LABEL).map(function(t){
+      var ok=!!(tg[t]&&tg[t].ok);
+      return '<label class="dl" style="cursor:pointer"><span>'+SP_LABEL[t]+(tg[t]&&tg[t].name?' <span style="color:var(--muted);font-size:13px">'+esc(tg[t].name)+'</span>':'')+'</span>'
+        +'<input type="checkbox" data-spt="'+t+'"'+(ok?' checked':' disabled')+'></label>';
+    }).join('')
+    +'<button class="act" id="sp-go">Post now</button>'
+    +'<div id="sp-result"></div>'
+    +'<button class="dclose" id="sp-back">‹ Back to the list</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('sp-white').addEventListener('click',function(){SPS.mode='white';this.classList.add('on');$('sp-photo').classList.remove('on');});
+  $('sp-photo').addEventListener('click',async function(){
+    /* 沒存過照片就當場選一張（照 openPromoSheet 慣例） */
+    var slug=beanSlug(nm),have=await listBeanPhotos();
+    if(!have[slug]&&!(await changeBeanPhoto(nm,this)))return;
+    this.textContent='Photo';this.disabled=false;
+    SPS.mode='photo';this.classList.add('on');$('sp-white').classList.remove('on');
+  });
+  $('sp-gen').addEventListener('click',async function(){
+    var b=this;b.disabled=true;
+    try{
+      var r=await renderSocialImages(SPS.full,SPS.info,SPS.feats,SPS.nm,SPS.col,SPS.mode,
+        {fmt:'image/jpeg',quality:0.88,onStep:function(i){b.textContent='Drawing '+i+'/4…';}});
+      SPS.images=r.images;
+      var g=$('sp-grid');
+      if(g)g.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'
+        +r.images.map(function(x){return '<img src="'+x[1]+'" alt="'+esc(x[0])+'" style="width:100%;border:1px solid var(--line);border-radius:10px">';}).join('')
+        +'</div>';
+      b.disabled=false;b.textContent='Regenerate preview';
+    }catch(e){b.disabled=false;b.textContent='Generate preview';alert('Preview failed: '+(e&&e.message||e));}
+  });
+  $('sp-go').addEventListener('click',runSocialPost);
+  $('sp-back').addEventListener('click',openSocialPostSheet);
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+async function runSocialPost(){
+  var S=SPS;if(!S)return;
+  if(!S.images){toast('Generate the preview first');return;}
+  var targets=[].slice.call(document.querySelectorAll('#drawer [data-spt]')).filter(function(el){return el.checked;}).map(function(el){return el.dataset.spt;});
+  if(!targets.length){toast('Pick at least one platform');return;}
+  var cap=($('sp-cap')?$('sp-cap').value:'').trim();
+  if(S.postedToday&&!confirm('Already posted '+S.nm+' today — post again?'))return;
+  if(!confirm('Post '+S.nm+' to '+targets.map(function(t){return SP_LABEL[t];}).join(' + ')+'?'))return;
+  var b=$('sp-go');b.disabled=true;
+  try{
+    /* 四張上傳公開圖床拿 URL（Meta 從 URL 抓圖）；任一張失敗即停、不打 API */
+    var urls=[];
+    for(var i=0;i<S.images.length;i++){
+      b.textContent='Uploading image '+(i+1)+'/'+S.images.length+'…';
+      var b64=String(S.images[i][1]).split(',')[1];
+      var path='social-'+beanSlug(S.nm)+'-'+(i+1)+'.jpg';
+      var up=await sb.storage.from('mail-assets').upload(path,_b64ToBlob(b64,'image/jpeg'),{upsert:true,contentType:'image/jpeg'});
+      if(up&&up.error)throw new Error('image upload failed: '+up.error.message);
+      var pub=sb.storage.from('mail-assets').getPublicUrl(path);
+      var u=pub&&pub.data&&pub.data.publicUrl;
+      if(!u)throw new Error('could not get a public image link');
+      urls.push(u+'?v='+Date.now());
+    }
+    b.textContent='Posting…';
+    var r=await callFn('social-post',{action:'post',caption:cap,image_urls:urls,targets:targets,bean:S.nm});
+    var res=(r&&r.results)||{};
+    var lines=targets.map(function(t){var x=res[t]||{};return SP_LABEL[t]+' '+(x.ok?'✓':'✗ — '+(x.error||'failed'));});
+    logAct('posted socials',S.nm,targets.map(function(t){return t+':'+((res[t]||{}).ok?'ok':'fail');}).join(' '));
+    var links=targets.filter(function(t){return res[t]&&res[t].ok&&res[t].permalink;})
+      .map(function(t){return '<a class="dclose" style="display:block;text-align:center;text-decoration:none" target="_blank" rel="noopener" href="'+esc(res[t].permalink)+'">Open the '+SP_LABEL[t]+' post ›</a>';}).join('');
+    var host=$('sp-result');
+    if(host)host.innerHTML='<div class="s" style="margin-top:8px;white-space:pre-line">'+esc(lines.join('\n'))+'</div>'+links;
+    if(r&&r.ok){S.postedToday=true;b.textContent='Posted ✓';toast(lines.join(' · '));}
+    else{b.disabled=false;b.textContent='Post now';alert('Post failed:\n'+lines.join('\n'));}
+  }catch(e){b.disabled=false;b.textContent='Post now';alert('Post failed: '+(e&&e.message||e));}
 }
 /* ===== 新豆通知信群發（社群曝光 Phase 4：一份內容三發的「信」——IG/小紅書在 Social post kit）=====
    照抄 classic announceCoffee/uploadCardFor：QC 閘門→客戶人數確認→畫卡上傳 mail-assets（Square 安全白邊版，
@@ -7026,7 +7173,7 @@ function renderTools(){
       (_mk?_mkTile('t-label','Labels','bag / tin'):'')
       +_tiles([['Coffee Info','live on Square','retail'],['Menus','menu PDFs · in-store','menus']]))
     +_sec('Marketing',DEPT.mkt,
-      _tiles([['IG asset','post card · caption','igasset'],['Folding Info Card','A4 · 4 fold cards','infocards'],['Brew Card','A4 · pour-over guide','brewcard'],['Social Images','4-up · pick a coffee','social4']])
+      _tiles([['Post to socials','IG + FB · one tap','socialpost',1],['IG asset','post card · caption','igasset'],['Folding Info Card','A4 · 4 fold cards','infocards'],['Brew Card','A4 · pour-over guide','brewcard'],['Social Images','4-up · pick a coffee','social4']])
       +_off([['Announce','email blast · classic'],['QR codes','shop / feedback · classic']]))
     +_sec('Orders &amp; customers',DEPT.ord,
       (_mk?_mkTile('t-neworder','New order','right here'):'')
@@ -7110,6 +7257,7 @@ function renderTools(){
     if(k==='qcgo'){view='qc';render();return;}
     if(k==='recipe'){openRecipeSheet();return;}
     if(k==='igasset'){openIGSheet();return;}
+    if(k==='socialpost'){openSocialPostSheet();return;}
     if(k==='payroll'){openPayrollSheet();return;}
     if(k==='calc'){openCalcSheet();return;}
     if(k==='infocards'){openInfoCardsSheet();return;}
