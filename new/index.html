@@ -1147,6 +1147,43 @@ function openDetails(id){
   });
   $('d-cl').addEventListener('click',closeDrawer);
 }
+/* ===== 出貨自動扣熟豆批次（2026-07-12）＝血條全自動 =====
+   唯一插入點：openDispatch 的 go()——全部通道（manual/訂閱/批發/Square）都走這裡出貨。
+   規則：每品項 grams×qty 依名字 FIFO 扣同名批次（配方吃 kind='blend'、單品吃非 blend；
+   排除 QC 打退——同 rstBatches）；跳過無 grams 假品項（Delivery fee）與 Subscription 商品行；
+   批次不夠照扣到 0 並回報短缺（不擋出貨——出貨是事實，帳目短缺提醒人工調）；
+   orders.stock_deducted_at 蓋章防重複扣（再開同單不會扣第二次）。 */
+async function deductOrderStock(o){
+  if(o.stock_deducted_at)return {skipped:true,short:[]};
+  var short=[],tookAny=false;
+  var items=Array.isArray(o.items)?o.items:[];
+  for(var ii=0;ii<items.length;ii++){
+    var it=items[ii];
+    var nm=String(it&&it.name||'').trim();
+    if(!nm||!it.grams)continue; /* 假品項（運費行等）不扣 */
+    if(typeof isSubName==='function'&&isSubName(nm))continue; /* 網店訂閱商品行不是豆名 */
+    var kg=(Number(it.grams)||0)*(Number(it.qty)||1)/1000;
+    if(!(kg>0))continue;
+    var isBlend=(DB.blends||[]).some(function(b){return String(b.name||'').trim().toLowerCase()===nm.toLowerCase();});
+    var pool=rstBatches(nm,isBlend);
+    var left=kg;
+    for(var j=0;j<pool.length&&left>0.0001;j++){
+      var b=pool[j];
+      var take=Math.min(Number(b.remaining_kg)||0,left);
+      var nr=Math.max(0,Math.round(((Number(b.remaining_kg)||0)-take)*1000)/1000);
+      try{
+        var u=await sb.from('roasts').update({remaining_kg:nr}).eq('id',b.id);
+        if(u.error)continue;
+        b.remaining_kg=nr;left-=take;tookAny=true;
+      }catch(e){}
+    }
+    if(left>0.0001)short.push(nm+': short '+(Math.round(left*100)/100)+' kg (needed '+(Math.round(kg*100)/100)+' kg)');
+  }
+  var now=new Date().toISOString();
+  try{var m=await sb.from('orders').update({stock_deducted_at:now}).eq('id',o.id);if(!m.error)o.stock_deducted_at=now;}catch(e){}
+  if(tookAny||short.length)logAct('stock deducted','#'+(o.order_no||o.id),short.length?('short: '+short.length+' item(s)'):null);
+  return {skipped:false,short:short};
+}
 function openDispatch(i){
   var o=i.ref;
   openDrawerHTML('<div class="t" style="font-size:19px">Dispatch '+i.t.replace('Ship ','')+'</div>'
@@ -1167,10 +1204,15 @@ function openDispatch(i){
       var u=await sb.from('orders').update({status:'Dispatched',dispatched_at:new Date().toISOString(),tracking_no:track||null}).eq('id',o.id);
       if(u.error)throw new Error(u.error.message);
       logAct('dispatched',i.t,track||null);
+      /* 出貨自動扣熟豆批次（血條全自動）——短缺不擋出貨，只提醒 */
+      var ded={short:[]};
+      try{ded=await deductOrderStock(o);}catch(e3){console.error('stock deduct',e3);}
       if(mail){try{var cards={};try{cards=await uploadCardsFor(o);}catch(e2){console.error('cards',e2);}await callFn('send-email',{action:'dispatch_notice',order_id:o.id,cards:cards});toast('Dispatched ✓ email sent');}
         catch(e){toast('Dispatched ✓ but email failed');}}
       else toast('Dispatched ✓');
-      closeDrawer();await reload();
+      closeDrawer();
+      if(ded.short&&ded.short.length)alert('Dispatched, but batch stock came up short:\n'+ded.short.join('\n')+'\n\nFix numbers in Roasted Stock.');
+      await reload();
     }catch(e){b.disabled=false;b.textContent='Dispatch and send email';alert('Dispatch failed: '+(e&&e.message||e));}
   }
   $('dp-mail').addEventListener('click',function(){go(true);});

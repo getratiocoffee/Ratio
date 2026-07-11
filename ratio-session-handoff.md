@@ -109,6 +109,15 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12（出貨自動扣熟豆批次：血條全自動）
+- **背景**：血條上線後帳目靠手動扣（忘了扣就虛胖）——「繼續」授權自選，做血條的最後一塊。
+- **關鍵發現（探索確認）**：全 app **唯一**把 orders.status 設 'Dispatched' 的地方＝`openDispatch` 的 `go()`（manual/訂閱/批發/Square 匯入全走這裡出貨）→ 一個插入點涵蓋全部通道。無雙重計算：烘豆需求 packQ 只算 Confirmed/Roasting（Ready 已不在），Dispatched 才扣與現行邏輯天然相容。
+- **Migration `orders_stock_deducted_at`**：orders 加 `stock_deducted_at timestamptz`＝「這單已扣過」蓋章（select * 自動帶進 DB.orders）。
+- **前端（new/index.html）**：`deductOrderStock(o)`（openDispatch 前）——每品項 `grams×qty/1000` kg 依名字 FIFO 扣同名批次（配方名命中 DB.blends→吃 kind='blend' 批次、單品→非 blend；用 `rstBatches`＝排除 QC 打退、舊→新）；**跳過**無 grams 假品項（Delivery fee）與 `isSubName` 訂閱商品行；批次不夠**照扣到 0 回報短缺、不擋出貨**（出貨是事實）；扣完蓋章＋`logAct('stock deducted','#no')`。`go()` 在 status update 成功後呼叫（畫卡/寄信前），短缺在 closeDrawer 後 alert 列清單提醒去 Roasted Stock 調帳。
+- **驗證**：jscheck 0 錯；本機 stub——配方 1.0kg 跨兩批 FIFO（0.3→0、2.0→1.3）✓單品不夠→扣到 0＋short 0.15 回報 ✓QC 打退批原封不動 ✓運費/訂閱行零多餘 update ✓蓋章＋logAct ✓**同單重跑＝skipped 零寫入** ✓console 零錯誤。
+- **等老闆（部署後真機）**：出一張真單（或測試單）→ Roasted Stock 看對應批次被扣、血條下降；故意出一張超過庫存的看短缺 alert。
+- **注意**：手動扣血（「−」）仍在＝非訂單耗損用；舊單（stock_deducted_at=null、已 Dispatched 的歷史單）不會被回溯扣——蓋章欄只從此刻起作用；訂單取消/退貨**不自動回補**批次（低頻，Roasted Stock 手動加回或等日後需求）。
+
 ## 〇、補記 — 2026-07-11 之十（生豆樣品分析 Sample analyse 移植：缺口 #12，B 組全清空）
 - **老闆拍板**：生產線盤點後選「Sample analyse」優先（B 組收尾）。生豆樣品杯測評分＋歷史＋Buy/Maybe/Skip 決策，原本要回 classic（green:analyse/samplehist）。
 - **資料設計（零 migration）**：samples 表雙用途靠 `supplier` 分流——'Ratio Coffee'＝自家熟豆 QC（新殼所有現有查詢硬編此條件）、其他值/null＝外部生豆樣品；同一張表天然隔離。**讀取＝抓全再前端濾 `s.supplier!=='Ratio Coffee'`**（⚠ 不能 .neq 查——會漏 supplier=null 的樣品）。
