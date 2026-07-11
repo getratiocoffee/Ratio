@@ -8231,6 +8231,130 @@ async function openCalcSheet(){
   });
   $('cx-close').addEventListener('click',closeDrawer);
 }
+/* ===== Contacts 通訊錄（缺口 #8，自 classic openContacts/saveContact/deleteContact 移植）=====
+   contacts 表＝供應商/服務商聯絡簿，跟 Customers（訂單客戶）分開。類型四色照 classic CT_COLORS；
+   insert/update/delete payload 逐字照抄 classic；刪除改新殼慣例 confirm（classic 是兩段按鈕）；
+   補 logAct（classic 沒記——閹割盤點時列過的缺）。讀人人可看、寫入 canWrite 守門。 */
+var CONTACT_TYPES=['Supplier','Customer','Roaster','Service'];
+var CT_COLORS={Supplier:'#6E6256',Customer:'#B25E6A',Roaster:'#7E9B7A',Service:'#7C7BA0'};
+var CTS={list:[],type:null};
+async function openContactsSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Contacts</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  var r=await sb.from('contacts').select('*').order('name');
+  if(r.error){
+    openDrawerHTML('<div class="t" style="font-size:19px">Contacts</div><div class="empty" style="margin-top:16px">Load failed: '+esc(r.error.message)+'</div>'
+      +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+    $('d-cl').addEventListener('click',closeDrawer);return;
+  }
+  CTS.list=r.data||[];
+  renderContactsList();
+}
+function renderContactsList(){
+  var chips='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">'
+    +[['','All']].concat(CONTACT_TYPES.map(function(t){return [t,t];})).map(function(x){
+      var on=(CTS.type||'')===x[0];
+      return '<button class="chip" data-ctf="'+x[0]+'"'+(on?' style="border-color:var(--accent);color:var(--accent)"':'')+'>'+x[1]+'</button>';
+    }).join('')+'</div>';
+  var list=CTS.list.filter(function(c){return !CTS.type||c.type===CTS.type;});
+  var body=list.length?list.map(function(c){
+    var sub=c.address||c.company||c.email||c.phone||'';
+    return '<div class="hit" data-ct="'+esc(String(c.id))+'"><span style="min-width:0"><div class="t">'+esc(c.name||'—')+'</div>'+(sub?'<div class="s">'+esc(sub)+'</div>':'')+'</span>'
+      +'<span class="k pill" style="background:'+(CT_COLORS[c.type]||'#9A8B82')+';color:#fff">'+esc(c.type||'—')+'</span></div>';
+  }).join(''):'<div class="empty" style="margin-top:14px">'+(CTS.type?('No '+esc(CTS.type)+' contacts yet'):'No contacts yet')+'</div>';
+  openDrawerHTML('<div class="t" style="font-size:19px">Contacts</div>'
+    +'<div class="s" style="margin-top:2px">suppliers and partners — separate from customers</div>'
+    +chips+'<div style="margin-top:10px">'+body+'</div>'
+    +(canWrite()?'<button class="act" id="cts-add">+ New contact</button>':'')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  var d=$('drawer');
+  d.querySelectorAll('[data-ctf]').forEach(function(b){b.addEventListener('click',function(){CTS.type=b.dataset.ctf||null;renderContactsList();});});
+  d.querySelectorAll('[data-ct]').forEach(function(el){el.addEventListener('click',function(){
+    var c=CTS.list.find(function(x){return String(x.id)===el.dataset.ct;});
+    if(c)openContactEdit(c);
+  });});
+  var ad=$('cts-add');if(ad)ad.addEventListener('click',function(){openContactEdit(null);});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+function openContactEdit(c){
+  var isNew=!c;
+  var p=c||{name:'',type:CTS.type||'Supplier',company:'',address:'',email:'',phone:'',notes:''};
+  var typeOpts=CONTACT_TYPES.map(function(t){return '<option'+(t===p.type?' selected':'')+'>'+t+'</option>';}).join('');
+  var ro=!canWrite();
+  openDrawerHTML('<div class="t" style="font-size:19px">'+(isNew?'New contact':esc(p.name||'Contact'))+'</div>'
+    +'<div class="dlab">Type</div><select class="din" id="cts-type"'+(ro?' disabled':'')+'>'+typeOpts+'</select>'
+    +'<div class="dlab">Name</div><input class="din" id="cts-name" type="text" value="'+esc(p.name||'')+'" placeholder="Contact name"'+(ro?' readonly':'')+'>'
+    +'<div class="dlab">Company</div><input class="din" id="cts-company" type="text" value="'+esc(p.company||'')+'"'+(ro?' readonly':'')+'>'
+    +'<div class="dlab">Address</div><input class="din" id="cts-address" type="text" value="'+esc(p.address||'')+'" placeholder="Street, suburb STATE postcode"'+(ro?' readonly':'')+'>'
+    +'<div class="dlab">Email</div><input class="din" id="cts-email" type="email" value="'+esc(p.email||'')+'"'+(ro?' readonly':'')+'>'
+    +'<div class="dlab">Phone</div><input class="din" id="cts-phone" type="tel" value="'+esc(p.phone||'')+'"'+(ro?' readonly':'')+'>'
+    +'<div class="dlab">Notes</div><textarea class="din" id="cts-notes" rows="2"'+(ro?' readonly':'')+'>'+esc(p.notes||'')+'</textarea>'
+    +'<div class="s" id="cts-msg" style="margin-top:8px"></div>'
+    +(ro?'':'<button class="act" id="cts-save">Save</button>')
+    +(isNew||ro?'':'<button class="dclose" id="cts-del" style="color:var(--danger)">Delete this contact</button>')
+    +'<button class="dclose" id="cts-back" style="border:none;background:none;color:var(--muted)">‹ Back to Contacts</button>');
+  var sv=$('cts-save');if(sv)sv.addEventListener('click',async function(){
+    var g=function(id){return ($(id).value||'').trim();};
+    var rec={type:$('cts-type').value,name:g('cts-name'),company:g('cts-company')||null,address:g('cts-address')||null,email:g('cts-email')||null,phone:g('cts-phone')||null,notes:g('cts-notes')||null};
+    var msg=$('cts-msg');
+    if(!rec.name){msg.innerHTML='<span class="red">Name is required</span>';return;}
+    sv.disabled=true;sv.textContent='Saving…';
+    if(isNew){
+      var ins=await sb.from('contacts').insert(rec).select();
+      if(ins.error){sv.disabled=false;sv.textContent='Save';msg.innerHTML='<span class="red">Save failed: '+esc(ins.error.message)+'</span>';return;}
+      if(ins.data&&ins.data[0])CTS.list.push(ins.data[0]);
+      logAct('added contact',rec.name);
+    }else{
+      var up=await sb.from('contacts').update(rec).eq('id',c.id);
+      if(up.error){sv.disabled=false;sv.textContent='Save';msg.innerHTML='<span class="red">Save failed: '+esc(up.error.message)+'</span>';return;}
+      var i=CTS.list.findIndex(function(x){return String(x.id)===String(c.id);});if(i>-1)CTS.list[i]=Object.assign({},CTS.list[i],rec);
+      logAct('edited contact',rec.name);
+    }
+    CTS.list.sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
+    toast('Saved ✓');renderContactsList();
+  });
+  var del=$('cts-del');if(del)del.addEventListener('click',async function(){
+    if(!confirm('Delete "'+(p.name||'')+'"? This cannot be undone.'))return;
+    var r=await sb.from('contacts').delete().eq('id',c.id);
+    if(r.error){$('cts-msg').innerHTML='<span class="red">Delete failed: '+esc(r.error.message)+'</span>';return;}
+    CTS.list=CTS.list.filter(function(x){return String(x.id)!==String(c.id);});
+    logAct('deleted contact',p.name||'');
+    toast('Deleted');renderContactsList();
+  });
+  $('cts-back').addEventListener('click',renderContactsList);
+}
+/* ===== 開帳號（缺口 #9，自 classic 登入頁 signUp 移植進 Team 抽屜）=====
+   classic Admin 的密碼閘不搬——新殼用 ROLE==='director' 守門（能按到這顆的 director 就是本人）。
+   signUp 走獨立 client（persistSession:false，classic getAuthCheck 同招）——不然 supabase-js
+   會把目前 session 換成新帳號、老闆自己被登出。新帳號 role 走 DB 預設（customer），
+   建好回 Team 的 Accounts 區點 chips 指派角色（複製 classic「註冊→Admin 改角色」的流程）。 */
+function openAddAccountSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Add account</div>'
+    +'<div class="s" style="margin-top:2px">creates a sign-in — when it appears under Accounts, set the role there</div>'
+    +'<div class="dlab">Name</div><input class="din" id="aa-name" type="text" placeholder="Match the staff list if staff">'
+    +'<div class="dlab">Email</div><input class="din" id="aa-email" type="email" placeholder="them@example.com">'
+    +'<div class="dlab">Password</div><input class="din" id="aa-pass" type="text" autocomplete="off" placeholder="6+ characters — share it with them">'
+    +'<div class="s" id="aa-msg" style="margin-top:8px"></div>'
+    +'<button class="act" id="aa-go">Create account</button>'
+    +'<button class="dclose" id="aa-back" style="border:none;background:none;color:var(--muted)">‹ Back to Team</button>');
+  $('aa-back').addEventListener('click',openTeamSheet);
+  $('aa-go').addEventListener('click',async function(){
+    var name=($('aa-name').value||'').trim();
+    var email=($('aa-email').value||'').trim();
+    var pass=$('aa-pass').value||'';
+    var msg=$('aa-msg');
+    if(!email||!pass){msg.innerHTML='<span class="red">Enter email and password</span>';return;}
+    if(pass.length<6){msg.innerHTML='<span class="red">Password needs 6+ characters</span>';return;}
+    var b=$('aa-go');b.disabled=true;b.textContent='Creating…';
+    try{
+      var c=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+      var r=await c.auth.signUp({email:email,password:pass,options:{data:{name:name}}});
+      if(r.error)throw new Error(r.error.message);
+      logAct('added account',name||email);
+      toast(r.data&&r.data.session?'Account created ✓':'Account created — they must confirm the email before signing in');
+      openTeamSheet();
+    }catch(e){b.disabled=false;b.textContent='Create account';msg.innerHTML='<span class="red">Failed: '+esc(e&&e.message||e)+'</span>';}
+  });
+}
 async function openTeamSheet(){
   openDrawerHTML('<div class="t" style="font-size:19px">Team</div><div class="empty" style="margin-top:16px">Loading…</div>');
   await rsEnsureStaff();
@@ -8261,7 +8385,8 @@ async function openTeamSheet(){
           +(canEdit?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+chips+'</div>':'')
           +'</div>';
       }).join(''):'<div class="empty" style="padding:16px 0">No accounts yet — add users in Supabase Auth first, they appear here</div>')
-      +'<div class="s" style="margin-top:8px">Staff names must match the staff list word for word — roster, tasks and unavailability all match people by name.</div>';
+      +'<div class="s" style="margin-top:8px">Staff names must match the staff list word for word — roster, tasks and unavailability all match people by name.</div>'
+      +'<button class="act" id="tm-addacc">+ Add account</button>';
   }
   openDrawerHTML('<div class="t" style="font-size:19px">Team</div>'
     +'<div class="s" style="margin-top:2px">tap a person to assign a task'+(ROLE==='director'?' · accounts below':'')+'</div>'
@@ -8269,6 +8394,7 @@ async function openTeamSheet(){
     +dir
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   document.querySelectorAll('#drawer [data-tm]').forEach(function(b){b.addEventListener('click',function(){openTaskAdd(b.dataset.tm);});});
+  var aa=$('tm-addacc');if(aa)aa.addEventListener('click',openAddAccountSheet);
   document.querySelectorAll('#drawer [data-tmr]').forEach(function(b){b.addEventListener('click',async function(){
     var p=b.dataset.tmr.split('|');
     if(!confirm('Set this account to '+p[1]+'?'))return;
@@ -8327,7 +8453,7 @@ function renderTools(){
       +_off([['QR codes','shop / feedback · classic']]))
     +_sec('Orders &amp; customers',DEPT.ord,
       (_mk?_mkTile('t-neworder','New order','right here'):'')
-      +_tiles([['Orders','recent list','orders'],['Customers','book','customers']].concat(ROLE==='director'?[['Subscriptions','fortnightly beans · plans','subs',1],['Wholesale','discount % · accounts','wholesale',1]]:[])))
+      +_tiles([['Orders','recent list','orders'],['Customers','book','customers'],['Contacts','suppliers · partners','contacts',_mk?1:0]].concat(ROLE==='director'?[['Subscriptions','fortnightly beans · plans','subs',1],['Wholesale','discount % · accounts','wholesale',1]]:[])))
     +(rsMoney()?_sec('Finance',DEPT.fin,
       _tiles([['P&amp;L','money overview','pnl'],['Invoice','GST PDF','invoice',1],['Payroll','wages · weeks','payroll',_mk?1:0],['Calculator','cost · margins','calc']])
       +_off([['Bookkeeping','expenses · classic']])):'')
@@ -8404,6 +8530,7 @@ function renderTools(){
     if(k==='sampleana'){openSampleSheet();return;}
     if(k==='buylog'){openBuyLogSheet();return;}
     if(k==='customers'){openCustomersSheet();return;}
+    if(k==='contacts'){openContactsSheet();return;}
     if(k==='help'){openHelpSheet();return;}
     if(k==='retail'){openRetailSheet();return;}
     if(k==='qcgo'){view='qc';render();return;}
