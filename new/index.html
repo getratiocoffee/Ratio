@@ -473,7 +473,8 @@ async function loadAll(){
     sb.from('app_state').select('value').eq('key','new_closing').maybeSingle(),
     sb.from('app_state').select('value').eq('key','new_assign').maybeSingle(),
     sb.from('app_state').select('value').eq('key','soc_bg').maybeSingle(),
-    sb.from('app_state').select('value').eq('key','bean_swap').maybeSingle()
+    sb.from('app_state').select('value').eq('key','bean_swap').maybeSingle(),
+    sb.from('subscriptions').select('*')
   ]);
   DB={orders:rs[0].data||[],customers:rs[1].data||[],tasks:rs[2].data||[],dialins:rs[3].data||[],
       syncs:rs[4].data||[],samples:rs[5].data||[],roasts:rs[6].data||[],beans:rs[7].data||[],
@@ -507,6 +508,7 @@ async function loadAll(){
   var bsw=rs[19]&&rs[19].data&&rs[19].data.value;
   if(typeof bsw==='string'){try{bsw=JSON.parse(bsw);}catch(e){bsw=null;}}
   BEAN_SWAP=(bsw&&bsw.bean)?bsw:null;
+  DB.subs=(rs[20]&&rs[20].data)||[];
   buildItems();
 }
 function dPlus(n){var t=new Date();t.setDate(t.getDate()+n);return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
@@ -605,6 +607,18 @@ function buildItems(){
         det2:'Open classic app',roles:['director','roaster'],kind:'roastlog',
         ref:needs.map(function(n){return {name:n.name,g:n.g};})});
     }
+  }
+  /* 訂閱到期聚合卡：active 且 next_ship_date 到了 → 一張卡帶老闆進 run sheet 挑豆批次出貨。
+     生成後的訂單（channel subscription）自動流進下面的 pack/ship/paid 卡，這裡不重複列 */
+  var subDue=(DB.subs||[]).filter(function(s){return s.status==='active'&&String(s.next_ship_date||'').slice(0,10)<=todayKey();});
+  if(subDue.length){
+    var sdSg=subDue.filter(function(s){return s.plan==='single';}).length,sdBl=subDue.length-sdSg;
+    out.push({id:'subs-due',st:'Orders',hot:1,t:'Subscriptions due — '+subDue.length+' box'+(subDue.length>1?'es':''),
+      s:(sdSg?sdSg+' single origin':'')+(sdSg&&sdBl?' · ':'')+(sdBl?sdBl+' blend':''),
+      act:'Run shipment…',
+      det:subDue.map(function(s){var c=custById(s.customer_id);
+        return [(c&&c.name)||'—',subPlanLabel(s.plan)+' · '+(s.grams||0)+'g · '+(s.source==='square'?'Square billed':'payment link')];}),
+      det2:'Later',roles:['director'],kind:'subrun'});
   }
   newQ.forEach(function(o){
     var c=custById(o.customer_id);
@@ -951,6 +965,7 @@ async function runAction(id,btn){
       dropCard(id);toast('Reminder sent ✓');return;
     }
     if(i.kind==='dialin'){openDialinForm(i);return;}
+    if(i.kind==='subrun'){openSubRunSheet();return;}
     if(i.kind==='roastlog'){openRoastSheet(Array.isArray(i.ref)?i.ref:null);return;}
     if(i.kind==='list'){await openListSheet(i);return;}
     if(i.kind==='locks'){openLocksSheet(i);return;}
@@ -2927,6 +2942,286 @@ function openCustomerDetail(r){
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('cd-back').addEventListener('click',openCustomersSheet);
   $('d-cl').addEventListener('click',closeDrawer);
+}
+/* ===== Subscriptions（豆子訂閱：大腦住 app——方案/價格/週期/下次出貨；收錢先借 Square 付款連結。
+   source='app'＝每期 run 生成付款連結請客人點付；source='square'＝Square 端訂閱已自動扣款、這裡只管出貨。
+   寫入規則：建新客照抄 classic saveOrder（type 用 retail——wholesale 型會被 whOrd 歸去批發站）===== */
+var SUB_NEW=null;
+function subPlanLabel(p){return p==='blend'?'Blend':'Single origin';}
+async function reloadSubs(){
+  var q=await sb.from('subscriptions').select('*');
+  if(!q.error)DB.subs=q.data||[];
+  buildItems();
+}
+function openSubsSheet(){
+  var w={active:0,paused:1,cancelled:2};
+  var subs=(DB.subs||[]).slice().sort(function(a,b){
+    return (w[a.status]-w[b.status])||String(a.next_ship_date||'').localeCompare(String(b.next_ship_date||''));
+  });
+  var act=subs.filter(function(s){return s.status==='active';}).length;
+  openDrawerHTML('<div class="t" style="font-size:19px">Subscriptions</div>'
+    +'<div class="s" style="margin-top:2px">'+act+' active · a box every fortnight · shipment runs from the daily feed</div>'
+    +'<button class="act" id="sub-add">＋ Add subscriber</button>'
+    +(subs.length?subs.map(function(s,ix){
+      var c=custById(s.customer_id);
+      return '<div class="hit" data-sb="'+ix+'"'+(s.status!=='active'?' style="opacity:.55"':'')+'><span>'
+        +'<div class="t">'+esc((c&&c.name)||'—')+'</div>'
+        +'<div class="s">'+subPlanLabel(s.plan)+' · '+money(s.price)+' · '+(s.grams||0)+'g'
+        +(s.status==='active'?' · next '+(fmtD(s.next_ship_date)||'—'):'')
+        +(s.status==='paused'?' · <span style="color:#B8860B">paused</span>':'')
+        +(s.status==='cancelled'?' · cancelled':'')
+        +'</div></span>'
+        +'<span class="k">'+(s.source==='square'?'square':'app')+'</span></div>';
+    }).join(''):'<div class="empty">No subscribers yet — add your Square regulars here too, marked Square billed, so every box ships from one list</div>')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('sub-add').addEventListener('click',function(){openSubForm(null);});
+  document.querySelectorAll('#drawer [data-sb]').forEach(function(el){el.addEventListener('click',function(){openSubForm(subs[+el.dataset.sb]);});});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+function openSubForm(sub){
+  SUB_NEW=sub?{id:sub.id,cust:sub.customer_id,nc:null,plan:sub.plan,price:String(sub.price),grams:String(sub.grams),
+      source:sub.source,date:String(sub.next_ship_date||'').slice(0,10),notes:sub.notes||'',status:sub.status}
+    :{id:null,cust:'',nc:null,plan:'single',price:'25',grams:'150',source:'app',date:todayKey(),notes:'',status:'active'};
+  paintSubForm();
+}
+function paintSubForm(){
+  var S=SUB_NEW,edit=!!S.id;
+  var custs=(DB.customers||[]).slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
+  var c=edit?custById(S.cust):null;
+  openDrawerHTML('<span class="tag">Subscription</span>'
+    +'<div class="t" style="font-size:19px">'+(edit?esc((c&&c.name)||'Edit subscriber'):'Add subscriber')+'</div>'
+    +(edit?'':'<div class="dlab">Customer</div>'
+      +'<select class="din" id="sf-cust" style="padding:12px">'
+      +'<option value="">— pick a customer —</option>'
+      +'<option value="+"'+(S.nc?' selected':'')+'>＋ New customer…</option>'
+      +custs.map(function(x){return '<option value="'+esc(x.id)+'"'+(S.cust===x.id?' selected':'')+'>'+esc(x.name||'—')+'</option>';}).join('')
+      +'</select>'
+      +(S.nc?'<input class="din" id="sf-nm" placeholder="Name" value="'+esc(S.nc.name)+'">'
+        +'<input class="din" id="sf-em" placeholder="Email — payment link and updates go here" value="'+esc(S.nc.email)+'">'
+        +'<input class="din" id="sf-ph" placeholder="Phone (optional)" value="'+esc(S.nc.phone)+'">'
+        +'<input class="din" id="sf-a1" placeholder="Address line" value="'+esc(S.nc.line1)+'">'
+        +'<div style="display:flex;gap:8px"><input class="din" id="sf-sb" placeholder="Suburb" value="'+esc(S.nc.suburb)+'"><input class="din" id="sf-pc" placeholder="Postcode" style="flex:0 0 110px" value="'+esc(S.nc.postcode)+'"></div>':''))
+    +'<div class="dlab">Plan</div>'
+    +'<div class="pm-seg"><button id="sf-psg" class="'+(S.plan==='single'?'on':'')+'">Single origin</button><button id="sf-pbl" class="'+(S.plan==='blend'?'on':'')+'">Blend</button></div>'
+    +'<div style="display:flex;gap:8px"><span style="flex:1"><div class="dlab">Price per box</div><input class="din" id="sf-pr" inputmode="decimal" value="'+esc(S.price)+'"></span>'
+    +'<span style="flex:1"><div class="dlab">Grams per bag</div><input class="din" id="sf-gr" inputmode="numeric" value="'+esc(S.grams)+'"></span></div>'
+    +'<div class="dlab">Billing</div>'
+    +'<div class="pm-seg"><button id="sf-ba" class="'+(S.source==='app'?'on':'')+'">App · payment link</button><button id="sf-bs" class="'+(S.source==='square'?'on':'')+'">Square · auto-charged</button></div>'
+    +'<div class="dlab">'+(edit?'Next ship date':'First ship date')+'</div>'
+    +'<input class="din" id="sf-dt" type="date" value="'+esc(S.date)+'">'
+    +'<div class="dlab">Notes</div>'
+    +'<input class="din" id="sf-nt" placeholder="grinder, likes fruity, gate code…" value="'+esc(S.notes)+'">'
+    +'<button class="act" id="sf-save">'+(edit?'Save changes':'Add subscriber')+'</button>'
+    +(edit?'<button class="dclose" id="sf-pause">'+(S.status==='active'?'Pause subscription':(S.status==='paused'?'Resume subscription':'Reactivate subscription'))+'</button>'
+      +(S.status!=='cancelled'?'<button class="dclose" id="sf-cxl" style="color:var(--danger)">Cancel subscription</button>':''):'')
+    +'<button class="dclose" id="sf-back">‹ Back to list</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  /* 重繪前把輸入抄回 SUB_NEW（照 LST paint 模式：狀態在全域、DOM 只是投影） */
+  function grab(){
+    var v=function(id){var el=$(id);return el?el.value:null;};
+    if(!edit&&S.nc)S.nc={name:v('sf-nm')||'',email:v('sf-em')||'',phone:v('sf-ph')||'',line1:v('sf-a1')||'',suburb:v('sf-sb')||'',postcode:v('sf-pc')||''};
+    S.price=(v('sf-pr')!=null)?v('sf-pr'):S.price;
+    S.grams=(v('sf-gr')!=null)?v('sf-gr'):S.grams;
+    S.date=(v('sf-dt')!=null&&v('sf-dt'))?v('sf-dt'):S.date;
+    S.notes=(v('sf-nt')!=null)?v('sf-nt'):S.notes;
+  }
+  var sc=$('sf-cust');
+  if(sc)sc.addEventListener('change',function(){
+    grab();
+    if(this.value==='+'){S.nc={name:'',email:'',phone:'',line1:'',suburb:'',postcode:''};S.cust='';}
+    else{S.nc=null;S.cust=this.value;}
+    paintSubForm();
+  });
+  $('sf-psg').addEventListener('click',function(){grab();S.plan='single';paintSubForm();});
+  $('sf-pbl').addEventListener('click',function(){grab();S.plan='blend';paintSubForm();});
+  $('sf-ba').addEventListener('click',function(){grab();S.source='app';paintSubForm();});
+  $('sf-bs').addEventListener('click',function(){grab();S.source='square';paintSubForm();});
+  $('sf-save').addEventListener('click',function(){grab();saveSubForm();});
+  var sp=$('sf-pause');
+  if(sp)sp.addEventListener('click',async function(){
+    var to=(S.status==='active')?'paused':'active';
+    sp.disabled=true;
+    try{
+      var u=await sb.from('subscriptions').update({status:to,updated_at:new Date().toISOString()}).eq('id',S.id);
+      if(u.error)throw new Error(u.error.message);
+      logAct('subscription '+(to==='paused'?'paused':'resumed'),(c&&c.name)||'');
+      await reloadSubs();toast(to==='paused'?'Paused':'Back on ✓');openSubsSheet();
+    }catch(e){sp.disabled=false;alert('Update failed: '+(e&&e.message||e));}
+  });
+  var sx=$('sf-cxl');
+  if(sx)sx.addEventListener('click',async function(){
+    if(!confirm('Cancel this subscription? It stays in the list as cancelled.'))return;
+    sx.disabled=true;
+    try{
+      var u=await sb.from('subscriptions').update({status:'cancelled',updated_at:new Date().toISOString()}).eq('id',S.id);
+      if(u.error)throw new Error(u.error.message);
+      logAct('subscription cancelled',(c&&c.name)||'');
+      await reloadSubs();toast('Cancelled');openSubsSheet();
+    }catch(e){sx.disabled=false;alert('Update failed: '+(e&&e.message||e));}
+  });
+  $('sf-back').addEventListener('click',openSubsSheet);
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+async function saveSubForm(){
+  var S=SUB_NEW,b=$('sf-save');
+  var price=Number(S.price),grams=parseInt(S.grams,10);
+  if(!(price>0)){toast('Set a price per box');return;}
+  if(!(grams>0)){toast('Set grams per bag');return;}
+  if(!S.date){toast('Pick a ship date');return;}
+  if(!S.id){
+    if(!S.cust&&!(S.nc&&S.nc.name.trim())){toast('Pick or add a customer');return;}
+    if(S.nc&&!S.nc.email.trim()&&S.source==='app'){
+      if(!confirm('No email — the payment link cannot be emailed each fortnight. Add anyway?'))return;
+    }
+  }
+  b.disabled=true;b.textContent=S.id?'Saving…':'Adding…';
+  try{
+    var custId=S.cust||null;
+    if(!S.id&&S.nc&&S.nc.name.trim()){
+      var addr={line1:S.nc.line1,suburb:S.nc.suburb,postcode:S.nc.postcode};
+      var cr=await sb.from('customers').insert({name:S.nc.name.trim(),type:'retail',phone:S.nc.phone||null,email:S.nc.email||null,address:addr}).select().single();
+      if(cr.error)throw new Error(cr.error.message);
+      custId=cr.data.id;
+      DB.customers.push({id:cr.data.id,name:cr.data.name,email:cr.data.email,type:cr.data.type});
+    }
+    if(S.id){
+      var u=await sb.from('subscriptions').update({plan:S.plan,price:price,grams:grams,source:S.source,
+        next_ship_date:S.date,notes:S.notes||null,updated_at:new Date().toISOString()}).eq('id',S.id);
+      if(u.error)throw new Error(u.error.message);
+      logAct('subscription updated',(custById(S.cust)||{}).name||'');
+    }else{
+      var ins=await sb.from('subscriptions').insert({customer_id:custId,plan:S.plan,price:price,grams:grams,
+        source:S.source,next_ship_date:S.date,notes:S.notes||null});
+      if(ins.error)throw new Error(ins.error.message);
+      logAct('subscription added',(custById(custId)||{}).name||'');
+    }
+    await reloadSubs();
+    toast(S.id?'Saved ✓':'Subscriber added ✓');
+    openSubsSheet();
+  }catch(e){
+    b.disabled=false;b.textContent=S.id?'Save changes':'Add subscriber';
+    alert('Save failed: '+(e&&e.message||e));
+  }
+}
+/* ===== 訂閱出貨執行（run sheet）：到期卡按進來 → 挑這期的豆（單品一支/配方一批，全員套用）→ 一鍵批次建單。
+   逐筆處理：insert 失敗＝該筆跳過、日期不推進，明天卡片只剩失敗者再按一次即可；
+   連結/email 失敗只當 warning（payment_link 冪等可重呼，催款信會帶連結補救） ===== */
+var SUBRUN=null;
+function subDueList(){return (DB.subs||[]).filter(function(s){return s.status==='active'&&String(s.next_ship_date||'').slice(0,10)<=todayKey();});}
+/* 下次出貨＝原日期＋週期，但至少明天（積欠多期不會推完又立刻到期） */
+function subBump(s){
+  var d=new Date(String(s.next_ship_date||'').slice(0,10)+'T00:00:00');
+  if(isNaN(d.getTime()))d=new Date();
+  d.setDate(d.getDate()+(Number(s.interval_days)||14));
+  var t=new Date();t.setDate(t.getDate()+1);t.setHours(0,0,0,0);
+  if(d<t)d=t;
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+/* 收款抽象點（訂閱）：全 app 只有這個函式知道錢怎麼收。日後換 Stripe／存卡扣款只改這裡，
+   回寫同一批 orders 欄位（payment_link 等），下游（確認信付款鈕、webhook 對帳）介面不變。
+   冪等：sync-to-square payment_link 對已有連結的單會 reuse。 */
+async function subCollectPayment(order,sub){
+  if(sub.source==='square')return {ok:true};  /* Square 端訂閱已自動扣款 */
+  var r=await callFn('sync-to-square',{action:'payment_link',order_id:order.id});
+  return {ok:true,url:r&&r.url};
+}
+async function openSubRunSheet(){
+  SUBRUN={blends:[]};
+  openDrawerHTML('<div class="t" style="font-size:19px">Subscription shipment</div><div class="empty">Loading…</div>');
+  try{
+    var q=await sb.from('blends').select('name');
+    SUBRUN.blends=(q.data||[]).map(function(b){return b.name;}).filter(Boolean);
+  }catch(e){}
+  paintSubRun();
+}
+function paintSubRun(){
+  var due=subDueList();
+  if(!due.length){
+    openDrawerHTML('<div class="t" style="font-size:19px">Subscription shipment</div>'
+      +'<div class="empty">Nothing due today</div>'
+      +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+    $('d-cl').addEventListener('click',closeDrawer);return;
+  }
+  var sg=due.filter(function(s){return s.plan==='single';}),bl=due.filter(function(s){return s.plan==='blend';});
+  /* 豆單重用 beanNames()（與 New order 同源＝名字對得上 samples/blends，出貨信的沖煮卡才查得到）；上架中排前 */
+  var onShelf={};(DB.syncs||[]).forEach(function(x){if(x.status==='synced')onShelf[String(x.bean_id||'').trim().toLowerCase()]=1;});
+  var names=beanNames().slice().sort(function(a,b){
+    var A=onShelf[a.toLowerCase()]?0:1,B=onShelf[b.toLowerCase()]?0:1;return (A-B)||a.localeCompare(b);});
+  openDrawerHTML('<span class="tag">Subscriptions</span>'
+    +'<div class="t" style="font-size:19px">This fortnight — '+due.length+' box'+(due.length>1?'es':'')+'</div>'
+    +'<div style="margin-top:10px">'
+    +due.map(function(s){var c=custById(s.customer_id);
+      return '<div class="dl"><span>'+esc((c&&c.name)||'—')+'</span>'
+        +'<span>'+subPlanLabel(s.plan)+' · '+(s.grams||0)+'g · '+money(s.price)
+        +(s.source==='square'?' · <span style="color:var(--muted)">square</span>':'')+'</span></div>';}).join('')
+    +'</div>'
+    +(sg.length?'<div class="dlab">Single origin this round ('+sg.length+')</div>'
+      +'<select class="din" id="sr-single" style="padding:12px"><option value="">— pick the coffee —</option>'
+      +names.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+(onShelf[n.toLowerCase()]?' · on shelf':'')+'</option>';}).join('')
+      +'</select>':'')
+    +(bl.length?'<div class="dlab">Blend this round ('+bl.length+')</div>'
+      +'<select class="din" id="sr-blend" style="padding:12px"><option value="">— pick a blend —</option>'
+      +SUBRUN.blends.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('')
+      +'</select>'
+      +'<input class="din" id="sr-blendfree" placeholder="…or type a new experimental blend name">':'')
+    +'<div class="note" style="text-align:left;margin-top:10px">Creates one order per box. App-billed folk get the payment link by email; Square-billed boxes are marked paid.</div>'
+    +'<button class="act" id="sr-go">Create '+due.length+' order'+(due.length>1?'s':'')+'</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  $('sr-go').addEventListener('click',function(){runSubShipment(due,sg.length>0,bl.length>0);});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+async function runSubShipment(due,needSingle,needBlend){
+  var singleName=needSingle?($('sr-single')?$('sr-single').value:''):'';
+  var blendName='';
+  if(needBlend){
+    var bf=$('sr-blendfree'),bs=$('sr-blend');
+    blendName=((bf&&bf.value.trim())||(bs&&bs.value)||'').trim();
+  }
+  if(needSingle&&!singleName){toast('Pick the single origin first');return;}
+  if(needBlend&&!blendName){toast('Pick or name the blend first');return;}
+  if(!confirm('Create '+due.length+' subscription order'+(due.length>1?'s':'')+'?'
+    +(singleName?'\nSingle origin: '+singleName:'')+(blendName?'\nBlend: '+blendName:'')))return;
+  var b=$('sr-go');b.disabled=true;b.textContent='Creating…';
+  var made=0,fails=[],warns=[];
+  try{
+    /* order_no 迴圈外查一次 max（照 saveNewOrder），成功一筆 ++ 一次 */
+    var mx=await sb.from('orders').select('order_no').order('order_no',{ascending:false}).limit(1);
+    var nextNo=((mx.data&&mx.data[0]&&mx.data[0].order_no)||0)+1;
+    for(var ix=0;ix<due.length;ix++){
+      var s=due[ix],c=custById(s.customer_id),nm=(c&&c.name)||'—';
+      b.textContent='Creating… '+(ix+1)+'/'+due.length;
+      try{
+        var bean=(s.plan==='blend')?blendName:singleName;
+        var ins=await sb.from('orders').insert({order_no:nextNo,channel:'subscription',status:'Confirmed',
+          customer_id:s.customer_id,items:[{name:bean,grams:Number(s.grams)||150,qty:1,price:Number(s.price)||0}],
+          total:Number(s.price)||0,currency:'AUD',payment_method:'platform',
+          payment_status:(s.source==='square')?'paid':'pending_payment',
+          notes:'Subscription — '+s.plan+(s.notes?' · '+s.notes:'')}).select().single();
+        if(ins.error)throw new Error(ins.error.message);
+        nextNo++;made++;
+        var uo=await sb.from('subscriptions').update({next_ship_date:subBump(s),last_order_id:ins.data.id,
+          updated_at:new Date().toISOString()}).eq('id',s.id);
+        if(uo.error)warns.push(nm+': order #'+String(ins.data.order_no).padStart(4,'0')+' created but the next-ship date did not move — fix the date in Subscriptions or this box ships twice');
+        try{await subCollectPayment(ins.data,s);}
+        catch(e1){warns.push(nm+': payment link failed — resend from the unpaid card later');}
+        try{await callFn('send-email',{action:'order_confirmation',order_id:ins.data.id});}
+        catch(e2){warns.push(nm+': confirmation email failed');}
+      }catch(e){fails.push(nm+': '+(e&&e.message||e));}
+    }
+    logAct('subscription run',made+' orders',singleName||blendName||'');
+    closeDrawer();
+    if(fails.length||warns.length){
+      alert(made+' order'+(made===1?'':'s')+' created.'
+        +(fails.length?'\n\nFailed (still due, run again tomorrow):\n· '+fails.join('\n· '):'')
+        +(warns.length?'\n\nWarnings:\n· '+warns.join('\n· '):''));
+    }else{
+      toast(made+' subscription order'+(made===1?'':'s')+' created ✓');
+    }
+    await reload();view='feed';render();
+  }catch(e){
+    b.disabled=false;b.textContent='Create '+due.length+' order'+(due.length>1?'s':'');
+    alert('Run failed: '+(e&&e.message||e));
+  }
 }
 /* ===== 團隊留言板（讀 general 頻道＋發文；刪除留在 classic）===== */
 function noteWhen(ts){
@@ -6715,7 +7010,7 @@ function renderTools(){
       +_off([['Announce','email blast · classic'],['QR codes','shop / feedback · classic']]))
     +_sec('Orders &amp; customers',DEPT.ord,
       (_mk?_mkTile('t-neworder','New order','right here'):'')
-      +_tiles([['Orders','recent list','orders'],['Customers','book','customers']].concat(ROLE==='director'?[['Wholesale','discount % · accounts','wholesale',1]]:[])))
+      +_tiles([['Orders','recent list','orders'],['Customers','book','customers']].concat(ROLE==='director'?[['Subscriptions','fortnightly beans · plans','subs',1],['Wholesale','discount % · accounts','wholesale',1]]:[])))
     +(rsMoney()?_sec('Finance',DEPT.fin,
       _tiles([['Payroll','wages · weeks','payroll',_mk?1:0],['Calculator','cost · margins','calc']])
       +_off([['Invoice','GST PDF · classic'],['Bookkeeping','expenses · classic']])):'')
@@ -6802,6 +7097,7 @@ function renderTools(){
     if(k==='social4'){openSocialSplitSheet();return;}
     if(k==='menus'){openMenusSheet();return;}
     if(k==='delbean'){openDeleteCoffeeSheet();return;}
+    if(k==='subs'){openSubsSheet();return;}
     if(k==='wholesale'){openWholesaleSheet();return;}
     if(k==='team'){openTeamSheet();return;}
     if(k==='roster'){openRosterSheet();return;}
