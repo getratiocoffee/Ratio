@@ -58,6 +58,19 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-11 之八（Meta 授權嚮導完成：Post to socials 已接通 ✅）
+- **成果**：三顆 secrets 已設進 Supabase（META_PAGE_TOKEN/META_PAGE_ID/META_IG_ID），app Tools→Marketing→Post to socials 引導面消失、顯示「@ratio.crowsnest · Ratio ✓」＋豆清單——**功能通車**。第 3 輪（真發一支豆＋防呆驗證）還沒跑。
+- **走的路（跟原藍圖不同，備查）**：Graph Explorer 的權限下拉在老闆 Chrome 上壞死（新增權限點不開、combobox 無 suggestions，疑擴充功能干擾）→ 改走 **Business Manager 系統用戶**路線（更正規、天生永不過期）：
+  1. business.facebook.com→設定→**系統工作人員**：建「Daniel」（Admin，編號 61591783473458；建前要接受無歧視政策條款）
+  2. **指派資產 ×3 全完整權限**：粉專 Ratio（1810574605902741）＋app Ratio Social Poster（2481180768960844，**早已存在且已 Live**——Phase B 整段跳過）＋IG ratio.crowsnest（17841455669003815）
+  3. **產生權杖**：選 app、永不過期、勾 5 權限（pages_show_list/pages_read_engagement/pages_manage_posts/instagram_basic/instagram_content_publish；business_management 選不到、不需要）
+  4. ⚠ **坑**：權限清單一開始沒有 pages_manage_posts——app 使用案例只掛了 Instagram。修法：developers.facebook.com→使用案例→新增「**管理粉絲專頁的所有內容**」（內容管理分類）→ 回去重開產生權杖就有了
+  5. 系統用戶權杖（user 型）**不能直接發粉專文**→ 我用 `GET /me/accounts` 換出 **Page 權杖**存進 META_PAGE_TOKEN（繼承永不過期）；IG ID 用 `GET /{PAGE_ID}?fields=instagram_business_account` 查到
+- **驗證**：curl 三查詢全通（page name/IG username 都對）；app 抽屜顯示兩帳號名＋豆清單 ✓
+- **順帶**：privacy.html 已 commit（e62eaf3）**但老闆還沒 push**——app 早已存在所以這輪沒用到，推上去備著（Meta 合規遲早要）；Phase A 免做（粉專↔IG 本來就連好）；使用案例挑單裡看到 **Threads API**——日後 HANDLERS 加 threads 時回來掛
+- **⏭ 第 3 輪**：挑一支上架豆真發（無痕驗公開可見）＋同豆重按驗防呆；Chrome 桌機登入身分是 Hung（director）
+- **⚠ 安全備忘**：系統用戶權杖用完即棄沒存；Page 權杖只在 Supabase secrets；要作廢就去系統工作人員按「撤銷權杖」重生
+
 ## 〇、補記 — 2026-07-10 之十（🐛 晨報喇叭從沒出現過＋月報入口被 events 綁架）
 - **症狀**：老闆「我介面沒有晨報，沒有月報」。
 - **根因①（真 bug，喇叭）**：CSS `#hbell{...display:none}`（未登入店面不該有喇叭），但 `updateBell()` 顯示時寫 `b.style.display=''` ——清掉 inline 只會**落回 CSS 的 none**，所以喇叭**從上線起就沒出現過**。晨報只剩 `boot` 每天自動彈那一次（`seen!==todayKey()`），錯過或關掉就整天叫不出來。修：`''` → `'block'`（customer 仍 none）。**教訓：CSS 預設 display:none 的元素，JS 要顯示必須寫明確值，不能用空字串。**
