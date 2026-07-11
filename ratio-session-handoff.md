@@ -5,6 +5,7 @@
 - **兩個 app 並行**：
   - **新殼 `/new`**（new/index.html，獨立檔案）＝日常營運主力：**今日流 v3（2026-07-10 大改，見補記）**＝briefing 每日彈窗（班表＋公告板＋今日事件，喇叭隨開）＋My day/Everything 視角＋lead 派工（Assign 模式＋進度行）＋站別分組摺疊＋兩段式滑卡（左滑露 Later 再點才睡）＋Closing checklist（下午例行打勾記名）＋activity_log 操作記名（Tools→Activity 時間軸）＋Upcoming 30 天事件流；QC 拇指工作台＋Tools；紙白玫瑰＋炭紙自動夜版、PWA＋Web Push、角色過濾。與 classic 同網域共用登入
   - **classic `/`**（index.html 單檔）＝低頻功能：上架/印刷/盤點/庫存/財務儀表板等，12 站泡泡面板全亮；**完全沒被新殼改動**
+- **⚠ Edge 實際線上版本（2026-07-11）**：sync-to-square **v22**（+ensure_sub_items 訂閱商品建置）/ square-webhook **v20**（+訂閱自動登記）/ public-shop **v11**（+subs[] 訂閱卡資料）/ send-email v23——下行速覽版號已舊，以此為準
 - **Edge 版本**：send-email **v22**（2026-07-08：＋timesheet_pdf 薪資單寄財務＋cc 備份，finance 只放行此 action；v21 repurchase_nudge；v20 surcharge 揭露）/ sync-to-square **v19**（付款連結走 Online 地點＋2.2% surcharge）/ square-webhook **v18**（＋推播）/ public-shop **v8**（2026-07-08：售罄豆帶 sold_out 旗標上菜單、結帳擋售罄；v7 sizes/cart）/ public-bean v1 / **push-send v2**（2026-07-08：＋to 指定推播到人、lead 可呼叫——派工叮人用）/ **morning-brief v4**（2026-07-08：＋售罄滿 30 天自動下架；pg_cron 每天 **20:00/19:00 UTC 雙檔＝雪梨 6:00 整**（老闆改 6 點），算晨報→push-send 廣播；x-cron-key 驗證，金鑰在 secrets_kv 'cron_key'；訂閱 0 時無聲）/ **wholesale v3**（2026-07-08：批發自助下單；v3 售罄豆留在批發菜單帶 sold_out、checkout 擋，修 co-ferment 消失，見補記）。SURCHARGE_PCT secret 一處管四處（預設 2.2）
 - **新表**：tasks（團隊待辦）/ push_subs（推播訂閱）/ secrets_kv（**零政策＝service-role only**，放 VAPID 鑰匙——advisor 的 INFO 是刻意設計）/ **activity_log**（2026-07-10 操作記名，append-only）/ **events**（2026-07-10 Upcoming 事件流）/ **subscriptions**（2026-07-11 豆子訂閱：見補記之五）；app_state 新 key ×4＝new_notices/new_closing_items/new_closing/new_assign（後兩者日期 key 隔天自動重置）
 - **安全**：messages 匿名讀已鎖＋登入重載；handle_new_user execute 已再次 revoke（2026-07-07 驗證 404）；always-true 政策群＝小團隊信任模型（刻意）；mail-assets 可列目錄（低風險留觀）
@@ -64,6 +65,17 @@
 - **診斷過程備查**：Chrome MCP 在老闆線上登入態跑 `getComputedStyle(hbell)` 抓到 display:none 與命中規則；`DB.staffNa` 有資料、`openUpcomingSheet()` 真的列得出 Joshua——證明資料/RLS/渲染都正常，是入口的問題。
 - **驗證**：jscheck ✓；preview mock——staff 喇叭 computed block 可見／customer none／未登入 boot 仍 none ✓；events 空＋一筆請假時晨報出現「Next 30 days: 1 item ›」✓；無 console error ✓。
 - **順帶發現**：老闆那台瀏覽器登入身分是 `WHO='Wu'`、role=**staff**（不是 director）——若那該是老闆帳號，profiles.role 要改。
+
+## 〇、補記 — 2026-07-11 之六（?shop 購物車訂閱：客人自助訂閱、付款自動進名單）
+- **老闆需求**：訂閱上公開店面——?shop 加 Subscription 區（Blend / Single Origin 二選，$25 每兩週免運），客人加進現有購物車照常 Square 結帳；付款＝第一期（該單就是第一箱），**自動登記進 subscriptions**（source app、next_ship_date+14），下次 run sheet 他就在名單。豆子菜單不動。計畫檔同 `25-each-bag-dazzling-coral.md`（覆寫）。
+- **三支 edge 各加一段**（checkout 收錢主路零改動）：
+  - **sync-to-square v22** 新 action `ensure_sub_items`（director-only、冪等三層：product_sync 先查→Square 目錄**全名精確比對**→才建）：建兩個 catalog 商品「Subscription — Blend/— Single Origin」（variation "Fortnightly" $25）＋upsert product_sync（synced、grams 150）。⚠ 插在 `if(!sampleId)` 閘之前。不掛 Grind、不推圖。
+  - **square-webhook v20**：Path B 匯入成功區塊（`if(inserted.length)`）尾加訂閱分支（**獨立 try/catch 絕不影響匯單**）：SUB_RE=`/^subscription\s*[—-]/i` 對 items → 有訂閱行且 customerId → 查重 `(customer_id,plan,active)`（重複購買→messages 提醒不再建）→ insert subscriptions｛plan 名字含 blend 判定、price=行價、next+14、last_order_id=匯入單｝＋messages「New subscriber」＋推播；**缺 email**（customer_id NOT NULL 建不了）→ messages「enrol manually」。防重放靠 inserted 空判（orders upsert ignoreDuplicates）。
+  - **public-shop v11**：GET 回應加 `subs:[{plan,name,vid,price,grams}]`（product_sync 訂閱列＋Square 現價）；beans[] 被 QC 閘門天然濾掉訂閱商品（沒 locked sample）＝不會混進豆卡。**已驗證 allowedVarIds 在 QC 閘門之外**——訂閱 variation 天然可結帳。
+- **前端（new/index.html）**：①`isSubName()` helper（em-dash 與連字號都認）②loadShopMenu 存 `SHOP_SUBS`③`shopSubCardHTML`/`wireSubCard`＝訂閱卡（輪播下方、每分類 tab 都在、空分類也在；pm-seg Blend/Single origin、$25、Add to cart；WS_MODE 不畫）④cartAdd 訂閱鎖 qty 1＋重複加 toast 擋；openCartSheet 訂閱行無 ± 顯示「a bag every fortnight · qty 1」；checkout payload 走原 {id,qty} 零改動⑤openSubsSheet 加一次性「Set up shop subscription items…」鈕（DB.syncs 兩列都在→灰字 live ✓）→callFn ensure_sub_items→reload⑥**噪音過濾 ×5**：beanNames()（New order/run sheet 選單不出訂閱名）、buildItems 烘豆需求（訂閱行不算豆）、濃縮 dial-in 過期卡、openRetailSheet、openIGSheet。**不濾**：裝箱清單與訂單卡（第一箱要真的裝）。
+- **驗證**：jscheck ✓；curl public-shop v11——ok/beans 11 支照舊/subs:[]（商品未建，預期）✓；本機 stub——訂閱卡渲染+seg 切換+$25 ✓、加車 qty1+重複加擋 ✓、cart 抽屜訂閱行無±有 fortnight 字 ✓、混車 checkout payload {VSUBSINGLE qty1,VBEAN1 qty2} ✓、beanNames 乾淨 ✓、烘豆需求卡只算豆行（288g green 無 Subscription）✓、建置鈕邏輯（兩列在→不出）✓、console 零錯誤 ✓、截圖 ✓。
+- **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
+- **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
 ## 〇、補記 — 2026-07-11 之五（訂閱系統進 app：subscriptions 表＋名單抽屜＋到期卡＋一鍵出貨）
 - **老闆需求**：豆子訂閱搬進 app 自管（現跑 Square：Single/Blend 各 $25/包/每兩週免運），過渡期兩邊並行、日後淘汰 Square。拍板：收錢走 **Square 付款連結**（不存卡）；Square 舊客（約10位）自然跑完但**登記進 app 名單一起管出貨**（source='square'，錢已被 Square 扣、不生連結）；新客 source='app' 每期生成連結；**每期豆子老闆自選**（單品一支/配方一批全員套用）；10 位規模＝半自動（到期卡→挑豆→一鍵），不用 pg_cron。計畫檔 `~/.claude/plans/25-each-bag-dazzling-coral.md`。

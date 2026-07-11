@@ -559,7 +559,7 @@ function buildItems(){
   var payQ=DB.orders.filter(function(o){return (o.status||'New')!=='New'&&(o.payment_status==='pending_payment'||o.payment_status==='overdue');});
   var latest={};DB.dialins.forEach(function(d){var k=String(d.coffee||'').trim().toLowerCase();if(k&&!latest[k])latest[k]=d;});
   var stale=[];DB.syncs.forEach(function(x){
-    if(x.status!=='synced')return;
+    if(x.status!=='synced'||isSubName(x.bean_id))return; /* 訂閱商品不是豆，永遠沒 dial-in */
     var d=latest[String(x.bean_id||'').trim().toLowerCase()];
     if(!d||daysSince(d.created_at)>ESP_STALE_DAYS)stale.push({name:x.bean_id,last:d?daysSince(d.created_at):null});});
   var low=DB.beans.filter(function(b){var t=(b.low_stock_kg==null?GREEN_LOW_KG:Number(b.low_stock_kg));return b.quantity!=null&&t>0&&Number(b.quantity)<=t;});
@@ -578,7 +578,7 @@ function buildItems(){
      貨架＝roasts.remaining_kg 同名加總（QC 打槍的 reroast/downgrade 批不算可賣）；全夠貨＝不出卡 */
   var dem={},demOrder=[];
   packQ.forEach(function(o){(Array.isArray(o.items)?o.items:[]).forEach(function(it){
-    var nm=String(it.name||'').trim();if(!nm)return;
+    var nm=String(it.name||'').trim();if(!nm||isSubName(nm))return; /* 訂閱行不是豆名，不進烘豆需求 */
     var g=(Number(it.grams)||0)*(Number(it.qty)||1);if(!g)return;
     var k=nm.toLowerCase();
     if(!dem[k]){dem[k]={name:nm,g:0};demOrder.push(k);}
@@ -1764,7 +1764,7 @@ function openNewOrderSheet(){
 function beanNames(){
   var seen={},names=[];
   (DB.beans||[]).forEach(function(b){var n=(b.name||'').trim();if(n&&!seen[n.toLowerCase()]){seen[n.toLowerCase()]=1;names.push(n);}});
-  (DB.syncs||[]).forEach(function(s){var n=(s.bean_id||'').trim();if(n&&!seen[n.toLowerCase()]){seen[n.toLowerCase()]=1;names.push(n);}});
+  (DB.syncs||[]).forEach(function(s){var n=(s.bean_id||'').trim();if(n&&!isSubName(n)&&!seen[n.toLowerCase()]){seen[n.toLowerCase()]=1;names.push(n);}});
   return names.sort();
 }
 function paintNewOrder(){
@@ -1939,7 +1939,7 @@ async function openRetailSheet(){
   var dots={};try{dots=await cardDots();}catch(e){}
   /* 排序照老闆定：烘豆日從舊到新（最老的在上＝先賣先清）；沒烘豆日的沉底按名字排 */
   /* paused＝售罄不是故障（sync-to-square 的 availability 把 status 設成 paused）——照樣上架列表，別丟去 Sync problems */
-  var live=(DB.syncs||[]).filter(function(x){return (x.status==='synced'||x.status==='paused')&&String(x.bean_id||'').trim();})
+  var live=(DB.syncs||[]).filter(function(x){return (x.status==='synced'||x.status==='paused')&&String(x.bean_id||'').trim()&&!isSubName(x.bean_id);})
     .map(function(x){var nm=String(x.bean_id).trim();var d=null;try{d=shelfLatestRoast(nm);}catch(e){}return {x:x,nm:nm,d:d};})
     .sort(function(a,b){
       if(!!a.d!==!!b.d)return a.d?-1:1;
@@ -2742,7 +2742,7 @@ async function openIGSheet(){
     (r.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
       if(v&&typeof v==='object')m[x.key]=v;});
   }catch(e){}
-  var live=(DB.syncs||[]).filter(function(x){return (x.status==='synced'||x.status==='paused')&&String(x.bean_id||'').trim();})
+  var live=(DB.syncs||[]).filter(function(x){return (x.status==='synced'||x.status==='paused')&&String(x.bean_id||'').trim()&&!isSubName(x.bean_id);})
     .map(function(x){var nm=String(x.bean_id).trim();var d=null;try{d=shelfLatestRoast(nm);}catch(e){}return {nm:nm,d:d};})
     .sort(function(a,b){if(!!a.d!==!!b.d)return a.d?-1:1;return String(b.d||'').localeCompare(String(a.d||''))||a.nm.localeCompare(b.nm);});
   var seen={},rows='';
@@ -2948,6 +2948,9 @@ function openCustomerDetail(r){
    寫入規則：建新客照抄 classic saveOrder（type 用 retail——wholesale 型會被 whOrd 歸去批發站）===== */
 var SUB_NEW=null;
 function subPlanLabel(p){return p==='blend'?'Blend':'Single origin';}
+/* 店面訂閱商品判別（Square 目錄名 'Subscription — Blend' / 'Subscription — Single Origin'）——
+   烘豆需求/濃縮過期/Retail/IG 清單都用它濾掉，裝箱與訂單卡刻意不濾（第一箱要真的出） */
+function isSubName(n){return /^subscription\s*[—-]/i.test(String(n||'').trim());}
 async function reloadSubs(){
   var q=await sb.from('subscriptions').select('*');
   if(!q.error)DB.subs=q.data||[];
@@ -2962,6 +2965,11 @@ function openSubsSheet(){
   openDrawerHTML('<div class="t" style="font-size:19px">Subscriptions</div>'
     +'<div class="s" style="margin-top:2px">'+act+' active · a box every fortnight · shipment runs from the daily feed</div>'
     +'<button class="act" id="sub-add">＋ Add subscriber</button>'
+    +(function(){ /* 店面訂閱商品建置（一次性）：product_sync 兩列都在＝live，缺＝按鈕建 */
+      var live=(DB.syncs||[]).filter(function(x){return isSubName(x.bean_id)&&x.status==='synced';}).length>=2;
+      return live?'<div class="s" style="margin:6px 0 2px;text-align:center;color:var(--muted)">Shop subscription items · live ✓</div>'
+        :'<button class="dclose" id="sub-shop-setup">Set up shop subscription items…</button>';
+    })()
     +(subs.length?subs.map(function(s,ix){
       var c=custById(s.customer_id);
       return '<div class="hit" data-sb="'+ix+'"'+(s.status!=='active'?' style="opacity:.55"':'')+'><span>'
@@ -2975,6 +2983,18 @@ function openSubsSheet(){
     }).join(''):'<div class="empty">No subscribers yet — add your Square regulars here too, marked Square billed, so every box ships from one list</div>')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('sub-add').addEventListener('click',function(){openSubForm(null);});
+  var ss=$('sub-shop-setup');
+  if(ss)ss.addEventListener('click',async function(){
+    if(!confirm('Create the two shop subscription items on Square (Blend / Single Origin, $25 fortnightly)? One-time setup.'))return;
+    ss.disabled=true;ss.textContent='Setting up…';
+    try{
+      await callFn('sync-to-square',{action:'ensure_sub_items'});
+      logAct('shop subscription items set up');
+      await reload();
+      toast('Shop items ready ✓');
+      openSubsSheet();
+    }catch(e){ss.disabled=false;ss.textContent='Set up shop subscription items…';alert('Setup failed: '+(e&&e.message||e));}
+  });
   document.querySelectorAll('#drawer [data-sb]').forEach(function(el){el.addEventListener('click',function(){openSubForm(subs[+el.dataset.sb]);});});
   $('d-cl').addEventListener('click',closeDrawer);
 }
@@ -7402,14 +7422,16 @@ $('nav-refresh').addEventListener('click',async function(){this.textContent='…
    上架剛換過商品圖時那 5 分鐘會看到舊圖 → SHOP_STALE 或員工按 Refresh 就繞過快取抓一次。
    客戶端平常照吃快取（省流量、店面本來就允許 5 分鐘延遲） */
 var SHOP_STALE=false;
+var SHOP_SUBS=[],SHOP_SUBPLAN='blend'; /* 店面訂閱卡：public-shop v11 subs[]＋目前選的方案 */
 async function loadShopMenu(fresh){
   try{
     var bust=(fresh||SHOP_STALE);
     var r=await fetch(SUPABASE_URL+'/functions/v1/public-shop'+(bust?('?t='+Date.now()):''),bust?{cache:'no-store'}:undefined);
     var d=await r.json();
     if(bust)SHOP_STALE=false;
+    SHOP_SUBS=(d&&d.ok&&Array.isArray(d.subs))?d.subs:[];
     return (d&&d.ok&&d.beans)?d.beans:[];
-  }catch(e){return [];}
+  }catch(e){SHOP_SUBS=[];return [];}
 }
 /* ===== 購物車（匿名客人也能用：localStorage 保留；同規格再加＝數量累加；付款完成 ?checkout=done 清車）
    批發模式（WS_MODE）：獨立車 r2_wcart（共用裝置不混零售車）＋數量上限 40；結帳走 wholesale edge ===== */
@@ -7423,6 +7445,10 @@ function cartSet(c){try{localStorage.setItem(cartKey(),JSON.stringify(c));}catch
 function cartAdd(item){
   var c=cartGet();
   var ex=c.find(function(x){return x.vid===item.vid;});
+  if(isSubName(item.bean)){ /* 訂閱固定一份：重複加不疊量 */
+    if(ex){toast('Subscription is already in your cart');return;}
+    item.qty=1;c.push(item);cartSet(c);return;
+  }
   if(ex)ex.qty=Math.min(cartMaxQty(),(ex.qty||1)+(item.qty||1));
   else c.push(item);
   cartSet(c);
@@ -7455,7 +7481,9 @@ function openCartSheet(){
     +c.map(function(it,ix){
       return '<div class="dl" style="align-items:center;gap:10px"><span style="flex:1;min-width:0"><b>'+esc(it.bean)+'</b>'
         +(it.label?' <span style="color:var(--muted);font-size:13px">'+esc(it.label)+'</span>':'')
-        +'<br><span class="qty" style="margin-top:6px;display:inline-flex;align-items:center;gap:10px"><button data-cq="'+ix+'|-1">−</button><span>'+it.qty+'</span><button data-cq="'+ix+'|1">＋</button></span></span>'
+        +'<br>'+(isSubName(it.bean)
+          ?'<span class="s" style="margin-top:6px;display:inline-block">a bag every fortnight · qty 1</span>'
+          :'<span class="qty" style="margin-top:6px;display:inline-flex;align-items:center;gap:10px"><button data-cq="'+ix+'|-1">−</button><span>'+it.qty+'</span><button data-cq="'+ix+'|1">＋</button></span>')+'</span>'
         +'<span style="white-space:nowrap">'+money((Number(it.price)||0)*it.qty)
         +' <button data-crm="'+ix+'" style="border:none;background:none;color:var(--danger);font-size:18px;font-weight:700;cursor:pointer;font-family:inherit;padding:4px 2px 4px 8px">✕</button></span></div>';
     }).join('')
@@ -7608,18 +7636,48 @@ function renderShopTabs(){
   el.innerHTML=visible.map(function(c){return '<button data-sct="'+c[0]+'" class="'+(SHOP_CAT===c[0]?'on':'')+'">'+c[1]+'</button>';}).join('');
   el.querySelectorAll('[data-sct]').forEach(function(b){b.addEventListener('click',function(){SHOP_CAT=b.dataset.sct;paintShopBody();});});
 }
+/* 店面訂閱卡（輪播下方、每個分類 tab 都在）：public-shop v11 subs[] 有貨才畫；批發模式不畫 */
+function shopSubCardHTML(){
+  if(WS_MODE||!SHOP_SUBS.length)return '';
+  var cur=SHOP_SUBS.find(function(s){return s.plan===SHOP_SUBPLAN;})||SHOP_SUBS[0];
+  return '<div id="subcard" style="margin:16px 2px 8px;padding:18px;border:1px solid var(--line);border-radius:16px;background:var(--surface)">'
+    +'<div style="font-weight:700;font-size:18px">Subscription</div>'
+    +'<div class="s" style="margin-top:2px">a bag of coffee every fortnight · free shipping · we pick the best of the roastery for you</div>'
+    +'<div class="pm-seg" style="margin-top:12px">'
+    +SHOP_SUBS.map(function(s){return '<button data-subplan="'+esc(s.plan)+'"'+(s.plan===cur.plan?' class="on"':'')+'>'+(s.plan==='blend'?'Blend':'Single origin')+'</button>';}).join('')
+    +'</div>'
+    +'<div class="dl" style="margin-top:8px;border-bottom:none"><span>Every fortnight</span><span style="font-weight:700">'+money(cur.price)+'</span></div>'
+    +'<button class="act" id="subcard-add" style="margin-top:4px">Add to cart · '+money(cur.price)+'</button>'
+    +'</div>';
+}
+function wireSubCard(root){
+  var el=root.querySelector('#subcard');if(!el)return;
+  el.querySelectorAll('[data-subplan]').forEach(function(b){b.addEventListener('click',function(){SHOP_SUBPLAN=b.dataset.subplan;paintShopBody();});});
+  var add=el.querySelector('#subcard-add');
+  if(add)add.addEventListener('click',function(){
+    var cur=SHOP_SUBS.find(function(s){return s.plan===SHOP_SUBPLAN;})||SHOP_SUBS[0];
+    if(!cur||!cur.vid)return;
+    cartAdd({bean:cur.name,label:'fortnightly · free shipping',vid:cur.vid,price:cur.price,qty:1});
+    toast('Added ✓ — your first box ships with this order');
+  });
+}
 function paintShopBody(){
   var host=$('shopbody');if(!host)return;
   document.querySelectorAll('#shoptabs [data-sct]').forEach(function(b){b.classList.toggle('on',b.dataset.sct===SHOP_CAT);});
   var list=SHOP_BEANS.filter(function(b){return shopCategory(b)===SHOP_CAT;});
-  if(!list.length){host.innerHTML='<div class="empty">Nothing in this corner right now ☕</div>';return;}
+  if(!list.length){
+    host.innerHTML='<div class="empty">Nothing in this corner right now ☕</div>'+shopSubCardHTML();
+    wireSubCard(host);paintCartBar();return;
+  }
   host.innerHTML='<div class="shopwrap" id="shopwrap">'+shopCardsHTML(list)+'</div>'
     /* 玻璃箭頭放 shopbody 裡：離開商店畫面（innerHTML 換掉）就自動消失 */
     +(list.length>1
       ?'<button class="shoparr l" id="sharr-l" aria-label="Previous coffee"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>'
       +'<button class="shoparr r" id="sharr-r" aria-label="Next coffee"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>'
-      :'');
+      :'')
+    +shopSubCardHTML();
   wireShopCards(host);
+  wireSubCard(host);
   paintCartBar();
   var w=$('shopwrap');
   if(w&&list.length>1){
