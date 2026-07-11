@@ -7416,6 +7416,80 @@ function rsWeekHours(shifts){
   return names.map(function(nm){return {name:nm,wd:Math.round((wd[nm]||0)*10)/10,we:Math.round((we[nm]||0)*10)/10};});
 }
 var PAY_WK=[], PAY_RATES={}, PAY_META={}, PAY_OPEN=null;
+/* ===== Finance P&L 財務總覽（缺口 #4，自 classic openFinance/renderFinance 移植，口徑一模一樣）=====
+   唯讀儀表板：本月/上月已收（paid 依 created_at 分桶，UTC YYYY-MM、上月用 15 號防跨月）、
+   未收全累加（pending_payment/overdue，只讀持久化的 overdue 標記——轉換仍在 Orders 流程）、
+   生豆庫存價值 Σ(quantity×cost_per_kg)（q>0 且有價；未定價另計提示）、本月買豆（ordered_at||created_at）。
+   orders/beans 用記憶體（loadAll 已排除 Cancelled）；purchases 當場查。錢的 gate＝rsMoney（磁貼區已 gate，這裡再擋一次保險）。 */
+async function openPnlSheet(){
+  if(!rsMoney()){roToast();return;}
+  openDrawerHTML('<div class="t" style="font-size:19px">P&L</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  var pos=[];
+  try{var pq=await sb.from('purchases').select('name,kg,cost_per_kg,status,ordered_at,created_at');pos=pq.data||[];}catch(e){}
+  var ym=function(d){return String(d||'').slice(0,7);};
+  var now=new Date(),thisM=now.toISOString().slice(0,7);
+  var lastD=new Date(now.getFullYear(),now.getMonth()-1,15),lastM=lastD.toISOString().slice(0,7);
+  /* ① 收入：已收款訂單（照下單月份分桶）——DB.orders 已排除 Cancelled */
+  var inThis=0,nThis=0,inLast=0,nLast=0,outSum=0,outRows=[];
+  (DB.orders||[]).forEach(function(o){
+    var m=ym(o.created_at),t=Number(o.total)||0;
+    if(o.payment_status==='paid'){
+      if(m===thisM){inThis+=t;nThis++;}else if(m===lastM){inLast+=t;nLast++;}
+    }else if(o.payment_status==='pending_payment'||o.payment_status==='overdue'){
+      outSum+=t;outRows.push(o);
+    }
+  });
+  outRows.sort(function(a,b){return daysSince(b.created_at)-daysSince(a.created_at);});
+  /* ② 庫存價值＋本月採購 */
+  var stockVal=0,nPriced=0,nUnpriced=0;
+  (DB.beans||[]).forEach(function(b){
+    var q=Number(b.quantity)||0;if(q<=0)return;
+    var c=parseFloat(b.cost_per_kg);
+    if(isNaN(c)){nUnpriced++;return;}
+    stockVal+=q*c;nPriced++;
+  });
+  var buyThis=0,nBuy=0;
+  pos.forEach(function(p){
+    if(p.status==='cancelled')return;
+    if(ym(p.ordered_at||p.created_at)!==thisM)return;
+    var v=(Number(p.kg)||0)*(parseFloat(p.cost_per_kg)||0);
+    if(v>0){buyThis+=v;nBuy++;}
+  });
+  var card=function(title,badge,big,sub){
+    return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-top:8px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t" style="font-size:14px">'+title+'</span><span class="s" style="color:var(--muted)">'+badge+'</span></div>'
+      +'<div style="margin-top:3px;font-size:'+(big?'18px':'14px')+';font-weight:700">'+sub+'</div></div>';
+  };
+  var h='<div class="t" style="font-size:19px">P&L</div>'
+    +'<div class="s" style="margin-top:2px">read-only money overview — orders, stock and buying already in the app</div>'
+    +'<div class="dlab">Money in · paid orders</div>'
+    +card('This month',nThis+(nThis===1?' order':' orders'),true,money(inThis))
+    +card('Last month',nLast+(nLast===1?' order':' orders'),false,money(inLast))
+    +'<div class="dlab">Outstanding · not yet paid</div>';
+  if(outRows.length){
+    h+='<div style="border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-top:8px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t" style="font-size:16px;font-weight:700">'+money(outSum)+'</span><span class="s" style="color:var(--muted)">'+outRows.length+(outRows.length===1?' order':' orders')+'</span></div>'
+      +outRows.slice(0,6).map(function(o){
+        var c=custById(o.customer_id);
+        var days=daysSince(o.created_at);
+        var od=o.payment_status==='overdue';
+        return '<div class="dl"><span>#'+(o.order_no!=null?String(o.order_no).padStart(4,'0'):'—')+' · '+esc(c?(c.name||'—'):'Walk-in')+'</span>'
+          +'<span>'+money(o.total)+' · '+(od?'<span class="red">'+days+'d overdue</span>':days+'d')+'</span></div>';
+      }).join('')
+      +'</div>';
+  }else{
+    h+='<div class="sempty">Nothing outstanding ✓</div>';
+  }
+  h+='<div class="dlab">Stock and buying</div>'
+    +card('Green stock value',nPriced+(nPriced===1?' bean':' beans'),true,money(stockVal)+(nUnpriced?'<div class="s" style="font-weight:400;color:var(--muted);margin-top:2px">'+nUnpriced+' bean'+(nUnpriced>1?'s':'')+' without a cost/kg — not counted</div>':''))
+    +card('Green bought this month',nBuy+(nBuy===1?' purchase':' purchases'),false,money(buyThis))
+    +'<button class="dclose" id="pnl-calc">Calculator — model margins</button>'
+    +'<div class="s" style="margin-top:6px;color:var(--muted)">figures follow order dates · card fees and other expenses are not tracked yet</div>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
+  openDrawerHTML(h);
+  $('d-cl').addEventListener('click',closeDrawer);
+  var pc=$('pnl-calc');if(pc)pc.addEventListener('click',openCalcSheet);
+}
 async function openPayrollSheet(){
   openDrawerHTML('<div class="t" style="font-size:19px">Past weeks &amp; pay</div><div class="empty" style="margin-top:16px">Loading…</div>');
   PAY_WK=[];PAY_RATES={};PAY_META={};
@@ -7934,7 +8008,7 @@ function renderTools(){
       (_mk?_mkTile('t-neworder','New order','right here'):'')
       +_tiles([['Orders','recent list','orders'],['Customers','book','customers']].concat(ROLE==='director'?[['Subscriptions','fortnightly beans · plans','subs',1],['Wholesale','discount % · accounts','wholesale',1]]:[])))
     +(rsMoney()?_sec('Finance',DEPT.fin,
-      _tiles([['Payroll','wages · weeks','payroll',_mk?1:0],['Calculator','cost · margins','calc']])
+      _tiles([['P&amp;L','money overview','pnl'],['Payroll','wages · weeks','payroll',_mk?1:0],['Calculator','cost · margins','calc']])
       +_off([['Invoice','GST PDF · classic'],['Bookkeeping','expenses · classic']])):'')
     +_sec('Daily task',DEPT.day,
       (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team')):'')
@@ -8016,6 +8090,7 @@ function renderTools(){
     if(k==='dialin'){openDialinSheet();return;}
     if(k==='igasset'){openIGSheet();return;}
     if(k==='socialpost'){openSocialPostSheet();return;}
+    if(k==='pnl'){openPnlSheet();return;}
     if(k==='payroll'){openPayrollSheet();return;}
     if(k==='calc'){openCalcSheet();return;}
     if(k==='infocards'){openInfoCardsSheet();return;}
