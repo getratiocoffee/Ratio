@@ -75,6 +75,7 @@
 - **不動的**：`rstBatches` 零改（出貨 `deductOrderStock`/血條/rstStockKg 全走它＝客人訂單永遠吃不到降級豆）；`shelfG` 需求覆蓋仍排除 dg（「還要烘多少」只看可賣量）；QC 佇列天生 `!r.qc` 擋已判定；public-shop edge 不動
 - **驗證**：jscheck ✓；serve 複本 stub（攔 fetch）——可賣池/dg 池分離、純 dg 豆有列、出貨池無 dg、consumeBlendParts 先扣 dg 批（PATCH 順序 r2→r1）、Publish 三豆三態（locked→Live／synced 未鎖→Not on shop＋黃標／downgrade→沉底 Lock flavours first）、點 dg 行開扣量抽屜只帶 dg 組、QC 佇列回歸 0、console 零錯誤＋截圖×3
 - **⚠ 陷阱備忘**：dg 量刻意不進可賣血條與低標——別「修正」它；沒鎖的豆（含 pass-未鎖）在 Publish 完全不列（行為變更＝設計如此），要找去 Coffee Stock/Coffee Info
+- **同輪加做：Coffee Stock 豆卡「Send back to QC」**（老闆點名）：展開區新 chip（id rst-sbqc，ed＋有杯測＋有已判定批才出）——照 Coffee Info sb-requeue 同款：可賣池優先找判定批（含 dg 池）→confirm→清 roasts.qc＋解鎖 shelfSampleFor 那筆→logAct 'sent back to QC'→reload。兩處 confirm 文案統一改「It drops off the shop menu until you Pass it again」（v13 後解鎖＝店面消失，舊文案 Square listing stays live 已不準）。驗證：stub——按鈕條件（Kenya 出/Geisha noInfo 不出）、PATCH roasts qc:null＋samples 解鎖、reload ✓ console 零錯誤＋截圖
 - **同輪加做：Coffee Info 分頁**（老闆點名）：`openRetailSheet` 加 pm-seg〔Blends｜Single origins〕（同 Coffee Stock 樣式、預設 blend）；新全域 `RTL_SEG`＋helper `rtlIsBlend(nm)`（命中 blends 主檔**或**有 kind='blend' 批次＝漏網之魚拼配也認得）；排序不動（本來就烘豆日舊上新下＝先賣先清）；soldN/hidN 副標計數隨當前分頁（數字跟看得到的列對應）；Ready to list/Sync problems 區塊全局不分頁。驗證：stub——blend tab〔Mystery Mix(06-01)→House Blend(07-08)〕、single tab〔Geisha(06-15)→Kenya AA(07-01)〕舊上新下、切換正常、console 零錯誤＋截圖
 
 ## 〇、補記 — 2026-07-11 之九（遊戲風首頁 Home：手遊磁貼牆＋紅點＋今日進度條 ✅）
