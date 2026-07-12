@@ -107,6 +107,13 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之二十四（QC 左右滑判定：右滑＝鎖頭 pass＋鎖風味、左滑＝downgrade、換鎖警訊）
+- **老闆定案三題**：①左滑 downgrade＋confirm 警訊 ②右滑＝pass＋**必鎖風味**（鎖頭語意：風味確定才給過；上架/定價決定仍留在 publish List 卡，QC 不越權）③同豆已有鎖著批次＝「整批換掉」，架上風味/烘焙日期揭露訊息要跟著更新。
+- **改動（new/index.html）**：①`attachQcSwipe` 改雙向（方向鎖 `Math.abs(dx)>18`、位移 ±130、回饋右綠左紅 `--danger` 22%、放手 ±35% 寬觸發）②新 helper `lockedMate(s)`＝記憶體找同名另一筆 flavour_locked ③`qcVerdict` 開頭統一兩道 confirm（滑動與泡泡按鈕共用）：downgrade→「Downgrade X? It will not be sold as this bean.」；pass 且同名已有鎖→synced 時「already has a locked batch on the shelf. Replace it? Shop info (flavours, roast date) will switch to this one.」／未上架時「Move the lock to this batch?」——取消＝整個判定不做（不產生 passed-沒鎖中間態）④pass＝必鎖（`v==='pass'&&s` 就 lockFlavourSolo；同名舊批自動解鎖＝每豆只鎖一個）⑤**換鎖且已上架**＝鎖成功後直接 `openListSheet({ref:s})`（Update 模式、價格記憶預填）＋toast「lock moved — push the update…」，老闆按一下 push 就把 Square 揭露換新（公開豆頁/資訊卡/出貨信本來就動態跟鎖走免管）⑥`QCLOCK` 開關整組退役（全域宣告、qtoggle、data-qact lock 全刪；泡泡改灰字「🔒 pass locks these flavours as the selling version」＋ Pass 鈕帶 🔒）；`pushListToSquare` 的 LST.lock（publish 端）不動。
+- **驗證**：jscheck ✓；serve 複本＋Chrome 預覽（**fetch 攔截**假 Supabase）——右滑無同名鎖＝pass+鎖+寫入序列對（roasts→activity_log→samples 鎖→同名解鎖）；同名鎖+synced＝confirm 文案對、取消零寫入列彈回、確認＝同日兩鍋連動 pass+舊批解鎖+直開 Update 抽屜；左滑紅回饋+confirm、取消零寫入、確認 qc=downgrade 不鎖；縱向/12px 小滑不觸發；泡泡三編輯鈕+🔒Pass/Downgrade 走同警訊；console 零錯誤+截圖×2。
+- **⚠ 測試陷阱（記取）**：本機預覽 stub **蓋 `window.sb` 沒用**——`const sb`（402 行）在 script scope，會直打線上 DB！這次好險假 id 不是 uuid 被 400 擋下。以後瀏覽器端假資料測試一律**攔 `window.fetch`**（supabase-js 底層）＋覆寫 alert/confirm；qcVerdict 失敗路徑的 `alert()` 會卡住自動化（原生對話框）。
+- **等老闆真機**：滑一支待判定豆看左右手感（±35% 門檻可調）；真資料換鎖一次走到 Update push 看揭露換新。
+
 ## 〇、補記 — 2026-07-12 之二十三（QC 待判定右滑＝快速 pass）
 - **老闆點名**：QC 待判定的豆右滑＝通知 pass（不用點開判定區）。
 - **改動（new/index.html）**：新 `attachQcSwipe(el,q)`（照今日流 attachSwipe 精神）：只右滑、方向鎖（縱向讓抽屜捲動）、滑過 30% 寬變綠回饋、放手 >35% 寬才觸發 `qcVerdict(pass)`（含鎖風味/同日整批連動）＋toast；設 `_drag` 讓滑完的 click 不誤觸展開。openQCSheet 待判定列綁 attachQcSwipe＋click 加 `Date.now()-_drag<300` 防誤觸；dlab 提示「swipe right to pass」（canWrite 才顯示）。canWrite gate（唯讀不綁）。

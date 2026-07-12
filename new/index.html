@@ -460,7 +460,6 @@ function closingPush(){
   return sb.from('app_state').upsert({key:'new_closing',value:CLOSING_ALL,updated_at:new Date().toISOString()},{onConflict:'key'});
 }
 function closingItemsPush(){return sb.from('app_state').upsert({key:'new_closing_items',value:{items:CLOSING_ITEMS},updated_at:new Date().toISOString()},{onConflict:'key'});}
-var QCLOCK=true; /* 鎖風味的決定在 QC 當下（老闆定調）：pass＝判定＋鎖風味，判定板可關 */
 /* 黑白頁手動切換：auto=跟系統、light/dark=強制；記在本機（顯示偏好本來就該一台一台設） */
 function themeGet(){try{return localStorage.getItem('r2_theme')||'auto';}catch(e){return 'auto';}}
 function applyTheme(t){
@@ -1124,8 +1123,29 @@ async function lockFlavourSolo(s){
   }
   return true;
 }
+/* 同名另一筆已鎖的杯測（＝現在在賣的版本）——換鎖警訊用；比對照 lockFlavourSolo 的同名精神 */
+function lockedMate(s){
+  var nm=String(s&&s.sample_id||'').trim().toLowerCase();if(!nm)return null;
+  return (DB.samples||[]).find(function(x){
+    return String(x.id)!==String(s.id)&&x.flavour_locked&&String(x.sample_id||'').trim().toLowerCase()===nm;
+  })||null;
+}
 async function qcVerdict(r,v,btn,cardId,s){
   if(!canWrite()){roToast();return;}
+  var vNm=(s&&s.sample_id)||r.bean_name||'this batch';
+  /* downgrade 警訊（老闆點名，防左滑誤觸）：取消＝什麼都不寫 */
+  if(v==='downgrade'&&!confirm('Downgrade '+vNm+'? It will not be sold as this bean.'))return;
+  /* 換鎖警訊：pass＝上鎖，但每隻豆只能鎖一個——同名已有鎖著的批次要先問過才換。
+     取消＝整個判定不做（豆留在待判定，不產生 passed-沒鎖 的中間態） */
+  var qcSwap=false;
+  if(v==='pass'&&s&&!s.flavour_locked&&lockedMate(s)){
+    var qnm=String(s.sample_id||'').trim();
+    qcSwap=(DB.syncs||[]).some(function(x){return x.status==='synced'&&String(x.bean_id||'').trim().toLowerCase()===qnm.toLowerCase();});
+    var msg=qcSwap
+      ?qnm+' already has a locked batch on the shelf.\nReplace it with this batch? Shop info (flavours, roast date) will switch to this one.'
+      :qnm+' already has a locked batch.\nMove the lock to this batch?';
+    if(!confirm(msg))return;
+  }
   if(btn){btn.disabled=true;btn.textContent='Saving…';}
   var u=await sb.from('roasts').update({qc:v}).eq('id',r.id);
   if(u.error){if(btn){btn.disabled=false;}alert('QC failed: '+u.error.message);return;}
@@ -1142,20 +1162,22 @@ async function qcVerdict(r,v,btn,cardId,s){
     try{var mu=await sb.from('roasts').update({qc:v}).eq('id',mates[mi].id);if(!mu.error)mates[mi].qc=v;}catch(e){}
   }
   logAct('qc '+v,r.bean_name||('roast '+r.id));
-  /* pass＋開關開＝杯測紀錄就地鎖風味（資訊卡/上架直接用這筆）；鎖失敗不擋判定但要說出來（曾靜默吞掉害老闆以為鎖了）。
-     鎖走 lockFlavourSolo＝同名其他筆自動解鎖——pass 的這筆就是「在賣的版本」 */
+  /* pass＝必鎖（2026-07-12 老闆定調右滑＝鎖頭：風味確定才給過，原 QCLOCK 開關退役）。
+     鎖走 lockFlavourSolo＝同名其他筆自動解鎖——pass 的這筆就是「在賣的版本」；
+     鎖失敗不擋判定但要說出來（曾靜默吞掉害老闆以為鎖了） */
   var locked=false,lockFail=false;
-  if(v==='pass'&&s&&QCLOCK){
+  if(v==='pass'&&s){
     try{if(await lockFlavourSolo(s))locked=true;else lockFail=true;}catch(e){lockFail=true;}
   }
-  /* 開關關著 pass＝沒鎖要講明（老闆踩過：以為壞掉，其實是膠囊被切掉了） */
   var lockNote=locked?' · flavours locked'
-    :lockFail?' · ⚠ flavour lock failed — lock it from Coffee Info'
-    :(v==='pass'&&s&&!s.flavour_locked&&!QCLOCK)?' · flavours not locked (toggle off)':'';
-  toast('QC '+v+' ✓'+lockNote);
+    :lockFail?' · ⚠ flavour lock failed — lock it from Coffee Info':'';
+  toast(qcSwap&&locked?'QC pass ✓ · lock moved — push the update so the shelf shows this batch':'QC '+v+' ✓'+lockNote);
   if(cardId)dropCard(cardId);
   /* 全量重算：pass 完 List 卡要立刻長出來（原本只濾 QCQ，Today 流舊資料害 List 卡等下次刷新才出現） */
   buildItems();
+  /* 換鎖且已在架上＝架上的風味/烘焙日期揭露訊息過期了——直接開 Update 抽屜（價格有記憶預填），
+     老闆按一下 push 就換新；上架/定價的決定仍在 publish 這邊，QC 不越權 */
+  if(qcSwap&&locked){openListSheet({ref:s});return;}
   if($('drawer').classList.contains('show'))openQCSheet();
 }
 /* ===== 抽屜 ===== */
@@ -5510,8 +5532,9 @@ function attachSwipe(el,id){
   /* 滑開態下點卡片本體＝收回（不觸發卡片動作；剛放手 300ms 內的 click 是拖曳尾勁，略過） */
   el.addEventListener('click',function(){if(SWIPE_OPEN===id&&Date.now()-_drag>300)closeSwipe();});
 }
-/* QC 待判定列右滑＝快速 pass（老闆點名）：只右滑、過 35% 寬才觸發、滑過 30% 變綠回饋防誤觸。
-   縱向讓抽屜捲動；設 _drag 讓滑完的 click 不誤觸展開。判定走 qcVerdict（含鎖風味/同日整批）*/
+/* QC 待判定列左右滑＝判定（老闆點名 2026-07-12）：右滑＝鎖頭（pass＋鎖風味）、左滑＝downgrade。
+   過 35% 寬才觸發、滑過 30% 變色回饋（右綠左紅）防誤觸；警訊（downgrade 確認/換鎖確認）統一在 qcVerdict。
+   縱向讓抽屜捲動；設 _drag 讓滑完的 click 不誤觸展開。 */
 function attachQcSwipe(el,q){
   if(!canWrite())return;
   var x0=null,y0=0,dx=0,locked=false,dead=false;
@@ -5527,19 +5550,20 @@ function attachQcSwipe(el,q){
     dx=e.clientX-x0;var dy=e.clientY-y0;
     if(!locked){
       if(Math.abs(dy)>14&&Math.abs(dy)>Math.abs(dx)){dead=true;return;} /* 縱向＝讓抽屜捲動 */
-      if(dx>18&&dx>Math.abs(dy)*1.6)locked=true; /* 只鎖明確右滑 */
+      if(Math.abs(dx)>18&&Math.abs(dx)>Math.abs(dy)*1.6)locked=true; /* 明確橫滑才鎖方向 */
       else return;
     }
-    if(dx<0)dx=0; /* 只准右滑 */
-    el.style.transform='translateX('+Math.min(130,dx*0.9)+'px)';
-    var pass=dx>el.offsetWidth*0.3;
-    el.style.background=pass?'color-mix(in srgb,var(--green) 22%,transparent)':'';
+    el.style.transform='translateX('+Math.max(-130,Math.min(130,dx*0.9))+'px)';
+    el.style.background=dx>el.offsetWidth*0.3?'color-mix(in srgb,var(--green) 22%,transparent)'
+      :dx<-el.offsetWidth*0.3?'color-mix(in srgb,var(--danger) 22%,transparent)':'';
   });
   el.addEventListener('pointercancel',function(){reset(true);});
   el.addEventListener('pointerup',function(){
     if(x0==null)return;
     if(Math.abs(dx)>10)_drag=Date.now();
-    if(locked&&dx>el.offsetWidth*0.35){reset(false);toast('QC pass ✓ '+(q.s.sample_id||q.r.bean_name||''));qcVerdict(q.r,'pass',null,'qc:'+q.r.id,q.s);return;}
+    var w=el.offsetWidth;
+    if(locked&&dx>w*0.35){reset(false);qcVerdict(q.r,'pass',null,'qc:'+q.r.id,q.s);return;}
+    if(locked&&dx<-w*0.35){reset(false);qcVerdict(q.r,'downgrade',null,'qc:'+q.r.id,q.s);return;}
     reset(true);
   });
 }
@@ -5578,7 +5602,7 @@ function openQCSheet(){
   if(selQC!=null&&!queue.find(function(q){return q.r.id===selQC;}))selQC=null;
   var qSec='';
   if(queue.length){
-    qSec='<div class="dlab">To judge — tap to open'+(canWrite()?' · swipe right to pass':'')+'</div>'
+    qSec='<div class="dlab">To judge — tap to open'+(canWrite()?' · swipe → lock &amp; pass · ← downgrade':'')+'</div>'
       +queue.map(function(q){
         var f=(q.s.features||[]).slice(0,3).join(', ');
         var op=q.r.id===selQC;
@@ -5591,8 +5615,8 @@ function openQCSheet(){
           +'<button class="chip" data-qact="date" style="flex:1;margin:0">Roast Date</button></div>'
           +(q.s.flavour_locked
             ?'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:9px 0 4px">flavours already locked ✓</div>'
-            :'<button class="qtoggle'+(QCLOCK?' on':'')+'" data-qact="lock" style="margin:9px auto 4px">'+(QCLOCK?'✓ ':'')+'Lock flavours on pass</button>')
-          +'<div style="display:flex;gap:8px;margin-top:6px"><button class="act" data-qact="pass" style="flex:1;margin:0">Pass</button><button class="act" data-qact="down" style="flex:1;margin:0;background:var(--danger)">Downgrade</button></div>'
+            :'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:9px 0 4px">🔒 pass locks these flavours as the selling version</div>')
+          +'<div style="display:flex;gap:8px;margin-top:6px"><button class="act" data-qact="pass" style="flex:1;margin:0">🔒 Pass</button><button class="act" data-qact="down" style="flex:1;margin:0;background:var(--danger)">Downgrade</button></div>'
           +'</div>';
         return head+body;
       }).join('');
@@ -5628,7 +5652,6 @@ function openQCSheet(){
     if(a==='recup')return openRecupSheet(cq);
     if(a==='stock')return openQcStockSheet(cq);
     if(a==='date')return openRoastDateSheet(cq);
-    if(a==='lock'){QCLOCK=!QCLOCK;openQCSheet();return;}
     if(a==='pass')return qcVerdict(cq.r,'pass',null,'qc:'+cq.r.id,cq.s);
     if(a==='down')return qcVerdict(cq.r,'downgrade',null,'qc:'+cq.r.id,cq.s);
   });});
