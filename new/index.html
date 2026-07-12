@@ -1104,9 +1104,14 @@ async function acceptOrder(i,btn){
     alert('Accept failed: '+(e&&e.message||e));
   }
 }
-/* 鎖風味＝單選（2026-07-12 老闆定調）：鎖＝「在賣的版本」。同名多筆杯測（重複豆/re-cup/多處理法）
-   只能一筆鎖著——鎖這筆自動解鎖同名其他筆；Coffee Info/資訊卡/公開豆頁/出貨信全跟鎖的這筆走
-   （shelfSampleFor 與各處 order flavour_locked desc 都以鎖優先）。回傳 false＝鎖寫入失敗。 */
+/* 處理法 key（2026-07-13 處理法分開下半場）：null/undefined/空白全折成 ''——
+   全鏈「同名同處理法」比對都用它，別再裸比 process 字串 */
+function procKey(p){return String(p||'').trim().toLowerCase();}
+/* 鎖風味＝單選（2026-07-12 老闆定調）：鎖＝「在賣的版本」。
+   2026-07-13 收緊成「同名＋同處理法」互斥（Alo Village White Honey / Cold Fermentation 事件）——
+   不同處理法是不同商品，鎖互不干涉；同名同處理法（重複豆/re-cup）仍只能一筆鎖著。
+   解鎖走前端過濾 id 清單再 .in() update——避開 PostgREST 對 null process 的比對麻煩。
+   Coffee Info/資訊卡/公開豆頁/出貨信全跟鎖的這筆走。回傳 false＝鎖寫入失敗。 */
 async function lockFlavourSolo(s){
   if(!s||!s.id)return false;
   if(!s.flavour_locked){
@@ -1117,17 +1122,36 @@ async function lockFlavourSolo(s){
   var nm=String(s.sample_id||'').trim();
   if(nm){
     try{
-      var un=await sb.from('samples').update({flavour_locked:false}).eq('supplier','Ratio Coffee').ilike('sample_id',nm).neq('id',s.id);
-      if(!un.error)(DB.samples||[]).forEach(function(x){if(String(x.id)!==String(s.id)&&String(x.sample_id||'').trim().toLowerCase()===nm.toLowerCase())x.flavour_locked=false;});
+      var ids=(DB.samples||[]).filter(function(x){
+        return String(x.id)!==String(s.id)
+          &&String(x.sample_id||'').trim().toLowerCase()===nm.toLowerCase()
+          &&procKey(x.process)===procKey(s.process);
+      }).map(function(x){return x.id;});
+      if(ids.length){
+        var un=await sb.from('samples').update({flavour_locked:false}).in('id',ids);
+        if(!un.error)(DB.samples||[]).forEach(function(x){if(ids.indexOf(x.id)>-1)x.flavour_locked=false;});
+      }
     }catch(e){}
   }
   return true;
 }
-/* 同名另一筆已鎖的杯測（＝現在在賣的版本）——換鎖警訊用；比對照 lockFlavourSolo 的同名精神 */
+/* 同名同處理法另一筆已鎖的杯測（＝現在在賣的版本）——換鎖警訊用；比對照 lockFlavourSolo 同範圍 */
 function lockedMate(s){
   var nm=String(s&&s.sample_id||'').trim().toLowerCase();if(!nm)return null;
   return (DB.samples||[]).find(function(x){
-    return String(x.id)!==String(s.id)&&x.flavour_locked&&String(x.sample_id||'').trim().toLowerCase()===nm;
+    return String(x.id)!==String(s.id)&&x.flavour_locked
+      &&String(x.sample_id||'').trim().toLowerCase()===nm
+      &&procKey(x.process)===procKey(s.process);
+  })||null;
+}
+/* 上架列查找（統一比對點）：proc===undefined＝名字級（呼叫端沒 process 在手／拼配）；
+   列的 process 為 null＝階段二前的舊列，名字級照舊配——向前向後都相容 */
+function syncFor(nm,proc){
+  var k=String(nm||'').trim().toLowerCase();
+  return (DB.syncs||[]).find(function(x){
+    if(!(x.status==='synced'||x.status==='paused'))return false;
+    if(String(x.bean_id||'').trim().toLowerCase()!==k)return false;
+    return x.process==null||proc===undefined||procKey(x.process)===procKey(proc);
   })||null;
 }
 async function qcVerdict(r,v,btn,cardId,s){
@@ -1140,7 +1164,8 @@ async function qcVerdict(r,v,btn,cardId,s){
   var qcSwap=false;
   if(v==='pass'&&s&&!s.flavour_locked&&lockedMate(s)){
     var qnm=String(s.sample_id||'').trim();
-    qcSwap=(DB.syncs||[]).some(function(x){return x.status==='synced'&&String(x.bean_id||'').trim().toLowerCase()===qnm.toLowerCase();});
+    var qsy=syncFor(qnm,s.process);
+    qcSwap=!!(qsy&&qsy.status==='synced');
     var msg=qcSwap
       ?qnm+' already has a locked batch on the shelf.\nReplace it with this batch? Shop info (flavours, roast date) will switch to this one.'
       :qnm+' already has a locked batch.\nMove the lock to this batch?';
@@ -2231,9 +2256,14 @@ function openHelpSheet(){
    一個門檻餵整個 app（貨架＋客戶店面）；>60 天再加「re-roast?」提示。 */
 var SHELF_FRESH_REST=21, SHELF_FRESH_PRIME=42, SHELF_STALE_DAYS=60;
 /* 上架代表樣品：鎖定的優先（同名多處理法時＝實際在賣的那個處理法，例如三個 Danche） */
-function shelfSampleFor(nm){
+function shelfSampleFor(nm,proc){
+  /* proc 可選（2026-07-13）：undefined＝名字級照舊（舊呼叫點零改動）；
+     給值（含 ''）＝只在同 procKey 池找——同名多處理法各找各的鎖 */
   var k=String(nm||'').trim().toLowerCase();
-  var pool=(DB.samples||[]).filter(function(s){return String(s.sample_id||'').trim().toLowerCase()===k;});
+  var pool=(DB.samples||[]).filter(function(s){
+    return String(s.sample_id||'').trim().toLowerCase()===k
+      &&(proc===undefined||procKey(s.process)===procKey(proc));
+  });
   return pool.find(function(s){return s.flavour_locked;})||pool[0]||null;
 }
 function shelfLatestRoast(nm){
@@ -3136,14 +3166,18 @@ function paintPublishSheet(sl,acts){
   [false,true].forEach(function(isBl){
     rstRows(isBl).forEach(function(r){
       var nm=String(r.name||'').trim();if(!nm||isSubName(nm))return;
-      var lk=nm.toLowerCase();if(seen[lk])return;seen[lk]=1;
-      var s=shelfSampleFor(nm); /* 鎖優先，同名有鎖必回鎖那筆＝名字級判定 */
+      /* 2026-07-13 處理法分開下半場：單品按 name+process 分行（Alo Village 兩處理法各一行）；
+         拼配沒 process＝名字級照舊 */
+      var pr=isBl?undefined:(r.proc||'');
+      var lk=nm.toLowerCase()+'|'+(pr===undefined?'':procKey(pr));
+      if(seen[lk])return;seen[lk]=1;
+      var s=shelfSampleFor(nm,pr); /* 鎖優先——同名多處理法各找各的鎖 */
       if(!s||!s.flavour_locked)return;
-      rows.push({nm:nm,s:s});
+      rows.push({nm:nm,proc:pr,key:lk,s:s});
     });
   });
   rows.forEach(function(x){
-    var sy=(DB.syncs||[]).find(function(s2){return (s2.status==='synced'||s2.status==='paused')&&String(s2.bean_id||'').trim().toLowerCase()===x.nm.toLowerCase();});
+    var sy=syncFor(x.nm,x.proc);
     x.sync=sy?sy.status:null;
     x.fb=acts['posted socials|'+x.nm.toLowerCase()]||null;
     x.em=acts['announced coffee|'+x.nm.toLowerCase()]||null;
@@ -3160,7 +3194,7 @@ function paintPublishSheet(sl,acts){
     var qcPill=pill('Locked ✓','var(--accent)');
     var shop=x.sync==='synced'?'Live':(x.sync==='paused'?'Sold out':'—');
     var chans='Shop (Square + Ratio): <b>'+shop+'</b> · FB/IG: <b>'+ago(x.fb)+'</b> · Email: <b>'+ago(x.em)+'</b>';
-    var open=PUB.open===x.nm;
+    var open=PUB.open===x.key; /* key＝nm|proc——同名兩處理法的卡開合互不干擾 */
     var h='<div style="border:1px solid '+(open?'var(--accent)':'var(--line)')+';border-radius:12px;padding:11px 13px;margin-top:8px">'
       +'<div data-pub="'+ix+'" style="cursor:pointer">'
       +'<div style="display:flex;align-items:center;gap:8px"><span class="t" style="font-size:14.5px;flex:1;min-width:0">'+esc(x.nm)
@@ -3191,11 +3225,11 @@ function paintPublishSheet(sl,acts){
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);
   document.querySelectorAll('#drawer [data-pub]').forEach(function(el){el.addEventListener('click',function(){
-    var x=rows[+el.dataset.pub];PUB.open=(PUB.open===x.nm)?null:x.nm;paintPublishSheet(sl,acts);
+    var x=rows[+el.dataset.pub];PUB.open=(PUB.open===x.key)?null:x.key;paintPublishSheet(sl,acts);
   });});
   document.querySelectorAll('#drawer [data-pubact]').forEach(function(el){el.addEventListener('click',async function(ev){
     ev.stopPropagation();
-    var x=rows.find(function(r){return r.nm===PUB.open;});if(!x)return;
+    var x=rows.find(function(r){return r.key===PUB.open;});if(!x)return;
     var act=el.dataset.pubact;
     if(act==='list'){openListSheet({ref:x.s});return;}
     if(act==='sold'){
@@ -4120,13 +4154,16 @@ function rstRows(isBlend){
     x.dgKg=0;x.dg.forEach(function(r){x.dgKg+=Number(r.remaining_kg)||0;});
     x.dgKg=Math.round(x.dgKg*100)/100;
     x.hp=rstBarHTML(x.batches,x.target,x.low);
-    /* 上架狀態：product_sync 同名列 → Live / Sold out 膠囊（Square 商品名字級，同名共用） */
-    var sy=(DB.syncs||[]).find(function(s){return (s.status==='synced'||s.status==='paused')&&String(s.bean_id||'').trim().toLowerCase()===x.name.toLowerCase();});
+    /* 上架狀態：product_sync 列 → Live / Sold out 膠囊（2026-07-13 起 process 級：單品帶 proc 比對，
+       舊列 process=null 名字級照舊配；拼配名字級） */
+    var sy=syncFor(x.name,x.isBlend?undefined:(x.proc||''));
     x.sync=sy?sy.status:null;
-    /* Live 要說真話（老闆點名 2026-07-12）：Square synced 只是掛上架，客人真的看得到還要風味鎖定
-       （店面 public-shop 的 QC gate＝flavour_locked sample）。有鎖才算真 Live，synced 沒鎖＝店面看不到。
-       DB.samples 載入時已 .eq supplier 'Ratio Coffee'，此處名字級比對＝與 public-shop 同條件 */
-    x.locked=(DB.samples||[]).some(function(s){return s.flavour_locked&&String(s.sample_id||'').trim().toLowerCase()===x.name.toLowerCase();});
+    /* Live 要說真話（老闆點名 2026-07-12）：synced 還要風味鎖定才算真 Live。
+       2026-07-13 收緊：單品只看「自己處理法」的鎖（Alo Village 兩處理法各自的膠囊各自說話） */
+    x.locked=(DB.samples||[]).some(function(s){
+      return s.flavour_locked&&String(s.sample_id||'').trim().toLowerCase()===x.name.toLowerCase()
+        &&(x.isBlend||procKey(s.process)===procKey(x.proc||''));
+    });
     /* 缺咖啡資訊（v3）：沒杯測紀錄＝掛紅字警示、點了去 QC 補。
        名字級判斷（同名任一杯測就算有）——process 級警示等 samples 記法統一再收緊 */
     x.noInfo=!shelfSampleFor(x.name);
@@ -4264,7 +4301,7 @@ function openBatchesSheet(){
     try{
       var u=await sb.from('roasts').update({qc:null}).eq('id',r.id);
       if(u.error)throw new Error(u.error.message);
-      var s=shelfSampleFor(x.name);
+      var s=shelfSampleFor(x.name,x.isBlend?undefined:(x.proc||'')); /* 只解自己處理法的鎖 */
       if(s&&s.id&&s.flavour_locked){try{await sb.from('samples').update({flavour_locked:false}).eq('id',s.id);}catch(e){}}
       logAct('sent back to QC',x.name,'verdict '+r.qc+' cleared · flavour unlocked');
       toast('"'+x.name+'" is back in the QC queue ✓');
@@ -4921,8 +4958,11 @@ async function saveCupSheet(){
     return;
   }
   var today=todayStr();
-  /* 防呆：同豆同日已有紀錄（同 classic submitCupping） */
-  var isDup=(DB.samples||[]).some(function(x){return x.cupping_date===today&&String(x.sample_id||'').trim().toLowerCase()===name.toLowerCase();});
+  /* 防呆：同豆同日同處理法已有紀錄（2026-07-13 加 process——同名不同處理法同日杯測不誤擋） */
+  var isDup=(DB.samples||[]).some(function(x){
+    return x.cupping_date===today&&String(x.sample_id||'').trim().toLowerCase()===name.toLowerCase()
+      &&procKey(x.process)===procKey(CUP.process);
+  });
   if(isDup&&!confirm('"'+name+'" already has a cupping record today. Save another?'))return;
   var btn=$('cup-save');if(btn){btn.disabled=true;btn.textContent='Saving…';}
   try{
