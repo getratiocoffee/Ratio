@@ -61,6 +61,7 @@
 - **結果**：12 支全 paused——3 支走 `setShelfSold`（Dark Knight/Dancer/Dreamer，Square availability＋rtl_sold＋edge 回寫 paused）；**9 支 Square 打回 Catalog object not found**（April Project/Sugar Daddy/June Project/Kiama AA/Kii AB/Hakuna Matata/Danche v1-v3——Square 後台商品早被手動刪過、掛 Live 其實只有 ?shop 在賣）→ 這 9 支照 setShelfSold 後半邏輯直補 DB（rtl_sold 標記＋product_sync paused）。沒動：La Molienda/Mwendi Wega AB（沒鎖＝本來就不在店面）、Subscription ×2
 - **驗證**：product_sync 對帳 13 paused（含原有 Finca Milan）/4 synced；?shop 客人視角全數 SOLD OUT 不能加購物車
 - **⚠ 備忘**：這 9 支日後重新上架照常按 Publish「List on Square + Ratio shop」會重建 Square 商品（push 走 create）；morning-brief v4 有「售罄滿 30 天自動下架」——這批全標售罄了，30 天後會被自動收走 product_sync，屬正常行為
+- **接著加做：public-shop v13**（老闆嫌整頁 SOLD OUT 卡不好看、選「售罄豆從菜單完全消失」）：GET beans 組建加一行 `if(r.status==='paused')return null`——**v8「售罄留菜單帶 sold_out 旗標」規則廢除**；sold_out 欄位保留恆 false（舊前端相容）；checkout 驗證/subs[]/catalogForSynced 全不動（paused 本來就進不了 allowedVarIds）。從此「Mark sold out」＝店面直接消失、「Put back on sale」＝自動回來。驗證：curl edge beans:0 subs:2 ✓；?shop 客人視角只剩訂閱卡（前端空分頁自動收、優雅降級不用改前端）。⚠ edge 程式碼不在 repo（歷來都 MCP 直部署），要看原始碼用 get_edge_function
 
 ## 〇、補記 — 2026-07-13（Publish 改認風味鎖 ＋ Downgrade 現身當配方首選 ✅）
 - **背景**：老闆核對 Coffee Stock 管線心智模型後拍板兩更正：①Publish 門檻從 qc=pass 改**風味鎖定**（與 Coffee Stock 膠囊、public-shop QC gate 三處同口徑，順修 Publish 面板 Live 膠囊不看鎖的不一致）②downgrade 批次不再隱形——Coffee Stock 帶紅標顯示、拼配烘焙**優先吃降級豆**（消化進配方）
