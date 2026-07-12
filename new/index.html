@@ -2255,7 +2255,7 @@ async function openRetailSheet(){
   $('d-cl').addEventListener('click',closeDrawer);
 }
 /* Retail shelf 豆子明細：售價/新鮮度＋烘焙風味（風味詞、comment、雷達）＋豆子履歷＋一鍵資訊卡 */
-async function openShelfBeanDetail(nm,m){
+async function openShelfBeanDetail(nm,m,from){ /* from='stock'＝從 Coffee 磁貼進來，back/售罄回跳跟著走 */
   m=m||{rtl_price:{},rtl_g:{},rtl_sizes:{},rtl_sold:{}};
   openDrawerHTML('<div class="t" style="font-size:19px">'+esc(nm)+'</div><div class="empty">Loading…</div>');
   var s=shelfSampleFor(nm)||{sample_id:nm};
@@ -2319,7 +2319,7 @@ async function openShelfBeanDetail(nm,m){
     +'<button class="dclose" id="sb-card">Folding Info Card PDF</button>'
     +'<button class="dclose" id="sb-promo">Social Post Kit - IG &amp; Red</button>'
     +'<button class="dclose" id="sb-ann">Announce by email - new coffee</button>'
-    +'<button class="dclose" id="sb-back">‹ Back to Coffee Info</button>'
+    +'<button class="dclose" id="sb-back">'+(from==='stock'?'‹ Back to Coffee':'‹ Back to Coffee Info')+'</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('sb-edit').addEventListener('click',function(){openListSheet({ref:s});});
   /* 放錯資訊退回 QC 重審（老闆點名）：清最近判定＋解鎖風味 → 重杯修正 → Pass 重鎖；Square 上架不動 */
@@ -2348,7 +2348,7 @@ async function openShelfBeanDetail(nm,m){
     try{
       await setShelfSold(nm,!sold);
       toast(!sold?'Sold out on Square ✓':'Back on sale ✓');
-      openRetailSheet();
+      if(from==='stock')openBatchesSheet();else openRetailSheet();
     }catch(e){
       btn.disabled=false;btn.textContent=sold?'Put back on sale':'Mark Sold Out';
       alert('Update failed: '+(e&&e.message||e));
@@ -2357,7 +2357,7 @@ async function openShelfBeanDetail(nm,m){
   $('sb-card').addEventListener('click',function(){openInfoCardPrint(s);});
   $('sb-promo').addEventListener('click',function(){openPromoSheet(s,m);});
   $('sb-ann').addEventListener('click',function(){announceShelfBean(s,nm,this);});
-  $('sb-back').addEventListener('click',openRetailSheet);
+  $('sb-back').addEventListener('click',from==='stock'?openBatchesSheet:openRetailSheet);
   $('d-cl').addEventListener('click',closeDrawer);
 }
 /* ===== Social post kit（社群曝光 Phase 4 第一刀：貨架豆一鍵出 IG/小紅書素材）=====
@@ -3013,6 +3013,126 @@ async function shelfLiveBeans(){
     .sort(function(a,b){if(!!a.d!==!!b.d)return a.d?-1:1;return String(b.d||'').localeCompare(String(a.d||''))||a.nm.localeCompare(b.nm);});
   return {m:m,live:live};
 }
+/* ===== Publish 一鍵上架面板（2026-07-12 統整：Coffee Info/Post to socials/IG asset/Announce 四磁貼收成一個）=====
+   老闆定調：列過 QC 的豆 → 看所有渠道上架狀態（Square/Ratio 店面同一條管線＝一顆膠囊組）→
+   可上架/更新/售罄切換 → Email 群發/FB+IG 發文/IG asset 素材全在每支豆的展開列。
+   薄殼：按鈕全接現有函式（openListSheet/setShelfSold/announceShelfBean/openSocialPostBean/openPromoSheet）。
+   FB/IG/Email 的「發過沒」看 activity_log（posted socials／announced coffee）最新一筆。 */
+var PUB={open:null};
+async function openPublishSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Publish</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  var sl=await shelfLiveBeans();
+  var acts={};
+  try{
+    var ar=await sb.from('activity_log').select('action,ref,created_at').in('action',['posted socials','announced coffee']).order('created_at',{ascending:false}).limit(400);
+    (ar.data||[]).forEach(function(a){var k=a.action+'|'+String(a.ref||'').trim().toLowerCase();if(!acts[k])acts[k]=a.created_at;});
+  }catch(e){}
+  paintPublishSheet(sl,acts);
+}
+function paintPublishSheet(sl,acts){
+  var _mk=canWrite();
+  /* 母體：自家杯測豆 ∪ 已上架豆（純 sync 孤兒也列，但沒杯測紀錄的動作會缺件） */
+  var rows=[],seen={};
+  (DB.samples||[]).forEach(function(s){
+    if((s.supplier||'')!=='Ratio Coffee')return;
+    var nm=String(s.sample_id||'').trim();if(!nm)return;
+    var lk=nm.toLowerCase();if(seen[lk])return;seen[lk]=1;
+    rows.push({nm:nm,s:shelfSampleFor(nm)});
+  });
+  (DB.syncs||[]).forEach(function(x){
+    if(!(x.status==='synced'||x.status==='paused'))return;
+    var nm=String(x.bean_id||'').trim();if(!nm||isSubName(nm))return;
+    var lk=nm.toLowerCase();if(seen[lk])return;seen[lk]=1;
+    rows.push({nm:nm,s:shelfSampleFor(nm)});
+  });
+  rows.forEach(function(x){
+    var r=x.s?matchRoast(x.s):null;
+    x.qc=r?(r.qc||null):null;
+    var sy=(DB.syncs||[]).find(function(s2){return (s2.status==='synced'||s2.status==='paused')&&String(s2.bean_id||'').trim().toLowerCase()===x.nm.toLowerCase();});
+    x.sync=sy?sy.status:null;
+    x.fb=acts['posted socials|'+x.nm.toLowerCase()]||null;
+    x.em=acts['announced coffee|'+x.nm.toLowerCase()]||null;
+    /* 可操作＝過 QC（老闆定調）或已在架上（管理既有上架） */
+    x.ok=x.qc==='pass'||!!x.sync;
+  });
+  /* 排序：過 QC 還沒上架的最上（該上了）→ 已上架 → 沒過 QC 沉底 */
+  rows.sort(function(a,b){
+    var ra=a.ok?(a.sync?1:0):2,rb=b.ok?(b.sync?1:0):2;
+    return ra!==rb?ra-rb:a.nm.localeCompare(b.nm);
+  });
+  function ago(ts){if(!ts)return '—';var d=daysSince(String(ts).slice(0,10));return d<=0?'today':(d+'d ago');}
+  var pill=function(txt,bg){return '<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;background:'+bg+';color:#fff">'+txt+'</span>';};
+  var body=rows.length?rows.map(function(x,ix){
+    var qcPill=x.qc==='pass'?pill('QC ✓','var(--accent)')
+      :x.qc==='downgrade'?pill('downgraded','var(--danger)')
+      :x.qc==='reroast'?pill('re-roast','var(--danger)')
+      :'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;border:1px solid var(--line2);color:var(--muted)">not judged</span>';
+    var shop=x.sync==='synced'?'Live':(x.sync==='paused'?'Sold out':'—');
+    var chans='Shop (Square + Ratio): <b>'+shop+'</b> · FB/IG: <b>'+ago(x.fb)+'</b> · Email: <b>'+ago(x.em)+'</b>';
+    var open=PUB.open===x.nm;
+    var h='<div style="border:1px solid '+(open?'var(--accent)':'var(--line)')+';border-radius:12px;padding:11px 13px;margin-top:8px'+(x.ok?'':';opacity:.55')+'">'
+      +'<div data-pub="'+ix+'" style="cursor:pointer">'
+      +'<div style="display:flex;align-items:center;gap:8px"><span class="t" style="font-size:14.5px;flex:1;min-width:0">'+esc(x.nm)+'</span>'+qcPill+'</div>'
+      +'<div class="s" style="margin-top:4px">'+chans+'</div>'
+      +'</div>';
+    if(open&&x.ok&&_mk){
+      var noCup=!x.s;
+      /* 上架訊息快速預覽（完整 caption 在 IG asset 裡可複製） */
+      var feats=(x.s&&Array.isArray(x.s.features)?x.s.features.slice(0,3).join(', '):'');
+      var msg=[];if(feats)msg.push('Cupping notes: '+feats);if(x.s&&(x.s.comment||'').trim())msg.push('“'+String(x.s.comment).trim()+'”');
+      h+='<div style="margin-top:8px">'
+        +(msg.length?'<div class="s" style="margin-bottom:8px;padding:9px 11px;background:var(--tint);border-radius:10px">'+esc(msg.join(' · '))+'</div>':'')
+        +(noCup?'<div class="s" style="margin-bottom:6px"><span class="red">No cupping record — cup it first for listing, email and assets</span></div>':'')
+        +'<button class="dclose" data-pubact="list" '+(noCup?'disabled style="opacity:.5"':'')+'>'+(x.sync?'Update listing (Square + Ratio shop)':'List on Square + Ratio shop')+'</button>'
+        +(x.sync?'<button class="dclose" data-pubact="sold">'+(x.sync==='paused'?'Put back on sale':'Mark sold out')+'</button>':'')
+        +'<button class="dclose" data-pubact="email" '+(noCup?'disabled style="opacity:.5"':'')+'>Email customers — new coffee</button>'
+        +'<button class="dclose" data-pubact="social">Post to FB + IG</button>'
+        +'<button class="dclose" data-pubact="ig" '+(noCup?'disabled style="opacity:.5"':'')+'>IG asset — cards &amp; captions</button>'
+        +'</div>';
+    }else if(open&&!x.ok){
+      h+='<div class="s" style="margin-top:8px"><span class="red">Pass QC first</span> — judge this coffee in the QC tab, then publish it here.</div>';
+    }
+    return h+'</div>';
+  }).join(''):'<div class="empty">No coffees yet — cup and judge a roast first</div>';
+  openDrawerHTML('<div class="t" style="font-size:19px">Publish</div>'
+    +'<div class="s" style="margin-top:2px">QC-passed coffees → every channel · shop listing = Square + Ratio site together</div>'
+    +body
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('d-cl').addEventListener('click',closeDrawer);
+  document.querySelectorAll('#drawer [data-pub]').forEach(function(el){el.addEventListener('click',function(){
+    var x=rows[+el.dataset.pub];PUB.open=(PUB.open===x.nm)?null:x.nm;paintPublishSheet(sl,acts);
+  });});
+  document.querySelectorAll('#drawer [data-pubact]').forEach(function(el){el.addEventListener('click',async function(ev){
+    ev.stopPropagation();
+    var x=rows.find(function(r){return r.nm===PUB.open;});if(!x)return;
+    var act=el.dataset.pubact;
+    if(act==='list'){openListSheet({ref:x.s});return;}
+    if(act==='sold'){
+      el.disabled=true;el.textContent='Working…';
+      try{await setShelfSold(x.nm,x.sync!=='paused');toast(x.sync!=='paused'?'Sold out ✓':'Back on sale ✓');openPublishSheet();}
+      catch(e){alert('Update failed: '+(e&&e.message||e));openPublishSheet();}
+      return;
+    }
+    if(act==='email'){announceShelfBean(x.s,x.nm,el);return;}
+    if(act==='social'){
+      el.disabled=true;el.textContent='Checking Meta…';
+      var st=null;
+      try{st=await callFn('social-post',{action:'status'});}
+      catch(e){st={connected:false,reason:'error',error:String(e&&e.message||e)};}
+      if(!st||!st.connected){ /* 文案照 openSocialPostSheet */
+        var msg=(st&&st.reason==='token_expired')
+          ?'The Meta connection has expired. Ask Claude to reconnect Instagram and Facebook.'
+          :(st&&st.reason==='not_configured')
+            ?'Instagram and Facebook are not connected yet. Ask Claude to connect your accounts first.'
+            :'Could not check the connection: '+((st&&st.error)||'unknown');
+        alert(msg);el.disabled=false;el.textContent='Post to FB + IG';return;
+      }
+      openSocialPostBean(x.nm,sl.m,st);
+      return;
+    }
+    if(act==='ig'){openPromoSheet(x.s,sl.m);return;}
+  });});
+}
 async function openIGSheet(){
   openDrawerHTML('<div class="t" style="font-size:19px">IG asset</div><div class="empty" style="margin-top:16px">Loading…</div>');
   var sl=await shelfLiveBeans(),m=sl.m,live=sl.live;
@@ -3245,6 +3365,7 @@ async function announceShelfBean(s,nm,btn){
     var cardUrl=await uploadCardForBean(nm);
     var flav=(s.features&&s.features.length)?s.features.slice(0,3).join(', '):'';
     var r=await callFn('send-email',{action:'announce_coffee',name:nm,card_url:cardUrl,flavour:flav,note:(s.comment||'').trim()});
+    logAct('announced coffee',nm,(r.sent||0)+' customers'); /* Publish 面板的 Email 狀態靠這筆 */
     toast('Sent to '+(r.sent||0)+' of '+(r.total||n)+' customers'+(r.failed?(' · '+r.failed+' failed'):'')+' ✓');
   }catch(e){alert('Announce failed: '+(e&&e.message||e));}
   btn.disabled=false;btn.textContent=orig;
@@ -3883,7 +4004,12 @@ function rstRows(isBlend){
       if(lk&&!seen[lk]){seen[lk]=1;rows.push({name:String(r.bean_name).trim(),isBlend:isBlend,target:null,low:null,ref:null});}
     }
   });
-  rows.forEach(function(x){x.batches=rstBatches(x.name,x.isBlend);x.hp=rstBarHTML(x.batches,x.target,x.low);});
+  rows.forEach(function(x){
+    x.batches=rstBatches(x.name,x.isBlend);x.hp=rstBarHTML(x.batches,x.target,x.low);
+    /* 上架狀態（Coffee 合併檢視 2026-07-12）：product_sync 同名列 → Live / Sold out 膠囊 */
+    var sy=(DB.syncs||[]).find(function(s){return (s.status==='synced'||s.status==='paused')&&String(s.bean_id||'').trim().toLowerCase()===x.name.toLowerCase();});
+    x.sync=sy?sy.status:null;
+  });
   var rank={low:0,over:1,ok:2};
   rows.sort(function(a,b){var d=rank[a.hp.state]-rank[b.hp.state];return d!==0?d:a.name.localeCompare(b.name);});
   return rows;
@@ -3891,8 +4017,8 @@ function rstRows(isBlend){
 function openBatchesSheet(){
   var isBlend=RST.seg==='blend';
   var rows=rstRows(isBlend),ed=canWrite();
-  var h='<div class="t" style="font-size:19px">Roasted Stock</div>'
-    +'<div class="s" style="margin-top:2px">stock bars per coffee — one segment per batch, oldest darkest · low ones float up</div>'
+  var h='<div class="t" style="font-size:19px">Coffee</div>'
+    +'<div class="s" style="margin-top:2px">stock bars per coffee — oldest batch darkest · low ones float up · tap a coffee for info</div>'
     +'<div class="pm-seg" style="margin-top:10px"><button id="rst-b" class="'+(isBlend?'on':'')+'">Blends</button><button id="rst-s" class="'+(isBlend?'':'on')+'">Single origins</button></div>';
   if(!rows.length)h+='<div class="empty">Nothing here yet<br>Log the roasted-out kg when roasting — stock lands here</div>';
   rows.forEach(function(x,xi){
@@ -3901,7 +4027,9 @@ function openBatchesSheet(){
     h+='<div style="border:1px solid '+(openRow?'var(--accent)':'var(--line)')+';border-radius:12px;padding:10px 13px;margin-top:8px">'
       +'<div data-rst="'+xi+'" style="cursor:pointer">'
       +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
-      +'<span class="t" style="font-size:14.5px">'+esc(x.name)+'</span>'
+      +'<span style="min-width:0;display:flex;align-items:baseline;gap:7px"><span class="t" style="font-size:14.5px">'+esc(x.name)+'</span>'
+      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='synced'?'background:var(--accent);color:#fff':'background:var(--danger);color:#fff')+'">'+(x.sync==='synced'?'Live':'Sold out')+'</span>':'')
+      +'</span>'
       +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto"><span class="s" style="'+(danger?'color:var(--danger);font-weight:700':'color:var(--muted)')+'">'+esc(x.hp.label)+'</span>'
       +(ed?'<button data-ded="'+xi+'" class="chip" style="margin:0;padding:2px 10px;font-size:15px" aria-label="deduct">−</button>':'')+'</span></div>'
       +'<div style="margin-top:7px">'+x.hp.bar+'</div>'
@@ -3913,7 +4041,16 @@ function openBatchesSheet(){
         if(r.qc==='pass')tags.push('QC ✓');else if(r.qc==='reroast')tags.push('<span class="red">re-roast</span>');else if(r.qc==='downgrade')tags.push('downgraded');
         return '<div class="dl"><span>'+(r.roast_date?fmtD(r.roast_date)+' · '+age+'d':'no date')+(tags.length?' · '+tags.join(' · '):'')+'</span><span>'+(Number(r.remaining_kg)||0)+' kg</span></div>';
       }).join(''):'<div class="sempty">No batches in stock</div>';
-      h+='<div style="margin-top:6px">'+bl;
+      /* 咖啡資訊摘要（Coffee 合併檢視）：新鮮度＋風味前 3＋完整檔案入口 */
+      var fr=null,smp=null;try{fr=shelfFreshness(x.name);smp=shelfSampleFor(x.name);}catch(e){}
+      var feats=(smp&&Array.isArray(smp.features)?smp.features.slice(0,3).join(' · '):'');
+      var infoLine=[];
+      if(fr&&fr.days!=null)infoLine.push(fr.txt);
+      if(feats)infoLine.push(feats);
+      h+='<div style="margin-top:6px">'
+        +(infoLine.length?'<div class="s" style="margin:2px 0 6px">'+esc(infoLine.join(' · '))+'</div>':'')
+        +'<button class="chip" id="rst-info" style="margin:0 0 4px">Coffee info →</button>'
+        +bl;
       if(ed&&x.ref){
         h+='<div style="display:flex;gap:8px;margin-top:10px">'
           +'<input class="din" id="rst-tg" inputmode="decimal" placeholder="Target kg" value="'+esc(x.target==null?'':String(x.target))+'" style="flex:1;margin:0">'
@@ -3958,6 +4095,13 @@ function openBatchesSheet(){
     var x=rows.find(function(r){return r.name===RST.open;});if(!x)return;
     if(x.isBlend)openRoastPreset('blend',x.name);
     else{var b=(DB.beans||[]).find(function(bb){return String(bb.name||'').trim().toLowerCase()===x.name.toLowerCase();});openRoastPreset('single',b?b.id:'');}
+  });
+  var inf=$('rst-info');
+  if(inf)inf.addEventListener('click',async function(){
+    var x=rows.find(function(r){return r.name===RST.open;});if(!x)return;
+    inf.disabled=true;inf.textContent='Loading…';
+    try{var sl=await shelfLiveBeans();openShelfBeanDetail(x.name,sl.m,'stock');}
+    catch(e){inf.disabled=false;inf.textContent='Coffee info →';alert('Load failed: '+(e&&e.message||e));}
   });
 }
 /* 開 Log roast 並預選（血條行動鈕與聚合卡共用） */
@@ -5287,7 +5431,7 @@ function renderQC(){
     +(q.r.roast_date?' <span style="opacity:.8">· roasted '+esc(fmtD(q.r.roast_date))+'</span>':'')+'</div>'
     +'<div class="qacts">'
     +'<button class="qact" id="q-recup">View/Edit</button>'
-    +'<button class="qact" id="q-card">Menu Card</button>'
+    +'<button class="qact" id="q-stock">Edit/Add Stock</button>'
     +'<button class="qact" id="q-date">Edit Roast Date</button>'
     +'</div>'
     /* 鎖風味的決定在判定當下：pass＝判定＋鎖（開關可關；已鎖的豆顯示已鎖不重複問） */
@@ -5299,11 +5443,55 @@ function renderQC(){
     +'<button class="big" id="q-p">Pass</button><button class="dn" id="q-d">Downgrade</button>'
     +'</div></div>';
   $('q-recup').addEventListener('click',function(){openRecupSheet(q);});
-  $('q-card').addEventListener('click',function(){openCardPreview(q);});
+  $('q-stock').addEventListener('click',function(){openQcStockSheet(q);});
   $('q-date').addEventListener('click',function(){openRoastDateSheet(q);});
   var ql=$('q-lock');if(ql)ql.addEventListener('click',function(){QCLOCK=!QCLOCK;renderQC();});
   $('q-p').addEventListener('click',function(){qcVerdict(q.r,'pass',null,'qc:'+q.r.id,q.s);});
   $('q-d').addEventListener('click',function(){qcVerdict(q.r,'downgrade',null,'qc:'+q.r.id,q.s);});
+}
+/* QC 補庫存（老闆點名，取代 Menu Card 鈕）：judging 當下對這批加庫存量＋帶日期——
+   補漏網之魚的順手路。只 update roasts（remaining_kg/roasted_kg/roast_date），
+   不動 beans、不寫 stock_moves（同 Add a past batch 語意）。扣血請去 Coffee 磁貼的「−」。 */
+function openQcStockSheet(q){
+  var cur=Number(q.r.remaining_kg)||0;
+  openDrawerHTML('<div class="t" style="font-size:19px">Edit/Add Stock · '+esc(q.s.sample_id||q.r.bean_name||'—')+'</div>'
+    +'<div class="s" style="margin-top:2px">adds roasted stock to this batch — green stock is not touched</div>'
+    +'<div class="dl" style="margin-top:12px"><span>Batch stock now</span><span><b>'+cur+' kg</b>'+(q.r.roasted_kg!=null?' <span style="color:var(--muted)">· roasted '+(Number(q.r.roasted_kg)||0)+' kg</span>':'')+'</span></div>'
+    +'<div class="dlab">Add to stock (kg)</div><input class="din" id="qs-add" inputmode="decimal" placeholder="e.g. 2.5">'
+    +'<div class="s" id="qs-new" style="margin-top:6px;text-align:right">= new total '+cur+' kg</div>'
+    +'<div class="dlab">Roast date</div><input class="din" id="qs-date" type="date" value="'+esc(q.r.roast_date||'')+'">'
+    +'<div class="s" style="margin-top:6px">date keeps this batch separate from other roasts of the same coffee</div>'
+    +'<button class="act" id="qs-save">Save</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  $('qs-add').addEventListener('input',function(){
+    var a=parseFloat(this.value)||0;
+    $('qs-new').textContent='= new total '+(Math.round((cur+a)*1000)/1000)+' kg';
+  });
+  $('qs-save').addEventListener('click',async function(){
+    var raw=String($('qs-add').value||'').trim();
+    var add=raw===''?0:parseFloat(raw);
+    if(isNaN(add)||add<0){toast('Add must be 0 or more — to deduct use Coffee → −');return;}
+    var date=$('qs-date').value||q.r.roast_date||null;
+    if(add===0&&date===(q.r.roast_date||null)){toast('Nothing to change');return;}
+    var btn=this;btn.disabled=true;btn.textContent='Saving…';
+    try{
+      var upd={remaining_kg:Math.round((cur+add)*1000)/1000};
+      if(add>0)upd.roasted_kg=Math.round(((Number(q.r.roasted_kg)||0)+add)*1000)/1000;
+      if(date)upd.roast_date=date;
+      var u=await sb.from('roasts').update(upd).eq('id',q.r.id);
+      if(u.error)throw new Error(u.error.message);
+      /* 日期有改→杯測紀錄跟著走（同 openRoastDateSheet：matchRoast 靠日期優先配對） */
+      if(date&&date!==q.r.roast_date&&q.s.id&&q.s.roast_date){try{await sb.from('samples').update({roast_date:date}).eq('id',q.s.id);q.s.roast_date=date;}catch(e){}}
+      Object.assign(q.r,upd);
+      logAct('added stock',q.r.bean_name||q.s.sample_id,(add>0?'+'+add+' kg':'date only'));
+      closeDrawer();toast(add>0?'Stock +'+add+' kg ✓':'Date updated ✓');
+      buildItems();render();
+    }catch(e){
+      btn.disabled=false;btn.textContent='Save';
+      alert('Save failed: '+(e&&e.message||e));
+    }
+  });
+  $('d-cl').addEventListener('click',closeDrawer);
 }
 /* 編輯烘豆日期（老闆點名）：修批次日期——新鮮度、資訊卡、貨架排序全跟著走 */
 function openRoastDateSheet(q){
@@ -8642,11 +8830,12 @@ function renderTools(){
       +_tiles([['Green stock','full list','greens','stock'],['Sample analyse','green cupping','sampleana','qc',1],['Buy log','green purchases','buylog','order',1],['C Market','futures · landed cost','cmarket','statement']]))
     +_sec('Roast',DEPT.roast,
       (_mk?_mkTile('t-roast','Log roast','green in','flame'):'')
-      +_tiles([['Roasted Stock','FIFO shelf','batches','dispatch']].concat(_mk?[['Delete a coffee','remove · careful','delbean','trash',1]]:[])))
+      +_tiles([['Coffee','stock · info per coffee','batches','dispatch']].concat(_mk?[['Delete a coffee','remove · careful','delbean','trash',1]]:[])))
     +_sec('QC &amp; Recipe',DEPT.qc,
       _tiles([['QC','cup and judge','qcgo','qc'],['Recipe','blends · dial-in','recipe','recipe'],['Dial in','espresso shots','dialin','espresso',1]]))
+    /* 2026-07-12 統整：Coffee Info/Post to socials/IG asset/Announce 四顆收進 Publish 一鍵上架面板 */
     +_sec('Marketing',DEPT.mkt,
-      _tiles([['Coffee Info','live on Square','retail','market'],['Post to socials','IG + FB · one tap','socialpost','mega',1],['IG asset','post card · caption','igasset','camera'],['Announce','new coffee email','announce','bell',1]]))
+      _tiles([['Publish','QC → every channel','publish','mega',1]]))
     +_sec('Orders',DEPT.ord,
       (_mk?_mkTile('t-neworder','New order','right here','plus'):'')
       +_tiles([['Orders','recent list','orders','order']].concat(ROLE==='director'?[['Subscriptions','fortnightly beans · plans','subs','reorder',1],['Wholesale','discount % · accounts','wholesale','statement',1]]:[])))
@@ -8731,6 +8920,7 @@ function renderTools(){
     if(k==='contacts'){openContactsSheet();return;}
     if(k==='help'){openHelpSheet();return;}
     if(k==='retail'){openRetailSheet();return;}
+    if(k==='publish'){openPublishSheet();return;}
     if(k==='qcgo'){view='qc';render();return;}
     if(k==='recipe'){openRecipeSheet();return;}
     if(k==='dialin'){openDialinSheet();return;}
