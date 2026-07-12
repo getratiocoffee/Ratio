@@ -107,8 +107,8 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
-## 〇、補記 — 2026-07-12 之十一（QC 判定按鈕 Re-cup → View/Edit）
-- 老闆點名：QC judging deck 的「Re-cup」按鈕（5247）改叫「View/Edit」，抽屜標題（4407 `CUP.editId?...`）同步改，語意更貼實際功能（帶原杯測紀錄看/改、存檔 update 同一筆）。純文字，功能不動。驗證：jscheck ✓、stub QC deck 按鈕＋抽屜標題都顯示 View/Edit、無 Re-cup 殘留、console 零錯誤、排版不跑版（那排本就有更長的 Edit Roast Date）。
+## 〇、補記 — 2026-07-12 之十一（QC 判定按鈕改名 ×2）
+- 老闆點名，QC judging deck 那排按鈕（5247-5249）改名，純文字、功能不動：①「Re-cup」→「View/Edit」（含抽屜標題 4407 `CUP.editId?...` 同步；語意＝帶原杯測紀錄看/改、存檔 update 同一筆）②「Card」→「Menu Card」（q-card，開 openCardPreview 風味卡預覽）。驗證：jscheck ✓、stub QC deck 三顆按鈕＝View/Edit｜Menu Card｜Edit Roast Date、抽屜標題 View/Edit、無 Re-cup 殘留、排版不跑版、console 零錯誤。
 
 ## 〇、補記 — 2026-07-12 之十（Add a past batch 加 Single/Blend tab）
 - **老闆需求**：補「漏網之魚」熟豆時，單品走 Add a past batch、拼配走 Log roast Blend＝兩個入口易混。要在 Add a past batch 裡直接 tab 切 Single origin / Blend。
