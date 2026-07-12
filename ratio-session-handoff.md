@@ -56,6 +56,20 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-13 之三（同名多處理法豆全鏈打通：Alo Village 兩處理法可同時鎖＋Publish＋上架 ✅）
+- **起因**：Alo Village 的 White Honey 和 Cold Fermentation 沒法同時在 Publish（鎖被單選踢掉）。根因＝07-12「處理法分開」只做到 Coffee Stock/QC 上游，**風味鎖→Publish→Square→product_sync→店面整條鏈是名字級**
+- **階段一（前端，commit e96ce91）**：`procKey()` helper（null/空白折 ''，全鏈比對統一用）；`lockFlavourSolo` 解鎖範圍改「同名＋同 procKey」（前端過濾 id 清單 `.in()` update，避開 PostgREST null 比對）；`lockedMate` 同範圍；新 `syncFor(nm,proc)` 統一上架列查找（proc undefined＝名字級、列 process null＝舊列名字級照舊配）；`shelfSampleFor(nm,proc)` 加可選參數（10 個舊呼叫點零改動）；Publish 母體按 name+process 分行＋PUB.open key `nm|proc`；rstRows 膠囊 locked/sync 各自處理法說話；杯測同日重複檢查加 process；Send back to QC 只解自己處理法的鎖
+- **階段二（migration＋3 edge＋前端，本 commit）**：
+  - migration ×2：product_sync 加 `process text` 欄；唯一鍵 (bean_id,channel)→**(bean_id,channel,process) nulls not distinct**（PG17）
+  - **sync-to-square v24**：push 收 body.process；列定位＝bean_id＋procKey 精確配→null 舊列收養升級→無 process 且僅一列 fallback；寫入改 select-then-write（update by id／insert，push 不再用 onConflict）；ratio_ref 帶 process 的列改存「名 @ 處理法」防同名互相認養；delete/availability/inspect 同定位；ensure_sub_items 改 select-then-write
+  - **public-shop v14**：flav map 兩層（name|proc 精確＋name 舊列 fallback）；roast_date 加 name+proc map；slug 帶 process（同名兩卡不同 slug）；legacy 單豆 checkout maybeSingle→limit(1) 防同名炸
+  - **morning-brief v7**：售罄 30 天自動下架改**按 id 刪單列**（原按 bean_id 刪會誤殺還在賣的同名兄弟——真雷）；下架名帶 (process)
+  - **前端**：loadAll syncs select 加 process；`listNameFor(nm,s)`＝同名多處理法 Square 商品名帶後綴「名 — 處理法」、單一處理法照舊純名（既有商品不改名）；openListSheet 記憶 key（價格/規格/圖模式）改 mkey＝上架顯示名（舊 key fallback 無縫）；pushListToSquare 卡片素材查詢加 process 過濾＋payload 帶 name=listNm/process；setShelfSold(nm,sold,proc) availability 帶 process＋rtl_sold 複合 key「名 @ 處理法」；deductOrderStock 商品名後綴解析（精確名找不到批次→拆「 — 」重試，訂閱行先擋不誤拆）
+- **資料修復**：Alo Village 既有 synced 列（老闆 07-12 晚上架、process null）補 process='White Honey'（那列的鎖定 sample＝WH）——Cold Fermentation 日後上架才不會搶錯戶口
+- **驗證**：兩階段 stub 全過（鎖不互踢/兩行 Publish/獨立開合/listNameFor 後綴規則/availability payload/rtl_sold 複合 key/後綴拆解扣對批次不碰兄弟）＋jscheck＋console 零錯誤＋截圖；curl public-shop ok（beans 7＝老闆重新上架的豆，行為正確）
+- **⏭ 老闆真機收尾**：①QC 把 Cold Fermentation 重新 Pass（這次不會踢掉 White Honey 的鎖）②Publish 應見兩行 Alo Village 各帶處理法 ③CF 按 List（Square 建新商品「Alo Village — Cold Fermentation」）④WH 按 Update listing（商品名自動補後綴「Alo Village — White Honey」）⑤?shop 看兩張卡
+- **⚠ 已知限制（後補）**：Coffee Info/IG asset/Announce 清單仍名字級（同名一行、rep＝鎖優先）；?bean 公開豆頁 slug 已分流但 public-bean edge 未動（兩支詳情頁可能顯示同一筆）；rtl_sold 複合 key Coffee Info 讀不到（售罄真狀態看 product_sync，無礙）
+
 ## 〇、補記 — 2026-07-13 之二（營運操作：店面 12 支 Live 豆全數下架 ✅）
 - **老闆指令**：Roasted stock 裡掛 Live 的豆全下架（店面暫時清空）。Chrome 代跑（老闆先登入一次——07-08 曾登出的老問題，登入後 session 就在）
 - **結果**：12 支全 paused——3 支走 `setShelfSold`（Dark Knight/Dancer/Dreamer，Square availability＋rtl_sold＋edge 回寫 paused）；**9 支 Square 打回 Catalog object not found**（April Project/Sugar Daddy/June Project/Kiama AA/Kii AB/Hakuna Matata/Danche v1-v3——Square 後台商品早被手動刪過、掛 Live 其實只有 ?shop 在賣）→ 這 9 支照 setShelfSold 後半邏輯直補 DB（rtl_sold 標記＋product_sync paused）。沒動：La Molienda/Mwendi Wega AB（沒鎖＝本來就不在店面）、Subscription ×2

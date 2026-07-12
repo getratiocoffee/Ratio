@@ -531,7 +531,7 @@ async function loadAll(){
     sb.from('customers').select('id,name,email,type'),
     sb.from('tasks').select('*').eq('done',false).order('created_at',{ascending:false}),
     sb.from('dialins').select('id,coffee,created_at,grind,dose,yield,time_s,barista,note').order('created_at',{ascending:false}).limit(200),
-    sb.from('product_sync').select('bean_id,status').eq('channel','square'),
+    sb.from('product_sync').select('bean_id,status,process').eq('channel','square'),
     sb.from('samples').select('id,sample_id,bean_id,process,roast_date,cupping_date,features,flavour_locked,fragrance,acidity,sweetness,body,aftertaste,comment,cupper').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
     sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg,status,kind,remaining_kg,roasted_kg,process').order('roast_date',{ascending:false}),
     sb.from('beans').select('id,name,process,quantity,low_stock_kg,country,region,station,variety,harvest,altitude,cost_per_kg,supplier,roast_target_kg,roast_low_kg'),
@@ -1144,6 +1144,15 @@ function lockedMate(s){
       &&procKey(x.process)===procKey(s.process);
   })||null;
 }
+/* 上架顯示名（2026-07-13 階段二）：同名有多個處理法的杯測 → Square 商品名帶後綴「名 — 處理法」
+   （後台/收據/店面才分得清）；單一處理法豆照舊純名＝既有商品不會被改名 */
+function listNameFor(nm,s){
+  var k=String(nm||'').trim().toLowerCase(),procs={};
+  (DB.samples||[]).forEach(function(x){
+    if(String(x.sample_id||'').trim().toLowerCase()===k)procs[procKey(x.process)]=1;
+  });
+  return (Object.keys(procs).length>1&&s&&s.process)?(nm+' — '+String(s.process).trim()):nm;
+}
 /* 上架列查找（統一比對點）：proc===undefined＝名字級（呼叫端沒 process 在手／拼配）；
    列的 process 為 null＝階段二前的舊列，名字級照舊配——向前向後都相容 */
 function syncFor(nm,proc){
@@ -1304,6 +1313,13 @@ async function deductOrderStock(o){
     var isBlend=(DB.blends||[]).some(function(b){return String(b.name||'').trim().toLowerCase()===nm.toLowerCase();});
     /* 訂單行有 process → 精準扣同處理法批次；沒有 → 名字級照舊 */
     var itProc=(it&&it.process!=null&&String(it.process).trim()!=='')?String(it.process).trim():undefined;
+    /* 商品名可能帶處理法後綴「名 — 處理法」（2026-07-13 同名多處理法上架）——
+       精確名找不到任何批次時拆回 name+process 再扣（訂閱行已在上面擋掉，不會誤拆） */
+    if(!itProc&&!isBlend&&nm.indexOf(' — ')>-1&&!rstBatches(nm,false,undefined).length){
+      var cutAt=nm.lastIndexOf(' — ');
+      var nm2=nm.slice(0,cutAt).trim(),pr2=nm.slice(cutAt+3).trim();
+      if(nm2&&pr2&&rstBatches(nm2,false,pr2).length){nm=nm2;itProc=pr2;}
+    }
     var pool=rstBatches(nm,isBlend,isBlend?undefined:itProc);
     var left=kg;
     for(var j=0;j<pool.length&&left>0.0001;j++){
@@ -3234,7 +3250,7 @@ function paintPublishSheet(sl,acts){
     if(act==='list'){openListSheet({ref:x.s});return;}
     if(act==='sold'){
       el.disabled=true;el.textContent='Working…';
-      try{await setShelfSold(x.nm,x.sync!=='paused');toast(x.sync!=='paused'?'Sold out ✓':'Back on sale ✓');openPublishSheet();}
+      try{await setShelfSold(x.nm,x.sync!=='paused',x.s&&x.s.process);toast(x.sync!=='paused'?'Sold out ✓':'Back on sale ✓');openPublishSheet();}
       catch(e){alert('Update failed: '+(e&&e.message||e));openPublishSheet();}
       return;
     }
@@ -3584,14 +3600,16 @@ async function confirmDeleteCoffee(e){
   }
 }
 /* 售罄切換：Square availability（照 classic syncSquareAvailability）＋ rtl_sold 記憶 read-modify-write */
-async function setShelfSold(nm,sold){
-  await callFn('sync-to-square',{action:'availability',sample_id:nm,sold_out:!!sold});
+async function setShelfSold(nm,sold,proc){
+  /* proc 可選（2026-07-13）：同名多處理法豆帶 process 精準定位那一列；沒帶＝名字級照舊 */
+  await callFn('sync-to-square',{action:'availability',sample_id:nm,sold_out:!!sold,process:(proc!=null&&String(proc).trim()!=='')?String(proc).trim():null});
   var r=await sb.from('app_state').select('value').eq('key','rtl_sold').maybeSingle();
   var v=(r&&r.data&&r.data.value)||{};
   if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v={};}}
   if(!v||typeof v!=='object')v={};
-  Object.keys(v).forEach(function(k){if(String(k).trim().toLowerCase()===nm.toLowerCase()&&k!==nm)delete v[k];});
-  if(sold)v[nm]=true;else delete v[nm];
+  var key=(proc!=null&&String(proc).trim()!=='')?(nm+' @ '+String(proc).trim()):nm;
+  Object.keys(v).forEach(function(k){if(String(k).trim().toLowerCase()===key.toLowerCase()&&k!==key)delete v[k];});
+  if(sold)v[key]=true;else delete v[key];
   var u=await sb.from('app_state').upsert({key:'rtl_sold',value:v,updated_at:new Date().toISOString()},{onConflict:'key'});
   if(u.error)throw new Error(u.error.message);
 }
@@ -4631,21 +4649,25 @@ async function openListSheet(i){
     (r.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
       if(v&&typeof v==='object')mem[x.key]=v;});
   }catch(e){}
-  var sc=mem.rtl_sizes[nm]||{};
+  /* 記憶 key（2026-07-13 階段二）＝上架顯示名：同名多處理法豆各記各的價格/規格/圖模式，
+     單一處理法豆 key 不變（＝nm，舊記憶無縫沿用） */
+  var mkey=listNameFor(nm,s);
+  var sc=mem.rtl_sizes[mkey]||mem.rtl_sizes[nm]||{};
   /* 商品圖模式：記憶優先；沒記憶＝沿用舊的自動規則（有照片→photo、沒照片→米白色底），老闆無感遷移 */
   var hasPhoto=false;try{hasPhoto=!!(await listBeanPhotos())[beanSlug(nm)];}catch(e){}
-  var ist=mem.rtl_imgstyle[nm]||{};
+  var ist=mem.rtl_imgstyle[mkey]||mem.rtl_imgstyle[nm]||{};
   /* 送修空窗防呆（老闆踩過）：豆子還在 QC 重審（佇列或待杯測）→ push 不自動鎖風味——
-     沒經過重杯就鎖回（可能還是錯的）描述；鎖定交給 QC Pass 那一刻 */
-  var rq=(QCQ||[]).some(function(q){return String(q.s.sample_id||'').trim().toLowerCase()===nm.toLowerCase();})
-    ||toCupList().some(function(r){return String(r.bean_name||'').trim().toLowerCase()===nm.toLowerCase();});
-  LST={s:s,name:nm,grams:mem.rtl_g[nm]||250,price:mem.rtl_price[nm]!=null?String(mem.rtl_price[nm]):'',
+     沒經過重杯就鎖回（可能還是錯的）描述；鎖定交給 QC Pass 那一刻。2026-07-13 起同處理法才算重審中 */
+  var rq=(QCQ||[]).some(function(q){return String(q.s.sample_id||'').trim().toLowerCase()===nm.toLowerCase()&&procKey(q.s.process)===procKey(s.process);})
+    ||toCupList().some(function(r){return String(r.bean_name||'').trim().toLowerCase()===nm.toLowerCase()&&procKey(r.process)===procKey(s.process);});
+  var pmem=mem.rtl_price[mkey]!=null?mem.rtl_price[mkey]:mem.rtl_price[nm];
+  LST={s:s,name:nm,mkey:mkey,grams:mem.rtl_g[mkey]||mem.rtl_g[nm]||250,price:pmem!=null?String(pmem):'',
     p500:sc.g500!=null?String(sc.g500):'',p1k:sc.g1000!=null?String(sc.g1000):'',lock:rq?false:!s.flavour_locked,requeue:rq,
     imgMode:ist.mode||(hasPhoto?'photo':'colour'),imgBg:ist.bg||'#FAF8F4',
     /* imgScrim＝photo 模式紗濃度；null=Auto（跟 Social Images 一致，看照片深淺自動壓） */
     imgScrim:(typeof ist.scrim==='number'?ist.scrim:null),hasPhoto:hasPhoto,
     /* 已上架＝更新模式（Retail shelf 的 Edit listing 走這裡；push 對 Square 是 upsert，同一條管線） */
-    upd:!!((DB.syncs||[]).find(function(x){return x.status==='synced'&&String(x.bean_id||'').trim().toLowerCase()===nm.toLowerCase();}))};
+    upd:!!(function(){var sy=syncFor(nm,s.process==null?undefined:s.process);return sy&&sy.status==='synced';})()};
   paintListSheet();
 }
 function paintListSheet(){
@@ -4725,8 +4747,10 @@ async function pushListToSquare(){
        （Square 走 JPEG 無透明，抽屜有註明）。render 失敗仍退單張品牌卡兜底 */
     var img64=null,imgs64=null;
     try{
-      var fq=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',nm)
-        .order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
+      /* 同名多處理法（2026-07-13）：卡片素材只抓「這個處理法」的杯測——不然兩支互相拿錯風味 */
+      var fq0=sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',nm);
+      if(s.process!=null&&String(s.process).trim()!=='')fq0=fq0.ilike('process',String(s.process).trim());
+      var fq=await fq0.order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
       var full=fq&&fq.data&&fq.data[0];
       if(full){
         var dots=await cardDots();
@@ -4752,17 +4776,19 @@ async function pushListToSquare(){
     if(p500>0)variations.push({grams:500,price:p500});
     if(p1k>0)variations.push({grams:1000,price:p1k});
     var desc=[s.process||'',(s.features||[]).slice(0,3).join(', ')].filter(Boolean).join(' · ');
-    await callFn('sync-to-square',{action:'push',sample_id:nm,name:nm,description:desc,grams:LST.grams,price:price,variations:variations,
+    /* 商品名（2026-07-13）：同名多處理法帶後綴「名 — 處理法」；payload 帶 process＝edge 按 name+process 定位列 */
+    var listNm=LST.mkey||listNameFor(nm,s);
+    await callFn('sync-to-square',{action:'push',sample_id:nm,name:listNm,process:s.process||null,description:desc,grams:LST.grams,price:price,variations:variations,
       image_b64:imgs64?null:img64, images_b64:imgs64, image_mime:imgs64?'image/jpeg':'image/png'});
     SHOP_STALE=true; /* 商品圖剛換過——下次看店面別吃 5 分鐘的舊快取 */
-    /* 價格＋商品圖模式記憶寫回 app_state（讀回最新再改，避免蓋掉別台改的） */
+    /* 價格＋商品圖模式記憶寫回 app_state（讀回最新再改，避免蓋掉別台改的）——key＝上架顯示名（mkey） */
     try{
       var mem=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes','rtl_imgstyle']);
       var m={rtl_price:{},rtl_g:{},rtl_sizes:{},rtl_imgstyle:{}};
       (mem.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}if(v&&typeof v==='object')m[x.key]=v;});
-      m.rtl_price[nm]=price;m.rtl_g[nm]=LST.grams;
-      var sc={};if(p500>0)sc.g500=p500;if(p1k>0)sc.g1000=p1k;m.rtl_sizes[nm]=sc;
-      m.rtl_imgstyle[nm]={mode:LST.imgMode||'colour',bg:LST.imgBg||'#FAF8F4',scrim:LST.imgScrim};
+      m.rtl_price[listNm]=price;m.rtl_g[listNm]=LST.grams;
+      var sc={};if(p500>0)sc.g500=p500;if(p1k>0)sc.g1000=p1k;m.rtl_sizes[listNm]=sc;
+      m.rtl_imgstyle[listNm]={mode:LST.imgMode||'colour',bg:LST.imgBg||'#FAF8F4',scrim:LST.imgScrim};
       for(var k in m)await sb.from('app_state').upsert({key:k,value:m[k],updated_at:new Date().toISOString()},{onConflict:'key'});
     }catch(e){console.error('price memory',e);}
     if(!s.flavour_locked&&LST.lock){try{await lockFlavourSolo(s);}catch(e){}}
