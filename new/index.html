@@ -8,9 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#FFFFFF;--surface:#FFFFFF;--ink:#1A1A1A;--muted:#8A8A8A;--accent:#B25E6A;--tint:#F7EBED;--danger:#C0392B;--line:#ECECEC;--line2:#DADADA;--inv:#1A1A1A;--inv-t:#FFFFFF}
-@media(prefers-color-scheme:dark){:root:not(.light){--bg:#1C1C1C;--surface:#1C1C1C;--ink:#F2F0EB;--muted:#8F8D87;--accent:#C97783;--tint:#33272A;--danger:#E0685A;--line:#333333;--line2:#4A4A4A;--inv:#F2F0EB;--inv-t:#1C1C1C}}
-:root.dark{--bg:#1C1C1C;--surface:#1C1C1C;--ink:#F2F0EB;--muted:#8F8D87;--accent:#C97783;--tint:#33272A;--danger:#E0685A;--line:#333333;--line2:#4A4A4A;--inv:#F2F0EB;--inv-t:#1C1C1C}
+:root{--bg:#FFFFFF;--surface:#FFFFFF;--ink:#1A1A1A;--muted:#8A8A8A;--accent:#C87E8E;--tint:#F6EBEE;--danger:#D8756C;--line:#ECECEC;--line2:#DADADA;--inv:#1A1A1A;--inv-t:#FFFFFF;--green:#84B57C;--roast:#DE9670;--qc:#7FA1CE;--mkt:#AB92CE;--orders:#DD8CA4;--cust:#63AFAA;--fin:#CDAC66;--day:#9299AE;--team:#8B90CC;--set:#9BA0B0;--ws:#6E8FB8;--print:#8290A4}
+@media(prefers-color-scheme:dark){:root:not(.light){--bg:#1C1C1C;--surface:#1C1C1C;--ink:#F2F0EB;--muted:#8F8D87;--accent:#D69AA6;--tint:#33272A;--danger:#DE8579;--line:#333333;--line2:#4A4A4A;--inv:#F2F0EB;--inv-t:#1C1C1C;--green:#92C489;--roast:#E2A57F;--qc:#93ABD4;--mkt:#B7A2D8;--orders:#DE9CB1;--cust:#72BEB8;--fin:#D8B679;--day:#A6AEC8;--team:#9CA1D6;--set:#AAB0C8;--ws:#8CA9D2;--print:#A2AEC4}}
+:root.dark{--bg:#1C1C1C;--surface:#1C1C1C;--ink:#F2F0EB;--muted:#8F8D87;--accent:#D69AA6;--tint:#33272A;--danger:#DE8579;--line:#333333;--line2:#4A4A4A;--inv:#F2F0EB;--inv-t:#1C1C1C;--green:#92C489;--roast:#E2A57F;--qc:#93ABD4;--mkt:#B7A2D8;--orders:#DE9CB1;--cust:#72BEB8;--fin:#D8B679;--day:#A6AEC8;--team:#9CA1D6;--set:#AAB0C8;--ws:#8CA9D2;--print:#A2AEC4}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{background:var(--bg)}
 body{margin:0;background:transparent;color:var(--ink);font-family:'Inter',sans-serif;font-size:16px;padding-bottom:170px}
@@ -811,7 +811,7 @@ function buildItems(){
   ITEMS=out.filter(function(i){return !sn[i.id];});
 }
 /* 類別色表：低飽和塵彩配紙白玫瑰；色條＋右上角分類＋chips 色點共用 */
-var STCOLOR={Orders:'#B25E6A',Wholesale:'#3E5A82',QC:'#5B7DB1',Roast:'#A87436',Transaction:'#6E8B4E',Shelf:'#8A6FA8',Recipe:'#4E8B83',Green:'#7A8450','Daily Task':'#8A837C',Customers:'#C07A5B'};
+var STCOLOR={Orders:'#DD8CA4',Wholesale:'#6E8FB8',QC:'#7FA1CE',Roast:'#DE9670',Transaction:'#CDAC66',Shelf:'#AB92CE',Recipe:'#63AFAA',Green:'#84B57C','Daily Task':'#9299AE',Customers:'#C88A6E'};
 var CTXS=[
 {id:'morning',label:'Morning sort — recipe first',pr:{Recipe:1,Orders:2,Wholesale:3,Roast:4,QC:5,Transaction:6,Green:7,'Daily Task':8,Customers:9}},
 {id:'day',label:'Daytime sort — orders first',pr:{Orders:1,Wholesale:2,Roast:3,QC:4,Recipe:5,Transaction:6,Green:7,'Daily Task':8,Customers:9}},
