@@ -107,6 +107,14 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之十（Add a past batch 加 Single/Blend tab）
+- **老闆需求**：補「漏網之魚」熟豆時，單品走 Add a past batch、拼配走 Log roast Blend＝兩個入口易混。要在 Add a past batch 裡直接 tab 切 Single origin / Blend。
+- **改動（new/index.html · openBackfillSheet/saveBackfill 5292 起）**：①新增 `BF={mode,...}` 狀態物件 ②頂部 pm-seg tab（照 Log roast `ro-m-s`/`ro-m-b`＋`grab()` 保值重繪 pattern）③Single 分頁＝現況（豆下拉＋打字）；Blend 分頁＝配方下拉（`DB.blends`，空的提示去 Recipe）④`saveBackfill` 分兩路：single 現況（kind 未設）；**blend insert `kind='blend'`＋`recipe` 快照＋`remaining=out`，關鍵——不呼叫 `consumeBlendParts`（不扣成分）**＋kind/recipe 欄 fallback（照 saveBlendBatch 5069）。
+- **設計哲學（定調）**：**Log roast＝當天現烘（動庫存：單品扣生豆、拼配扣成分）／ Add a past batch＝補歷史（完全不碰其他庫存）**。因 backfill blend 不扣成分→之前「先拼配後單品」的順序講究**消失**，補豆順序隨便。
+- **驗證**：jscheck ✓；stub——tab 切換保值 ✓、Blend payload（kind=blend／green_kg=null／recipe 快照 blend_id／remaining=6.15）✓、**成分批次 5→5 沒被扣** ✓、進拼配貨架 `rstStockKg('Dancer',true)=6.15`、沒混單品貨架(false)=0 ✓、Single payload（kind 未設）進單品貨架 3.3 ✓、console 零錯誤、截圖 UI 乾淨。
+- **補豆 SOP 簡化**：全部走 **Add a past batch → tab 切單品/拼配 → 填現貨量＋實際烘焙日 → 順序隨便**。Log roast 完全不動；Dancer 建議用新的 Add a past batch → Blend 補（不扣成分最乾淨），若之前已用 Log roast Blend 補過就不用重補。
+- **等老闆**：push 後真機 Add a past batch 切 Blend 補一支真拼配、Roasted Stock → Blend 分頁對血條。
+
 ## 〇、補記 — 2026-07-12 之九（刪 classic 後孤兒巡檢 debug）
 - **老闆要求「看有沒有孤兒 debug」**（切 opus-4-8）。系統掃描（python 抽 533 個函式定義 vs 全檔呼叫次數；磁貼 data-t vs dispatch 分支；classic 引用全掃）。
 - **結論① 刪 classic 沒斷任何新殼功能**：classic 是獨立檔案，新殼函式從不被它呼叫→刪檔不可能產生孤兒函式。磁貼 33 顆 key 與 dispatch 分支一對一完整、det2 分派對稱、CLASSIC 常數/data-classic/_off 引用全歸零（前一輪已清）。

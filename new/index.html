@@ -5289,45 +5289,96 @@ function openRoastDateSheet(q){
   });
   $('d-cl').addEventListener('click',closeDrawer);
 }
-/* QC 補豆：舊烘豆補登（roasts 補一筆，不扣生豆庫存）——有杯測紀錄直接進 QC 佇列，沒有就長 Cup 卡 */
+/* QC 補豆：舊烘豆補登（roasts 補一筆）——有杯測紀錄直接進 QC 佇列，沒有就長 Cup 卡。
+   2026-07-12：加 Single origin / Blend tab，一個入口補所有漏網之魚。關鍵差異——
+   Blend 分頁純補一筆拼配熟豆（kind='blend' 進拼配貨架），**不像 Log roast Blend 扣成分**，
+   所以補歷史不碰任何其他庫存（生豆、成分單品都不動）、補的順序不用講究。 */
+var BF={mode:'single',beanId:'',name:'',blendName:'',date:'',out:''};
 function openBackfillSheet(){
+  if(!BF.date)BF.date=todayStr();
+  var single=BF.mode==='single';
   var beans=(DB.beans||[]).slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
+  var blends=(DB.blends||[]).filter(function(b){return b.name;}).slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
+  var body;
+  if(single){
+    body='<div class="dlab">Bean</div>'
+      +'<select class="din" id="bf-bean" style="padding:12px"><option value="">— pick a bean —</option>'
+      +beans.map(function(b){return '<option value="'+esc(b.id)+'"'+(String(BF.beanId)===String(b.id)?' selected':'')+'>'+esc(b.name)+(b.process?' · '+esc(b.process):'')+'</option>';}).join('')
+      +'</select>'
+      +'<div class="dlab">Not in the list? Type the name</div><input class="din" id="bf-name" placeholder="e.g. Danche" value="'+esc(BF.name)+'">';
+  }else{
+    body='<div class="dlab">Blend</div>'
+      +(blends.length
+        ?'<select class="din" id="bf-blend" style="padding:12px"><option value="">— pick a blend —</option>'
+          +blends.map(function(b){return '<option'+(BF.blendName===b.name?' selected':'')+'>'+esc(b.name)+'</option>';}).join('')
+          +'</select>'
+        :'<div class="sempty">No blends yet — build the recipe first in Tools → Recipe</div>');
+  }
   openDrawerHTML('<div class="t" style="font-size:19px">Add a past batch</div>'
-    +'<div class="s" style="margin-top:2px">for roasts done before logging existed — green stock is not touched</div>'
-    +'<div class="dlab">Bean</div>'
-    +'<select class="din" id="bf-bean" style="padding:12px"><option value="">— pick a bean —</option>'
-    +beans.map(function(b){return '<option value="'+esc(b.id)+'">'+esc(b.name)+(b.process?' · '+esc(b.process):'')+'</option>';}).join('')
-    +'</select>'
-    +'<div class="dlab">Not in the list? Type the name</div><input class="din" id="bf-name" placeholder="e.g. Danche">'
-    +'<div class="dlab">Roast date</div><input class="din" id="bf-date" type="date" value="'+esc(todayStr())+'">'
-    +'<div class="dlab">Roasted out (kg) · optional</div><input class="din" id="bf-out" inputmode="decimal" placeholder="—">'
+    +'<div class="s" style="margin-top:2px">'+(single?'for roasts done before logging existed — green stock is not touched':'a past blend batch — nothing else is touched')+'</div>'
+    +'<div class="pm-seg"><button id="bf-m-s" class="'+(single?'on':'')+'">Single origin</button><button id="bf-m-b" class="'+(single?'':'on')+'">Blend</button></div>'
+    +body
+    +'<div class="dlab">Roast date</div><input class="din" id="bf-date" type="date" value="'+esc(BF.date)+'">'
+    +'<div class="dlab">Roasted out (kg) · optional</div><input class="din" id="bf-out" inputmode="decimal" placeholder="—" value="'+esc(BF.out)+'">'
     +'<button class="act" id="bf-save">Add to QC pipeline</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
-  $('bf-save').addEventListener('click',saveBackfill);
+  /* 切 tab 前收回已打的字，重繪不掉值（同 Log roast 的 grab） */
+  function grab(){
+    var e;
+    if((e=$('bf-bean')))BF.beanId=e.value;
+    if((e=$('bf-name')))BF.name=e.value;
+    if((e=$('bf-blend')))BF.blendName=e.value;
+    if((e=$('bf-date')))BF.date=e.value;
+    if((e=$('bf-out')))BF.out=e.value;
+  }
+  $('bf-m-s').addEventListener('click',function(){grab();BF.mode='single';openBackfillSheet();});
+  $('bf-m-b').addEventListener('click',function(){grab();BF.mode='blend';openBackfillSheet();});
+  $('bf-save').addEventListener('click',function(){grab();saveBackfill();});
   $('d-cl').addEventListener('click',closeDrawer);
 }
 async function saveBackfill(){
-  var sel=(DB.beans||[]).find(function(b){return String(b.id)===String($('bf-bean').value||'');})||null;
-  var typed=String($('bf-name').value||'').trim();
-  var name=typed||(sel?sel.name:'');
-  if(!name){toast('Pick a bean or type a name');return;}
-  var outRaw=String($('bf-out').value||'').trim();
+  var isBlend=BF.mode==='blend';
+  var name,blendRef=null,sel=null,typed='';
+  if(isBlend){
+    blendRef=(DB.blends||[]).find(function(b){return b.name===BF.blendName;})||null;
+    if(!blendRef){toast('Pick a blend first');return;}
+    name=blendRef.name;
+  }else{
+    sel=(DB.beans||[]).find(function(b){return String(b.id)===String(BF.beanId||'');})||null;
+    typed=String(BF.name||'').trim();
+    name=typed||(sel?sel.name:'');
+    if(!name){toast('Pick a bean or type a name');return;}
+  }
+  var outRaw=String(BF.out||'').trim();
   var out=outRaw===''?null:parseFloat(outRaw);
   if(out!=null&&(isNaN(out)||out<0)){toast('Roasted out must be a number');return;}
-  var date=$('bf-date').value||todayStr();
+  var date=BF.date||todayStr();
   var isDup=(DB.roasts||[]).some(function(r){return (r.roast_date||'')===date&&String(r.bean_name||'').trim().toLowerCase()===name.toLowerCase();});
   if(isDup&&!confirm('"'+name+'" already has a batch dated '+date+'. Add another?'))return;
   var btn=$('bf-save');if(btn){btn.disabled=true;btn.textContent='Adding…';}
   try{
-    /* 打了字＝走純名字配對（不掛 bean_id，避免名字跟選單豆對不上）；關鍵差異：green_kg null、不動 beans、不寫 stock_moves */
-    var rec={bean_id:(typed?null:(sel?sel.id:null)),bean_name:name,country:(!typed&&sel&&sel.country)?sel.country:null,
-      green_kg:null,status:'pending_cupping',roast_date:date};
+    var rec;
+    if(isBlend){
+      /* 純補一筆拼配熟豆：kind='blend' 進拼配貨架，但**不呼叫 consumeBlendParts**——補歷史不扣成分、不碰其他庫存 */
+      var parts=(blendRef.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;})
+        .map(function(p){return {bean:p.bean,process:p.process||'',pct:parseFloat(p.pct)};});
+      rec={bean_id:null,bean_name:name,country:null,green_kg:null,status:'pending_cupping',roast_date:date,
+        kind:'blend',recipe:{blend_id:blendRef.id||null,parts:parts}};
+    }else{
+      /* 打了字＝走純名字配對（不掛 bean_id）；green_kg null、不動 beans、不寫 stock_moves */
+      rec={bean_id:(typed?null:(sel?sel.id:null)),bean_name:name,country:(!typed&&sel&&sel.country)?sel.country:null,
+        green_kg:null,status:'pending_cupping',roast_date:date};
+    }
     if(out!=null&&out>0){rec.roasted_kg=out;rec.remaining_kg=out;}
     var ins=await sb.from('roasts').insert(rec).select();
+    /* 舊庫沒有 kind/recipe 欄 → 去掉重試（同 saveBlendBatch fallback） */
+    if(ins.error&&isBlend){var r2=Object.assign({},rec);delete r2.kind;delete r2.recipe;ins=await sb.from('roasts').insert(r2).select();}
     if(ins.error)throw new Error(ins.error.message);
     if(ins.data&&ins.data[0])DB.roasts.unshift(ins.data[0]);
     logAct('added to qc pipeline',name);
     closeDrawer();
+    /* 清掉這筆的值、保留 mode 與 date（方便連續補同類、同一批日期） */
+    BF.beanId='';BF.name='';BF.blendName='';BF.out='';
     var hasCup=(DB.samples||[]).some(function(s){
       if(rec.bean_id&&s.bean_id)return String(s.bean_id)===String(rec.bean_id);
       return String(s.sample_id||'').trim().toLowerCase()===name.toLowerCase();});
