@@ -107,6 +107,23 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之十六（Coffee Info 資訊源＝QC 鎖風味＋鎖改單選「在賣的版本」）
+- **老闆定調**：Coffee Info 的訊息從 QC 來（本就如此——shelfSampleFor 讀 samples 鎖優先）；**同名重複豆由「鎖風味」決定賣哪支** → 鎖改**單選**。
+- **改動（new/index.html）**：①新 `lockFlavourSolo(s)`＝鎖這筆＋`samples update flavour_locked=false where supplier='Ratio Coffee' ilike sample_id neq id` 同名其他筆自動解鎖（記憶體同步）②qcVerdict pass＋QCLOCK 改走 solo（已鎖的再 pass 也會清別筆——pass＝宣告這筆是在賣的版本）③List 抽屜 Lock flavour description 也走 solo ④Coffee Info 行掛髒資料警示：同名鎖 >1 → 紅字「N locked — pass the one on sale in QC」。
+- **語意**：鎖風味＝「這筆杯測是對外販售版本」——Coffee Info/資訊卡/公開豆頁/出貨信全跟它走（各處 order flavour_locked desc 本就鎖優先，資訊源不用動）。
+- **驗證**：jscheck ✓；stub Finca Milan 兩筆（April 舊鎖＋Sakura 新 pass）→ update 序列（鎖 sB→解鎖 neq sB）＋記憶體 April 解鎖 ✓、toast 照舊 ✓；髒資料兩筆都鎖 → Coffee Info 紅字警示 ✓；console 零錯誤。**真資料掃過：目前無同名多鎖髒資料**（警示是防未來）。
+- **等老闆**：重複豆（同名多筆杯測）以後想換賣哪支＝去 QC 對那筆按 pass（或 View/Edit 改完 pass），舊的自動退位。
+
+## 〇、補記 — 2026-07-12 之十五（Coffee Stock 處理法分開：同名豆不再混血條）
+- **老闆點名**：Coffee Stock 要顯示處理法、不同處理法分開列。真實痛點＝**Finca Milan 有 6 種 culturing**（另 Alo Village/Hakuna Matata/Los Nogales 各 2 種），原本名字級匹配全混成一行血條。
+- **資料層（migration `roasts_add_process`）**：roasts 加 `process text` 欄＋兩段回填——①bean_id 直連 beans ②bean_id 空但名字唯一 process 的安全回填。**單品批次 24/24 全回填**。loadAll roasts select 加 process（欄位串尾加，rs 索引不動）。
+- **匹配核心（new/index.html）**：新 `rstProcMatch(r,process)`——**process 參數 undefined＝不過濾（名字級，向後相容）；給字串（含空字串）＝精準過濾**。rstBatches/rstStockKg/blendPartPool 全加第三參數。
+- **分組**：rstRows 單品改 name+process 一行（seen key `name|proc`；批次孤兒同）；行物件帶 `proc`＋`key`；RST.open 由名字改 **key**（不然同名兩行一起展開）——rst-sv/rst-go/data-bat 三處 find 跟著改。行顯示：豆名旁 process 灰字（同 Coffee Info 樣式）；deduct 抽屜標題同。
+- **寫入點跟進**：saveRoastSheet rec 加 `process:b.process`；saveBackfill 單品選豆帶 `sel.process`（打字＝null）；deductOrderStock 訂單行有 `it.process` → 精準扣（沒有→名字級照舊）；consumeBlendParts/Log roast 成分 stock 顯示帶 `p.process`（配方 parts 本就存 process；舊配方沒記→名字級）；「Roast this」預選改用 `x.ref`（原名字 find 會抓到第一支同名豆）。
+- **不動**：拼配匹配照舊名字級（拼配沒 process 概念）；Publish/低庫存卡的 rstStockKg 名字級加總（Square 商品＝名字級）；noInfo 判斷維持名字級（samples process 記法不一致，收緊會亂紅——待統一再說）。
+- **驗證**：jscheck ✓；stub Finca Milan ×2 process＋無 process 孤兒 → 三行分開（3/1.2/0.5 kg）、名字級 4.7 向後相容 ✓、展開只見自己批次、key 展開互不干擾 ✓、console 零錯誤、截圖（April Culturing 灰字＋綠條、孤兒行灰條）。
+- **等老闆（push 後真機）**：Coffee Stock 看 Finca Milan 六支分開了沒；扣豆/Intake/Log roast 走一遍。
+
 ## 〇、補記 — 2026-07-12 之十四（刪豆同步 Coffee Stock：清幽靈行）
 - **老闆回報**：Delete a coffee 刪掉的豆在 Coffee Stock 還會列。**根因**＝rstRows 列名條件：單品靠 beans.roast_target_kg/roast_low_kg（刪豆流程沒清）、拼配靠 blends 配方（刪豆流程沒刪）→ 0 kg 幽靈行。
 - **修（confirmDeleteCoffee）**：刪除清單補兩步——①`beans.update({roast_target_kg:null,roast_low_kg:null})`（熟豆閾值，非生豆庫存，原則不破）②同名 blends 配方整列刪（confirm 訊息先列明「the blend recipe (and its brew guide)」；成分豆不動）。孤兒護欄（批次還有血就列）**保留**——那是防帳目消失的，正常刪豆 roasts 已整列刪不觸發。
