@@ -276,12 +276,16 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .cx-metric.hi{outline:1.5px solid var(--accent);outline-offset:-1.5px}
 .cx-note{margin-top:10px;font-size:13px;font-weight:600;color:var(--danger);background:var(--surface);border:1px solid var(--line2);border-radius:10px;padding:9px 12px}
 .cx-note.ok{color:var(--accent);border-color:var(--accent)}
-.cmk-chart{position:relative;height:46vh;min-height:260px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface);margin-top:12px}
+.cmk-chart{position:relative;height:46vh;min-height:260px;border:1px solid var(--line2);border-radius:18px;overflow:hidden;background:var(--surface);margin-top:12px;box-shadow:0 6px 16px rgba(120,90,160,.07)}
 .cmk-load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted)}
-.cmk-total{background:var(--tint);border-radius:12px;padding:14px 16px;margin-top:12px}
-.cmk-total .l{font-size:12px;color:var(--accent);margin-bottom:4px}
-.cmk-total .v{font-size:26px;font-weight:700;color:var(--accent);line-height:1.05}
-.cmk-total .s2{font-size:12px;color:var(--accent);opacity:.85;margin-top:5px}
+.cmk-total{background:linear-gradient(135deg,var(--accent),#B36C7C);color:#fff;border-radius:20px;padding:18px;margin-top:14px;box-shadow:0 12px 28px color-mix(in srgb,var(--accent) 34%,transparent)}
+.cmk-total .l{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;opacity:.9;margin-bottom:2px}
+.cmk-total .v{font-size:32px;font-weight:800;color:#fff;line-height:1.05}
+.cmk-total .s2{font-size:12.5px;color:#fff;opacity:.9;margin-top:4px}
+.cmk-break{display:flex;gap:10px;margin-top:14px;padding-top:13px;border-top:1px solid rgba(255,255,255,.28)}
+.cmk-break div{flex:1}
+.cmk-break span{display:block;font-size:11px;opacity:.85;font-weight:600}
+.cmk-break b{font-size:17px;font-weight:800}
 .rsum{display:flex;gap:9px;margin:14px 0 4px}
 .rsum .box{flex:1;color:#fff;border-radius:16px;padding:12px 13px;box-shadow:0 7px 16px rgba(0,0,0,.10)}
 .rsum .box .n{font-size:21px;font-weight:800;line-height:1}
