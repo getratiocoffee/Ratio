@@ -320,8 +320,9 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .hm-bar{height:11px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:10px}
 .hm-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),#E0B08C);transition:width .5s cubic-bezier(.2,.7,.2,1)}
 .hm-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px}
-.hm-tile{position:relative;border:1px solid var(--line2);background:var(--surface);border-radius:22px;padding:15px 5px 13px;font-family:inherit;cursor:pointer;text-align:center;color:var(--ink);display:flex;flex-direction:column;align-items:center;box-shadow:0 8px 18px rgba(120,90,160,.09);transition:transform .14s ease}
+.hm-tile{position:relative;border:1px solid var(--line2);background:var(--surface);border-radius:22px;padding:15px 5px 13px;font-family:inherit;cursor:pointer;text-align:center;color:var(--ink);display:flex;flex-direction:column;align-items:center;box-shadow:0 8px 18px rgba(120,90,160,.09);transition:transform .14s ease;touch-action:none}
 .hm-tile:active{transform:scale(.95)}
+.hm-tile.dragging{z-index:30;box-shadow:0 20px 38px rgba(90,60,140,.32);opacity:.97;transition:none}
 .hm-ic{width:50px;height:50px;border-radius:16px;display:grid;place-items:center;margin-bottom:9px}
 .hm-ic svg{width:26px;height:26px;display:block;fill:#fff;stroke:none}
 .hm-num{font-size:23px;font-weight:800;line-height:1.1;color:var(--ink)}
@@ -9122,6 +9123,14 @@ function goTile(t){
     if(g){g.scrollIntoView({behavior:'smooth',block:'start'});break;}
   }
 }
+/* 首頁磁貼自訂順序（每台裝置存 localStorage，跟 home_seen 同機制）*/
+var HOME_ORDER=(function(){try{var v=JSON.parse(localStorage.getItem('home_order_v1')||'null');return Array.isArray(v)?v:null;}catch(e){return null;}})();
+function saveHomeOrder(arr){HOME_ORDER=arr;try{localStorage.setItem('home_order_v1',JSON.stringify(arr));}catch(e){}}
+function orderedHome(tiles){
+  if(!HOME_ORDER||!HOME_ORDER.length)return tiles;
+  var rank={};HOME_ORDER.forEach(function(k,i){rank[k]=i;});
+  return tiles.slice().sort(function(a,b){var ra=(a.k in rank)?rank[a.k]:99,rb=(b.k in rank)?rank[b.k]:99;return ra-rb;});
+}
 function renderHome(){
   $('deck').style.display='none';
   var bgl=document.querySelector('.bglogo');if(bgl)bgl.style.display='none'; /* 遊戲畫面不要浮水印 */
@@ -9136,7 +9145,7 @@ function renderHome(){
       +'<div class="hm-bar"><div class="hm-fill" style="width:'+(total?Math.round(p.done*100/total):100)+'%"></div></div>';
   }
   h+='</div>';
-  var tiles=HOME_TILES.filter(function(t){return t.roles.indexOf(myRole())>-1;});
+  var tiles=orderedHome(HOME_TILES.filter(function(t){return t.roles.indexOf(myRole())>-1;}));
   h+='<div class="hm-grid">'+tiles.map(function(t){
     var n=tileCount(t),c=STCOLOR[t.sts[0]]||'#6E8B4E';
     var fresh=n>0&&tileFresh(t);
@@ -9148,10 +9157,40 @@ function renderHome(){
       +'<div class="hm-lab">'+t.lab+'</div></button>';
   }).join('')+'</div>';
   m.innerHTML=h;
-  m.querySelectorAll('[data-hm]').forEach(function(b){b.addEventListener('click',function(){
-    var t=HOME_TILES.find(function(x){return x.k===b.dataset.hm;});
-    if(t)goTile(t);
-  });});
+  /* 短按＝進分類；長按拖曳＝換位並記住順序（每台裝置 localStorage）*/
+  var _grid=m.querySelector('.hm-grid'),_hdrag=null,_hsx=0,_hsy=0,_hmoved=false;
+  _grid.querySelectorAll('.hm-tile').forEach(function(b){
+    b.addEventListener('pointerdown',function(e){
+      _hdrag=b;_hsx=e.clientX;_hsy=e.clientY;_hmoved=false;
+      try{b.setPointerCapture(e.pointerId);}catch(err){}
+    });
+    b.addEventListener('pointermove',function(e){
+      if(_hdrag!==b)return;
+      var dx=e.clientX-_hsx,dy=e.clientY-_hsy;
+      if(!_hmoved&&Math.hypot(dx,dy)<8)return;
+      _hmoved=true;b.classList.add('dragging');
+      b.style.transform='translate('+dx+'px,'+dy+'px) scale(1.06)';
+      b.style.pointerEvents='none';
+      var under=document.elementFromPoint(e.clientX,e.clientY);
+      b.style.pointerEvents='';
+      var tgt=under&&under.closest('.hm-tile');
+      if(tgt&&tgt!==b&&tgt.parentElement===_grid){
+        var r=tgt.getBoundingClientRect();
+        var after=(e.clientY>r.bottom)||(e.clientY>=r.top&&e.clientX>r.left+r.width/2);
+        _grid.insertBefore(b,after?tgt.nextSibling:tgt);
+        _hsx=e.clientX;_hsy=e.clientY;b.style.transform='scale(1.06)';
+      }
+    });
+    function _hend(){
+      if(_hdrag!==b)return;
+      var was=_hmoved;_hdrag=null;
+      b.classList.remove('dragging');b.style.transform='';
+      if(was){saveHomeOrder([].map.call(_grid.querySelectorAll('.hm-tile'),function(el){return el.dataset.hm;}));}
+      else{var t=HOME_TILES.find(function(x){return x.k===b.dataset.hm;});if(t)goTile(t);}
+    }
+    b.addEventListener('pointerup',_hend);
+    b.addEventListener('pointercancel',_hend);
+  });
 }
 function render(){
   /* 浮水印只給今日流：內容少的頁（QC/Tools）整塊露出來像破圖 */
