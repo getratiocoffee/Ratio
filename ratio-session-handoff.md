@@ -107,6 +107,11 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之十七（Coffee Stock 同日批次合併：同天幾鍋＝同一批）
+- **老闆點名**：同支豆同一烘焙日期的多筆批次在 Coffee Stock 合併顯示，不分開列。
+- **改動（new/index.html）**：新 `rstGroupByDate(batches)`＝FIFO 順序按 roast_date 分組（無日期＝一組）。**資料層各筆保留**（QC 判定/流水帳不動），只有顯示與扣豆按組：①血條段按組畫（同日一段）②展開批次列表一組一行（kg 加總＋「N roasts」標；QC ✓ 要全組 pass 才標）③openRstDeduct 重構＝chips 按日期組（RSTD.batch→gkey）、超量檢查用組總量、**扣豆組內依序扣**（同 deductOrderStock 邏輯，中途失敗講明已扣多少）。
+- **驗證**：jscheck ✓；stub 同日兩鍋（2＋1.5）＋另日一鍋 → 列表兩行（17/06 · QC ✓ · 2 roasts · 3.5 kg）✓ 血條 2 段 ✓ deduct chips 合併 ✓ 扣 3 kg 跨鍋（第一鍋 2→0、第二鍋 1.5→0.5、別天不動）✓ 超量擋（剩 0.5 扣 1 → toast 擋）✓ console 零錯誤。
+
 ## 〇、補記 — 2026-07-12 之十六（Coffee Info 資訊源＝QC 鎖風味＋鎖改單選「在賣的版本」）
 - **老闆定調**：Coffee Info 的訊息從 QC 來（本就如此——shelfSampleFor 讀 samples 鎖優先）；**同名重複豆由「鎖風味」決定賣哪支** → 鎖改**單選**。
 - **改動（new/index.html）**：①新 `lockFlavourSolo(s)`＝鎖這筆＋`samples update flavour_locked=false where supplier='Ratio Coffee' ilike sample_id neq id` 同名其他筆自動解鎖（記憶體同步）②qcVerdict pass＋QCLOCK 改走 solo（已鎖的再 pass 也會清別筆——pass＝宣告這筆是在賣的版本）③List 抽屜 Lock flavour description 也走 solo ④Coffee Info 行掛髒資料警示：同名鎖 >1 → 紅字「N locked — pass the one on sale in QC」。

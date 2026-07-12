@@ -4096,12 +4096,14 @@ function openBatchesSheet(){
       +'<div style="margin-top:7px">'+x.hp.bar+'</div>'
       +'</div>';
     if(openRow){
-      /* 批次列表（v3 定稿）：每行前新鮮度色點＋行可點＝直接扣那一批（日期即批次） */
-      var bl=x.batches.length?x.batches.map(function(r,bi){
-        var age=daysSince(r.roast_date),tags=[];
-        if(r.roast_date&&age>30)tags.push('<span class="red">&gt;30d</span>');
-        if(r.qc==='pass')tags.push('QC ✓');else if(r.qc==='reroast')tags.push('<span class="red">re-roast</span>');else if(r.qc==='downgrade')tags.push('downgraded');
-        return '<div class="dl"'+(ed?' data-bat="'+bi+'" style="cursor:pointer"':'')+'><span><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(r.roast_date)+';margin-right:6px;vertical-align:0"></span>'+(r.roast_date?fmtD(r.roast_date)+' · '+age+'d':'no date')+(tags.length?' · '+tags.join(' · '):'')+'</span><span>'+(Number(r.remaining_kg)||0)+' kg</span></div>';
+      /* 批次列表（v3 定稿）：同日期合併一行（同天幾鍋＝同一批）＋新鮮度色點＋行可點＝扣那一天的 */
+      var xg=rstGroupByDate(x.batches);
+      var bl=xg.length?xg.map(function(g,gi){
+        var age=daysSince(g.date),tags=[];
+        if(g.date&&age>30)tags.push('<span class="red">&gt;30d</span>');
+        if(g.batches.length&&g.batches.every(function(r){return r.qc==='pass';}))tags.push('QC ✓');
+        if(g.batches.length>1)tags.push(g.batches.length+' roasts');
+        return '<div class="dl"'+(ed?' data-bat="'+gi+'" style="cursor:pointer"':'')+'><span><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(g.date)+';margin-right:6px;vertical-align:0"></span>'+(g.date?fmtD(g.date)+' · '+age+'d':'no date')+(tags.length?' · '+tags.join(' · '):'')+'</span><span>'+g.kg+' kg</span></div>';
       }).join(''):'<div class="sempty">No batches in stock</div>';
       h+='<div style="margin-top:6px">'+bl
         +(x.batches.length&&ed?'<div class="s" style="margin-top:4px;color:var(--muted)">tap a batch row → deduct that exact roast date</div>':'')
@@ -4165,7 +4167,7 @@ function openBatchesSheet(){
   if(cup)cup.addEventListener('click',function(){closeDrawer();view='qc';render();});
   document.querySelectorAll('#drawer [data-bat]').forEach(function(el){el.addEventListener('click',function(){
     var x=rows.find(function(r){return r.key===RST.open;});if(!x)return;
-    openRstDeduct(x,x.batches[+el.dataset.bat]);
+    openRstDeduct(x,rstGroupByDate(x.batches)[+el.dataset.bat]);
   });});
 }
 /* 開 Log roast 並預選（血條行動鈕與聚合卡共用） */
@@ -4175,16 +4177,18 @@ async function openRoastPreset(mode,val){
   if(mode==='blend')RO.blendName=val;else RO.beanId=val;
   paintRoastSheet();
 }
-/* 快速扣血：選批（預設最舊）＋原因（瑕疵/調撥含去向/其他）——單批扣、超量擋存（帳要明確不偷溢） */
-var RSTD={batch:null,why:'Defect'};
-function openRstDeduct(x,preBatch){ /* preBatch＝從批次列表點行進來、預選那一批（v3） */
+/* 快速扣血：選日期組（預設最舊）＋原因（瑕疵/調撥含去向/其他）——同日多鍋合併一組、組內依序扣、
+   超量擋存（帳要明確不偷溢） */
+var RSTD={gkey:null,why:'Defect'};
+function openRstDeduct(x,preGroup){ /* preGroup＝從批次列表點行進來、預選那一天（v3） */
   if(!canWrite()){roToast();return;}
-  if(!x.batches.length){toast('No batches to deduct from');return;}
-  RSTD={batch:String((preBatch||x.batches[0]).id),why:'Defect'};
+  var groups=rstGroupByDate(x.batches);
+  if(!groups.length){toast('No batches to deduct from');return;}
+  RSTD={gkey:(preGroup||groups[0]).key,why:'Defect'};
   openDrawerHTML('<span class="tag">Deduct</span><div class="t" style="font-size:19px">'+esc(x.name)+(x.proc?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(x.proc)+'</span>':'')+'</div>'
     +'<div class="s" style="margin-top:2px">pick the batch — the date decides which roast you take from</div>'
     +'<div class="dlab">Batch</div><div id="rd-bats">'
-    +x.batches.map(function(r){return '<button class="chip" data-rb="'+esc(r.id)+'" style="margin-bottom:6px"><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(r.roast_date)+';margin-right:5px;vertical-align:0"></span>'+(r.roast_date?fmtD(r.roast_date):'no date')+' · '+(Number(r.remaining_kg)||0)+' kg</button>';}).join(' ')+'</div>'
+    +groups.map(function(g){return '<button class="chip" data-rb="'+esc(g.key)+'" style="margin-bottom:6px"><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(g.date)+';margin-right:5px;vertical-align:0"></span>'+(g.date?fmtD(g.date):'no date')+' · '+g.kg+' kg</button>';}).join(' ')+'</div>'
     +'<div class="dlab">Kg to deduct</div><input class="din" id="rd-kg" inputmode="decimal" placeholder="e.g. 0.5">'
     +'<div class="dlab">Why</div><div id="rd-whys">'
     +['Defect','Transfer','Other'].map(function(w){return '<button class="chip" data-rw="'+w+'" style="margin-bottom:6px">'+w+'</button>';}).join(' ')+'</div>'
@@ -4193,32 +4197,44 @@ function openRstDeduct(x,preBatch){ /* preBatch＝從批次列表點行進來、
     +'<button class="dclose" id="rd-back">‹ Back to stock</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   function paint(){
-    document.querySelectorAll('#rd-bats .chip').forEach(function(c){var on=c.dataset.rb===RSTD.batch;c.style.borderColor=on?'var(--accent)':'';c.style.color=on?'var(--accent)':'';});
+    document.querySelectorAll('#rd-bats .chip').forEach(function(c){var on=c.dataset.rb===RSTD.gkey;c.style.borderColor=on?'var(--accent)':'';c.style.color=on?'var(--accent)':'';});
     document.querySelectorAll('#rd-whys .chip').forEach(function(c){var on=c.dataset.rw===RSTD.why;c.style.borderColor=on?'var(--accent)':'';c.style.color=on?'var(--accent)':'';});
     $('rd-towrap').style.display=RSTD.why==='Transfer'?'':'none';
   }
   paint();
-  document.querySelectorAll('#rd-bats .chip').forEach(function(c){c.addEventListener('click',function(){RSTD.batch=c.dataset.rb;paint();});});
+  document.querySelectorAll('#rd-bats .chip').forEach(function(c){c.addEventListener('click',function(){RSTD.gkey=c.dataset.rb;paint();});});
   document.querySelectorAll('#rd-whys .chip').forEach(function(c){c.addEventListener('click',function(){RSTD.why=c.dataset.rw;paint();});});
   $('rd-back').addEventListener('click',openBatchesSheet);
   $('d-cl').addEventListener('click',closeDrawer);
   $('rd-save').addEventListener('click',async function(){
-    var r=x.batches.find(function(b){return String(b.id)===RSTD.batch;});
-    if(!r){toast('Pick a batch');return;}
+    var g=groups.find(function(b){return b.key===RSTD.gkey;});
+    if(!g){toast('Pick a batch');return;}
     var v=parseFloat(($('rd-kg').value||'').trim());
     if(isNaN(v)||v<=0){toast('Enter the kg');return;}
-    var have=Number(r.remaining_kg)||0;
+    var have=g.kg;
     if(v>have+0.0001){toast('That batch only has '+have+' kg');return;} /* 超量擋存——選批就是要帳目明確 */
     var to=RSTD.why==='Transfer'?(($('rd-to').value||'').trim()):'';
     if(RSTD.why==='Transfer'&&!to){toast('Say where it went');return;}
     var btn=$('rd-save');btn.disabled=true;btn.textContent='Saving…';
-    var nr=Math.max(0,Math.round((have-v)*1000)/1000);
-    var u=await sb.from('roasts').update({remaining_kg:nr}).eq('id',r.id);
-    if(u.error){btn.disabled=false;btn.textContent='Deduct';alert('Failed: '+u.error.message);return;}
-    r.remaining_kg=nr;
+    /* 同日多鍋＝組內依序扣（哪一鍋先扣無所謂，同一天的豆） */
+    var left=v,done=0;
+    for(var i=0;i<g.batches.length&&left>0.0001;i++){
+      var r=g.batches[i];
+      var bh=Number(r.remaining_kg)||0;if(!(bh>0))continue;
+      var take=Math.min(bh,left);
+      var nr=Math.max(0,Math.round((bh-take)*1000)/1000);
+      var u=await sb.from('roasts').update({remaining_kg:nr}).eq('id',r.id);
+      if(u.error){
+        btn.disabled=false;btn.textContent='Deduct';
+        alert('Failed'+(done>0?' after deducting '+(Math.round(done*1000)/1000)+' kg':'')+': '+u.error.message);
+        buildItems();openBatchesSheet();return;
+      }
+      r.remaining_kg=nr;left-=take;done+=take;
+    }
     logAct(RSTD.why==='Transfer'?'transferred roasted':'deducted roasted',x.name,
-      v+' kg · '+(r.roast_date?fmtD(r.roast_date):'no date')+(to?(' → '+to):(RSTD.why!=='Transfer'?' · '+RSTD.why.toLowerCase():'')));
-    toast(nr>0?('Deducted ✓ '+nr+' kg left in batch'):'Batch used up ✓');
+      v+' kg · '+(g.date?fmtD(g.date):'no date')+(to?(' → '+to):(RSTD.why!=='Transfer'?' · '+RSTD.why.toLowerCase():'')));
+    var leftKg=Math.round((have-v)*1000)/1000;
+    toast(leftKg>0?('Deducted ✓ '+leftKg+' kg left in batch'):'Batch used up ✓');
     buildItems();openBatchesSheet();
   });
 }
@@ -5194,6 +5210,20 @@ function rstFreshColor(rd){
   if(age<=SHELF_FRESH_PRIME)return '#3F9A66'; /* ready — 同 .fr-green */
   return 'var(--danger)';                     /* fading */
 }
+/* 同日期批次合併成一組（2026-07-12 老闆點名：同一天烘幾鍋在 Coffee Stock 就是同一批）——
+   資料層各筆保留（QC 判定/流水帳不動），只有顯示與扣豆按組；組內維持原 FIFO 順序 */
+function rstGroupByDate(batches){
+  var out=[],idx={};
+  batches.forEach(function(r){
+    var k=String(r.roast_date||'');
+    if(idx[k]==null){idx[k]=out.length;out.push({date:r.roast_date||null,key:k,kg:0,batches:[]});}
+    var g=out[idx[k]];
+    g.kg+=Number(r.remaining_kg)||0;
+    g.batches.push(r);
+  });
+  out.forEach(function(g){g.kg=Math.round(g.kg*1000)/1000;});
+  return out;
+}
 function rstBarHTML(batches,target,low){
   var tot=0;batches.forEach(function(r){tot+=Number(r.remaining_kg)||0;});
   tot=Math.round(tot*1000)/1000;
@@ -5201,10 +5231,10 @@ function rstBarHTML(batches,target,low){
   var state=(l>0&&tot<=l)?'low':((t>0&&tot>t)?'over':'ok');
   var denom=t>0?Math.max(t,tot):tot; /* 超量時分母撐大到現量＝畫滿不爆框 */
   var segs='';
-  batches.forEach(function(r){
-    var w=denom>0?((Number(r.remaining_kg)||0)/denom*100):0;
+  rstGroupByDate(batches).forEach(function(g){
+    var w=denom>0?(g.kg/denom*100):0;
     if(w<=0)return;
-    segs+='<div style="width:'+w+'%;background:'+rstFreshColor(r.roast_date)+';border-right:1px solid var(--surface)"></div>';
+    segs+='<div style="width:'+w+'%;background:'+rstFreshColor(g.date)+';border-right:1px solid var(--surface)"></div>';
   });
   var label=t>0?(tot+' / '+t+' kg'):(tot+' kg');
   if(state==='low')label+=' · low!';else if(state==='over')label+=' · over!';
