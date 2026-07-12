@@ -282,13 +282,20 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .cmk-total .l{font-size:12px;color:var(--accent);margin-bottom:4px}
 .cmk-total .v{font-size:26px;font-weight:700;color:var(--accent);line-height:1.05}
 .cmk-total .s2{font-size:12px;color:var(--accent);opacity:.85;margin-top:5px}
-.rs-day{border:1px solid var(--line);border-radius:12px;margin-top:9px;overflow:hidden}
-.rs-day-h{display:flex;justify-content:space-between;align-items:center;padding:9px 13px;background:var(--bg);font-size:13px;font-weight:700;color:var(--ink)}
+.rsum{display:flex;gap:9px;margin:14px 0 4px}
+.rsum .box{flex:1;color:#fff;border-radius:16px;padding:12px 13px;box-shadow:0 7px 16px rgba(0,0,0,.10)}
+.rsum .box .n{font-size:21px;font-weight:800;line-height:1}
+.rsum .box .l{font-size:10px;font-weight:700;opacity:.92;text-transform:uppercase;letter-spacing:.05em;margin-top:5px}
+.rs-day{border:1px solid var(--line2);border-radius:16px;margin-top:10px;overflow:hidden;box-shadow:0 4px 11px rgba(120,90,160,.05)}
+.rs-day-h{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;background:color-mix(in srgb,var(--tint) 55%,transparent);font-size:13.5px;font-weight:800;color:var(--ink)}
+.rs-day-h .hh{font-size:11.5px;font-weight:800;color:var(--accent);background:var(--surface);padding:2px 9px;border-radius:20px;margin-left:6px}
 .rs-add{border:none;background:none;color:var(--accent);font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;padding:3px 4px}
-.rs-shift{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;border:none;border-top:1px solid var(--line);background:var(--surface);color:var(--ink);padding:11px 13px;font-family:inherit;cursor:pointer}
-.rs-shift .rs-nm{font-size:14px;font-weight:600}
-.rs-shift .rs-tm{font-size:13px;color:var(--muted);white-space:nowrap}
+.rs-shift{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:none;border-top:1px solid var(--line);background:var(--surface);color:var(--ink);padding:11px 14px;font-family:inherit;cursor:pointer}
+.rs-dot{width:10px;height:10px;border-radius:50%;flex:0 0 10px;background:var(--pc,var(--muted));box-shadow:0 0 0 3px color-mix(in srgb,var(--pc,var(--muted)) 20%,transparent)}
+.rs-shift .rs-nm{flex:1;font-size:14.5px;font-weight:700;color:var(--ink)}
 .rs-shift.rs-empty .rs-nm{color:var(--muted);font-weight:500}
+.rs-shift.rs-empty .rs-dot{box-shadow:none;background:var(--line2)}
+.rs-shift .rs-tm{font-size:12px;font-weight:700;color:var(--pc,var(--muted));background:color-mix(in srgb,var(--pc,var(--muted)) 13%,transparent);padding:4px 10px;border-radius:20px;white-space:nowrap}
 .rs-none{padding:10px 13px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
 /* 不可上班日曆（Who's off）*/
 .na-mhead{display:flex;justify-content:space-between;align-items:center;margin:14px 2px 10px}
@@ -7329,6 +7336,11 @@ function renderRoster(){
     return '<button data-rswk="'+i+'"'+(i===RS_WK?' class="on"':'')+'>'+['This week','Next week','Week after'][i]+'</button>';
   }).join('')+'</div>';
   var assigned=shifts.filter(function(s){return s.name&&String(s.name).trim();}).length;
+  var totH=shifts.reduce(function(t,s){return t+((s.name&&String(s.name).trim())?rsHrs(s.start,s.end,s.br):0);},0);
+  var ppl=shifts.filter(function(s){return s.name&&String(s.name).trim();}).map(function(s){return s.name;}).filter(function(n,i,a){return a.indexOf(n)===i;}).length;
+  var rsum='<div class="rsum"><div class="box" style="background:linear-gradient(135deg,var(--accent),#B36C7C)"><div class="n">'+rsHH(totH)+'</div><div class="l">This week</div></div>'
+    +'<div class="box" style="background:linear-gradient(135deg,var(--qc),#5E85C0)"><div class="n">'+ppl+'</div><div class="l">People</div></div>'
+    +'<div class="box" style="background:linear-gradient(135deg,var(--green),#659A5C)"><div class="n">'+assigned+'</div><div class="l">Shifts</div></div></div>';
   var modeSeg='<div class="pm-seg" style="margin-top:8px"><button data-rsmode="day"'+(RS_VIEW!=='person'?' class="on"':'')+'>By day</button><button data-rsmode="person"'+(RS_VIEW==='person'?' class="on"':'')+'>By person</button></div>';
   var body,tplRow;
   if(RS_VIEW==='person'){
@@ -7344,19 +7356,21 @@ function renderRoster(){
         var has=!!(s.name&&String(s.name).trim());
         if(!canEdit&&!has)return;
         var warn=has&&rsUnavailable(s.name,dObj);
-        var inner='<span class="rs-nm">'+(has?esc(s.name):'— tap to assign')+(warn?' <span class="fr-yellow">⚠</span>':'')+'</span>'
+        var pc=has?naColor(s.name):'';
+        var inner='<span class="rs-dot"></span><span class="rs-nm">'+(has?esc(s.name):'— tap to assign')+(warn?' <span class="fr-yellow">⚠</span>':'')+'</span>'
           +'<span class="rs-tm">'+esc(s.start)+'–'+esc(s.end)+(s.br?' ·½':'')+' · '+rsHH(rsHrs(s.start,s.end,s.br))+'</span>';
         rows+=canEdit
-          ?'<button class="rs-shift'+(has?'':' rs-empty')+'" data-rsedit="'+idx+'">'+inner+'</button>'
-          :'<div class="rs-shift" style="cursor:default">'+inner+'</div>';
+          ?'<button class="rs-shift'+(has?'':' rs-empty')+'"'+(pc?' style="--pc:'+pc+'"':'')+' data-rsedit="'+idx+'">'+inner+'</button>'
+          :'<div class="rs-shift'+(has?'':' rs-empty')+'" style="cursor:default'+(pc?';--pc:'+pc:'')+'">'+inner+'</div>';
       });
-      return '<div class="rs-day"><div class="rs-day-h"><span>'+dw[1]+' '+rsDMY(dObj)+'</span>'+(canEdit?'<button class="rs-add" data-rsadd="'+dw[0]+'">+ shift</button>':'')+'</div>'
+      var dayH=0;shifts.forEach(function(s){if(s.day===dw[0]&&s.name&&String(s.name).trim())dayH+=rsHrs(s.start,s.end,s.br);});
+      return '<div class="rs-day"><div class="rs-day-h"><span>'+dw[1]+' '+rsDMY(dObj)+(dayH?'<span class="hh">'+rsHH(dayH)+'</span>':'')+'</span>'+(canEdit?'<button class="rs-add" data-rsadd="'+dw[0]+'">+ shift</button>':'')+'</div>'
         +(rows||'<div class="rs-none">no shifts</div>')+'</div>';
     }).join('');
   }
   openDrawerHTML('<div class="t" style="font-size:19px">Timesheet</div>'
     +'<div class="s" style="margin-top:2px">'+rsDMY(d0)+' – '+rsDMY(d6)+' · '+assigned+' assigned</div>'
-    +seg+modeSeg+tplRow
+    +rsum+seg+modeSeg+tplRow
     +'<div style="margin-top:4px">'+body+'</div>'
     +(canEdit?'<button class="act" id="rs-save">Save '+['this week','next week','week after'][RS_WK]+'</button>':'')
     +(WHO?'<button class="'+(canEdit?'dclose':'act')+'" id="rs-myna">My unavailability</button>':'')
