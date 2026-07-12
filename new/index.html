@@ -3163,7 +3163,9 @@ function paintPublishSheet(sl,acts){
     var open=PUB.open===x.nm;
     var h='<div style="border:1px solid '+(open?'var(--accent)':'var(--line)')+';border-radius:12px;padding:11px 13px;margin-top:8px">'
       +'<div data-pub="'+ix+'" style="cursor:pointer">'
-      +'<div style="display:flex;align-items:center;gap:8px"><span class="t" style="font-size:14.5px;flex:1;min-width:0">'+esc(x.nm)+'</span>'+qcPill+'</div>'
+      +'<div style="display:flex;align-items:center;gap:8px"><span class="t" style="font-size:14.5px;flex:1;min-width:0">'+esc(x.nm)
+      /* 處理法（2026-07-13 老闆點名）：跟 Coffee Stock/Coffee Info 同款灰字，來源＝鎖定 sample */
+      +(x.s&&x.s.process?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(x.s.process)+'</span>':'')+'</span>'+qcPill+'</div>'
       +'<div class="s" style="margin-top:4px">'+chans+'</div>'
       +'</div>';
     if(open&&_mk){
