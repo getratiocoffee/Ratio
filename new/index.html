@@ -4218,30 +4218,44 @@ async function openRoastPreset(mode,val){
   paintRoastSheet();
 }
 /* 快速扣血：選日期組（預設最舊）＋原因（瑕疵/調撥含去向/其他）——同日多鍋合併一組、組內依序扣、
-   超量擋存（帳要明確不偷溢） */
-var RSTD={gkey:null,why:'Defect'};
+   超量擋存（帳要明確不偷溢）。
+   Fix kg 模式（2026-07-12 老闆點名輸入錯誤要能改）：同抽屜切換，輸入該批「正確的總 kg」直接調到位——
+   加減都修 roasted_kg（是記錯不是耗損），logAct 記 corrected 不污染瑕疵帳 */
+var RSTD={gkey:null,why:'Defect',mode:'ded'};
 function openRstDeduct(x,preGroup){ /* preGroup＝從批次列表點行進來、預選那一天（v3） */
   if(!canWrite()){roToast();return;}
   var groups=rstGroupByDate(x.batches);
   if(!groups.length){toast('No batches to deduct from');return;}
-  RSTD={gkey:(preGroup||groups[0]).key,why:'Defect'};
-  openDrawerHTML('<span class="tag">Deduct</span><div class="t" style="font-size:19px">'+esc(x.name)+(x.proc?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(x.proc)+'</span>':'')+'</div>'
+  RSTD={gkey:(preGroup||groups[0]).key,why:'Defect',mode:'ded'};
+  openDrawerHTML('<div class="t" style="font-size:19px">'+esc(x.name)+(x.proc?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(x.proc)+'</span>':'')+'</div>'
     +'<div class="s" style="margin-top:2px">pick the batch — the date decides which roast you take from</div>'
+    +'<div class="pm-seg" style="margin-top:10px"><button id="rd-m-d">Deduct</button><button id="rd-m-f">Fix kg · typo</button></div>'
     +'<div class="dlab">Batch</div><div id="rd-bats">'
     +groups.map(function(g){return '<button class="chip" data-rb="'+esc(g.key)+'" style="margin-bottom:6px"><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(g.date)+';margin-right:5px;vertical-align:0"></span>'+(g.date?fmtD(g.date):'no date')+' · '+g.kg+' kg</button>';}).join(' ')+'</div>'
-    +'<div class="dlab">Kg to deduct</div><input class="din" id="rd-kg" inputmode="decimal" placeholder="e.g. 0.5">'
-    +'<div class="dlab">Why</div><div id="rd-whys">'
+    +'<div class="dlab" id="rd-kglab">Kg to deduct</div><input class="din" id="rd-kg" inputmode="decimal" placeholder="e.g. 0.5">'
+    +'<div id="rd-whywrap"><div class="dlab">Why</div><div id="rd-whys">'
     +['Defect','Transfer','Other'].map(function(w){return '<button class="chip" data-rw="'+w+'" style="margin-bottom:6px">'+w+'</button>';}).join(' ')+'</div>'
-    +'<div id="rd-towrap" style="display:none"><div class="dlab">Transfer to</div><input class="din" id="rd-to" placeholder="own shop / cafe name"></div>'
+    +'<div id="rd-towrap" style="display:none"><div class="dlab">Transfer to</div><input class="din" id="rd-to" placeholder="own shop / cafe name"></div></div>'
+    +'<div class="s" id="rd-fixhint" style="display:none;margin-top:8px;color:var(--muted)">for typos — sets this batch to the number you type, no defect on record</div>'
     +'<button class="act" id="rd-save">Deduct</button>'
     +'<button class="dclose" id="rd-back">‹ Back to stock</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   function paint(){
+    var fix=RSTD.mode==='fix';
+    var g=groups.find(function(b){return b.key===RSTD.gkey;});
+    $('rd-m-d').className=fix?'':'on';$('rd-m-f').className=fix?'on':'';
     document.querySelectorAll('#rd-bats .chip').forEach(function(c){var on=c.dataset.rb===RSTD.gkey;c.style.borderColor=on?'var(--accent)':'';c.style.color=on?'var(--accent)':'';});
     document.querySelectorAll('#rd-whys .chip').forEach(function(c){var on=c.dataset.rw===RSTD.why;c.style.borderColor=on?'var(--accent)':'';c.style.color=on?'var(--accent)':'';});
-    $('rd-towrap').style.display=RSTD.why==='Transfer'?'':'none';
+    $('rd-whywrap').style.display=fix?'none':'';
+    $('rd-fixhint').style.display=fix?'':'none';
+    $('rd-towrap').style.display=(!fix&&RSTD.why==='Transfer')?'':'none';
+    $('rd-kglab').textContent=fix?('Correct total kg — now '+(g?g.kg:'?')+' kg'):'Kg to deduct';
+    $('rd-kg').placeholder=fix?(g?String(g.kg):''):'e.g. 0.5';
+    $('rd-save').textContent=fix?'Save correction':'Deduct';
   }
   paint();
+  $('rd-m-d').addEventListener('click',function(){if(RSTD.mode!=='ded'){RSTD.mode='ded';paint();}});
+  $('rd-m-f').addEventListener('click',function(){if(RSTD.mode!=='fix'){RSTD.mode='fix';paint();}});
   document.querySelectorAll('#rd-bats .chip').forEach(function(c){c.addEventListener('click',function(){RSTD.gkey=c.dataset.rb;paint();});});
   document.querySelectorAll('#rd-whys .chip').forEach(function(c){c.addEventListener('click',function(){RSTD.why=c.dataset.rw;paint();});});
   $('rd-back').addEventListener('click',openBatchesSheet);
@@ -4249,6 +4263,38 @@ function openRstDeduct(x,preGroup){ /* preGroup＝從批次列表點行進來、
   $('rd-save').addEventListener('click',async function(){
     var g=groups.find(function(b){return b.key===RSTD.gkey;});
     if(!g){toast('Pick a batch');return;}
+    /* Fix kg 模式：輸入的是「正確的總 kg」，直接調到位；roasted_kg 同步修（記錯不是耗損） */
+    if(RSTD.mode==='fix'){
+      var cv=parseFloat(($('rd-kg').value||'').trim());
+      if(isNaN(cv)||cv<0){toast('Enter the correct kg');return;}
+      var diff=Math.round((cv-g.kg)*1000)/1000;
+      if(Math.abs(diff)<0.0005){toast('Already '+g.kg+' kg — nothing to fix');return;}
+      var fbtn=$('rd-save');fbtn.disabled=true;fbtn.textContent='Saving…';
+      var ferr=null;
+      if(diff>0){ /* 少記了＝補到組內第一鍋（同日同豆，哪鍋無所謂） */
+        var fr=g.batches[0];
+        var fu={remaining_kg:Math.round(((Number(fr.remaining_kg)||0)+diff)*1000)/1000,
+                roasted_kg:Math.round(((Number(fr.roasted_kg)||0)+diff)*1000)/1000};
+        var fq=await sb.from('roasts').update(fu).eq('id',fr.id);
+        if(fq.error)ferr=fq.error.message;else Object.assign(fr,fu);
+      }else{ /* 多記了＝組內依序減掉 */
+        var fleft=-diff;
+        for(var fi=0;fi<g.batches.length&&fleft>0.0001;fi++){
+          var fr2=g.batches[fi];
+          var fh=Number(fr2.remaining_kg)||0;if(!(fh>0))continue;
+          var ftake=Math.min(fh,fleft);
+          var fu2={remaining_kg:Math.max(0,Math.round((fh-ftake)*1000)/1000),
+                   roasted_kg:Math.max(0,Math.round(((Number(fr2.roasted_kg)||0)-ftake)*1000)/1000)};
+          var fq2=await sb.from('roasts').update(fu2).eq('id',fr2.id);
+          if(fq2.error){ferr=fq2.error.message;break;}
+          Object.assign(fr2,fu2);fleft-=ftake;
+        }
+      }
+      if(ferr){fbtn.disabled=false;fbtn.textContent='Save correction';alert('Fix failed: '+ferr);buildItems();openBatchesSheet();return;}
+      logAct('corrected roasted kg',x.name,g.kg+' → '+cv+' kg · '+(g.date?fmtD(g.date):'no date'));
+      toast('Fixed ✓ batch is now '+cv+' kg');
+      buildItems();openBatchesSheet();return;
+    }
     var v=parseFloat(($('rd-kg').value||'').trim());
     if(isNaN(v)||v<=0){toast('Enter the kg');return;}
     var have=g.kg;

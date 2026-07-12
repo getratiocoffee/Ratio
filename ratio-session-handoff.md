@@ -107,6 +107,12 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之二十五（Coffee Stock 加 Fix kg 模式：輸入錯誤直接改正）
+- **老闆點名**：Coffee Stock 要能更改公斤數（輸入錯誤）。原本只有 Intake（加）與 Deduct（扣、要選 Defect/Transfer/Other 原因）——打錯數字只能假借 Defect 扣，污染瑕疵帳。
+- **改動（new/index.html，openRstDeduct）**：Deduct 抽屜加 pm-seg 雙模式〔Deduct｜Fix kg · typo〕（RSTD.mode）。Fix 模式：Why 區隱藏、label 顯示「Correct total kg — now X kg」（選批次即時跟著變）、輸入該批**正確的總 kg** → Save correction＝調到位：diff>0 補到組內第一鍋、diff<0 組內依序減；**remaining_kg 與 roasted_kg 一起修**（是記錯不是耗損；Deduct 照舊只動 remaining）。logAct `corrected roasted kg`（note「舊 → 新 kg · 日期」）不進瑕疵帳。防呆：同值「nothing to fix」、負數/空值擋、零寫入。
+- **驗證**：jscheck ✓；serve 複本＋fetch 攔截——5→0.5（remaining+roasted 同修、payload 對、血條 4/6 跟著動）、3.5→4（+0.5 只補第一鍋另一鍋不動）、防呆零寫入、Deduct 回歸（只動 remaining、帳記 defect）、console 零錯誤＋截圖。
+- **等老闆真機**：部署後去 Coffee Stock 把那筆打錯的批次用 Fix kg 改回正確值。
+
 ## 〇、補記 — 2026-07-12 之二十四（QC 左右滑判定：右滑＝鎖頭 pass＋鎖風味、左滑＝downgrade、換鎖警訊）
 - **老闆定案三題**：①左滑 downgrade＋confirm 警訊 ②右滑＝pass＋**必鎖風味**（鎖頭語意：風味確定才給過；上架/定價決定仍留在 publish List 卡，QC 不越權）③同豆已有鎖著批次＝「整批換掉」，架上風味/烘焙日期揭露訊息要跟著更新。
 - **改動（new/index.html）**：①`attachQcSwipe` 改雙向（方向鎖 `Math.abs(dx)>18`、位移 ±130、回饋右綠左紅 `--danger` 22%、放手 ±35% 寬觸發）②新 helper `lockedMate(s)`＝記憶體找同名另一筆 flavour_locked ③`qcVerdict` 開頭統一兩道 confirm（滑動與泡泡按鈕共用）：downgrade→「Downgrade X? It will not be sold as this bean.」；pass 且同名已有鎖→synced 時「already has a locked batch on the shelf. Replace it? Shop info (flavours, roast date) will switch to this one.」／未上架時「Move the lock to this batch?」——取消＝整個判定不做（不產生 passed-沒鎖中間態）④pass＝必鎖（`v==='pass'&&s` 就 lockFlavourSolo；同名舊批自動解鎖＝每豆只鎖一個）⑤**換鎖且已上架**＝鎖成功後直接 `openListSheet({ref:s})`（Update 模式、價格記憶預填）＋toast「lock moved — push the update…」，老闆按一下 push 就把 Square 揭露換新（公開豆頁/資訊卡/出貨信本來就動態跟鎖走免管）⑥`QCLOCK` 開關整組退役（全域宣告、qtoggle、data-qact lock 全刪；泡泡改灰字「🔒 pass locks these flavours as the selling version」＋ Pass 鈕帶 🔒）；`pushListToSquare` 的 LST.lock（publish 端）不動。
