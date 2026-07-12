@@ -107,6 +107,10 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之二十二（QC 導覽移除＋In hand highlight）
+- **導覽移除 QC**：底部 nav 的 QC 顆刪掉（HTML 389＋active 9632＋click 9648）——QC 已是抽屜，改從 Tools qcgo 磁貼/今日流 qcnav 卡進；nav flex 自動三等分不改 CSS。commit ea6263e。
+- **In hand highlight（老闆點名）**：openQCSheet 的 In hand（還沒 cup）列加回 `.qc-new`「New」泡泡＋淡 accent 底 highlight（`border-color:var(--accent)`＋`color-mix accent 9%`，CSS 早在 202-203 沒刪，抽屜版漏套）——跟下面待判定列（普通框）視覺區分。驗證：jscheck ✓（虛驚：上次 FAILED 是 jscheck 腳本自己 `ok?(...:...)` 三元筆誤，非 app）；stub In hand 有 qc-new 泡泡＋accent 邊＋color-mix 底，待判定無泡泡普通框 ✓ 截圖 NEW 泡泡醒目 ✓ console 零錯誤。
+
 ## 〇、補記 — 2026-07-12 之二十一（QC 改抽屜 popup：拿掉底部固定判定台）
 - **老闆點名**：QC 的 foot banner（.deck 底部固定判定台）拿掉，QC 改成跟其他一樣的 popup 抽屜。老闆問建議→我推薦：判定「點豆就地展開」（同 Coffee Stock 手風琴）＋導覽 QC 按鈕保留但點了開抽屜。老闆批准。
 - **改動（new/index.html）**：①`renderQC`（整頁＋deck）退役 → 新 **`openQCSheet()`** 抽屜：標題 QC＋分頁（Single/Blend）＋In hand 待杯測（同日合併，`.hit` 列點開 Cup）＋待判定清單（`.hit` 列點某筆 `selQC` toggle 就地展開判定區＝View/Edit・Edit/Add Stock・Roast Date・Lock toggle・Pass/Downgrade）＋Add a past batch/Shelf/Close。`qcnav()`＝相容別名。②**入口全改開抽屜**（不再 view='qc'）：qcnav 今日流卡(1045)、Coffee Stock cup(4186)、Tools qcgo(9073)、nav item(9543)、底部 nav-qc click(9648)→`openQCSheet()`。③**返回全導回抽屜**：qcVerdict(1160) 判完→抽屜開著就 openQCSheet；子抽屜 openQcStockSheet/openRoastDateSheet 存檔＋cancel→openQCSheet；saveCupSheet（新 cup＋editId 兩處）reload 後→openQCSheet。④render 分派移除 `view==='qc'` 分支(9626)；#deck 不再使用（HTML 預設 display:none，CSS 留著無害）。

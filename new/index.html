@@ -5537,7 +5537,8 @@ function openQCSheet(){
   var cupSec=cupGroups.length
     ?'<div class="dlab">In hand — tap to cup</div>'
       +cupGroups.map(function(g){
-        return '<div class="hit" data-tocup="'+esc(g.first.id)+'" style="cursor:pointer"><span style="min-width:0"><div class="t">'+esc(g.name||'—')+(g.proc?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(g.proc)+'</span>':'')+'</div><div class="s">'+(g.date?'roasted '+fmtD(g.date):'roast batch')+(g.n>1?' · '+g.n+' roasts':'')+(g.green>0?' · '+(Math.round(g.green*10)/10)+' kg green':'')+'</div></span><span class="k">cup</span></div>';
+        /* 還沒 cup 的醒目：New 泡泡＋淡 accent 底 highlight（同舊整頁 qc-new） */
+        return '<div class="hit" data-tocup="'+esc(g.first.id)+'" style="cursor:pointer;border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,transparent)"><span style="min-width:0"><div class="t">'+esc(g.name||'—')+(g.proc?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(g.proc)+'</span>':'')+' <span class="qc-new">New</span></div><div class="s">'+(g.date?'roasted '+fmtD(g.date):'roast batch')+(g.n>1?' · '+g.n+' roasts':'')+(g.green>0?' · '+(Math.round(g.green*10)/10)+' kg green':'')+'</div></span><span class="k">cup</span></div>';
       }).join('')
     :'';
   /* 待判定（QCQ）：點某筆 → 就地展開判定區（View/Edit・Stock・Roast Date・Lock・Pass/Downgrade） */
