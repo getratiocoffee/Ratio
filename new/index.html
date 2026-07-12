@@ -8283,8 +8283,8 @@ function openCMarketSheet(){
     +row('cmk-qty','Lot size','35','1','kg')
     +row('cmk-freight','Freight + import','0','0.10','A$/kg')
     +'<div class="s" style="margin-top:10px;line-height:1.55">The chart above is in US$/lb — multiply by 100 for ¢/lb (2.988 → 298.8). FOB = C + differential; for a fixed-price lot enter the FOB as C and set differential to 0. Freight + import is your per-kg estimate (shipping, biosecurity); excludes GST. 1 lb = 0.4536 kg.</div>'
-    +'<div class="cmk-total"><div class="l">Total landed cost</div><div class="v" id="cmk-total">—</div><div class="s2" id="cmk-total-sub">—</div></div>'
-    +'<div class="cx-mgrid"><div class="cx-metric"><span>Landed / kg</span><b id="cmk-landed">—</b></div><div class="cx-metric"><span>FOB / kg</span><b id="cmk-fob">—</b></div></div>'
+    +'<div class="cmk-total"><div class="l">Total landed cost</div><div class="v" id="cmk-total">—</div><div class="s2" id="cmk-total-sub">—</div>'
+    +'<div class="cmk-break"><div><span>FOB / kg</span><b id="cmk-fob">—</b></div><div><span>Landed / kg</span><b id="cmk-landed">—</b></div></div></div>'
     +'<button class="dclose" id="cmk-close" style="border:none;background:none;color:var(--muted)">Close</button>');
   /* TradingView embed 照 classic：script.text 塞設定 JSON；theme 跟新殼當前明暗 */
   var host=document.querySelector('#cmk-chart .tradingview-widget-container');
@@ -8618,7 +8618,7 @@ var TOOL_ICONS={
 };
 function tsvg(k){return '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'+(TOOL_ICONS[k]||TOOL_ICONS.dot)+'</svg>';}
 /* 開發期進度標記：改過的工具在 Tools 字變紅——完工後把整組（DONE_TOOLS＋.tool-done＋tool-done class）拿掉 */
-var DONE_TOOLS=['Timesheet'];
+var DONE_TOOLS=['Timesheet','C Market'];
 function _isDone(label){return DONE_TOOLS.indexOf(label)>-1;}
 function renderTools(){
   $('deck').style.display='none';
