@@ -107,6 +107,13 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之二十一（QC 改抽屜 popup：拿掉底部固定判定台）
+- **老闆點名**：QC 的 foot banner（.deck 底部固定判定台）拿掉，QC 改成跟其他一樣的 popup 抽屜。老闆問建議→我推薦：判定「點豆就地展開」（同 Coffee Stock 手風琴）＋導覽 QC 按鈕保留但點了開抽屜。老闆批准。
+- **改動（new/index.html）**：①`renderQC`（整頁＋deck）退役 → 新 **`openQCSheet()`** 抽屜：標題 QC＋分頁（Single/Blend）＋In hand 待杯測（同日合併，`.hit` 列點開 Cup）＋待判定清單（`.hit` 列點某筆 `selQC` toggle 就地展開判定區＝View/Edit・Edit/Add Stock・Roast Date・Lock toggle・Pass/Downgrade）＋Add a past batch/Shelf/Close。`qcnav()`＝相容別名。②**入口全改開抽屜**（不再 view='qc'）：qcnav 今日流卡(1045)、Coffee Stock cup(4186)、Tools qcgo(9073)、nav item(9543)、底部 nav-qc click(9648)→`openQCSheet()`。③**返回全導回抽屜**：qcVerdict(1160) 判完→抽屜開著就 openQCSheet；子抽屜 openQcStockSheet/openRoastDateSheet 存檔＋cancel→openQCSheet；saveCupSheet（新 cup＋editId 兩處）reload 後→openQCSheet。④render 分派移除 `view==='qc'` 分支(9626)；#deck 不再使用（HTML 預設 display:none，CSS 留著無害）。
+- **保留**：分頁/同日合併/庫存同步/判定連動/鎖風味單選全照舊，只是容器整頁→抽屜。子抽屜 Cup/Recup 的 cancel 維持 closeDrawer（完全關，次要）。
+- **驗證**：jscheck ✓；stub 混合佇列 → QC 開成抽屜（標題 QC、deck display:none）✓ 分頁 Single·2/Blend·1 ✓ In hand 合併列 ✓ 點待判定豆展開 6 顆判定鈕 ✓ 按 Pass → 判定寫入、抽屜保持開、Guji 從待判定消失（計數 2→1）✓ 切拼配分頁見 Dancer ✓ console 零錯誤 ✓ 截圖（Dancer 展開判定態、底部無 fixed banner）。
+- **小注意**：QC 不再是 view → 底部導覽 QC 燈不再高亮（點了開 popup，同其他功能）；grep 確認無 renderQC/view='qc' 殘留（只剩一行註解）。
+
 ## 〇、補記 — 2026-07-12 之二十（QC 同日批次合併：In hand 合併＋判定整批一起判）
 - **老闆點名**：QC 裡同一支豆同一時間（同烘焙日）出現的合併。
 - **改動（new/index.html）兩處**：①**renderQC 的 In hand（cupSec）** 同 name+process+roast_date 分組一列（顯示「N roasts」＋green_kg 加總；點擊開組內第一鍋 openCupSheet）——同 Coffee Stock 的 rstGroupByDate 概念，但 QC 這區是跨豆列表故按三鍵分組。②**qcVerdict 整批一起判**：判定某鍋後，找同 name+process+roast_date 且 qc=null 的其他鍋（mates）一起 update qc——**否則合併顯示的其他鍋 qc 還是 null，判完又冒出來**。

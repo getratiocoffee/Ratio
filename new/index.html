@@ -1042,7 +1042,7 @@ async function runAction(id,btn){
       dropCard(id);toast('Task done ✓');return;
     }
     if(i.kind==='rstlow'){RST.seg=(i.ref||[]).some(function(x){return x.isBlend;})?'blend':'single';RST.open=null;openBatchesSheet();return;}
-    if(i.kind==='qcnav'){view='qc';render();return;}
+    if(i.kind==='qcnav'){openQCSheet();return;}
     if(i.kind==='closing'){if(CLOSING_ITEMS.length)openClosingSheet();else openClosingEdit();return;}
     if(i.kind==='paynav'){openPayrollSheet();return;}
     if(i.kind==='pack'){openPackSheet(i);return;}
@@ -1157,7 +1157,7 @@ async function qcVerdict(r,v,btn,cardId,s){
   if(cardId)dropCard(cardId);
   /* 全量重算：pass 完 List 卡要立刻長出來（原本只濾 QCQ，Today 流舊資料害 List 卡等下次刷新才出現） */
   buildItems();
-  if(view==='qc')renderQC();
+  if($('drawer').classList.contains('show'))openQCSheet();
 }
 /* ===== 抽屜 ===== */
 /* 彈窗開著時鎖住背景（iOS 的 overflow:hidden 靠不住 → body 釘住＋記捲動位置，關閉時復原）；
@@ -4183,7 +4183,7 @@ function openBatchesSheet(){
     openBackfillSheet();
   });
   var cup=$('rst-cup');
-  if(cup)cup.addEventListener('click',function(){QCSEG=isBlend?'blend':'single';closeDrawer();view='qc';render();});
+  if(cup)cup.addEventListener('click',function(){QCSEG=isBlend?'blend':'single';selQC=null;openQCSheet();});
   document.querySelectorAll('#drawer [data-bat]').forEach(function(el){el.addEventListener('click',function(){
     var x=rows.find(function(r){return r.key===RST.open;});if(!x)return;
     openRstDeduct(x,rstGroupByDate(x.batches)[+el.dataset.bat]);
@@ -4770,8 +4770,8 @@ async function saveCupSheet(){
       if(uq.error){var up2=Object.assign({},up);delete up2.features;delete up2.cupper;uq=await sb.from('samples').update(up2).eq('id',CUP.editId);}
       if(uq.error)throw new Error(uq.error.message);
       if(CUP.dot!==CUP.dot0){try{await saveDotFor(name,CUP.dot);}catch(e){toast('Saved, but colour failed');}}
-      closeDrawer();toast('Cupping updated ✓');
-      await reload();
+      toast('Cupping updated ✓');
+      await reload();openQCSheet(); /* 回 QC 抽屜 */
     }catch(e){
       if(btn0){btn0.disabled=false;btn0.textContent='Update cupping';}
       alert('Update failed: '+(e&&e.message||e));
@@ -4801,8 +4801,8 @@ async function saveCupSheet(){
     if(u.error)throw new Error('sample saved but batch status update failed: '+u.error.message);
     if(CUP.dot!==CUP.dot0){try{await saveDotFor(name,CUP.dot);}catch(e){toast('Saved, but colour failed');}}
     logAct('cupped',name);
-    closeDrawer();toast('Cupped ✓ now in the QC queue');
-    await reload();
+    toast('Cupped ✓ now in the QC queue');
+    await reload();openQCSheet(); /* 回 QC 抽屜 */
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent='Save cupping';}
     alert('Save failed: '+(e&&e.message||e));
@@ -5511,11 +5511,12 @@ function attachSwipe(el,id){
   /* 滑開態下點卡片本體＝收回（不觸發卡片動作；剛放手 300ms 內的 click 是拖曳尾勁，略過） */
   el.addEventListener('click',function(){if(SWIPE_OPEN===id&&Date.now()-_drag>300)closeSwipe();});
 }
-/* ===== QC 工作台 ===== */
-/* QC 分單品/拼配（2026-07-12 老闆點名）：tocup 與 QCQ 都是 roasts、帶 kind → kind==='blend' 分頁。
-   QCSEG 保留上次（同 RST.seg）；分頁鈕帶各自數量 */
+/* ===== QC 工作台（2026-07-12 改成抽屜 popup，拿掉底部固定判定台）=====
+   分單品/拼配分頁（QCSEG）；In hand 待杯測（同日合併，點開 Cup）＋待判定清單（點某筆就地展開判定區）。
+   舊 renderQC（整頁＋.deck banner）退役——qcnav()＝相容別名，全部導向 openQCSheet 抽屜 */
 var QCSEG='single';
-function renderQC(){
+function qcnav(){openQCSheet();}
+function openQCSheet(){
   var isBl=function(k){return k==='blend';};
   var blend=QCSEG==='blend';
   var tocupAll=toCupList();
@@ -5523,13 +5524,9 @@ function renderQC(){
   var queue=QCQ.filter(function(q){return isBl(q.r.kind)===blend;});
   var nS=tocupAll.filter(function(r){return !isBl(r.kind);}).length+QCQ.filter(function(q){return !isBl(q.r.kind);}).length;
   var nB=tocupAll.filter(function(r){return isBl(r.kind);}).length+QCQ.filter(function(q){return isBl(q.r.kind);}).length;
-  $('hcnt').textContent=QCQ.length?QCQ.length+' waiting':(tocupAll.length?tocupAll.length+' to cup':'all judged');
-  var m=$('main');
-  var segHTML='<div class="pm-seg" style="margin-bottom:8px">'
-    +'<button id="qc-seg-s" class="'+(blend?'':'on')+'">Single origins'+(nS?' · '+nS:'')+'</button>'
+  var segHTML='<div class="pm-seg" style="margin-top:10px"><button id="qc-seg-s" class="'+(blend?'':'on')+'">Single origins'+(nS?' · '+nS:'')+'</button>'
     +'<button id="qc-seg-b" class="'+(blend?'on':'')+'">Blends'+(nB?' · '+nB:'')+'</button></div>';
-  /* 杯測師工作台第一區：手上的豆（當前分頁的 production roast 待杯測）——點列直接開 Cup 抽屜。
-     2026-07-12：同一支豆同一天烘的幾鍋合併一列（同 Coffee Stock；判定時 qcVerdict 也整組一起判）*/
+  /* In hand（待杯測）：同一支豆同一天烘的幾鍋合併一列，點 → 開 Cup 抽屜 */
   var cupGroups=[],cgi={};
   tocup.forEach(function(r){
     var b=(DB.beans||[]).find(function(x){return String(x.id)===String(r.bean_id);});
@@ -5539,65 +5536,64 @@ function renderQC(){
     var g=cupGroups[cgi[k]];g.n++;g.green+=Number(r.green_kg)||0;
   });
   var cupSec=cupGroups.length
-    ?'<div class="note">In hand — tap to cup</div>'
+    ?'<div class="dlab">In hand — tap to cup</div>'
       +cupGroups.map(function(g){
-        return '<div class="qrow qrow-new" data-tocup="'+esc(g.first.id)+'"><div class="t">'+esc(g.name||'—')+(g.proc?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif">'+esc(g.proc)+'</span>':'')+' <span class="qc-new">New</span></div><div class="s">'+(g.date?'roasted '+fmtD(g.date):'roast batch')+(g.n>1?' · '+g.n+' roasts':'')+(g.green>0?' · '+(Math.round(g.green*10)/10)+' kg green in':'')+' · not cupped yet</div></div>';
+        return '<div class="hit" data-tocup="'+esc(g.first.id)+'" style="cursor:pointer"><span style="min-width:0"><div class="t">'+esc(g.name||'—')+(g.proc?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(g.proc)+'</span>':'')+'</div><div class="s">'+(g.date?'roasted '+fmtD(g.date):'roast batch')+(g.n>1?' · '+g.n+' roasts':'')+(g.green>0?' · '+(Math.round(g.green*10)/10)+' kg green':'')+'</div></span><span class="k">cup</span></div>';
       }).join('')
     :'';
-  function wireExtras(){
-    var ss=$('qc-seg-s');if(ss)ss.addEventListener('click',function(){if(QCSEG!=='single'){QCSEG='single';selQC=null;renderQC();}});
-    var sbb=$('qc-seg-b');if(sbb)sbb.addEventListener('click',function(){if(QCSEG!=='blend'){QCSEG='blend';selQC=null;renderQC();}});
-    var ad=$('qc-add');if(ad)ad.addEventListener('click',openBackfillSheet);
-    var sh=$('qc-shelf');if(sh)sh.addEventListener('click',openRetailSheet);
-    m.querySelectorAll('[data-tocup]').forEach(function(el){el.addEventListener('click',function(){
-      var r=(DB.roasts||[]).find(function(x){return String(x.id)===String(el.dataset.tocup);});
-      if(r)openCupSheet({ref:r});
-    });});
+  /* 待判定（QCQ）：點某筆 → 就地展開判定區（View/Edit・Stock・Roast Date・Lock・Pass/Downgrade） */
+  if(selQC!=null&&!queue.find(function(q){return q.r.id===selQC;}))selQC=null;
+  var qSec='';
+  if(queue.length){
+    qSec='<div class="dlab">To judge — tap to open</div>'
+      +queue.map(function(q){
+        var f=(q.s.features||[]).slice(0,3).join(', ');
+        var op=q.r.id===selQC;
+        var head='<div class="hit" data-q="'+esc(q.r.id)+'" style="cursor:pointer'+(op?';border-color:var(--accent);border-bottom-left-radius:0;border-bottom-right-radius:0':'')+'"><span style="min-width:0"><div class="t">'+esc(q.s.sample_id||'—')+(q.s.process?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(q.s.process)+'</span>':'')+'</div><div class="s">'+(q.r.roast_date?'roasted '+fmtD(q.r.roast_date)+' · ':'')+esc(f||'')+'</div></span><span class="k">'+(op?'▾':'judge ›')+'</span></div>';
+        if(!op)return head;
+        var body='<div style="border:1px solid var(--accent);border-top:none;border-radius:0 0 12px 12px;padding:11px 13px;margin:-8px 0 8px">'
+          +'<div style="display:flex;gap:7px">'
+          +'<button class="chip" data-qact="recup" style="flex:1;margin:0">View/Edit</button>'
+          +'<button class="chip" data-qact="stock" style="flex:1;margin:0">Edit/Add Stock</button>'
+          +'<button class="chip" data-qact="date" style="flex:1;margin:0">Roast Date</button></div>'
+          +(q.s.flavour_locked
+            ?'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:9px 0 4px">flavours already locked ✓</div>'
+            :'<button class="qtoggle'+(QCLOCK?' on':'')+'" data-qact="lock" style="margin:9px auto 4px">'+(QCLOCK?'✓ ':'')+'Lock flavours on pass</button>')
+          +'<div style="display:flex;gap:8px;margin-top:6px"><button class="act" data-qact="pass" style="flex:1;margin:0">Pass</button><button class="act" data-qact="down" style="flex:1;margin:0;background:var(--danger)">Downgrade</button></div>'
+          +'</div>';
+        return head+body;
+      }).join('');
   }
-  if(!queue.length){
-    m.innerHTML=segHTML+cupSec
-      +'<div class="empty">'+(tocup.length?'Nothing waiting for a verdict':(blend?'No blends in QC':'No single origins in QC'))+'</div>'
-      +'<button class="more" id="qc-add">＋ Add a past batch</button>'
-      +'<button class="more" id="qc-shelf">Shelf · on sale now</button>';
-    $('deck').style.display='none';document.body.style.paddingBottom='';
-    wireExtras();
-    return;
-  }
-  if(selQC==null||!queue.find(function(q){return q.r.id===selQC;}))selQC=queue[0].r.id;
-  m.innerHTML=segHTML+cupSec
-    +'<div class="note">Tap a batch to select — buttons below judge the selected one</div>'
-    +queue.map(function(q){
-      var f=(q.s.features||[]).slice(0,3).join(', ');
-      return '<div class="qrow'+(q.r.id===selQC?' sel':'')+'" data-q="'+esc(q.r.id)+'"><div class="t">'+esc(q.s.sample_id||'—')+(q.s.process?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif">'+esc(q.s.process)+'</span>':'')+'</div><div class="s">'+(q.r.roast_date?'roasted '+fmtD(q.r.roast_date)+' · ':'')+esc(f||'')+'</div></div>';
-    }).join('')
-    +'<button class="more" id="qc-add">＋ Add a past batch</button>'
-    +'<button class="more" id="qc-shelf">Shelf · on sale now</button>';
-  wireExtras();
-  m.querySelectorAll('[data-q]').forEach(function(r){r.addEventListener('click',function(){selQC=r.dataset.q;renderQC();});});
-  var q=queue.find(function(x){return String(x.r.id)===String(selQC);});
-  var deck=$('deck');deck.style.display='block';
-  /* judging → decision 重排：標題行乾淨、四顆等寬工具鍵（含編輯烘豆日）、鎖風味膠囊、判定鈕 */
-  deck.innerHTML='<div class="who">judging <b>'+esc(q.s.sample_id||'—')+(q.s.process?' · '+esc(q.s.process):'')+'</b>'
-    +(q.r.roast_date?' <span style="opacity:.8">· roasted '+esc(fmtD(q.r.roast_date))+'</span>':'')+'</div>'
-    +'<div class="qacts">'
-    +'<button class="qact" id="q-recup">View/Edit</button>'
-    +'<button class="qact" id="q-stock">Edit/Add Stock</button>'
-    +'<button class="qact" id="q-date">Edit Roast Date</button>'
-    +'</div>'
-    /* 鎖風味的決定在判定當下：pass＝判定＋鎖（開關可關；已鎖的豆顯示已鎖不重複問） */
-    +(q.s.flavour_locked
-      ?'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:2px 0 8px">flavours already locked ✓</div>'
-      :'<button id="q-lock" class="qtoggle'+(QCLOCK?' on':'')+'">'+(QCLOCK?'✓ ':'')+'Lock flavours on pass</button>')
-    /* 判定＝一排兩顆（老闆定案 2026-07-11）：Pass 主色、Downgrade 紅框；Re-roast 已退役 */
-    +'<div class="deck-btns"><div class="pair">'
-    +'<button class="big" id="q-p">Pass</button><button class="dn" id="q-d">Downgrade</button>'
-    +'</div></div>';
-  $('q-recup').addEventListener('click',function(){openRecupSheet(q);});
-  $('q-stock').addEventListener('click',function(){openQcStockSheet(q);});
-  $('q-date').addEventListener('click',function(){openRoastDateSheet(q);});
-  var ql=$('q-lock');if(ql)ql.addEventListener('click',function(){QCLOCK=!QCLOCK;renderQC();});
-  $('q-p').addEventListener('click',function(){qcVerdict(q.r,'pass',null,'qc:'+q.r.id,q.s);});
-  $('q-d').addEventListener('click',function(){qcVerdict(q.r,'downgrade',null,'qc:'+q.r.id,q.s);});
+  openDrawerHTML('<div class="t" style="font-size:19px">QC</div>'
+    +'<div class="s" style="margin-top:2px">cup and judge · '+(QCQ.length?QCQ.length+' waiting':(tocupAll.length?tocupAll.length+' to cup':'all judged'))+'</div>'
+    +segHTML
+    +cupSec+qSec
+    +((!cupGroups.length&&!queue.length)?'<div class="empty" style="margin-top:14px">'+(blend?'No blends in QC':'No single origins in QC')+'</div>':'')
+    +'<div style="display:flex;gap:8px;margin-top:12px"><button class="chip" id="qc-add" style="flex:1;margin:0">＋ Add a past batch</button><button class="chip" id="qc-shelf" style="flex:1;margin:0">Shelf · on sale now</button></div>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  var d=$('drawer');
+  var ss=$('qc-seg-s');if(ss)ss.addEventListener('click',function(){if(QCSEG!=='single'){QCSEG='single';selQC=null;openQCSheet();}});
+  var sbb=$('qc-seg-b');if(sbb)sbb.addEventListener('click',function(){if(QCSEG!=='blend'){QCSEG='blend';selQC=null;openQCSheet();}});
+  var ad=$('qc-add');if(ad)ad.addEventListener('click',openBackfillSheet);
+  var sh=$('qc-shelf');if(sh)sh.addEventListener('click',openRetailSheet);
+  $('d-cl').addEventListener('click',closeDrawer);
+  d.querySelectorAll('[data-tocup]').forEach(function(el){el.addEventListener('click',function(){
+    var r=(DB.roasts||[]).find(function(x){return String(x.id)===String(el.dataset.tocup);});
+    if(r)openCupSheet({ref:r});
+  });});
+  d.querySelectorAll('[data-q]').forEach(function(el){el.addEventListener('click',function(){
+    selQC=(selQC===el.dataset.q)?null:el.dataset.q;openQCSheet();
+  });});
+  var cq=queue.find(function(x){return String(x.r.id)===String(selQC);});
+  if(cq)d.querySelectorAll('[data-qact]').forEach(function(el){el.addEventListener('click',function(){
+    var a=el.dataset.qact;
+    if(a==='recup')return openRecupSheet(cq);
+    if(a==='stock')return openQcStockSheet(cq);
+    if(a==='date')return openRoastDateSheet(cq);
+    if(a==='lock'){QCLOCK=!QCLOCK;openQCSheet();return;}
+    if(a==='pass')return qcVerdict(cq.r,'pass',null,'qc:'+cq.r.id,cq.s);
+    if(a==='down')return qcVerdict(cq.r,'downgrade',null,'qc:'+cq.r.id,cq.s);
+  });});
 }
 /* QC 補庫存（老闆點名，取代 Menu Card 鈕）：judging 當下對這批加庫存量＋帶日期——
    補漏網之魚的順手路。只 update roasts（remaining_kg/roasted_kg/roast_date），
@@ -5634,14 +5630,14 @@ function openQcStockSheet(q){
       if(date&&date!==q.r.roast_date&&q.s.id&&q.s.roast_date){try{await sb.from('samples').update({roast_date:date}).eq('id',q.s.id);q.s.roast_date=date;}catch(e){}}
       Object.assign(q.r,upd);
       logAct('added stock',q.r.bean_name||q.s.sample_id,(add>0?'+'+add+' kg':'date only'));
-      closeDrawer();toast(add>0?'Stock +'+add+' kg ✓':'Date updated ✓');
-      buildItems();render();
+      toast(add>0?'Stock +'+add+' kg ✓':'Date updated ✓');
+      buildItems();openQCSheet(); /* 回 QC 抽屜 */
     }catch(e){
       btn.disabled=false;btn.textContent='Save';
       alert('Save failed: '+(e&&e.message||e));
     }
   });
-  $('d-cl').addEventListener('click',closeDrawer);
+  $('d-cl').addEventListener('click',openQCSheet);
 }
 /* 編輯烘豆日期（老闆點名）：修批次日期——新鮮度、資訊卡、貨架排序全跟著走 */
 function openRoastDateSheet(q){
@@ -5660,14 +5656,14 @@ function openRoastDateSheet(q){
       /* 杯測紀錄若有掛日期就跟著改（matchRoast 靠日期優先配對） */
       if(q.s.id&&q.s.roast_date){try{await sb.from('samples').update({roast_date:v}).eq('id',q.s.id);}catch(e){}}
       q.r.roast_date=v;if(q.s.roast_date)q.s.roast_date=v;
-      closeDrawer();toast('Roast date updated ✓');
-      buildItems();render();
+      toast('Roast date updated ✓');
+      buildItems();openQCSheet(); /* 回 QC 抽屜 */
     }catch(e){
       btn.disabled=false;btn.textContent='Save date';
       alert('Save failed: '+(e&&e.message||e));
     }
   });
-  $('d-cl').addEventListener('click',closeDrawer);
+  $('d-cl').addEventListener('click',openQCSheet);
 }
 /* QC 補豆：舊烘豆補登（roasts 補一筆）——有杯測紀錄直接進 QC 佇列，沒有就長 Cup 卡。
    2026-07-12：加 Single origin / Blend tab，一個入口補所有漏網之魚。關鍵差異——
@@ -9074,7 +9070,7 @@ function renderTools(){
     if(k==='help'){openHelpSheet();return;}
     if(k==='retail'){openRetailSheet();return;}
     if(k==='publish'){openPublishSheet();return;}
-    if(k==='qcgo'){view='qc';render();return;}
+    if(k==='qcgo'){openQCSheet();return;}
     if(k==='recipe'){openRecipeSheet();return;}
     if(k==='dialin'){openDialinSheet();return;}
     if(k==='igasset'){openIGSheet();return;}
@@ -9544,7 +9540,7 @@ function todayProgress(){
    用 Everything 視角＝磁貼數字是全站工作量，My day 會藏別人的卡對不上數 */
 function goTile(t){
   homeMarkSeen(t);
-  if(t.k==='qc'){view='qc';render();return;}
+  if(t.k==='qc'){openQCSheet();return;}
   if(t.k==='payroll'){openPayrollSheet();return;}
   VIEW_MODE='all';VIEW_AS='';
   FOLDED=new Set(Object.keys(STCOLOR).filter(function(s){return t.sts.indexOf(s)<0;}));
@@ -9627,7 +9623,7 @@ function renderHome(){
 function render(){
   /* 浮水印只給今日流：內容少的頁（QC/Tools）整塊露出來像破圖 */
   var bgl=document.querySelector('.bglogo');if(bgl)bgl.style.display='';
-  if(view==='home')renderHome();else if(view==='feed')renderFeed();else if(view==='qc')renderQC();else renderTools();
+  if(view==='home')renderHome();else if(view==='feed')renderFeed();else renderTools();
   /* 判定板亮著時底部留白加大，清單最後一列才捲得出來（板＋nav 疊起來近 300px） */
   document.body.style.paddingBottom=($('deck').style.display==='block')?'330px':'';
   document.body.classList.add('appview');
@@ -9649,7 +9645,7 @@ function maybeAutoRefresh(){
 document.addEventListener('visibilitychange',maybeAutoRefresh);
 $('nav-home').addEventListener('click',function(){view='home';render();});
 $('nav-feed').addEventListener('click',function(){view='feed';render();});
-$('nav-qc').addEventListener('click',function(){view='qc';render();});
+$('nav-qc').addEventListener('click',function(){openQCSheet();});
 $('nav-tools').addEventListener('click',function(){view='tools';render();});
 $('nav-refresh').addEventListener('click',async function(){this.textContent='…';await reload();this.textContent='Refresh';toast('Refreshed');});
 /* ===== 客戶介面（老闆定調：進來直接看到豆單）＝沒登入的店面＋客戶登入的門戶共用菜單
