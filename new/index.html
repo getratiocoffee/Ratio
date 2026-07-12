@@ -7480,11 +7480,13 @@ function openMyNA(){
   renderMyNA();
 }
 /* 每人穩定配色：先照員工名單順序給部門色，不在名單的用名字雜湊 */
+/* 名字先正規化＋字母排序成固定順序，再按位置給色——各畫面同一人同色（同步），≤8 人不撞色。
+   不在名單者退回雜湊 */
 function naColor(name){
   var pal=['--roast','--qc','--green','--mkt','--orders','--fin','--team','--accent'];
   var key=String(name||'').trim().toLowerCase();
-  var list=(RS_STAFF||[]),i=-1;
-  for(var k=0;k<list.length;k++){if(String(list[k]).trim().toLowerCase()===key){i=k;break;}}
+  var list=(RS_STAFF||[]).map(function(x){return String(x).trim().toLowerCase();}).filter(function(v,i,a){return v&&a.indexOf(v)===i;}).sort();
+  var i=list.indexOf(key);
   if(i<0){var h=0;for(var j=0;j<key.length;j++)h=(h*31+key.charCodeAt(j))|0;i=Math.abs(h);}
   return 'var('+pal[i%pal.length]+')';
 }
