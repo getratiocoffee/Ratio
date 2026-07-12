@@ -69,6 +69,7 @@
 - **驗證**：兩階段 stub 全過（鎖不互踢/兩行 Publish/獨立開合/listNameFor 後綴規則/availability payload/rtl_sold 複合 key/後綴拆解扣對批次不碰兄弟）＋jscheck＋console 零錯誤＋截圖；curl public-shop ok（beans 7＝老闆重新上架的豆，行為正確）
 - **⏭ 老闆真機收尾**：①QC 把 Cold Fermentation 重新 Pass（這次不會踢掉 White Honey 的鎖）②Publish 應見兩行 Alo Village 各帶處理法 ③CF 按 List（Square 建新商品「Alo Village — Cold Fermentation」）④WH 按 Update listing（商品名自動補後綴「Alo Village — White Honey」）⑤?shop 看兩張卡
 - **⚠ 已知限制（後補）**：Coffee Info/IG asset/Announce 清單仍名字級（同名一行、rep＝鎖優先）；?bean 公開豆頁 slug 已分流但 public-bean edge 未動（兩支詳情頁可能顯示同一筆）；rtl_sold 複合 key Coffee Info 讀不到（售罄真狀態看 product_sync，無礙）
+- **同輪收尾 ×2**：①QC 判定泡泡滑動手感修正（commit b1fc9dd）——泡泡在抽屜捲動容器內沒設 touch-action、手勢被瀏覽器搶走；補 `pan-y`＋鎖定後非 passive touchmove preventDefault（照 attachDrawerDrag 成例）＋鎖定閾值 18px/1.6→12px/1.3。真機手感等老闆 iPhone 驗 ②Coffee Info「Ready to list」區收掉（老闆定調上架統一走 Publish、Coffee Info 純看資訊）——openRetailSheet 刪 toList 區塊三處；今日流 List 卡與 QC 換鎖直開 Update 抽屜不動
 
 ## 〇、補記 — 2026-07-13 之二（營運操作：店面 12 支 Live 豆全數下架 ✅）
 - **老闆指令**：Roasted stock 裡掛 Live 的豆全下架（店面暫時清空）。Chrome 代跑（老闆先登入一次——07-08 曾登出的老問題，登入後 session 就在）
