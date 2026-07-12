@@ -9050,16 +9050,12 @@ function showFbOverlay(ref){
    全新增程式碼：只讀 buildItems 算好的 ITEMS/QCQ/toCupList 與 DB.actToday，零資料庫寫入；
    紅點已讀存 localStorage home_seen_v1（個人狀態、非 lead 也滅得掉——app_state 有唯讀護欄擋著） */
 var HOME_TILES=[
-  {k:'orders',lab:'Orders',sts:['Orders'],roles:['director','retail','staff']},
-  {k:'wholesale',lab:'Wholesale',sts:['Wholesale'],roles:['director','retail','staff']},
   {k:'roast',lab:'Roast',sts:['Roast','Green'],roles:['director','roaster']},
-  {k:'qc',lab:'QC',sts:['QC'],roles:['director','roaster']},
-  {k:'shelf',lab:'Shelf',sts:['Shelf'],roles:['director']},
-  {k:'recipe',lab:'Recipe',sts:['Recipe'],roles:['director','retail','staff']},
-  {k:'pay',lab:'Pay',sts:['Transaction'],roles:['director']},
-  {k:'tasks',lab:'Tasks',sts:['Daily Task'],roles:['director','roaster','retail','staff']},
-  {k:'customers',lab:'Customers',sts:['Customers'],roles:['director']},
-  {k:'payroll',lab:'Payroll',sts:[],roles:['finance']}
+  {k:'qc',lab:'QC &amp; Recipe',sts:['QC','Recipe'],roles:['director','roaster','retail','staff']},
+  {k:'marketing',lab:'Marketing',sts:['Shelf'],roles:['director','retail','staff']},
+  {k:'orders',lab:'Orders',sts:['Orders','Wholesale'],roles:['director','retail','staff']},
+  {k:'customers',lab:'Customers',sts:['Customers'],roles:['director','retail','staff']},
+  {k:'tasks',lab:'Daily Task',sts:['Daily Task'],roles:['director','roaster','retail','staff']}
 ];
 function hmSvg(p){return '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'+p+'</svg>';}
 var HOME_ICONS={
@@ -9072,6 +9068,7 @@ var HOME_ICONS={
   pay:hmSvg('<path d="M2 5a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5zm10 2.5A4.5 4.5 0 1 0 12 16.5 4.5 4.5 0 0 0 12 7.5z"/>'),
   tasks:hmSvg('<path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5zm11.7 6.7-5.2 5.2-3.2-3.2 1.4-1.4 1.8 1.8 3.8-3.8 1.4 1.4z"/>'),
   customers:hmSvg('<path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-5 0-9 2.5-9 6v2h18v-2c0-3.5-4-6-9-6z"/>'),
+  marketing:hmSvg('<path d="M3 10v4a1 1 0 0 0 1 1h2l4 4h1v-4l9 4V5l-9 4H4a1 1 0 0 0-1 1z"/>'),
   payroll:hmSvg('<path d="M6 2a1 1 0 0 0-1 1v18a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-6-6H6zm7 1.5L18.5 8H13V2.5zM8 12h8v2H8zm0 4h6v2H8z"/>')
 };
 function tileItems(t){var r=myRole();return ITEMS.filter(function(i){return !i.pin&&t.sts.indexOf(i.st)>-1&&i.roles.indexOf(r)>-1;});}
