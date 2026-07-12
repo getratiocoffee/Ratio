@@ -334,6 +334,8 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .tool .tic{width:38px;height:38px;border-radius:12px;background:var(--dept,var(--muted));display:grid;place-items:center;flex:0 0 38px;box-shadow:0 5px 11px color-mix(in srgb,var(--dept,#8A8A8A) 38%,transparent)}
 .tool .tic svg{width:20px;height:20px;fill:#fff;display:block}
 .tool .tl{min-width:0;line-height:1.2}
+.tool .tl.tool-done{color:#E53935}
+.tool .tl.tool-done small{color:#E53935;opacity:.7}
 .tool small{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-top:2px}
 .hit{background:var(--surface);border:1px solid var(--line2);border-radius:12px;padding:13px 15px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px}
 .hit .t{font-size:17px}
@@ -8611,6 +8613,9 @@ var TOOL_ICONS={
   dot:'<path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/>'
 };
 function tsvg(k){return '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'+(TOOL_ICONS[k]||TOOL_ICONS.dot)+'</svg>';}
+/* 開發期進度標記：改過的工具在 Tools 字變紅——完工後把整組（DONE_TOOLS＋.tool-done＋tool-done class）拿掉 */
+var DONE_TOOLS=['Timesheet'];
+function _isDone(label){return DONE_TOOLS.indexOf(label)>-1;}
 function renderTools(){
   $('deck').style.display='none';
   $('hcnt').textContent='find and make';
@@ -8621,8 +8626,8 @@ function renderTools(){
      寫入磁貼（_mk=canWrite）散進各自的類，唯讀磁貼人人看得到——分組是責任標示、不是權限牆 */
   var _mk=canWrite();
   /* x[3] 真＝「這顆會改資料」＝上玫瑰色（可改色）。做 app 期間的臨時規則，完工後整組拿掉 */
-  function _tiles(a){return a.map(function(x){return '<button class="tool'+(x[4]?' mk':'')+'" data-t="'+x[2]+'"><span class="tic">'+tsvg(x[3])+'</span><span class="tl">'+x[0]+'<small>'+x[1]+'</small></span></button>';}).join('');}
-  function _mkTile(id,label,sub,icon){return '<button class="tool mk" id="'+id+'"><span class="tic">'+tsvg(icon)+'</span><span class="tl">'+label+'<small>'+sub+'</small></span></button>';}
+  function _tiles(a){return a.map(function(x){return '<button class="tool'+(x[4]?' mk':'')+'" data-t="'+x[2]+'"><span class="tic">'+tsvg(x[3])+'</span><span class="tl'+(_isDone(x[0])?' tool-done':'')+'">'+x[0]+'<small>'+x[1]+'</small></span></button>';}).join('');}
+  function _mkTile(id,label,sub,icon){return '<button class="tool mk" id="'+id+'"><span class="tic">'+tsvg(icon)+'</span><span class="tl'+(_isDone(label)?' tool-done':'')+'">'+label+'<small>'+sub+'</small></span></button>';}
   /* 部門代表色（同部門同色）：直接沿用今日流的 STCOLOR，讓卡片與工具說同一種色語言。
      Production=Roast 琥珀 / QC&Recipe=QC 藍 / Shelf=紫 / Orders=Orders 玫瑰 / Finance=Transaction 橄欖。
      Marketing、Team 卡片端無對應 → 各給一個不撞色的新色；App=中性灰 */
