@@ -602,10 +602,11 @@ function todayShifts(){
   var sh=(DB.roster&&Array.isArray(DB.roster.shifts))?DB.roster.shifts:[];
   return sh.filter(function(s){return s.day===dk&&s.name&&String(s.name).trim();}).sort(function(a,b){return String(a.start||'')<String(b.start||'')?-1:1;});
 }
-/* 手上的豆（待杯測）：pending_cupping、沒判定、不在 QC 佇列——Today Cup 卡與 QC 頁 to-cup 區共用 */
+/* 手上的豆（待杯測）：pending_cupping、沒判定、**還有庫存**、不在 QC 佇列——Today Cup 卡與 QC 頁共用。
+   2026-07-12：加 remaining>0＝QC 跟 Coffee Stock 同一個真相（被拼配/出貨扣光或沒填重量的批次不再掛在 QC） */
 function toCupList(){
   var inQC={};QCQ.forEach(function(x){inQC[String(x.r.id)]=1;});
-  return (DB.roasts||[]).filter(function(r){return r.status==='pending_cupping'&&!r.qc&&!inQC[String(r.id)];});
+  return (DB.roasts||[]).filter(function(r){return r.status==='pending_cupping'&&!r.qc&&Number(r.remaining_kg)>0&&!inQC[String(r.id)];});
 }
 function matchRoast(s){
   var nm=String(s.sample_id||'').trim().toLowerCase();if(!nm&&!s.bean_id)return null;
@@ -613,8 +614,11 @@ function matchRoast(s){
     if(s.bean_id&&r.bean_id)return String(r.bean_id)===String(s.bean_id);
     return String(r.bean_name||'').trim().toLowerCase()===nm;});
   if(!cands.length)return null;
-  if(s.roast_date){var ex=cands.find(function(r){return (r.roast_date||'')===s.roast_date;});if(ex)return ex;}
-  return cands[0];
+  /* 有貨的批次優先配（同名一批吃光一批有貨 → sample 掛到有貨那批判定）；全沒貨才退回原候選，交給 QCQ 的 >0 擋掉 */
+  var withStock=cands.filter(function(r){return Number(r.remaining_kg)>0;});
+  var pool=withStock.length?withStock:cands;
+  if(s.roast_date){var ex=pool.find(function(r){return (r.roast_date||'')===s.roast_date;});if(ex)return ex;}
+  return pool[0];
 }
 function buildItems(){
   var out=[],sn=snoozeMap();
@@ -624,7 +628,8 @@ function buildItems(){
     var k=s.bean_id?('id:'+String(s.bean_id)):((s.sample_id||'')+'·'+(s.process||'')).toLowerCase();
     if(seen[k])return;seen[k]=1;
     var r=matchRoast(s);
-    if(r&&!r.qc){QCQ.push({s:s,r:r});return;}
+    /* remaining>0＝跟 Coffee Stock 同步：沒庫存（被吃光/沒填重量）的批次不進 QC 待判定 */
+    if(r&&!r.qc&&Number(r.remaining_kg)>0){QCQ.push({s:s,r:r});return;}
     /* 上架佇列：QC pass 後未上 Square → List 卡；已上架但風味沒鎖 → Lock 聚合卡 */
     if(r&&r.qc==='pass'){
       var nm=String(s.sample_id||'').trim();if(!nm)return;

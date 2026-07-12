@@ -107,6 +107,14 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之十九（QC 清單跟 Coffee Stock 同步：只顯示有庫存批次）
+- **老闆點名問題**：單品熟豆還沒判定就被拿去拼配（consumeBlendParts FIFO 扣光 remaining→0），Coffee Stock 因 remaining>0 即時消失，但 QC 只看 qc=null 不看庫存 → 豆一直掛在 QC。真實案例 La Molienda（0 kg 還在 QC）。老闆定調：QC 從 Coffee Stock 拿豆單＝只顯示 remaining>0。
+- **老闆拍板（AskUserQuestion）**：採**嚴格 >0**——連「烘了沒填烘出重量（remaining=null）」的 5 支新豆（Finca Milan/Gatitu AA/Kiama AA/Mwendi Wega AB）也從 QC 移除；要杯測先去 Coffee Stock Intake 補重量。
+- **改動（new/index.html，buildItems 一帶 3 處）**：①toCupList filter 加 `Number(r.remaining_kg)>0` ②QCQ push 條件加 `&&Number(r.remaining_kg)>0`（沒庫存不進、不 return→自然不長 List/Lock 卡）③matchRoast **有貨優先**（`withStock=cands.filter(>0); pool=withStock.length?withStock:cands`）——同名一批吃光一批有貨時，sample 掛到有貨那批判定。
+- **連帶（都合理沒另改）**：Today qc 計數卡、Coffee Info re-checking 標示跟著收斂；Coffee Info 母體不變（看資訊視角，samples∪syncs，沒庫存也能查）。
+- **驗證**：jscheck ✓；stub Guji（吃光 rG0＋有貨 rG1）→ QCQ 只掛 rG1(3kg)＝有貨優先生效 ✓、Kii(null) 消失 ✓、La Molienda(0) 不在 tocup ✓、Today 計數=1 ✓；renderQC 只顯示 Guji（判定台跟著、單品計數 1）✓ console 零錯誤。
+- **等老闆（push 後真機）**：La Molienda＋5 支 null 會從 QC 消失；那 5 支要杯測先 Coffee Stock → Intake 補烘出 kg。
+
 ## 〇、補記 — 2026-07-12 之十八（QC 頁分單品/拼配分頁）
 - **老闆點名**：QC 裡分單品和拼配。tocup（toCupList）與 QCQ 的項目都是 roasts、帶 kind → `kind==='blend'` 判斷。
 - **改動（renderQC）**：新 `QCSEG`（'single'/'blend'，保留上次同 RST.seg）。頂部 pm-seg「Single origins · N｜Blends · N」（各帶當前數量＝tocup+QCQ）；In hand（tocup）與待判定清單（QCQ）都 filter 成當前分頁；判定台（deck）的選中 q 從當前分頁 queue 取、selQC 換分頁自動落當前分頁第一筆；空分頁顯示「No blends/single origins in QC」。**hcnt 標題計數維持全域**（總 waiting/to cup），分頁計數在膠囊上。
