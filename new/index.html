@@ -3129,12 +3129,16 @@ function paintPublishSheet(sl,acts){
     x.qc=r?(r.qc||null):null;
     var sy=(DB.syncs||[]).find(function(s2){return (s2.status==='synced'||s2.status==='paused')&&String(s2.bean_id||'').trim().toLowerCase()===x.nm.toLowerCase();});
     x.sync=sy?sy.status:null;
+    /* 風味鎖＝上架門檻（老闆定調 2026-07-13：Publish 只收 flavour_locked 的豆）——
+       shelfSampleFor 鎖優先，同名有鎖必回鎖那筆＝x.s.flavour_locked 即名字級判定，
+       與 Coffee Stock 膠囊（rstRows x.locked）、public-shop QC gate 三處同口徑 */
+    x.locked=!!(x.s&&x.s.flavour_locked);
     x.fb=acts['posted socials|'+x.nm.toLowerCase()]||null;
     x.em=acts['announced coffee|'+x.nm.toLowerCase()]||null;
-    /* 可操作＝過 QC（老闆定調）或已在架上（管理既有上架） */
-    x.ok=x.qc==='pass'||!!x.sync;
+    /* 可操作＝風味已鎖，或已在架上（管理既有上架） */
+    x.ok=x.locked||!!x.sync;
   });
-  /* 排序：過 QC 還沒上架的最上（該上了）→ 已上架 → 沒過 QC 沉底 */
+  /* 排序：鎖了風味還沒上架的最上（該上了）→ 已上架 → 沒鎖沉底 */
   rows.sort(function(a,b){
     var ra=a.ok?(a.sync?1:0):2,rb=b.ok?(b.sync?1:0):2;
     return ra!==rb?ra-rb:a.nm.localeCompare(b.nm);
@@ -3142,11 +3146,14 @@ function paintPublishSheet(sl,acts){
   function ago(ts){if(!ts)return '—';var d=daysSince(String(ts).slice(0,10));return d<=0?'today':(d+'d ago');}
   var pill=function(txt,bg){return '<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;background:'+bg+';color:#fff">'+txt+'</span>';};
   var body=rows.length?rows.map(function(x,ix){
-    var qcPill=x.qc==='pass'?pill('QC ✓','var(--accent)')
+    /* 膠囊說鎖的真話：pass 但沒鎖（鎖失敗/舊資料）＝黃標提醒去鎖，不算可上架 */
+    var qcPill=x.locked?pill('Locked ✓','var(--accent)')
+      :x.qc==='pass'?pill('QC ✓ · not locked','#B5791C')
       :x.qc==='downgrade'?pill('downgraded','var(--danger)')
       :x.qc==='reroast'?pill('re-roast','var(--danger)')
       :'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;border:1px solid var(--line2);color:var(--muted)">not judged</span>';
-    var shop=x.sync==='synced'?'Live':(x.sync==='paused'?'Sold out':'—');
+    /* Live 說真話（與 Coffee Stock 膠囊同邏輯）：synced 沒鎖＝店面看不到，不能叫 Live */
+    var shop=x.sync==='synced'?(x.locked?'Live':'Not on shop'):(x.sync==='paused'?'Sold out':'—');
     var chans='Shop (Square + Ratio): <b>'+shop+'</b> · FB/IG: <b>'+ago(x.fb)+'</b> · Email: <b>'+ago(x.em)+'</b>';
     var open=PUB.open===x.nm;
     var h='<div style="border:1px solid '+(open?'var(--accent)':'var(--line)')+';border-radius:12px;padding:11px 13px;margin-top:8px'+(x.ok?'':';opacity:.55')+'">'
@@ -3169,7 +3176,7 @@ function paintPublishSheet(sl,acts){
         +'<button class="dclose" data-pubact="ig" '+(noCup?'disabled style="opacity:.5"':'')+'>IG asset — cards &amp; captions</button>'
         +'</div>';
     }else if(open&&!x.ok){
-      h+='<div class="s" style="margin-top:8px"><span class="red">Pass QC first</span> — judge this coffee in the QC tab, then publish it here.</div>';
+      h+='<div class="s" style="margin-top:8px"><span class="red">Lock flavours first</span> — pass it in QC (pass locks the flavours), then publish it here.</div>';
     }
     return h+'</div>';
   }).join(''):'<div class="empty">Nothing in Coffee Stock yet — log a roast first</div>';
@@ -4086,7 +4093,8 @@ function rstRows(isBlend){
       var nm=String(b.name||'').trim();if(!nm)return;
       var proc=String(b.process||'').trim();
       var lk=nm.toLowerCase()+'|'+proc.toLowerCase();if(seen[lk])return;
-      var has=rstStockKg(nm,false,proc)>0||Number(b.roast_target_kg)>0||Number(b.roast_low_kg)>0;
+      /* 只剩 downgrade 批次的豆也要列（降級豆不隱形）——rstStockKg 只算可賣池，另補 dg 池判斷 */
+      var has=rstStockKg(nm,false,proc)>0||rstDgBatches(nm,false,proc).length>0||Number(b.roast_target_kg)>0||Number(b.roast_low_kg)>0;
       if(!has)return;seen[lk]=1;
       rows.push({name:nm,proc:proc,isBlend:false,target:b.roast_target_kg,low:b.roast_low_kg,ref:b});
     });
@@ -4102,6 +4110,10 @@ function rstRows(isBlend){
   });
   rows.forEach(function(x){
     x.batches=rstBatches(x.name,x.isBlend,x.isBlend?undefined:(x.proc||''));
+    /* downgrade 池分開掛（不進血條/總量——那些只算可賣豆）；有量就在列表帶紅標顯示 */
+    x.dg=rstDgBatches(x.name,x.isBlend,x.isBlend?undefined:(x.proc||''));
+    x.dgKg=0;x.dg.forEach(function(r){x.dgKg+=Number(r.remaining_kg)||0;});
+    x.dgKg=Math.round(x.dgKg*100)/100;
     x.hp=rstBarHTML(x.batches,x.target,x.low);
     /* 上架狀態：product_sync 同名列 → Live / Sold out 膠囊（Square 商品名字級，同名共用） */
     var sy=(DB.syncs||[]).find(function(s){return (s.status==='synced'||s.status==='paused')&&String(s.bean_id||'').trim().toLowerCase()===x.name.toLowerCase();});
@@ -4124,6 +4136,9 @@ function openBatchesSheet(){
   var rows=rstRows(isBlend),ed=canWrite();
   var totKg=0;rows.forEach(function(x){x.batches.forEach(function(r){totKg+=Number(r.remaining_kg)||0;});});
   totKg=Math.round(totKg*100)/100;
+  /* 降級量另計另示（不混進可賣總量） */
+  var dgTot=0;rows.forEach(function(x){dgTot+=x.dgKg||0;});
+  dgTot=Math.round(dgTot*100)/100;
   var h='<div class="t" style="font-size:19px">Coffee Stock</div>'
     /* 圖例＝血條新鮮度色（v3 定稿）：黃 aging · 綠 ready · 紅 fading · 灰 no date */
     +'<div class="s" style="margin-top:2px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">'
@@ -4131,7 +4146,7 @@ function openBatchesSheet(){
     +'<span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#3F9A66;vertical-align:-1px"></span> ready</span>'
     +'<span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--danger);vertical-align:-1px"></span> fading</span>'
     +'<span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--line2);vertical-align:-1px"></span> no date</span></div>'
-    +'<div class="dl" style="margin-top:10px"><span>'+rows.length+' coffee'+(rows.length===1?'':'s')+' on the shelf</span><span><b>'+totKg+' kg</b></span></div>'
+    +'<div class="dl" style="margin-top:10px"><span>'+rows.length+' coffee'+(rows.length===1?'':'s')+' on the shelf</span><span><b>'+totKg+' kg</b>'+(dgTot>0?' <span style="color:var(--danger);font-size:12px">+'+dgTot+' kg downgraded</span>':'')+'</span></div>'
     +(ed?'<button class="act" id="rst-intake" style="margin-top:10px">＋ Intake — add roasted stock</button>':'')
     +'<div class="pm-seg" style="margin-top:10px"><button id="rst-b" class="'+(isBlend?'on':'')+'">Blends</button><button id="rst-s" class="'+(isBlend?'':'on')+'">Single origins</button></div>';
   if(!rows.length)h+='<div class="empty">Nothing here yet<br>Use Intake above or log the roasted-out kg when roasting</div>';
@@ -4146,7 +4161,10 @@ function openBatchesSheet(){
       +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':x.locked?'background:var(--accent);color:#fff':'background:#B5791C;color:#fff')+'">'+(x.sync==='paused'?'Sold out':x.locked?'Live':'Not on shop')+'</span>':'')
       +(x.noInfo?'<span class="red" style="flex:0 0 auto;font-size:11px;font-weight:600">no info — cup it</span>':'')
       +'</span>'
-      +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto"><span class="s" style="'+(danger?'color:var(--danger);font-weight:700':'color:var(--muted)')+'">'+esc(x.hp.label)+'</span>'
+      +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto">'
+      /* 收合態也看得到降級量（純降級豆別像 0 kg 幽靈） */
+      +(x.dgKg>0?'<span style="flex:0 0 auto;font-size:11px;color:var(--danger)">+'+x.dgKg+' kg dg</span>':'')
+      +'<span class="s" style="'+(danger?'color:var(--danger);font-weight:700':'color:var(--muted)')+'">'+esc(x.hp.label)+'</span>'
       +(ed?'<button data-ded="'+xi+'" class="chip" style="margin:0;padding:2px 10px;font-size:15px" aria-label="deduct">−</button>':'')+'</span></div>'
       +'<div style="margin-top:7px">'+x.hp.bar+'</div>'
       +'</div>';
@@ -4160,7 +4178,13 @@ function openBatchesSheet(){
         if(g.batches.length>1)tags.push(g.batches.length+' roasts');
         return '<div class="dl"'+(ed?' data-bat="'+gi+'" style="cursor:pointer"':'')+'><span><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(g.date)+';margin-right:6px;vertical-align:0"></span>'+(g.date?fmtD(g.date)+' · '+age+'d':'no date')+(tags.length?' · '+tags.join(' · '):'')+'</span><span>'+g.kg+' kg</span></div>';
       }).join(''):'<div class="sempty">No batches in stock</div>';
-      h+='<div style="margin-top:6px">'+bl
+      /* 降級批次區（2026-07-13）：可賣池下另列、紅標、配方優先用；行可點＝扣那一天的降級豆 */
+      var dgl=x.dg.length?'<div class="s" style="margin-top:8px;display:flex;align-items:center;gap:7px"><span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;background:var(--danger);color:#fff">downgraded</span><span style="color:var(--muted)">use in blends first · '+x.dgKg+' kg</span></div>'
+        +rstGroupByDate(x.dg).map(function(g,gi){
+          var age=daysSince(g.date);
+          return '<div class="dl"'+(ed?' data-dgbat="'+gi+'" style="cursor:pointer"':'')+'><span><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:var(--danger);margin-right:6px;vertical-align:0"></span>'+(g.date?fmtD(g.date)+' · '+age+'d':'no date')+(g.batches.length>1?' · '+g.batches.length+' roasts':'')+'</span><span>'+g.kg+' kg</span></div>';
+        }).join(''):'';
+      h+='<div style="margin-top:6px">'+bl+dgl
         +(x.batches.length&&ed?'<div class="s" style="margin-top:4px;color:var(--muted)">tap a batch row → deduct that exact roast date</div>':'')
         +((x.sync==='synced'&&!x.locked)?'<div class="s" style="margin-top:8px;color:#B5791C">On Square but hidden from the shop — lock its flavour so customers can see it (Lock flavours card in the daily flow).</div>':'')
         +(x.noInfo?'<button class="chip" id="rst-cup" style="margin-top:8px;color:var(--danger);border-color:var(--danger)">Cup it in QC →</button>':'');
@@ -4225,6 +4249,11 @@ function openBatchesSheet(){
     var x=rows.find(function(r){return r.key===RST.open;});if(!x)return;
     openRstDeduct(x,rstGroupByDate(x.batches)[+el.dataset.bat]);
   });});
+  document.querySelectorAll('#drawer [data-dgbat]').forEach(function(el){el.addEventListener('click',function(){
+    var x=rows.find(function(r){return r.key===RST.open;});if(!x)return;
+    /* 點降級批次行＝對降級池扣量/修正（清瑕疵、Fix kg 照常可用） */
+    openRstDeduct(x,rstGroupByDate(x.dg)[+el.dataset.dgbat],x.dg);
+  });});
 }
 /* 開 Log roast 並預選（血條行動鈕與聚合卡共用） */
 async function openRoastPreset(mode,val){
@@ -4238,9 +4267,10 @@ async function openRoastPreset(mode,val){
    Fix kg 模式（2026-07-12 老闆點名輸入錯誤要能改）：同抽屜切換，輸入該批「正確的總 kg」直接調到位——
    加減都修 roasted_kg（是記錯不是耗損），logAct 記 corrected 不污染瑕疵帳 */
 var RSTD={gkey:null,why:'Defect',mode:'ded'};
-function openRstDeduct(x,preGroup){ /* preGroup＝從批次列表點行進來、預選那一天（v3） */
+function openRstDeduct(x,preGroup,pool){ /* preGroup＝從批次列表點行進來、預選那一天（v3）；pool＝指定批次池（降級池用），
+  沒給＝可賣池，可賣池空時退到降級池（純降級豆也能用「−」清理） */
   if(!canWrite()){roToast();return;}
-  var groups=rstGroupByDate(x.batches);
+  var groups=rstGroupByDate(pool||(x.batches.length?x.batches:(x.dg||[])));
   if(!groups.length){toast('No batches to deduct from');return;}
   RSTD={gkey:(preGroup||groups[0]).key,why:'Defect',mode:'ded'};
   openDrawerHTML('<div class="t" style="font-size:19px">'+esc(x.name)+(x.proc?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(x.proc)+'</span>':'')+'</div>'
@@ -5302,6 +5332,14 @@ function rstStockKg(name,isBlend,process){
   var s=0;rstBatches(name,isBlend,process).forEach(function(r){s+=Number(r.remaining_kg)||0;});
   return Math.round(s*1000)/1000;
 }
+/* downgrade 批次池（2026-07-13 老闆定調：降級豆不隱形——Coffee Stock 帶標記顯示、拼配優先吃）。
+   與 rstBatches 同形狀但只撈 qc='downgrade'；刻意分池＝不進血條/總量/出貨 FIFO（那些只算可正常出貨的豆） */
+function rstDgBatches(name,isBlend,process){
+  var key=String(name||'').trim().toLowerCase();
+  return (DB.roasts||[]).filter(function(r){
+    return (isBlend?r.kind==='blend':r.kind!=='blend')&&Number(r.remaining_kg)>0&&r.qc==='downgrade'&&String(r.bean_name||'').trim().toLowerCase()===key&&rstProcMatch(r,process);
+  }).sort(function(a,b){return String(a.roast_date||'9999')<String(b.roast_date||'9999')?-1:1;});
+}
 /* 分段血條（2026-07-12 v3 定稿：顏色＝該批新鮮度，跨豆一致）：黃=aging(<21d 養豆) 綠=ready(21-42d)
    紅=fading(>42d) 灰=無日期；閾值同 shelfFreshness；段間 1px 縫。低/超量不再整條轉紅（紅已有新意義），
    警示留在 label 的 low!/over! 紅字。target 沒設＝以現量畫滿版。回傳 {bar,label,state} */
@@ -5488,7 +5526,12 @@ async function consumeBlendParts(parts,totalKg){
     var pProc=(p.process!=null&&String(p.process).trim()!=='')?p.process:undefined;
     var pool=(DB.roasts||[]).filter(function(r){
       return r.kind!=='blend'&&Number(r.remaining_kg)>0&&String(r.bean_name||'').trim().toLowerCase()===key&&rstProcMatch(r,pProc);
-    }).sort(function(a,b){return String(a.roast_date||'9999')<String(b.roast_date||'9999')?-1:1;});
+    }).sort(function(a,b){
+      /* 降級豆優先進配方（2026-07-13 老闆定調：downgrade＝配方豆首選）；同級內照 roast_date 舊→新 FIFO */
+      var da=a.qc==='downgrade'?0:1,db=b.qc==='downgrade'?0:1;
+      if(da!==db)return da-db;
+      return String(a.roast_date||'9999')<String(b.roast_date||'9999')?-1:1;
+    });
     var left=need;
     for(var j=0;j<pool.length&&left>0.0001;j++){
       var b=pool[j];

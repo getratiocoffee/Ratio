@@ -56,6 +56,19 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-13（Publish 改認風味鎖 ＋ Downgrade 現身當配方首選 ✅）
+- **背景**：老闆核對 Coffee Stock 管線心智模型後拍板兩更正：①Publish 門檻從 qc=pass 改**風味鎖定**（與 Coffee Stock 膠囊、public-shop QC gate 三處同口徑，順修 Publish 面板 Live 膠囊不看鎖的不一致）②downgrade 批次不再隱形——Coffee Stock 帶紅標顯示、拼配烘焙**優先吃降級豆**（消化進配方）
+- **改動（全 new/index.html）**：
+  - `paintPublishSheet`：`x.locked=!!(x.s&&x.s.flavour_locked)`（shelfSampleFor 鎖優先＝名字級判定）、`x.ok=x.locked||!!x.sync`；膠囊誠實化＝locked→'Locked ✓'、pass 未鎖→黃標 'QC ✓ · not locked'（#B5791C）、synced 未鎖→shop 顯示 'Not on shop'（同 Coffee Stock 膠囊）；未達門檻文案改 'Lock flavours first'
+  - 新 helper `rstDgBatches(name,isBlend,process)`（rstStockKg 旁）＝rstBatches 同形狀但只撈 qc='downgrade'——**刻意分池**：dg 不進血條/總量/出貨 FIFO
+  - `rstRows`：每列掛 `x.dg`/`x.dgKg`；beans「有血才列」條件補 dg 池（**純降級豆不隱形**）
+  - `openBatchesSheet`：header 總量旁紅字「+X kg downgraded」（不混進可賣 totKg）；豆卡收合態 label 旁紅小字「+X kg dg」；展開列表可賣池下加 dg 區＝紅膠囊 downgraded＋「use in blends first · X kg」＋逐日行（data-dgbat 可點）
+  - `openRstDeduct(x,preGroup,pool)`：加第三參數指定批次池（dg 行點進來傳 x.dg）；沒給＝可賣池、可賣池空自動退 dg 池（純降級豆也能「−」清理／Fix kg）
+  - `consumeBlendParts`：sort 加權＝downgrade 排隊首、同級內照 roast_date FIFO（過濾本來就沒擋 dg，只差順序）
+- **不動的**：`rstBatches` 零改（出貨 `deductOrderStock`/血條/rstStockKg 全走它＝客人訂單永遠吃不到降級豆）；`shelfG` 需求覆蓋仍排除 dg（「還要烘多少」只看可賣量）；QC 佇列天生 `!r.qc` 擋已判定；public-shop edge 不動
+- **驗證**：jscheck ✓；serve 複本 stub（攔 fetch）——可賣池/dg 池分離、純 dg 豆有列、出貨池無 dg、consumeBlendParts 先扣 dg 批（PATCH 順序 r2→r1）、Publish 三豆三態（locked→Live／synced 未鎖→Not on shop＋黃標／downgrade→沉底 Lock flavours first）、點 dg 行開扣量抽屜只帶 dg 組、QC 佇列回歸 0、console 零錯誤＋截圖×3
+- **⚠ 陷阱備忘**：dg 量刻意不進可賣血條與低標——別「修正」它；同名豆換鎖／鎖失敗的 pass-未鎖豆現在 Publish 會黃標提醒而非可上架（行為變更＝設計如此）
+
 ## 〇、補記 — 2026-07-11 之九（遊戲風首頁 Home：手遊磁貼牆＋紅點＋今日進度條 ✅）
 - **成果**：新殼加**第四頁 `view==='home'`**（nav 第一顆 Home，暫不搶預設落地頁）＝手遊主畫面：3×3 站台磁貼（inline SVG 圖示＋待辦數）＋紅點（有沒看過的新卡）＋今日進度條（done X / Y）。老闆想要「少字、像遊戲」＋「新東西冒紅點」——此輪全交付
 - **結構（全新增、舊路徑零改動）**：CSS `hm-` 前綴塊（</style> 前）＋ JS 塊（render() 前）＝`HOME_TILES`（9 塊：Orders/Wholesale/Roast(+Green)/QC/Shelf/Recipe/Pay(=Transaction)/Tasks(=Daily Task)/Customers＋finance 專屬 Payroll 磁貼）、`HOME_ICONS`（照喇叭鈕成例 viewBox24/currentColor）、`tileItems/tileCount/tileIds/tileFresh/homeMarkSeen/todayProgress/goTile/renderHome`。wire-in 僅 6 點：nav 按鈕、render() 分派、.on toggle、click 綁定、loadAll append、`todayStartISO()` helper
