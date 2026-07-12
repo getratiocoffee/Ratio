@@ -59,7 +59,7 @@
 ## 〇、補記 — 2026-07-13（Publish 改認風味鎖 ＋ Downgrade 現身當配方首選 ✅）
 - **背景**：老闆核對 Coffee Stock 管線心智模型後拍板兩更正：①Publish 門檻從 qc=pass 改**風味鎖定**（與 Coffee Stock 膠囊、public-shop QC gate 三處同口徑，順修 Publish 面板 Live 膠囊不看鎖的不一致）②downgrade 批次不再隱形——Coffee Stock 帶紅標顯示、拼配烘焙**優先吃降級豆**（消化進配方）
 - **改動（全 new/index.html）**：
-  - `paintPublishSheet`：`x.locked=!!(x.s&&x.s.flavour_locked)`（shelfSampleFor 鎖優先＝名字級判定）、`x.ok=x.locked||!!x.sync`；膠囊誠實化＝locked→'Locked ✓'、pass 未鎖→黃標 'QC ✓ · not locked'（#B5791C）、synced 未鎖→shop 顯示 'Not on shop'（同 Coffee Stock 膠囊）；未達門檻文案改 'Lock flavours first'
+  - `paintPublishSheet`（**二次更正後定版**：老闆補刀「清單只索取 lock flavours 的豆」——不是沉底提示，是**沒鎖的根本不列**）：母體組建時 `shelfSampleFor(nm)` 沒鎖直接 return（鎖優先＝名字級判定）；x.qc/x.ok/matchRoast 邏輯全刪＝清單裡全是鎖了的豆、全可操作；膠囊固定 'Locked ✓'、synced 必真 Live；空清單文案 'No locked coffees yet…'；抽屜副標改 'your flavour-locked coffees'。synced 未鎖的豆從 Publish 消失＝去 Coffee Stock 看（掛 Not on shop 膠囊提醒去鎖）、售罄管理走 Coffee Info
   - 新 helper `rstDgBatches(name,isBlend,process)`（rstStockKg 旁）＝rstBatches 同形狀但只撈 qc='downgrade'——**刻意分池**：dg 不進血條/總量/出貨 FIFO
   - `rstRows`：每列掛 `x.dg`/`x.dgKg`；beans「有血才列」條件補 dg 池（**純降級豆不隱形**）
   - `openBatchesSheet`：header 總量旁紅字「+X kg downgraded」（不混進可賣 totKg）；豆卡收合態 label 旁紅小字「+X kg dg」；展開列表可賣池下加 dg 區＝紅膠囊 downgraded＋「use in blends first · X kg」＋逐日行（data-dgbat 可點）

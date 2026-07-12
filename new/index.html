@@ -3113,55 +3113,46 @@ async function openPublishSheet(){
 }
 function paintPublishSheet(sl,acts){
   var _mk=canWrite();
-  /* 母體＝Coffee Stock 的豆（老闆定調 2026-07-12：Publish 的清單只從 Coffee Stock 索取，跟 QC 同源）——
-     重用 rstRows（單品＋拼配兩分頁的名單去重）＝Publish 列的豆與 Coffee Stock 完全一致。
-     賣光沒庫存的豆不在 Coffee Stock、也就不在這裡＝標售罄/下架改去 Coffee Info 詳情 */
+  /* 母體＝Coffee Stock 裡「風味已鎖」的豆（老闆定調 2026-07-13 二次更正：Publish 清單只索取
+     flavour_locked 的豆，沒鎖的根本不列——鎖了才會在這裡出現，與 public-shop QC gate 同口徑）。
+     重用 rstRows（單品＋拼配兩分頁去重）＝母體仍與 Coffee Stock 同源；
+     賣光沒庫存的豆不在 Coffee Stock、也就不在這裡＝標售罄/下架改去 Coffee Info 詳情；
+     沒鎖的豆去 Coffee Stock 看（synced 未鎖會掛 Not on shop 膠囊提醒去鎖） */
   var rows=[],seen={};
   [false,true].forEach(function(isBl){
     rstRows(isBl).forEach(function(r){
       var nm=String(r.name||'').trim();if(!nm||isSubName(nm))return;
       var lk=nm.toLowerCase();if(seen[lk])return;seen[lk]=1;
-      rows.push({nm:nm,s:shelfSampleFor(nm)});
+      var s=shelfSampleFor(nm); /* 鎖優先，同名有鎖必回鎖那筆＝名字級判定 */
+      if(!s||!s.flavour_locked)return;
+      rows.push({nm:nm,s:s});
     });
   });
   rows.forEach(function(x){
-    var r=x.s?matchRoast(x.s):null;
-    x.qc=r?(r.qc||null):null;
     var sy=(DB.syncs||[]).find(function(s2){return (s2.status==='synced'||s2.status==='paused')&&String(s2.bean_id||'').trim().toLowerCase()===x.nm.toLowerCase();});
     x.sync=sy?sy.status:null;
-    /* 風味鎖＝上架門檻（老闆定調 2026-07-13：Publish 只收 flavour_locked 的豆）——
-       shelfSampleFor 鎖優先，同名有鎖必回鎖那筆＝x.s.flavour_locked 即名字級判定，
-       與 Coffee Stock 膠囊（rstRows x.locked）、public-shop QC gate 三處同口徑 */
-    x.locked=!!(x.s&&x.s.flavour_locked);
     x.fb=acts['posted socials|'+x.nm.toLowerCase()]||null;
     x.em=acts['announced coffee|'+x.nm.toLowerCase()]||null;
-    /* 可操作＝風味已鎖，或已在架上（管理既有上架） */
-    x.ok=x.locked||!!x.sync;
   });
-  /* 排序：鎖了風味還沒上架的最上（該上了）→ 已上架 → 沒鎖沉底 */
+  /* 排序：鎖了還沒上架的最上（該上了）→ 已上架 */
   rows.sort(function(a,b){
-    var ra=a.ok?(a.sync?1:0):2,rb=b.ok?(b.sync?1:0):2;
+    var ra=a.sync?1:0,rb=b.sync?1:0;
     return ra!==rb?ra-rb:a.nm.localeCompare(b.nm);
   });
   function ago(ts){if(!ts)return '—';var d=daysSince(String(ts).slice(0,10));return d<=0?'today':(d+'d ago');}
   var pill=function(txt,bg){return '<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;background:'+bg+';color:#fff">'+txt+'</span>';};
   var body=rows.length?rows.map(function(x,ix){
-    /* 膠囊說鎖的真話：pass 但沒鎖（鎖失敗/舊資料）＝黃標提醒去鎖，不算可上架 */
-    var qcPill=x.locked?pill('Locked ✓','var(--accent)')
-      :x.qc==='pass'?pill('QC ✓ · not locked','#B5791C')
-      :x.qc==='downgrade'?pill('downgraded','var(--danger)')
-      :x.qc==='reroast'?pill('re-roast','var(--danger)')
-      :'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;border:1px solid var(--line2);color:var(--muted)">not judged</span>';
-    /* Live 說真話（與 Coffee Stock 膠囊同邏輯）：synced 沒鎖＝店面看不到，不能叫 Live */
-    var shop=x.sync==='synced'?(x.locked?'Live':'Not on shop'):(x.sync==='paused'?'Sold out':'—');
+    /* 清單全是鎖了的豆＝膠囊固定 Locked ✓；shop 狀態在 chans 行（synced＋清單必鎖＝真 Live） */
+    var qcPill=pill('Locked ✓','var(--accent)');
+    var shop=x.sync==='synced'?'Live':(x.sync==='paused'?'Sold out':'—');
     var chans='Shop (Square + Ratio): <b>'+shop+'</b> · FB/IG: <b>'+ago(x.fb)+'</b> · Email: <b>'+ago(x.em)+'</b>';
     var open=PUB.open===x.nm;
-    var h='<div style="border:1px solid '+(open?'var(--accent)':'var(--line)')+';border-radius:12px;padding:11px 13px;margin-top:8px'+(x.ok?'':';opacity:.55')+'">'
+    var h='<div style="border:1px solid '+(open?'var(--accent)':'var(--line)')+';border-radius:12px;padding:11px 13px;margin-top:8px">'
       +'<div data-pub="'+ix+'" style="cursor:pointer">'
       +'<div style="display:flex;align-items:center;gap:8px"><span class="t" style="font-size:14.5px;flex:1;min-width:0">'+esc(x.nm)+'</span>'+qcPill+'</div>'
       +'<div class="s" style="margin-top:4px">'+chans+'</div>'
       +'</div>';
-    if(open&&x.ok&&_mk){
+    if(open&&_mk){
       var noCup=!x.s;
       /* 上架訊息快速預覽（完整 caption 在 IG asset 裡可複製） */
       var feats=(x.s&&Array.isArray(x.s.features)?x.s.features.slice(0,3).join(', '):'');
@@ -3175,13 +3166,11 @@ function paintPublishSheet(sl,acts){
         +'<button class="dclose" data-pubact="social">Post to FB + IG</button>'
         +'<button class="dclose" data-pubact="ig" '+(noCup?'disabled style="opacity:.5"':'')+'>IG asset — cards &amp; captions</button>'
         +'</div>';
-    }else if(open&&!x.ok){
-      h+='<div class="s" style="margin-top:8px"><span class="red">Lock flavours first</span> — pass it in QC (pass locks the flavours), then publish it here.</div>';
     }
     return h+'</div>';
-  }).join(''):'<div class="empty">Nothing in Coffee Stock yet — log a roast first</div>';
+  }).join(''):'<div class="empty">No locked coffees yet<br>Pass a coffee in QC — passing locks its flavours and it shows up here</div>';
   openDrawerHTML('<div class="t" style="font-size:19px">Publish</div>'
-    +'<div class="s" style="margin-top:2px">the coffees in your stock → every channel · shop listing = Square + Ratio site together</div>'
+    +'<div class="s" style="margin-top:2px">your flavour-locked coffees → every channel · shop listing = Square + Ratio site together</div>'
     +body
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);
