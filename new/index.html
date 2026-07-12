@@ -40,7 +40,7 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 /* 兩段式滑卡：wrap 墊底層 Later 鈕，卡片滑開 88px 停住、再點才貪睡（防誤滑） */
 .swipewrap{position:relative;border-radius:12px;overflow:hidden;margin-bottom:10px}
 .swipewrap .card.feed{margin-bottom:0}
-.swipeact{position:absolute;top:0;right:0;bottom:0;width:88px;border:none;background:var(--line);color:var(--muted);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;border-radius:0 12px 12px 0}
+.swipeact{position:absolute;top:0;right:0;bottom:0;width:88px;border:none;background:var(--roast);color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:800;cursor:pointer;border-radius:0 12px 12px 0}
 /* 站別分組組頭：色點＋站名＋張數，點擊摺疊 */
 .grphead{display:flex;align-items:center;gap:7px;width:100%;text-align:left;background:none;border:none;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:9px 4px 7px;cursor:pointer;user-select:none;-webkit-user-select:none}
 .grphead .garr{font-size:10px;width:12px}
@@ -201,9 +201,10 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .qrow .t{font-size:18px}
 .drawer-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40;display:none;touch-action:none}
 .drawer-bg.show{display:block}
-.drawer{position:fixed;left:22px;right:22px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);max-width:476px;margin:0 auto;background:var(--surface);border:1.5px solid var(--ink);border-radius:16px;padding:12px 20px 20px;z-index:50;visibility:hidden;transform:translateY(calc(100% + 120px));transition:transform .28s ease,visibility 0s linear .3s;max-height:78vh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+.drawer{position:fixed;left:22px;right:22px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);max-width:476px;margin:0 auto;background:var(--surface);border:1px solid var(--line2);border-radius:24px;padding:6px 20px 20px;z-index:50;visibility:hidden;transform:translateY(calc(100% + 120px));transition:transform .28s ease,visibility 0s linear .3s;max-height:78vh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;box-shadow:0 18px 50px rgba(60,40,80,.28)}
 .drawer.show{visibility:visible;transform:translateY(0);transition:transform .28s ease}
-.grab{display:flex;justify-content:center;padding:12px 0 14px;margin:-6px 0 2px;touch-action:none;cursor:grab}
+.grab{display:flex;justify-content:center;padding:12px 0 14px;margin:0 0 2px;touch-action:none;cursor:grab}
+.grab::before{content:'';width:42px;height:5px;border-radius:3px;background:var(--line2)}
 .grab::after{content:'';width:52px;height:5px;border-radius:99px;background:var(--line2)}
 .dl{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:15px}
 .dl span:first-child{color:var(--muted)}
@@ -5182,7 +5183,7 @@ function attachSwipe(el,id){
     var base=wasOpen?-88:0;
     el.style.transform='translateX('+Math.max(-118,base+dx*0.9)+'px)';
     var w=el.offsetWidth;
-    var bc=(base+dx)>w*0.25?'var(--accent)':'';
+    var bc=(base+dx)>w*0.25?'var(--green)':'';
     el.style.borderColor=bc;
     el.style.borderLeftColor=bc||barC; /* 沒過門檻時左條維持類別色 */
   });
