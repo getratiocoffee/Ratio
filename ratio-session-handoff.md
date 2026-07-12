@@ -107,6 +107,12 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之二十三（QC 待判定右滑＝快速 pass）
+- **老闆點名**：QC 待判定的豆右滑＝通知 pass（不用點開判定區）。
+- **改動（new/index.html）**：新 `attachQcSwipe(el,q)`（照今日流 attachSwipe 精神）：只右滑、方向鎖（縱向讓抽屜捲動）、滑過 30% 寬變綠回饋、放手 >35% 寬才觸發 `qcVerdict(pass)`（含鎖風味/同日整批連動）＋toast；設 `_drag` 讓滑完的 click 不誤觸展開。openQCSheet 待判定列綁 attachQcSwipe＋click 加 `Date.now()-_drag<300` 防誤觸；dlab 提示「swipe right to pass」（canWrite 才顯示）。canWrite gate（唯讀不綁）。
+- **驗證**：jscheck ✓；stub 模擬 PointerEvent——右滑 200px→g1:pass 寫入＋qc=pass ✓；縱向下拉→不 pass（讓捲動）✓；小右滑 12px（<18 locked 門檻）→不 pass、不誤觸展開 ✓；console 零錯誤。⚠ stub offsetWidth=32（抽屜未撐開）故門檻用絕對距離測；真機列寬幾百 px，滑到 35% 才 pass、綠回饋防誤觸。
+- **等老闆真機**：實際手指右滑一支待判定豆確認 pass 觸發手感（會不會太靈敏/太鈍再調門檻 0.35）。
+
 ## 〇、補記 — 2026-07-12 之二十二（QC 導覽移除＋In hand highlight）
 - **導覽移除 QC**：底部 nav 的 QC 顆刪掉（HTML 389＋active 9632＋click 9648）——QC 已是抽屜，改從 Tools qcgo 磁貼/今日流 qcnav 卡進；nav flex 自動三等分不改 CSS。commit ea6263e。
 - **In hand highlight（老闆點名）**：openQCSheet 的 In hand（還沒 cup）列加回 `.qc-new`「New」泡泡＋淡 accent 底 highlight（`border-color:var(--accent)`＋`color-mix accent 9%`，CSS 早在 202-203 沒刪，抽屜版漏套）——跟下面待判定列（普通框）視覺區分。驗證：jscheck ✓（虛驚：上次 FAILED 是 jscheck 腳本自己 `ok?(...:...)` 三元筆誤，非 app）；stub In hand 有 qc-new 泡泡＋accent 邊＋color-mix 底，待判定無泡泡普通框 ✓ 截圖 NEW 泡泡醒目 ✓ console 零錯誤。

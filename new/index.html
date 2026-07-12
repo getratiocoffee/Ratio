@@ -5510,6 +5510,39 @@ function attachSwipe(el,id){
   /* 滑開態下點卡片本體＝收回（不觸發卡片動作；剛放手 300ms 內的 click 是拖曳尾勁，略過） */
   el.addEventListener('click',function(){if(SWIPE_OPEN===id&&Date.now()-_drag>300)closeSwipe();});
 }
+/* QC 待判定列右滑＝快速 pass（老闆點名）：只右滑、過 35% 寬才觸發、滑過 30% 變綠回饋防誤觸。
+   縱向讓抽屜捲動；設 _drag 讓滑完的 click 不誤觸展開。判定走 qcVerdict（含鎖風味/同日整批）*/
+function attachQcSwipe(el,q){
+  if(!canWrite())return;
+  var x0=null,y0=0,dx=0,locked=false,dead=false;
+  function reset(anim){el.style.transition=anim?'transform .2s':'none';el.style.transform='';el.style.background='';x0=null;dx=0;locked=false;dead=false;}
+  el.addEventListener('pointerdown',function(e){
+    if(e.target.closest('button'))return;
+    x0=e.clientX;y0=e.clientY;dx=0;locked=false;dead=false;
+    try{el.setPointerCapture(e.pointerId);}catch(err){}
+    el.style.transition='none';
+  });
+  el.addEventListener('pointermove',function(e){
+    if(x0==null||dead)return;
+    dx=e.clientX-x0;var dy=e.clientY-y0;
+    if(!locked){
+      if(Math.abs(dy)>14&&Math.abs(dy)>Math.abs(dx)){dead=true;return;} /* 縱向＝讓抽屜捲動 */
+      if(dx>18&&dx>Math.abs(dy)*1.6)locked=true; /* 只鎖明確右滑 */
+      else return;
+    }
+    if(dx<0)dx=0; /* 只准右滑 */
+    el.style.transform='translateX('+Math.min(130,dx*0.9)+'px)';
+    var pass=dx>el.offsetWidth*0.3;
+    el.style.background=pass?'color-mix(in srgb,var(--green) 22%,transparent)':'';
+  });
+  el.addEventListener('pointercancel',function(){reset(true);});
+  el.addEventListener('pointerup',function(){
+    if(x0==null)return;
+    if(Math.abs(dx)>10)_drag=Date.now();
+    if(locked&&dx>el.offsetWidth*0.35){reset(false);toast('QC pass ✓ '+(q.s.sample_id||q.r.bean_name||''));qcVerdict(q.r,'pass',null,'qc:'+q.r.id,q.s);return;}
+    reset(true);
+  });
+}
 /* ===== QC 工作台（2026-07-12 改成抽屜 popup，拿掉底部固定判定台）=====
    分單品/拼配分頁（QCSEG）；In hand 待杯測（同日合併，點開 Cup）＋待判定清單（點某筆就地展開判定區）。
    舊 renderQC（整頁＋.deck banner）退役——qcnav()＝相容別名，全部導向 openQCSheet 抽屜 */
@@ -5545,7 +5578,7 @@ function openQCSheet(){
   if(selQC!=null&&!queue.find(function(q){return q.r.id===selQC;}))selQC=null;
   var qSec='';
   if(queue.length){
-    qSec='<div class="dlab">To judge — tap to open</div>'
+    qSec='<div class="dlab">To judge — tap to open'+(canWrite()?' · swipe right to pass':'')+'</div>'
       +queue.map(function(q){
         var f=(q.s.features||[]).slice(0,3).join(', ');
         var op=q.r.id===selQC;
@@ -5581,9 +5614,14 @@ function openQCSheet(){
     var r=(DB.roasts||[]).find(function(x){return String(x.id)===String(el.dataset.tocup);});
     if(r)openCupSheet({ref:r});
   });});
-  d.querySelectorAll('[data-q]').forEach(function(el){el.addEventListener('click',function(){
-    selQC=(selQC===el.dataset.q)?null:el.dataset.q;openQCSheet();
-  });});
+  d.querySelectorAll('[data-q]').forEach(function(el){
+    var qq=queue.find(function(x){return String(x.r.id)===el.dataset.q;});
+    if(qq)attachQcSwipe(el,qq); /* 右滑＝快速 pass */
+    el.addEventListener('click',function(){
+      if(Date.now()-_drag<300)return; /* 剛滑完別誤觸展開 */
+      selQC=(selQC===el.dataset.q)?null:el.dataset.q;openQCSheet();
+    });
+  });
   var cq=queue.find(function(x){return String(x.r.id)===String(selQC);});
   if(cq)d.querySelectorAll('[data-qact]').forEach(function(el){el.addEventListener('click',function(){
     var a=el.dataset.qact;
