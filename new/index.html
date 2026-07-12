@@ -4404,7 +4404,7 @@ function paintCupSheet(){
     return '<text x="'+q[0].toFixed(1)+'" y="'+(q[1]+4).toFixed(1)+'" text-anchor="'+anch+'" font-size="11.5" font-weight="600" fill="var(--muted)">'+k[1]+'</text>';
   }).join('');
   var dots=K.map(function(_,i){return '<circle id="cup-dot'+i+'" r="3.5" fill="var(--accent)"/>';}).join('');
-  openDrawerHTML('<div class="t" style="font-size:19px">'+(CUP.editId?'Re-cup':'Cup')+' · '+esc(r.bean_name||'—')+'</div>'
+  openDrawerHTML('<div class="t" style="font-size:19px">'+(CUP.editId?'View/Edit':'Cup')+' · '+esc(r.bean_name||'—')+'</div>'
     +'<div class="s" style="margin-top:2px">'+(r.roast_date?'roasted '+fmtD(r.roast_date)+' · ':'')+(CUP.editId?'updates the existing cupping record':'saves a cupping record and queues it for QC')+'</div>'
     +'<div style="border:1.5px solid var(--ink);border-radius:14px;padding:12px 10px;margin-top:12px;background:var(--surface)">'
     +'<svg viewBox="0 0 300 236" style="width:100%;max-width:300px;display:block;margin:0 auto">'+rings+spokes
@@ -5244,7 +5244,7 @@ function renderQC(){
   deck.innerHTML='<div class="who">judging <b>'+esc(q.s.sample_id||'—')+(q.s.process?' · '+esc(q.s.process):'')+'</b>'
     +(q.r.roast_date?' <span style="opacity:.8">· roasted '+esc(fmtD(q.r.roast_date))+'</span>':'')+'</div>'
     +'<div class="qacts">'
-    +'<button class="qact" id="q-recup">Re-cup</button>'
+    +'<button class="qact" id="q-recup">View/Edit</button>'
     +'<button class="qact" id="q-card">Card</button>'
     +'<button class="qact" id="q-date">Edit Roast Date</button>'
     +'</div>'
