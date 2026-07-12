@@ -1291,7 +1291,7 @@ async function openTrackScan(onResult){
     var icons=null;try{icons=await _loadCardIcons();}catch(e){}
     var W=1200,H=1200,cv=document.createElement('canvas');cv.width=W;cv.height=H;
     var x=cv.getContext('2d');
-    var INK='#1E1A19',BERRY='#B25E6A';
+    var INK='#1E1A19',BERRY='#C87E8E';
     var CX,CY,CW,CH,CR=28,TSX,TEX;
     if(opts&&opts.tight){
       /* tight mode（同 classic Print Centre 下載版——IG/小紅書貼文用）：沒有平台裁切，四邊留窄框即可 */
@@ -2218,7 +2218,7 @@ async function openShelfBeanDetail(nm,m){
   openDrawerHTML('<div class="t" style="font-size:19px">'+esc(nm)+'</div><div class="empty">Loading…</div>');
   var s=shelfSampleFor(nm)||{sample_id:nm};
   var dots={};try{dots=await cardDots();}catch(e){}
-  var col=uiDot(dotColorFor(nm,dots))||'#B25E6A';
+  var col=uiDot(dotColorFor(nm,dots))||'#C87E8E';
   var info=[];try{info=await beanInfoRows(s);}catch(e){}
   /* 拼配豆在 beans 表沒有同名生豆，beanInfoRows 一律回空——它的身世在 blends（配方）裡。
      判斷方式同 cardDataFor：名字命中 blends 就是拼配 */
@@ -2371,7 +2371,7 @@ async function openPromoSheet(s,m){
     try{var bq=await sb.from('blends').select('name,parts,note');
       (bq.data||[]).forEach(function(b){if(b.name)blendMap[String(b.name).trim().toLowerCase()]={parts:b.parts||[],note:b.note||''};});}catch(e){}
     var info=[];try{info=await beanInfoRows(full,{omit:['Roasted','Harvest']});}catch(e){}
-    var col=dotColorFor(nm,dots)||'#B25E6A';
+    var col=dotColorFor(nm,dots)||'#C87E8E';
     var b64=await makeSquareCard(await cardDataFor(full,blendMap,dots),{tight:true});
     var feats=(full.features||[]).filter(Boolean).slice(0,3);
     var cap=promoCaptions(nm,info,feats,full.comment||'',m.rtl_price[nm],m.rtl_g[nm]||250,full.process||'');
@@ -2859,7 +2859,7 @@ async function socialSplitPick(s){
     .order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
     if(fq.data&&fq.data[0])full=fq.data[0];}catch(e){}
   var dots={};try{dots=await cardDots();}catch(e){}
-  var col=dotColorFor(nm,dots)||'#B25E6A';
+  var col=dotColorFor(nm,dots)||'#C87E8E';
   var info=[];try{info=await beanInfoRows(full,{omit:['Roasted','Harvest']});}catch(e){}
   var feats=(full.features||[]).filter(Boolean).slice(0,3);
   await exportSocialImages(full,info,feats,nm,col,null,SOC_MODE);
@@ -2901,7 +2901,7 @@ async function renderSocialImages(full,info,feats,nm,col,mode,opts){
      用 T.ink：淺底是墨黑，深照片上自動翻成米白，明暗天生對稱。
      ⚠ 例外＝雷達多邊形與封面菱形：那是這支豆的識別色，用來一眼認出是哪一支（老闆定案）。
      深色照片上要先提亮，否則深藍/紅點色會整個沉進暗底。 */
-  var radarCol=col||'#B25E6A';
+  var radarCol=col||'#C87E8E';
   if(dark)radarCol=_liftColour(radarCol,0.45);
   col=T.ink;
   var o={mode:mode,photo:photo,scrim:scrim,dark:dark,T:T,dot:radarCol,bg:bg,
@@ -3043,7 +3043,7 @@ async function openSocialPostBean(nm,m,st){
   }catch(e){}
   var dots={};try{dots=await cardDots();}catch(e){}
   var info=[];try{info=await beanInfoRows(full,{omit:['Roasted','Harvest']});}catch(e){}
-  var col=dotColorFor(nm,dots)||'#B25E6A';
+  var col=dotColorFor(nm,dots)||'#C87E8E';
   var feats=(full.features||[]).filter(Boolean).slice(0,3);
   var cap=promoCaptions(nm,info,feats,full.comment||'',m.rtl_price[nm],m.rtl_g[nm]||250,full.process||'');
   /* 重複發文防呆：activity_log 今天已有這支豆的 posted socials 就提醒 */
@@ -4272,7 +4272,7 @@ async function pushListToSquare(){
         try{
           var info=[];try{info=await beanInfoRows(full,{omit:['Roasted','Harvest']});}catch(e){}
           var feats=(full.features||[]).filter(Boolean).slice(0,3);
-          var col=dotColorFor(nm,dots)||'#B25E6A';
+          var col=dotColorFor(nm,dots)||'#C87E8E';
           var rmode=LST.imgMode==='photo'?'photo':'white';
           var rbg=LST.imgMode==='colour'?(LST.imgBg||'#FAF8F4'):'#FAF8F4';
           var rscrim=LST.imgMode==='photo'?LST.imgScrim:null;  /* photo 才吃紗濃度 */
@@ -5608,7 +5608,7 @@ async function openInfoCardPrint(s){
     if(fq.data&&fq.data[0])full=fq.data[0];
   }catch(e){}
   var dots={};try{dots=await cardDots();}catch(e){}
-  var col=dotColorFor(full.sample_id,dots)||'#B25E6A';
+  var col=dotColorFor(full.sample_id,dots)||'#C87E8E';
   var nm=String(full.sample_id||'').trim();
   var info=await beanInfoRows(full,{omit:['Roasted','Harvest']});
   var feats=(full.features||[]).filter(Boolean).slice(0,3);
@@ -5725,7 +5725,7 @@ var DEFAULT_POUROVER={
 };
 async function openBrewCardPrint(){
   toast('Preparing brew card…');
-  var P=DEFAULT_POUROVER,col='#B25E6A';
+  var P=DEFAULT_POUROVER,col='#C87E8E';
   var steps=[[P.bloom.split(' — ')[0],P.bloom.split(' — ')[1]||'']].concat(P.pours.map(function(x){return [x,''];})).concat([[P.finish.split(' — ')[0],P.finish.split(' — ')[1]||'']]);
   var stepH=steps.map(function(s,i){return '<div class="stp"><span class="num">'+(i+1)+'</span><span><b>'+esc(s[0])+'</b>'+(s[1]?' — '+esc(s[1]):'')+'</span></div>';}).join('');
   var tasteH=P.taste.map(function(t){return '<span style="color:#8C857E">'+esc(t[0])+'</span><span>'+esc(t[1])+'</span>';}).join('');
@@ -8309,7 +8309,7 @@ async function openCalcSheet(){
    insert/update/delete payload 逐字照抄 classic；刪除改新殼慣例 confirm（classic 是兩段按鈕）；
    補 logAct（classic 沒記——閹割盤點時列過的缺）。讀人人可看、寫入 canWrite 守門。 */
 var CONTACT_TYPES=['Supplier','Customer','Roaster','Service'];
-var CT_COLORS={Supplier:'#6E6256',Customer:'#B25E6A',Roaster:'#7E9B7A',Service:'#7C7BA0'};
+var CT_COLORS={Supplier:'#6E6256',Customer:'#C87E8E',Roaster:'#7E9B7A',Service:'#7C7BA0'};
 var CTS={list:[],type:null};
 async function openContactsSheet(){
   openDrawerHTML('<div class="t" style="font-size:19px">Contacts</div><div class="empty" style="margin-top:16px">Loading…</div>');
@@ -8854,7 +8854,7 @@ if('serviceWorker' in navigator){try{navigator.serviceWorker.register('/new/sw.j
    實體 QR（罐標/袋標/資訊卡）與 email 連結由這裡接手。overlay 蓋在 app 上層，不擋 boot */
 function sampleRadarSVG(s,force,col){
   /* col＝這支豆的罐標點色（Coffee Info 的 rtl_dot，public-bean 帶出）；沒有就退回玫瑰主色 */
-  col=col||'#B25E6A';
+  col=col||'#C87E8E';
   var m=/^#?([0-9a-f]{6})$/i.exec(String(col));
   var fillA=m?('rgba('+parseInt(m[1].slice(0,2),16)+','+parseInt(m[1].slice(2,4),16)+','+parseInt(m[1].slice(4,6),16)+',0.18)'):'rgba(178,94,106,0.18)';
   var axes=[['fragrance','Fragrance'],['acidity','Acidity'],['sweetness','Sweetness'],['body','Body'],['aftertaste','Aftertaste']];
