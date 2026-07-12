@@ -3415,7 +3415,10 @@ function openDeleteCoffeeSheet(){
   $('d-cl').addEventListener('click',closeDrawer);
 }
 async function confirmDeleteCoffee(e){
+  /* 拼配＝Coffee Stock 的列名靠 blends 配方——不連配方一起刪就會殘留 0 kg 幽靈行（老闆點名同步） */
+  var hasBlend=(DB.blends||[]).some(function(b){return String(b.name||'').trim().toLowerCase()===e.name.toLowerCase();});
   var msg='Delete "'+e.name+'"?\n\nThis removes:\n· '+e.cups+' cupping record'+(e.cups===1?'':'s')+'\n· '+e.roasts+' roast batch'+(e.roasts===1?'':'es')+'\n· shelf price / colour memories'
+    +(hasBlend?'\n· the blend recipe (and its brew guide)':'')
     +(e.synced?'\n· the Square listing (item deleted from the Square catalogue too)':'')
     +'\n\nGreen bean stock is NOT touched. This cannot be undone.';
   if(!confirm(msg))return;
@@ -3434,6 +3437,11 @@ async function confirmDeleteCoffee(e){
     var d2=await sb.from('roasts').delete().ilike('bean_name',e.name);
     if(d2.error)throw new Error(d2.error.message);
     try{await sb.from('product_sync').delete().ilike('bean_id',e.name);}catch(err){}
+    /* Coffee Stock 同步（2026-07-12 老闆點名）：豆刪了就別再列——
+       單品的列名靠 beans.roast_target_kg/roast_low_kg（熟豆閾值，非生豆庫存）→ 清 null；
+       拼配的列名靠 blends 配方 → 整列刪（confirm 訊息已列明；成分豆本身不動） */
+    try{await sb.from('beans').update({roast_target_kg:null,roast_low_kg:null}).ilike('name',e.name);}catch(err){}
+    if(hasBlend){try{await sb.from('blends').delete().ilike('name',e.name);}catch(err){}}
     /* app_state 記憶鍵大掃除（價/克/規格/售罄/顏色） */
     var keys=['rtl_price','rtl_g','rtl_sizes','rtl_sold','rtl_dot'];
     for(var i=0;i<keys.length;i++){

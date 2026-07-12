@@ -107,6 +107,12 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之十四（刪豆同步 Coffee Stock：清幽靈行）
+- **老闆回報**：Delete a coffee 刪掉的豆在 Coffee Stock 還會列。**根因**＝rstRows 列名條件：單品靠 beans.roast_target_kg/roast_low_kg（刪豆流程沒清）、拼配靠 blends 配方（刪豆流程沒刪）→ 0 kg 幽靈行。
+- **修（confirmDeleteCoffee）**：刪除清單補兩步——①`beans.update({roast_target_kg:null,roast_low_kg:null})`（熟豆閾值，非生豆庫存，原則不破）②同名 blends 配方整列刪（confirm 訊息先列明「the blend recipe (and its brew guide)」；成分豆不動）。孤兒護欄（批次還有血就列）**保留**——那是防帳目消失的，正常刪豆 roasts 已整列刪不觸發。
+- **驗證**：jscheck ✓；stub 重現兩種幽靈行（單品閾值/拼配配方）→ 跑刪豆 → 操作序列 samples→roasts→product_sync→beans 清閾值→blends 刪配方 ✓、confirm 訊息含 recipe ✓、模擬 reload 後兩分頁幽靈行消失 ✓、console 零錯誤。
+- **真資料盤點**：現存幽靈只有拼配 **May Project**（0 杯測 0 批次）——等老闆確認是「刪過的豆殘留」還是「還沒開工的配方」，是前者我 SQL 代清。單品無殘留。
+
 ## 〇、補記 — 2026-07-12 之十三（Coffee v3：Claude Design 迭代定稿→拆成 Coffee Stock＋Coffee Info 實作）
 - **工作流首例**：老闆指定改用 **claude.ai/design 迭代設計再實作**。DesignSync 推設計卡到「Ratio Design System」專案（projectId fdec005c…，**此專案卡片走 legacy register_assets 顯式註冊**——只 write_files 老闆看不到卡）。兩輪迭代：v2 合併版「太複雜」→ v3 拆兩顆定稿。設計卡三張留專案裡（coffee-stock/coffee-info/coffee-intake.html）＝之後改版的底稿。
 - **「Coffee Stock」**（Roast 區磁貼，data-t='batches'）：①頂部圖例（黃 aging <21d/綠 ready 21-42d/紅 fading >42d/灰無日期——閾值同 shelfFreshness）＋總計行＋「＋ Intake」大鈕（呼叫 openBackfillSheet，`BF.from='coffee'`＝存完回 Coffee Stock、tab 跟當前分頁；toast 分兩種：有杯測「In stock ✓ — in the QC queue」/沒杯測「In stock ✓ — no coffee info yet, cup it in QC」）②**血條改新鮮度上色**（`rstFreshColor(rd)` 新函式；RST_OPS opacity 輪刪除；低量不再整條轉紅——警示留 label low!/over! 紅字）③批次列表每行新鮮度色點＋**行可點＝openRstDeduct(x,preBatch) 預選該批**（第二參數新增）＋deduct 批次 chips 也帶色點④rstRows 補 `x.noInfo`（無 shelfSampleFor）→ 豆名旁紅字「no info — cup it」＋展開區「Cup it in QC →」跳 QC 頁⑤上輪的風味摘要行/「Coffee info →」chip 移除（資訊歸 Coffee Info）。
