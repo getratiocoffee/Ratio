@@ -107,6 +107,13 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之二十八（Publish 清單改從 Coffee Stock 索取＋Coffee Info 補售罄鈕）
+- **老闆點名**：Publish 面板裡的 list 只能從 Coffee Stock 索取（跟 QC 同源），不要自己撈「杯測 ∪ 上架」的另一套母體。老闆選方案 1：賣光沒庫存的豆不出現在 Publish，標售罄/下架改去 Coffee Info。
+- **改動（new/index.html）**：①`paintPublishSheet`（3103 行）母體從「DB.samples ∪ DB.syncs」改成**重用 `rstRows(false) ∪ rstRows(true)`** 的名單去重（排除 isSubName）＝Publish 列的豆與 Coffee Stock 完全一致；空訊息＋副標文案跟著改（「the coffees in your stock → every channel」）②`openShelfBeanDetail`（Coffee Info 詳情，2404 行前）補 `sb-sold` 按鈕（只在已上架 syncRow＋canWrite）：Mark sold out / Put back on sale → `setShelfSold(nm,!sold)`（sold 變數同頁已算＝rtl_sold 或 paused）→ toast → reload＋openRetailSheet。原本詳情只有 Send back to QC；售罄鈕本來在 Publish，但 Publish 改母體後賣光豆消失，故售罄入口收進 Coffee Info（其母體仍含賣光的上架豆）。
+- **為什麼要補 Coffee Info 售罄鈕**：Publish 母體縮成 Coffee Stock 後，「已上架但賣光（0 庫存、無 target/low）」的豆從 Publish 消失，而 Coffee Info 詳情原本沒有售罄鈕→會變成沒地方標售罄。補上才兌現老闆選的方案 1。
+- **驗證**：jscheck ✓；serve 複本＋Chrome 預覽（攔 fetch）——Publish 母體只列有庫存豆（Dancer/Kiama），排除賣光的 Sold Bean＋訂閱；Coffee Info 母體仍含 Sold Bean；Coffee Info 詳情出 Mark sold out 鈕；點擊走 setShelfSold（無登入 session 時安全停在 callFn，**沒誤打線上**、DB 未動）；console 零錯誤＋截圖。⚠ **實際 Square 售罄寫入需登入**（同其他 sync-to-square 路徑）——老闆真機標一支賣光豆售罄確認。
+- **注意**：Publish 母體＝rstRows（重算 batches/hp，Publish 用不到但正確性優先，同 Coffee Stock 開銷）。若日後改 Coffee Stock 的納入規則（rstRows），Publish 自動跟著變＝設計如此。
+
 ## 〇、補記 — 2026-07-12 之二十七（Coffee Stock Live 膠囊說真話：對齊店面的 QC gate）
 - **老闆點名**：Coffee Stock 的 Live 狀態跟 ?shop 店面「完全沒有連結」。診斷屬實——兩條路徑用不同條件：Coffee Stock 的 Live 只看 `product_sync.status==='synced'`（單一條件，第 4096 行）；?shop 店面（public-shop v11/v12 GET）多一道 **QC gate**：豆必須有 `flavour_locked=true` 的 sample（`if(!s)return null`），否則店面看不到。所以 synced 但風味沒鎖的豆＝Coffee Stock 標 Live、店面卻沒有。**實查資料庫**（execute_sql）當下有 3 支：Kiama AA / La Molienda / Mwendi Wega AB（synced 沒鎖）＋ Finca Milan（paused 沒鎖）。脫節來源：上架沒勾 Lock、或 sb-requeue 送回重審解鎖風味但 Square 沒撤。
 - **改動（new/index.html，rstRows/openBatchesSheet 三處）**：①rows.forEach 加 `x.locked`＝DB.samples（載入時已 .eq supplier 'Ratio Coffee'）有 flavour_locked 同名 sample＝與 public-shop 同條件 ②膠囊三態（4131 行）：paused→Sold out（danger）、synced+locked→Live（accent）、synced+!locked→**Not on shop**（琥珀 #B5791C 白字）③展開行（synced 沒鎖時）加琥珀提示「On Square but hidden from the shop — lock its flavour…（Lock flavours card in the daily flow）」。名字級判斷（同 x.sync），與店面一致；未動 buildItems 的 LOCKQ（今日流鎖風味卡照常）。
