@@ -56,6 +56,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-13 之二（營運操作：店面 12 支 Live 豆全數下架 ✅）
+- **老闆指令**：Roasted stock 裡掛 Live 的豆全下架（店面暫時清空）。Chrome 代跑（老闆先登入一次——07-08 曾登出的老問題，登入後 session 就在）
+- **結果**：12 支全 paused——3 支走 `setShelfSold`（Dark Knight/Dancer/Dreamer，Square availability＋rtl_sold＋edge 回寫 paused）；**9 支 Square 打回 Catalog object not found**（April Project/Sugar Daddy/June Project/Kiama AA/Kii AB/Hakuna Matata/Danche v1-v3——Square 後台商品早被手動刪過、掛 Live 其實只有 ?shop 在賣）→ 這 9 支照 setShelfSold 後半邏輯直補 DB（rtl_sold 標記＋product_sync paused）。沒動：La Molienda/Mwendi Wega AB（沒鎖＝本來就不在店面）、Subscription ×2
+- **驗證**：product_sync 對帳 13 paused（含原有 Finca Milan）/4 synced；?shop 客人視角全數 SOLD OUT 不能加購物車
+- **⚠ 備忘**：這 9 支日後重新上架照常按 Publish「List on Square + Ratio shop」會重建 Square 商品（push 走 create）；morning-brief v4 有「售罄滿 30 天自動下架」——這批全標售罄了，30 天後會被自動收走 product_sync，屬正常行為
+
 ## 〇、補記 — 2026-07-13（Publish 改認風味鎖 ＋ Downgrade 現身當配方首選 ✅）
 - **背景**：老闆核對 Coffee Stock 管線心智模型後拍板兩更正：①Publish 門檻從 qc=pass 改**風味鎖定**（與 Coffee Stock 膠囊、public-shop QC gate 三處同口徑，順修 Publish 面板 Live 膠囊不看鎖的不一致）②downgrade 批次不再隱形——Coffee Stock 帶紅標顯示、拼配烘焙**優先吃降級豆**（消化進配方）
 - **改動（全 new/index.html）**：
