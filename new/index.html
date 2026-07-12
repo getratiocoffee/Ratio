@@ -5738,6 +5738,12 @@ function attachSwipe(el,id){
 function attachQcSwipe(el,q){
   if(!canWrite())return;
   var x0=null,y0=0,dx=0,locked=false,dead=false;
+  /* 滑不動修正（2026-07-13 老闆點名）：QC 泡泡在抽屜（捲動容器）內、又沒設 touch-action——
+     手指一動瀏覽器就當捲動、pointercancel 殺掉拖曳（今日流卡 .card 有 pan-y 所以好滑）。
+     ①touch-action:pan-y＝縱捲照常、橫滑歸 JS ②iOS Safari 對捲動容器內不一定買帳（同 attachDrawerDrag
+     的坑）——鎖定橫滑後用非 passive touchmove preventDefault 硬擋捲動，讓 pointermove 一路活著 */
+  el.style.touchAction='pan-y';
+  el.addEventListener('touchmove',function(e){if(locked)e.preventDefault();},{passive:false});
   function reset(anim){el.style.transition=anim?'transform .2s':'none';el.style.transform='';el.style.background='';x0=null;dx=0;locked=false;dead=false;}
   el.addEventListener('pointerdown',function(e){
     if(e.target.closest('button'))return;
@@ -5750,7 +5756,7 @@ function attachQcSwipe(el,q){
     dx=e.clientX-x0;var dy=e.clientY-y0;
     if(!locked){
       if(Math.abs(dy)>14&&Math.abs(dy)>Math.abs(dx)){dead=true;return;} /* 縱向＝讓抽屜捲動 */
-      if(Math.abs(dx)>18&&Math.abs(dx)>Math.abs(dy)*1.6)locked=true; /* 明確橫滑才鎖方向 */
+      if(Math.abs(dx)>12&&Math.abs(dx)>Math.abs(dy)*1.3)locked=true; /* 橫滑鎖定放寬（18px/1.6→12px/1.3）＝更快接手 */
       else return;
     }
     el.style.transform='translateX('+Math.max(-130,Math.min(130,dx*0.9))+'px)';
