@@ -7482,8 +7482,10 @@ function openMyNA(){
 /* 每人穩定配色：先照員工名單順序給部門色，不在名單的用名字雜湊 */
 function naColor(name){
   var pal=['--roast','--qc','--green','--mkt','--orders','--fin','--team','--accent'];
-  var list=(RS_STAFF||[]),i=list.indexOf(name);
-  if(i<0){var h=0,st=String(name);for(var j=0;j<st.length;j++)h=(h*31+st.charCodeAt(j))|0;i=Math.abs(h);}
+  var key=String(name||'').trim().toLowerCase();
+  var list=(RS_STAFF||[]),i=-1;
+  for(var k=0;k<list.length;k++){if(String(list[k]).trim().toLowerCase()===key){i=k;break;}}
+  if(i<0){var h=0;for(var j=0;j<key.length;j++)h=(h*31+key.charCodeAt(j))|0;i=Math.abs(h);}
   return 'var('+pal[i%pal.length]+')';
 }
 /* staff_na 範圍展開成 {iso日: [人名…]}（同一天多人＝多筆）*/
