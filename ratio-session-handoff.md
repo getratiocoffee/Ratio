@@ -107,6 +107,13 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之十八（QC 頁分單品/拼配分頁）
+- **老闆點名**：QC 裡分單品和拼配。tocup（toCupList）與 QCQ 的項目都是 roasts、帶 kind → `kind==='blend'` 判斷。
+- **改動（renderQC）**：新 `QCSEG`（'single'/'blend'，保留上次同 RST.seg）。頂部 pm-seg「Single origins · N｜Blends · N」（各帶當前數量＝tocup+QCQ）；In hand（tocup）與待判定清單（QCQ）都 filter 成當前分頁；判定台（deck）的選中 q 從當前分頁 queue 取、selQC 換分頁自動落當前分頁第一筆；空分頁顯示「No blends/single origins in QC」。**hcnt 標題計數維持全域**（總 waiting/to cup），分頁計數在膠囊上。
+- **順手**：Coffee Stock 缺資訊那支點「Cup it in QC →」跳轉時 `QCSEG=isBlend?'blend':'single'`——落地分頁對得上該豆。
+- **不動**：QCQ/toCupList 本體（Today 卡計數等共用）；judging deck 內容、鎖風味、Pass/Downgrade 照舊。
+- **驗證**：jscheck ✓；stub 混合佇列（2 單品＋2 拼配，各 1 待判定 1 in-hand）→ 單品分頁只見 Guji（判定台 Guji、計數 2/2）✓ 切 Blends 只見 Dancer（判定台跟著切 Dancer、單品零洩漏、selQC 自動 r3）✓ console 零錯誤、截圖乾淨。
+
 ## 〇、補記 — 2026-07-12 之十七（Coffee Stock 同日批次合併：同天幾鍋＝同一批）
 - **老闆點名**：同支豆同一烘焙日期的多筆批次在 Coffee Stock 合併顯示，不分開列。
 - **改動（new/index.html）**：新 `rstGroupByDate(batches)`＝FIFO 順序按 roast_date 分組（無日期＝一組）。**資料層各筆保留**（QC 判定/流水帳不動），只有顯示與扣豆按組：①血條段按組畫（同日一段）②展開批次列表一組一行（kg 加總＋「N roasts」標；QC ✓ 要全組 pass 才標）③openRstDeduct 重構＝chips 按日期組（RSTD.batch→gkey）、超量檢查用組總量、**扣豆組內依序扣**（同 deductOrderStock 邏輯，中途失敗講明已扣多少）。

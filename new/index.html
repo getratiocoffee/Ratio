@@ -4164,7 +4164,7 @@ function openBatchesSheet(){
     openBackfillSheet();
   });
   var cup=$('rst-cup');
-  if(cup)cup.addEventListener('click',function(){closeDrawer();view='qc';render();});
+  if(cup)cup.addEventListener('click',function(){QCSEG=isBlend?'blend':'single';closeDrawer();view='qc';render();});
   document.querySelectorAll('#drawer [data-bat]').forEach(function(el){el.addEventListener('click',function(){
     var x=rows.find(function(r){return r.key===RST.open;});if(!x)return;
     openRstDeduct(x,rstGroupByDate(x.batches)[+el.dataset.bat]);
@@ -5493,11 +5493,23 @@ function attachSwipe(el,id){
   el.addEventListener('click',function(){if(SWIPE_OPEN===id&&Date.now()-_drag>300)closeSwipe();});
 }
 /* ===== QC 工作台 ===== */
+/* QC 分單品/拼配（2026-07-12 老闆點名）：tocup 與 QCQ 都是 roasts、帶 kind → kind==='blend' 分頁。
+   QCSEG 保留上次（同 RST.seg）；分頁鈕帶各自數量 */
+var QCSEG='single';
 function renderQC(){
-  var tocup=toCupList();
-  $('hcnt').textContent=QCQ.length?QCQ.length+' waiting':(tocup.length?tocup.length+' to cup':'all judged');
+  var isBl=function(k){return k==='blend';};
+  var blend=QCSEG==='blend';
+  var tocupAll=toCupList();
+  var tocup=tocupAll.filter(function(r){return isBl(r.kind)===blend;});
+  var queue=QCQ.filter(function(q){return isBl(q.r.kind)===blend;});
+  var nS=tocupAll.filter(function(r){return !isBl(r.kind);}).length+QCQ.filter(function(q){return !isBl(q.r.kind);}).length;
+  var nB=tocupAll.filter(function(r){return isBl(r.kind);}).length+QCQ.filter(function(q){return isBl(q.r.kind);}).length;
+  $('hcnt').textContent=QCQ.length?QCQ.length+' waiting':(tocupAll.length?tocupAll.length+' to cup':'all judged');
   var m=$('main');
-  /* 杯測師工作台第一區：手上的豆（production roast 待杯測）——點列直接開 Cup 抽屜 */
+  var segHTML='<div class="pm-seg" style="margin-bottom:8px">'
+    +'<button id="qc-seg-s" class="'+(blend?'':'on')+'">Single origins'+(nS?' · '+nS:'')+'</button>'
+    +'<button id="qc-seg-b" class="'+(blend?'on':'')+'">Blends'+(nB?' · '+nB:'')+'</button></div>';
+  /* 杯測師工作台第一區：手上的豆（當前分頁的 production roast 待杯測）——點列直接開 Cup 抽屜 */
   var cupSec=tocup.length
     ?'<div class="note">In hand — tap to cup</div>'
       +tocup.map(function(r){
@@ -5506,6 +5518,8 @@ function renderQC(){
       }).join('')
     :'';
   function wireExtras(){
+    var ss=$('qc-seg-s');if(ss)ss.addEventListener('click',function(){if(QCSEG!=='single'){QCSEG='single';selQC=null;renderQC();}});
+    var sbb=$('qc-seg-b');if(sbb)sbb.addEventListener('click',function(){if(QCSEG!=='blend'){QCSEG='blend';selQC=null;renderQC();}});
     var ad=$('qc-add');if(ad)ad.addEventListener('click',openBackfillSheet);
     var sh=$('qc-shelf');if(sh)sh.addEventListener('click',openRetailSheet);
     m.querySelectorAll('[data-tocup]').forEach(function(el){el.addEventListener('click',function(){
@@ -5513,19 +5527,19 @@ function renderQC(){
       if(r)openCupSheet({ref:r});
     });});
   }
-  if(!QCQ.length){
-    m.innerHTML=cupSec
-      +'<div class="empty">'+(tocup.length?'Nothing waiting for a verdict':'QC queue is clear ✓')+'</div>'
+  if(!queue.length){
+    m.innerHTML=segHTML+cupSec
+      +'<div class="empty">'+(tocup.length?'Nothing waiting for a verdict':(blend?'No blends in QC':'No single origins in QC'))+'</div>'
       +'<button class="more" id="qc-add">＋ Add a past batch</button>'
       +'<button class="more" id="qc-shelf">Shelf · on sale now</button>';
     $('deck').style.display='none';document.body.style.paddingBottom='';
     wireExtras();
     return;
   }
-  if(selQC==null||!QCQ.find(function(q){return q.r.id===selQC;}))selQC=QCQ[0].r.id;
-  m.innerHTML=cupSec
+  if(selQC==null||!queue.find(function(q){return q.r.id===selQC;}))selQC=queue[0].r.id;
+  m.innerHTML=segHTML+cupSec
     +'<div class="note">Tap a batch to select — buttons below judge the selected one</div>'
-    +QCQ.map(function(q){
+    +queue.map(function(q){
       var f=(q.s.features||[]).slice(0,3).join(', ');
       return '<div class="qrow'+(q.r.id===selQC?' sel':'')+'" data-q="'+esc(q.r.id)+'"><div class="t">'+esc(q.s.sample_id||'—')+(q.s.process?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif">'+esc(q.s.process)+'</span>':'')+'</div><div class="s">'+(q.r.roast_date?'roasted '+fmtD(q.r.roast_date)+' · ':'')+esc(f||'')+'</div></div>';
     }).join('')
@@ -5533,7 +5547,7 @@ function renderQC(){
     +'<button class="more" id="qc-shelf">Shelf · on sale now</button>';
   wireExtras();
   m.querySelectorAll('[data-q]').forEach(function(r){r.addEventListener('click',function(){selQC=r.dataset.q;renderQC();});});
-  var q=QCQ.find(function(x){return String(x.r.id)===String(selQC);});
+  var q=queue.find(function(x){return String(x.r.id)===String(selQC);});
   var deck=$('deck');deck.style.display='block';
   /* judging → decision 重排：標題行乾淨、四顆等寬工具鍵（含編輯烘豆日）、鎖風味膠囊、判定鈕 */
   deck.innerHTML='<div class="who">judging <b>'+esc(q.s.sample_id||'—')+(q.s.process?' · '+esc(q.s.process):'')+'</b>'
