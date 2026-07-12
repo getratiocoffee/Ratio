@@ -107,6 +107,14 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之十三（Coffee v3：Claude Design 迭代定稿→拆成 Coffee Stock＋Coffee Info 實作）
+- **工作流首例**：老闆指定改用 **claude.ai/design 迭代設計再實作**。DesignSync 推設計卡到「Ratio Design System」專案（projectId fdec005c…，**此專案卡片走 legacy register_assets 顯式註冊**——只 write_files 老闆看不到卡）。兩輪迭代：v2 合併版「太複雜」→ v3 拆兩顆定稿。設計卡三張留專案裡（coffee-stock/coffee-info/coffee-intake.html）＝之後改版的底稿。
+- **「Coffee Stock」**（Roast 區磁貼，data-t='batches'）：①頂部圖例（黃 aging <21d/綠 ready 21-42d/紅 fading >42d/灰無日期——閾值同 shelfFreshness）＋總計行＋「＋ Intake」大鈕（呼叫 openBackfillSheet，`BF.from='coffee'`＝存完回 Coffee Stock、tab 跟當前分頁；toast 分兩種：有杯測「In stock ✓ — in the QC queue」/沒杯測「In stock ✓ — no coffee info yet, cup it in QC」）②**血條改新鮮度上色**（`rstFreshColor(rd)` 新函式；RST_OPS opacity 輪刪除；低量不再整條轉紅——警示留 label low!/over! 紅字）③批次列表每行新鮮度色點＋**行可點＝openRstDeduct(x,preBatch) 預選該批**（第二參數新增）＋deduct 批次 chips 也帶色點④rstRows 補 `x.noInfo`（無 shelfSampleFor）→ 豆名旁紅字「no info — cup it」＋展開區「Cup it in QC →」跳 QC 頁⑤上輪的風味摘要行/「Coffee info →」chip 移除（資訊歸 Coffee Info）。
+- **「Coffee Info」**（Roast 區磁貼恢復，data-t='retail'）：openRetailSheet **母體擴大**＝自家 samples ∪ 上架 syncs（未上架/沒杯測的也列——純看資訊的地方）；行 sub 改「新鮮度＋風味前 3」（價格移到詳情；「no price」只對上架豆警示；re-checking in QC/flavour unlocked 警示照舊）；沒杯測＝紅字 no info；膠囊只上架豆有。**openShelfBeanDetail 拆成純資訊頁**：sb-edit/sb-sold/sb-promo/sb-ann/sb-card 五顆行銷鈕全移除（功能在 Publish/Print 都有），只留 **Send back to QC**（放錯資訊退回重審，別處無入口）＋back；`from` 參數退掉（上輪加的，已無呼叫者）。
+- **驗證**：jscheck ✓；stub 批次 3d/30d/50d/無日期→血條黃綠紅灰四色正確、圖例、總計、target 撐大灰段 ✓；Intake：tab 預選、from='coffee'、存無杯測豆→no info toast＋回 Coffee Stock＋from 清掉 ✓；點批次行→deduct 預選 12/06 那批 ✓；Coffee Info 母體（上架 Guji 有 Live 膠囊＋未上架 Unlisted Bean 無膠囊都列）✓；詳情頁按鈕只剩 sb-requeue/sb-back/d-cl ✓；磁貼 Coffee Stock＋Coffee Info 在 Roast 區、舊「Coffee」消失 ✓；console 零錯誤；截圖與設計卡一致。
+- **等老闆（push 後真機）**：Tools→Coffee Stock 走一遍 Intake→看血條顏色→點批次扣豆；Coffee Info 點幾支豆看詳情；確認 Send back to QC 還順手。
+- **⚠ 記憶點**：血條紅色現在＝「過賞味期」不是「低庫存」——低庫存看 kg 標籤的 low! 紅字。
+
 ## 〇、補記 — 2026-07-12 之十二（豆子管理大統整：Coffee 合併磁貼＋Publish 一鍵上架＋QC Edit/Add Stock）
 - **老闆三連發**：①Coffee Info＋Roasted Stock 統整成一顆看庫存＋咖啡資訊 ②一鍵上架面板（過 QC 的豆看所有渠道狀態＋控制上架下架＋上架訊息）③QC 的 Menu Card 換 Edit/Add Stock。全部**薄殼整合**——按鈕全接現有函式，新函式只 3 支（openPublishSheet/paintPublishSheet/openQcStockSheet）。
 - **①「Coffee」磁貼**（Roast 區，原 Roasted Stock 改名升級）：rstRows 每行掛 product_sync 同名狀態→豆名旁 **Live/Sold out 膠囊**；展開區加**新鮮度＋風味前 3 摘要**＋「**Coffee info →**」鈕（await shelfLiveBeans 拿 m→openShelfBeanDetail 第三參數 `from='stock'`——back 鈕/售罄回跳都回 Coffee 不回 Coffee Info）。**Marketing 區 Coffee Info 磁貼移除**（openRetailSheet 函式保留、dispatch 分支保留防手滑復原）。
