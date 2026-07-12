@@ -386,7 +386,6 @@ body.appview nav button{font-size:13px;padding:10px 2px}
 <nav>
 <button id="nav-home">Home</button>
 <button id="nav-feed" class="on">Today</button>
-<button id="nav-qc">QC</button>
 <button id="nav-tools">Tools</button>
 <button id="nav-refresh">Refresh</button>
 </nav>
@@ -9629,7 +9628,6 @@ function render(){
   document.body.classList.add('appview');
   $('nav-home').classList.toggle('on',view==='home');
   $('nav-feed').classList.toggle('on',view==='feed');
-  $('nav-qc').classList.toggle('on',view==='qc');
   $('nav-tools').classList.toggle('on',view==='tools');
   updateBell();
 }
@@ -9645,7 +9643,6 @@ function maybeAutoRefresh(){
 document.addEventListener('visibilitychange',maybeAutoRefresh);
 $('nav-home').addEventListener('click',function(){view='home';render();});
 $('nav-feed').addEventListener('click',function(){view='feed';render();});
-$('nav-qc').addEventListener('click',function(){openQCSheet();});
 $('nav-tools').addEventListener('click',function(){view='tools';render();});
 $('nav-refresh').addEventListener('click',async function(){this.textContent='…';await reload();this.textContent='Refresh';toast('Refreshed');});
 /* ===== 客戶介面（老闆定調：進來直接看到豆單）＝沒登入的店面＋客戶登入的門戶共用菜單
