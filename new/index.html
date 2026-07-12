@@ -9952,19 +9952,19 @@ function openWsPaySheet(o){
   $('d-cl').addEventListener('click',closeDrawer);
 }
 /* 分類（老闆定的四格）：Blend＝有配方；Co-ferment＝culturing/co-ferment 類；Innovation＝實驗處理法；其餘 Classic */
-var SHOP_CATS=[['blend','Blend'],['classic','Classic'],['innovation','Innovation'],['coferment','Co-ferment']];
+/* 店面分類（2026-07-12 老闆定調）：拼配→Blend、其餘單品→Single origin、訂閱→自己的 tab。
+   舊 Classic/Innovation/Co-ferment（靠 process 正則細分單品）合併成 Single origin——客人更好懂 */
+var SHOP_CATS=[['blend','Blend'],['single','Single origin'],['subscription','Subscription']];
 var SHOP_CAT='blend', SHOP_BEANS=[];
 function shopCategory(b){
-  if(b.recipe&&b.recipe.length)return 'blend';
-  var p=String(b.process||'').toLowerCase();
-  if(/co.?ferment|culturing/.test(p))return 'coferment';
-  if(/anaerobic|hydro|nitro|carbonic|thermal|cold ferment|yeast|lactic|maceration/.test(p))return 'innovation';
-  return 'classic';
+  return (b.recipe&&b.recipe.length)?'blend':'single';
 }
 /* 店面主體：左右滑輪播（scroll-snap，一頁一支豆）＋圓點指示；tab 切分類重畫 */
 function renderShopTabs(){
   var el=$('shoptabs');
   var counts={};SHOP_BEANS.forEach(function(b){var c=shopCategory(b);counts[c]=(counts[c]||0)+1;});
+  /* 訂閱算成一個有貨分類（升級成獨立 tab）：有訂閱商品＋非批發模式才出現 */
+  if(!WS_MODE&&SHOP_SUBS.length)counts['subscription']=SHOP_SUBS.length;
   var visible=SHOP_CATS.filter(function(c){return counts[c[0]];});
   if(!counts[SHOP_CAT])SHOP_CAT=visible.length?visible[0][0]:SHOP_CAT;
   /* 空分類不渲染（死路移除）；只剩一類＝整條藏 */
@@ -10001,10 +10001,15 @@ function wireSubCard(root){
 function paintShopBody(){
   var host=$('shopbody');if(!host)return;
   document.querySelectorAll('#shoptabs [data-sct]').forEach(function(b){b.classList.toggle('on',b.dataset.sct===SHOP_CAT);});
+  /* 訂閱分頁（獨立 tab）：只畫訂閱卡，不再掛在別的分類底下 */
+  if(SHOP_CAT==='subscription'){
+    host.innerHTML=shopSubCardHTML()||'<div class="empty">No subscriptions right now ☕</div>';
+    wireSubCard(host);paintCartBar();return;
+  }
   var list=SHOP_BEANS.filter(function(b){return shopCategory(b)===SHOP_CAT;});
   if(!list.length){
-    host.innerHTML='<div class="empty">Nothing in this corner right now ☕</div>'+shopSubCardHTML();
-    wireSubCard(host);paintCartBar();return;
+    host.innerHTML='<div class="empty">Nothing in this corner right now ☕</div>';
+    paintCartBar();return;
   }
   host.innerHTML='<div class="shopwrap" id="shopwrap">'+shopCardsHTML(list)+'</div>'
     /* 玻璃箭頭放 shopbody 裡：離開商店畫面（innerHTML 換掉）就自動消失 */
@@ -10012,9 +10017,8 @@ function paintShopBody(){
       ?'<button class="shoparr l" id="sharr-l" aria-label="Previous coffee"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>'
       +'<button class="shoparr r" id="sharr-r" aria-label="Next coffee"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>'
       :'')
-    +shopSubCardHTML();
+  ;
   wireShopCards(host);
-  wireSubCard(host);
   paintCartBar();
   var w=$('shopwrap');
   if(w&&list.length>1){

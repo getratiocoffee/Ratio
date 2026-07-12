@@ -107,6 +107,12 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之二十六（?shop 店面分類改版：Blend｜Single origin｜Subscription）
+- **老闆點名**：?shop 公開店面頂部分類 tab 移除 Classic/Innovation/Co-ferment，改成 Single origin＋Subscription；Blend 保留（老闆確認）；訂閱升級成獨立 tab（其他分類底下不再重複顯示訂閱卡，老闆確認可接受）。
+- **改動（new/index.html，全前端 4 處，不動 edge/DB——分類是前端 derived）**：①`SHOP_CATS`（9955）→ `[['blend','Blend'],['single','Single origin'],['subscription','Subscription']]` ②`shopCategory(b)` 重寫＝有 recipe→'blend' 否則→'single'（舊 process 正則 co-ferment/anaerobic/… 三分支全刪，classic/innovation/coferment 三 key 消失、grep 確認無別處引用）③`renderShopTabs` counts 補 `if(!WS_MODE&&SHOP_SUBS.length)counts['subscription']=SHOP_SUBS.length`——訂閱算成有貨分類，沒訂閱/批發模式自動不出 tab ④`paintShopBody` 加訂閱分流：`SHOP_CAT==='subscription'` → 只畫 `shopSubCardHTML()`（獨立 tab）；其餘分類**移除末尾常駐 shopSubCardHTML()＋wireSubCard**（訂閱只在自己 tab）。重用 shopSubCardHTML/wireSubCard/cartAdd 全不動。
+- **驗證**：jscheck ✓；serve 複本＋Chrome 預覽（攔 fetch 假 public-shop）——3 tab（Blend｜Single origin｜Subscription）、水洗/anaerobic/co-ferment 三單品全歸 Single origin、拼配在 Blend、Subscription tab 只有訂閱卡（方案切換＋加購入車 qty1）、Blend/Single origin tab 底下無訂閱卡、無 SHOP_SUBS→sub tab 消失、只有拼配→single 消失、批發模式→無 sub tab、console 零錯誤＋截圖 ×2。
+- **等老闆真機**：部署後開 ?shop 看三個 tab、切 Subscription 下單一次確認。
+
 ## 〇、補記 — 2026-07-12 之二十五（Coffee Stock 加 Fix kg 模式：輸入錯誤直接改正）
 - **老闆點名**：Coffee Stock 要能更改公斤數（輸入錯誤）。原本只有 Intake（加）與 Deduct（扣、要選 Defect/Transfer/Other 原因）——打錯數字只能假借 Defect 扣，污染瑕疵帳。
 - **改動（new/index.html，openRstDeduct）**：Deduct 抽屜加 pm-seg 雙模式〔Deduct｜Fix kg · typo〕（RSTD.mode）。Fix 模式：Why 區隱藏、label 顯示「Correct total kg — now X kg」（選批次即時跟著變）、輸入該批**正確的總 kg** → Save correction＝調到位：diff>0 補到組內第一鍋、diff<0 組內依序減；**remaining_kg 與 roasted_kg 一起修**（是記錯不是耗損；Deduct 照舊只動 remaining）。logAct `corrected roasted kg`（note「舊 → 新 kg · 日期」）不進瑕疵帳。防呆：同值「nothing to fix」、負數/空值擋、零寫入。
