@@ -107,6 +107,13 @@
 - **等老闆（部署後照順序）**：①Tools→Subscriptions→按「Set up shop subscription items…」（建 Square 商品＋註冊；再開抽屜看 live ✓）②curl 或重整 ?shop 看 Subscription 卡出現（public-shop 有 5 分快取）③**真機端到端**：自己 email 買一份訂閱→付款→今日流出現 Square 單（含 Subscription 行）＋subscriptions 自動多一列（+14 天）＋收「New subscriber ☕」推播→事後 Square 退款＋抽屜 Cancel 清理④Square Dashboard→Webhooks 挑該事件 **Resend** 驗防重（subscriptions 仍一列）。
 - **注意**：webhook 訂閱判定靠**商品名前綴 'Subscription — '**——Square 後台改商品名會斷鏈（改價 OK 會跟）；qty>1 只建一筆訂閱、notes 記 qty 提醒跟客人確認。
 
+## 〇、補記 — 2026-07-12 之二十（QC 同日批次合併：In hand 合併＋判定整批一起判）
+- **老闆點名**：QC 裡同一支豆同一時間（同烘焙日）出現的合併。
+- **改動（new/index.html）兩處**：①**renderQC 的 In hand（cupSec）** 同 name+process+roast_date 分組一列（顯示「N roasts」＋green_kg 加總；點擊開組內第一鍋 openCupSheet）——同 Coffee Stock 的 rstGroupByDate 概念，但 QC 這區是跨豆列表故按三鍵分組。②**qcVerdict 整批一起判**：判定某鍋後，找同 name+process+roast_date 且 qc=null 的其他鍋（mates）一起 update qc——**否則合併顯示的其他鍋 qc 還是 null，判完又冒出來**。
+- **為何 QCQ（待判定）不用改**：QCQ 靠 buildItems 的 seen（bean_id 或 sample_id+process）本就一豆一列，不會同日多列；同日多鍋的連動由 qcVerdict mates 補完。
+- **驗證**：jscheck ✓；stub Guji Washed 同日 3 鍋＋別日 1 鍋 → In hand 合併（4d「3 roasts · 14 kg green」一列＋2d 一列，data-tocup=第一鍋 g1）✓；判 g1 pass → g1/g2/g3 一起 pass、g4（別日）不動 ✓；判定後 buildItems 重繪 4d 組整批消失、只剩別日 ✓；console 零錯誤。
+- **注意**：合併鍵含 process（同名不同處理法不會誤併，同之前的分開邏輯）；下游 rstGroupByDate（Coffee Stock）本就同日合併，一致。
+
 ## 〇、補記 — 2026-07-12 之十九（QC 清單跟 Coffee Stock 同步：只顯示有庫存批次）
 - **老闆點名問題**：單品熟豆還沒判定就被拿去拼配（consumeBlendParts FIFO 扣光 remaining→0），Coffee Stock 因 remaining>0 即時消失，但 QC 只看 qc=null 不看庫存 → 豆一直掛在 QC。真實案例 La Molienda（0 kg 還在 QC）。老闆定調：QC 從 Coffee Stock 拿豆單＝只顯示 remaining>0。
 - **老闆拍板（AskUserQuestion）**：採**嚴格 >0**——連「烘了沒填烘出重量（remaining=null）」的 5 支新豆（Finca Milan/Gatitu AA/Kiama AA/Mwendi Wega AB）也從 QC 移除；要杯測先去 Coffee Stock Intake 補重量。

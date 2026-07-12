@@ -1131,6 +1131,17 @@ async function qcVerdict(r,v,btn,cardId,s){
   var u=await sb.from('roasts').update({qc:v}).eq('id',r.id);
   if(u.error){if(btn){btn.disabled=false;}alert('QC failed: '+u.error.message);return;}
   r.qc=v;
+  /* 同一支豆同一天烘的幾鍋＝同一批，一起判（2026-07-12 老闆點名 QC 同日合併）——
+     否則合併顯示的其他鍋 qc 還是 null，判完又冒出來。同名+同處理法+同烘焙日、還沒判定的一起蓋 */
+  var mates=(DB.roasts||[]).filter(function(x){
+    return String(x.id)!==String(r.id)&&!x.qc
+      &&String(x.bean_name||'').trim().toLowerCase()===String(r.bean_name||'').trim().toLowerCase()
+      &&String(x.process||'').trim().toLowerCase()===String(r.process||'').trim().toLowerCase()
+      &&String(x.roast_date||'')===String(r.roast_date||'');
+  });
+  for(var mi=0;mi<mates.length;mi++){
+    try{var mu=await sb.from('roasts').update({qc:v}).eq('id',mates[mi].id);if(!mu.error)mates[mi].qc=v;}catch(e){}
+  }
   logAct('qc '+v,r.bean_name||('roast '+r.id));
   /* pass＋開關開＝杯測紀錄就地鎖風味（資訊卡/上架直接用這筆）；鎖失敗不擋判定但要說出來（曾靜默吞掉害老闆以為鎖了）。
      鎖走 lockFlavourSolo＝同名其他筆自動解鎖——pass 的這筆就是「在賣的版本」 */
@@ -5517,12 +5528,20 @@ function renderQC(){
   var segHTML='<div class="pm-seg" style="margin-bottom:8px">'
     +'<button id="qc-seg-s" class="'+(blend?'':'on')+'">Single origins'+(nS?' · '+nS:'')+'</button>'
     +'<button id="qc-seg-b" class="'+(blend?'on':'')+'">Blends'+(nB?' · '+nB:'')+'</button></div>';
-  /* 杯測師工作台第一區：手上的豆（當前分頁的 production roast 待杯測）——點列直接開 Cup 抽屜 */
-  var cupSec=tocup.length
+  /* 杯測師工作台第一區：手上的豆（當前分頁的 production roast 待杯測）——點列直接開 Cup 抽屜。
+     2026-07-12：同一支豆同一天烘的幾鍋合併一列（同 Coffee Stock；判定時 qcVerdict 也整組一起判）*/
+  var cupGroups=[],cgi={};
+  tocup.forEach(function(r){
+    var b=(DB.beans||[]).find(function(x){return String(x.id)===String(r.bean_id);});
+    var proc=r.process||(b&&b.process)||'';
+    var k=String(r.bean_name||'').trim().toLowerCase()+'|'+String(proc).trim().toLowerCase()+'|'+String(r.roast_date||'');
+    if(cgi[k]==null){cgi[k]=cupGroups.length;cupGroups.push({first:r,name:r.bean_name,proc:proc,date:r.roast_date,green:0,n:0});}
+    var g=cupGroups[cgi[k]];g.n++;g.green+=Number(r.green_kg)||0;
+  });
+  var cupSec=cupGroups.length
     ?'<div class="note">In hand — tap to cup</div>'
-      +tocup.map(function(r){
-        var b=(DB.beans||[]).find(function(x){return String(x.id)===String(r.bean_id);});
-        return '<div class="qrow qrow-new" data-tocup="'+esc(r.id)+'"><div class="t">'+esc(r.bean_name||'—')+(b&&b.process?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif">'+esc(b.process)+'</span>':'')+' <span class="qc-new">New</span></div><div class="s">'+(r.roast_date?'roasted '+fmtD(r.roast_date):'roast batch')+(r.green_kg?' · '+r.green_kg+' kg green in':'')+' · not cupped yet</div></div>';
+      +cupGroups.map(function(g){
+        return '<div class="qrow qrow-new" data-tocup="'+esc(g.first.id)+'"><div class="t">'+esc(g.name||'—')+(g.proc?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif">'+esc(g.proc)+'</span>':'')+' <span class="qc-new">New</span></div><div class="s">'+(g.date?'roasted '+fmtD(g.date):'roast batch')+(g.n>1?' · '+g.n+' roasts':'')+(g.green>0?' · '+(Math.round(g.green*10)/10)+' kg green in':'')+' · not cupped yet</div></div>';
       }).join('')
     :'';
   function wireExtras(){
