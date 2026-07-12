@@ -2262,6 +2262,14 @@ function shelfFreshness(nm){
   if(age<=SHELF_FRESH_PRIME)return {txt:'roasted '+age+'d — ready',cls:'fr-green',days:age};
   return {txt:'roasted '+age+'d — fading'+(age>SHELF_STALE_DAYS?' · re-roast?':''),cls:'fr-red',days:age};
 }
+/* Coffee Info 分頁（2026-07-13 老闆點名：配方豆/單品用 tab 分開）——預設同 Coffee Stock（blend 先） */
+var RTL_SEG='blend';
+/* 拼配判定＝名字命中 blends 主檔（同 cardDataFor 慣例）或有 kind='blend' 批次（漏網之魚拼配不在主檔也認得） */
+function rtlIsBlend(nm){
+  var k=String(nm||'').trim().toLowerCase();
+  return (DB.blends||[]).some(function(b){return String(b.name||'').trim().toLowerCase()===k;})
+    ||(DB.roasts||[]).some(function(r){return r.kind==='blend'&&String(r.bean_name||'').trim().toLowerCase()===k;});
+}
 async function openRetailSheet(){
   openDrawerHTML('<div class="t" style="font-size:19px">Coffee Info</div><div class="empty">Loading…</div>');
   /* 價格/規格/售罄記憶（classic 同款 app_state 鑰匙） */
@@ -2284,6 +2292,9 @@ async function openRetailSheet(){
     var nm=String(x.bean_id||'').trim();if(!nm||isSubName(nm))return;
     var lk=nm.toLowerCase();if(seen[lk])return;seen[lk]=1;pool.push(nm);
   });
+  /* 分頁過濾（2026-07-13）：blend tab 只列拼配、single tab 只列單品 */
+  pool=pool.filter(function(nm){return rtlIsBlend(nm)===(RTL_SEG==='blend');});
+  /* 排序（老闆定調）：烘豆日舊→新（最老的在上＝先賣先清）；沒烘豆日的沉底按名字排 */
   var live=pool.map(function(nm){var d=null;try{d=shelfLatestRoast(nm);}catch(e){}return {nm:nm,d:d};})
     .sort(function(a,b){
       if(!!a.d!==!!b.d)return a.d?-1:1;
@@ -2331,13 +2342,16 @@ async function openRetailSheet(){
   openDrawerHTML('<div class="t" style="font-size:19px">Coffee Info</div>'
     +'<div class="s" style="margin-top:2px">flavour, freshness and dossier per coffee'+(soldN?' · <span class="red">'+soldN+' sold out</span>':'')
     +(hidN?' · <span class="red">'+hidN+' not in shop — flavour unlocked</span>':'')+'</div>'
-    +(rows||'<div class="empty">No coffees yet — cup a roast in QC first</div>')
+    +'<div class="pm-seg" style="margin-top:10px"><button id="rtl-b" class="'+(RTL_SEG==='blend'?'on':'')+'">Blends</button><button id="rtl-s" class="'+(RTL_SEG==='blend'?'':'on')+'">Single origins</button></div>'
+    +(rows||'<div class="empty">No coffees here yet — cup a roast in QC first</div>')
     +(errs.length?'<div class="dlab">Sync problems</div>'+errs.map(function(x){return '<div class="dl"><span>'+esc(x.bean_id||'—')+'</span><span class="red">'+esc(x.status)+'</span></div>';}).join(''):'')
     +(toList.length?'<div class="dlab">Ready to list</div>'+toList.map(function(i,ix){
         return '<div class="dl" data-tolist="'+ix+'" style="cursor:pointer"><span>'+esc(i.ref.sample_id||'—')+'</span><span style="color:var(--accent)">QC passed · tap to list ›</span></div>';}).join(''):'')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   document.querySelectorAll('#drawer [data-shelf]').forEach(function(el){el.addEventListener('click',function(){openShelfBeanDetail(el.dataset.shelf,m);});});
   document.querySelectorAll('#drawer [data-tolist]').forEach(function(el){el.addEventListener('click',function(){var it=toList[+el.dataset.tolist];if(it)openListSheet(it);});});
+  $('rtl-b').addEventListener('click',function(){if(RTL_SEG!=='blend'){RTL_SEG='blend';openRetailSheet();}});
+  $('rtl-s').addEventListener('click',function(){if(RTL_SEG!=='single'){RTL_SEG='single';openRetailSheet();}});
   $('d-cl').addEventListener('click',closeDrawer);
 }
 /* Retail shelf 豆子明細：售價/新鮮度＋烘焙風味（風味詞、comment、雷達）＋豆子履歷＋一鍵資訊卡 */

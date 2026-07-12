@@ -67,7 +67,8 @@
   - `consumeBlendParts`：sort 加權＝downgrade 排隊首、同級內照 roast_date FIFO（過濾本來就沒擋 dg，只差順序）
 - **不動的**：`rstBatches` 零改（出貨 `deductOrderStock`/血條/rstStockKg 全走它＝客人訂單永遠吃不到降級豆）；`shelfG` 需求覆蓋仍排除 dg（「還要烘多少」只看可賣量）；QC 佇列天生 `!r.qc` 擋已判定；public-shop edge 不動
 - **驗證**：jscheck ✓；serve 複本 stub（攔 fetch）——可賣池/dg 池分離、純 dg 豆有列、出貨池無 dg、consumeBlendParts 先扣 dg 批（PATCH 順序 r2→r1）、Publish 三豆三態（locked→Live／synced 未鎖→Not on shop＋黃標／downgrade→沉底 Lock flavours first）、點 dg 行開扣量抽屜只帶 dg 組、QC 佇列回歸 0、console 零錯誤＋截圖×3
-- **⚠ 陷阱備忘**：dg 量刻意不進可賣血條與低標——別「修正」它；同名豆換鎖／鎖失敗的 pass-未鎖豆現在 Publish 會黃標提醒而非可上架（行為變更＝設計如此）
+- **⚠ 陷阱備忘**：dg 量刻意不進可賣血條與低標——別「修正」它；沒鎖的豆（含 pass-未鎖）在 Publish 完全不列（行為變更＝設計如此），要找去 Coffee Stock/Coffee Info
+- **同輪加做：Coffee Info 分頁**（老闆點名）：`openRetailSheet` 加 pm-seg〔Blends｜Single origins〕（同 Coffee Stock 樣式、預設 blend）；新全域 `RTL_SEG`＋helper `rtlIsBlend(nm)`（命中 blends 主檔**或**有 kind='blend' 批次＝漏網之魚拼配也認得）；排序不動（本來就烘豆日舊上新下＝先賣先清）；soldN/hidN 副標計數隨當前分頁（數字跟看得到的列對應）；Ready to list/Sync problems 區塊全局不分頁。驗證：stub——blend tab〔Mystery Mix(06-01)→House Blend(07-08)〕、single tab〔Geisha(06-15)→Kenya AA(07-01)〕舊上新下、切換正常、console 零錯誤＋截圖
 
 ## 〇、補記 — 2026-07-11 之九（遊戲風首頁 Home：手遊磁貼牆＋紅點＋今日進度條 ✅）
 - **成果**：新殼加**第四頁 `view==='home'`**（nav 第一顆 Home，暫不搶預設落地頁）＝手遊主畫面：3×3 站台磁貼（inline SVG 圖示＋待辦數）＋紅點（有沒看過的新卡）＋今日進度條（done X / Y）。老闆想要「少字、像遊戲」＋「新東西冒紅點」——此輪全交付
