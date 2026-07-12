@@ -199,6 +199,8 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .qrow{background:var(--surface);border:1px solid var(--line2);border-radius:16px;padding:15px 16px;margin-bottom:10px;cursor:pointer;box-shadow:0 4px 11px rgba(120,90,160,.05);transition:transform .13s ease}
 .qrow:active{transform:scale(.985)}
 .qrow.sel{border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent);box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 18%,transparent)}
+.qrow.qrow-new{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,transparent)}
+.qc-new{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:var(--accent);padding:2px 9px;border-radius:999px;margin-left:5px;vertical-align:2px}
 .qrow .t{font-size:18px}
 .drawer-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40;display:none;touch-action:none}
 .drawer-bg.show{display:block}
@@ -5515,7 +5517,7 @@ function renderQC(){
     ?'<div class="note">In hand — tap to cup</div>'
       +tocup.map(function(r){
         var b=(DB.beans||[]).find(function(x){return String(x.id)===String(r.bean_id);});
-        return '<div class="qrow" data-tocup="'+esc(r.id)+'"><div class="t">'+esc(r.bean_name||'—')+(b&&b.process?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif">'+esc(b.process)+'</span>':'')+'</div><div class="s">'+(r.roast_date?'roasted '+fmtD(r.roast_date):'roast batch')+(r.green_kg?' · '+r.green_kg+' kg green in':'')+' · not cupped yet</div></div>';
+        return '<div class="qrow qrow-new" data-tocup="'+esc(r.id)+'"><div class="t">'+esc(r.bean_name||'—')+(b&&b.process?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif">'+esc(b.process)+'</span>':'')+' <span class="qc-new">New</span></div><div class="s">'+(r.roast_date?'roasted '+fmtD(r.roast_date):'roast batch')+(r.green_kg?' · '+r.green_kg+' kg green in':'')+' · not cupped yet</div></div>';
       }).join('')
     :'';
   function wireExtras(){
