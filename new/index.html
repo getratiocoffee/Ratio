@@ -4095,6 +4095,10 @@ function rstRows(isBlend){
     /* 上架狀態：product_sync 同名列 → Live / Sold out 膠囊（Square 商品名字級，同名共用） */
     var sy=(DB.syncs||[]).find(function(s){return (s.status==='synced'||s.status==='paused')&&String(s.bean_id||'').trim().toLowerCase()===x.name.toLowerCase();});
     x.sync=sy?sy.status:null;
+    /* Live 要說真話（老闆點名 2026-07-12）：Square synced 只是掛上架，客人真的看得到還要風味鎖定
+       （店面 public-shop 的 QC gate＝flavour_locked sample）。有鎖才算真 Live，synced 沒鎖＝店面看不到。
+       DB.samples 載入時已 .eq supplier 'Ratio Coffee'，此處名字級比對＝與 public-shop 同條件 */
+    x.locked=(DB.samples||[]).some(function(s){return s.flavour_locked&&String(s.sample_id||'').trim().toLowerCase()===x.name.toLowerCase();});
     /* 缺咖啡資訊（v3）：沒杯測紀錄＝掛紅字警示、點了去 QC 補。
        名字級判斷（同名任一杯測就算有）——process 級警示等 samples 記法統一再收緊 */
     x.noInfo=!shelfSampleFor(x.name);
@@ -4128,7 +4132,7 @@ function openBatchesSheet(){
       +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
       +'<span style="min-width:0;display:flex;align-items:baseline;gap:7px"><span class="t" style="font-size:14.5px">'+esc(x.name)
       +(x.proc?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(x.proc)+'</span>':'')+'</span>'
-      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='synced'?'background:var(--accent);color:#fff':'background:var(--danger);color:#fff')+'">'+(x.sync==='synced'?'Live':'Sold out')+'</span>':'')
+      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':x.locked?'background:var(--accent);color:#fff':'background:#B5791C;color:#fff')+'">'+(x.sync==='paused'?'Sold out':x.locked?'Live':'Not on shop')+'</span>':'')
       +(x.noInfo?'<span class="red" style="flex:0 0 auto;font-size:11px;font-weight:600">no info — cup it</span>':'')
       +'</span>'
       +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto"><span class="s" style="'+(danger?'color:var(--danger);font-weight:700':'color:var(--muted)')+'">'+esc(x.hp.label)+'</span>'
@@ -4147,6 +4151,7 @@ function openBatchesSheet(){
       }).join(''):'<div class="sempty">No batches in stock</div>';
       h+='<div style="margin-top:6px">'+bl
         +(x.batches.length&&ed?'<div class="s" style="margin-top:4px;color:var(--muted)">tap a batch row → deduct that exact roast date</div>':'')
+        +((x.sync==='synced'&&!x.locked)?'<div class="s" style="margin-top:8px;color:#B5791C">On Square but hidden from the shop — lock its flavour so customers can see it (Lock flavours card in the daily flow).</div>':'')
         +(x.noInfo?'<button class="chip" id="rst-cup" style="margin-top:8px;color:var(--danger);border-color:var(--danger)">Cup it in QC →</button>':'');
       if(ed&&x.ref){
         h+='<div style="display:flex;gap:8px;margin-top:10px">'
