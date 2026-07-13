@@ -4857,12 +4857,18 @@ async function pushListToSquare(){
     SHOP_STALE=true; /* 商品圖剛換過——下次看店面別吃 5 分鐘的舊快取 */
     /* 價格＋商品圖模式記憶寫回 app_state（讀回最新再改，避免蓋掉別台改的）——key＝上架顯示名（mkey） */
     try{
-      var mem=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes','rtl_imgstyle']);
-      var m={rtl_price:{},rtl_g:{},rtl_sizes:{},rtl_imgstyle:{}};
+      var mem=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes','rtl_imgstyle','rtl_sold']);
+      var m={rtl_price:{},rtl_g:{},rtl_sizes:{},rtl_imgstyle:{},rtl_sold:{}};
       (mem.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}if(v&&typeof v==='object')m[x.key]=v;});
       m.rtl_price[listNm]=price;m.rtl_g[listNm]=LST.grams;
       var sc={};if(p500>0)sc.g500=p500;if(p1k>0)sc.g1000=p1k;m.rtl_sizes[listNm]=sc;
       m.rtl_imgstyle[listNm]={mode:LST.imgMode||'colour',bg:LST.imgBg||'#FAF8F4',scrim:LST.imgScrim};
+      /* 上架成功＝清售罄記憶（2026-07-14 老闆點名 Coffee Info 一堆 Off shelf 的根因：
+         重新 List 只寫 product_sync synced，rtl_sold 舊標記沒人清 → 明明在賣還掛 Off shelf） */
+      Object.keys(m.rtl_sold).forEach(function(k){
+        var kl=String(k).trim().toLowerCase();
+        if(kl===String(listNm).trim().toLowerCase()||kl===String(nm).trim().toLowerCase())delete m.rtl_sold[k];
+      });
       for(var k in m)await sb.from('app_state').upsert({key:k,value:m[k],updated_at:new Date().toISOString()},{onConflict:'key'});
     }catch(e){console.error('price memory',e);}
     if(!s.flavour_locked&&LST.lock){try{await lockFlavourSolo(s);}catch(e){}}
