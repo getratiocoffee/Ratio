@@ -65,6 +65,7 @@
   - 新 utility action `detach {object_id}`：拆錯認商品＝清 ratio_ref＋移 Grind modifier＋刪 ratio card 圖＋清描述（名字/variations/分類不動）
 - **修復執行**：detach ×3（三個 House 品項恢復乾淨）；product_sync 三列 external_id/variation_id 清 null（價格記憶保留，重新上架走 create＋新分類）；全豆體檢＝其餘上架豆全部連對（ratio_ref 立功），paused 舊豆 catalog not found 屬正常
 - **意外驗收 🎉**：老闆已 push 部署新前端＋自己跑通同名多處理法全鏈——**Alo Village White Honey＋Cold Fermentation 同時在 ?shop 賣**（CF 商品名帶後綴「Alo Village — Cold Fermentation」）。店面現在 8 支豆
+- **同輪加做：Coffee Stock 單品 0kg 不列**（老闆定調）：rstRows 單品 has 判斷收掉「設了 target/low 就算 0kg 也列」——只剩可賣>0／降級池／待入庫（Log roast 出來的）三種才現身；賣光的豆去 Coffee Info History 看。Blends 分頁不動（配方全列照舊）。stub 四情境驗證 ✓
 - **⚠ 待老闆**：①White Honey 商品名還是純「Alo Village」（昨晚舊前端 push 的）——下次對它按 Update listing 會自動補後綴，兩支對稱 ②Square 後台瞄一眼三個 House 品項（描述被清空了，若原本有描述要自己補回）③Dark Knight/Dancer/Dreamer 要重新上架時照常 Publish 按 List＝建全新商品掛「Ratio Online Shop」分類
 
 ## 〇、補記 — 2026-07-13 之三（同名多處理法豆全鏈打通：Alo Village 兩處理法可同時鎖＋Publish＋上架 ✅）

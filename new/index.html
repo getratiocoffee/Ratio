@@ -4164,8 +4164,9 @@ function rstRows(isBlend){
       var nm=String(b.name||'').trim();if(!nm)return;
       var proc=String(b.process||'').trim();
       var lk=nm.toLowerCase()+'|'+proc.toLowerCase();if(seen[lk])return;
-      /* 只剩 downgrade / 待入庫批次的豆也要列——rstStockKg 只算可賣池，另補 dg 池＋待秤池判斷 */
-      var has=rstStockKg(nm,false,proc)>0||rstDgBatches(nm,false,proc).length>0||rstPendingBatches(nm,false,proc).length>0||Number(b.roast_target_kg)>0||Number(b.roast_low_kg)>0;
+      /* 2026-07-14 老闆定調：0kg 的單品不列——只有可賣/降級/待入庫（Log roast 出來的）才現身。
+         原「設了 target/low 就算 0kg 也列」規則收掉（賣光的豆去 Coffee Info History 看） */
+      var has=rstStockKg(nm,false,proc)>0||rstDgBatches(nm,false,proc).length>0||rstPendingBatches(nm,false,proc).length>0;
       if(!has)return;seen[lk]=1;
       rows.push({name:nm,proc:proc,isBlend:false,target:b.roast_target_kg,low:b.roast_low_kg,ref:b});
     });
