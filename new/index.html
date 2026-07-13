@@ -537,7 +537,7 @@ async function loadAll(){
     sb.from('product_sync').select('bean_id,status,process').eq('channel','square'),
     sb.from('samples').select('id,sample_id,bean_id,process,roast_date,cupping_date,features,flavour_locked,fragrance,acidity,sweetness,body,aftertaste,comment,cupper').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
     sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg,status,kind,remaining_kg,roasted_kg,process').order('roast_date',{ascending:false}),
-    sb.from('beans').select('id,name,process,quantity,low_stock_kg,country,region,station,variety,harvest,altitude,cost_per_kg,supplier,roast_target_kg,roast_low_kg'),
+    sb.from('beans').select('id,green_no,name,process,quantity,low_stock_kg,country,region,station,variety,harvest,altitude,cost_per_kg,supplier,roast_target_kg,roast_low_kg'),
     sb.from('feedback').select('*').is('reply',null).order('created_at',{ascending:false}),
     sb.from('rosters').select('week_start,shifts,deleted').eq('week_start',mondayStr()),
     sb.from('app_state').select('value').eq('key','new_snooze').maybeSingle(),
@@ -1110,6 +1110,9 @@ async function acceptOrder(i,btn){
 /* 處理法 key（2026-07-13 處理法分開下半場）：null/undefined/空白全折成 ''——
    全鏈「同名同處理法」比對都用它，別再裸比 process 字串 */
 function procKey(p){return String(p||'').trim().toLowerCase();}
+/* 生豆身分證（2026-07-15 老闆定案）：每支生豆一個 G#00001 人類可讀編號——DB green_no 自動發號
+   （sequence default），這裡只負責顯示。同名多處理法從此一眼分清（Alo Village G#00012/G#00013） */
+function gNo(b){return (b&&b.green_no!=null)?('G#'+String(b.green_no).padStart(5,'0')):'';}
 /* 鎖風味＝單選（2026-07-12 老闆定調）：鎖＝「在賣的版本」。
    2026-07-13 收緊成「同名＋同處理法」互斥（Alo Village White Honey / Cold Fermentation 事件）——
    不同處理法是不同商品，鎖互不干涉；同名同處理法（重複豆/re-cup）仍只能一筆鎖著。
@@ -4422,7 +4425,7 @@ function openGreensSheet(){
     var t=(b.low_stock_kg==null?GREEN_LOW_KG:Number(b.low_stock_kg));
     var low=b.quantity!=null&&t>0&&Number(b.quantity)<=t;
     rows+='<div class="hit" data-g="'+ix+'"><span><div class="t">'+esc(b.name)+(b.process?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(b.process)+'</span>':'')+'</div>'
-      +'<div class="s">'+(b.supplier?esc(b.supplier):'')+'</div></span>'
+      +'<div class="s">'+(gNo(b)?gNo(b)+(b.supplier?' · ':''):'')+(b.supplier?esc(b.supplier):'')+'</div></span>'
       +'<span class="k'+(low?' red':'')+'" style="font-size:15px">'+(Number(b.quantity)||0)+' kg</span></div>';
   });
   openDrawerHTML('<div class="t" style="font-size:19px">Green stock</div>'
@@ -4439,6 +4442,7 @@ async function openGreenDetail(b){
   var t=(b.low_stock_kg==null?GREEN_LOW_KG:Number(b.low_stock_kg));
   openDrawerHTML('<span class="tag">Green</span><div class="t" style="font-size:19px">'+esc(b.name)+(b.process?' · '+esc(b.process):'')+'</div>'
     +'<div style="margin-top:10px">'
+    +(gNo(b)?'<div class="dl"><span>ID</span><span>'+gNo(b)+'</span></div>':'')
     +'<div class="dl"><span>Stock</span><span>'+(Number(b.quantity)||0)+' kg</span></div>'
     +'<div class="dl"><span>Low line</span><span>'+(t>0?t+' kg':'off (rotation bean)')+'</span></div>'
     +'<div class="dl"><span>Cost</span><span>'+(b.cost_per_kg!=null?money(b.cost_per_kg)+' / kg':'—')+'</span></div>'
@@ -4483,7 +4487,7 @@ async function openGreenEdit(b){
     return '<div style="margin-top:12px"><div class="dlab" style="margin:0 0 4px">'+esc(f[1])+'</div>'
       +'<input class="din" style="margin:0" data-gf="'+f[0]+'"'+(f[2]?' inputmode="decimal"':'')+' value="'+esc(v)+'" placeholder="'+(f[0]==='name'?'required':'—')+'"></div>';
   }).join('');
-  openDrawerHTML('<span class="tag">Green</span><div class="t" style="font-size:19px">Edit details</div>'
+  openDrawerHTML('<span class="tag">Green</span><div class="t" style="font-size:19px">Edit details'+(gNo(b)?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+gNo(b)+'</span>':'')+'</div>'
     +'<div class="s" style="margin-top:2px">Stock kg is set in Stocktake so the history stays intact — this edits the bean’s details.</div>'
     +rows
     +'<div id="gb-msg" style="color:var(--danger);font-size:13px;margin-top:10px;min-height:16px"></div>'
@@ -4627,7 +4631,9 @@ function openBatchesSheet(){
       +'<div data-rst="'+xi+'" style="cursor:pointer">'
       +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
       +'<span style="min-width:0;display:flex;align-items:baseline;gap:7px"><span class="t" style="font-size:14.5px">'+esc(x.name)
-      +(x.proc?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(x.proc)+'</span>':'')+'</span>'
+      +(x.proc?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(x.proc)+'</span>':'')
+      /* 來源生豆 G#ID（有對到 beans 列才有——批次孤兒沒有） */
+      +(x.ref&&gNo(x.ref)?' <span style="color:var(--muted);font-weight:400;font-size:11px">'+gNo(x.ref)+'</span>':'')+'</span>'
       +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':x.locked?'background:var(--accent);color:#fff':'background:#B5791C;color:#fff')+'">'+(x.sync==='paused'?'Off shelf':x.locked?'Live':'No lock')+'</span>':'')
       +(x.noInfo?'<span class="red" style="flex:0 0 auto;font-size:11px;font-weight:600">no info — cup it</span>':'')
       +'</span>'
@@ -4965,7 +4971,7 @@ function paintReceiveSheet(){
     +(ex
       ?'<div class="dlab">Green coffee</div>'
         +'<select class="din" id="rv-bean" style="padding:12px"><option value="">— pick a bean —</option>'
-        +beans.map(function(b){return '<option value="'+esc(b.id)+'"'+(String(RCV.beanId)===String(b.id)?' selected':'')+'>'+esc(b.name)+(b.process?' · '+esc(b.process):'')+' · '+(Number(b.quantity)||0)+' kg</option>';}).join('')
+        +beans.map(function(b){return '<option value="'+esc(b.id)+'"'+(String(RCV.beanId)===String(b.id)?' selected':'')+'>'+(gNo(b)?gNo(b)+' · ':'')+esc(b.name)+(b.process?' · '+esc(b.process):'')+' · '+(Number(b.quantity)||0)+' kg</option>';}).join('')
         +'</select>'
         +(sel?'<div class="s" style="margin-top:4px">book '+(Number(sel.quantity)||0)+' kg'+(sel.supplier?' · '+esc(sel.supplier):'')+'</div>':'')
       :'<div class="dlab">Coffee name</div><input class="din" id="rv-name" placeholder="e.g. Finca Milan" value="'+esc(RCV.name)+'">'
@@ -5053,7 +5059,7 @@ function openStocktakeSheet(){
     if(c!==lastC){rows+='<div class="dlab">'+esc(c)+'</div>';lastC=c;}
     rows+='<div class="no-line" style="align-items:center;margin-top:8px">'
       +'<span style="flex:1;min-width:0"><b>'+esc(b.name)+'</b>'+(b.process?' <span style="color:var(--muted);font-size:13px">'+esc(b.process)+'</span>':'')
-      +'<br><span style="color:var(--muted);font-size:13px">book '+(Number(b.quantity)||0)+' kg</span></span>'
+      +'<br><span style="color:var(--muted);font-size:13px">'+(gNo(b)?gNo(b)+' · ':'')+'book '+(Number(b.quantity)||0)+' kg</span></span>'
       +'<input class="din" data-stk="'+esc(b.id)+'" inputmode="decimal" placeholder="—" style="flex:0 0 96px;margin-top:0;text-align:center">'
       +'</div>';
   });
@@ -5973,7 +5979,7 @@ function paintRoastSheet(){
     /* Add a batch 輸入區（含每鍋曲線摺疊） */
     var addBox='<div class="dlab">Add a batch</div>'
     +'<select class="din" id="ro-bean" style="padding:12px"><option value="">— pick a bean —</option>'
-    +beans.map(function(b){return '<option value="'+esc(b.id)+'"'+(String(RO.beanId)===String(b.id)?' selected':'')+'>'+esc(b.name)+(b.process?' · '+esc(b.process):'')+' · '+(Number(b.quantity)||0)+' kg</option>';}).join('')
+    +beans.map(function(b){return '<option value="'+esc(b.id)+'"'+(String(RO.beanId)===String(b.id)?' selected':'')+'>'+(gNo(b)?gNo(b)+' · ':'')+esc(b.name)+(b.process?' · '+esc(b.process):'')+' · '+(Number(b.quantity)||0)+' kg</option>';}).join('')
     +'</select>'
     +(sel?'<div class="s" style="margin-top:4px">stock '+(Number(sel.quantity)||0)+' kg'+(over?' · <span class=red>exceeds stock</span>':'')+'</div>':'')
     +'<div style="display:flex;gap:8px">'
@@ -6543,7 +6549,7 @@ function openBackfillSheet(){
   if(single){
     body='<div class="dlab">Bean</div>'
       +'<select class="din" id="bf-bean" style="padding:12px"><option value="">— pick a bean —</option>'
-      +beans.map(function(b){return '<option value="'+esc(b.id)+'"'+(String(BF.beanId)===String(b.id)?' selected':'')+'>'+esc(b.name)+(b.process?' · '+esc(b.process):'')+'</option>';}).join('')
+      +beans.map(function(b){return '<option value="'+esc(b.id)+'"'+(String(BF.beanId)===String(b.id)?' selected':'')+'>'+(gNo(b)?gNo(b)+' · ':'')+esc(b.name)+(b.process?' · '+esc(b.process):'')+'</option>';}).join('')
       +'</select>'
       +'<div class="dlab">Not in the list? Type the name</div><input class="din" id="bf-name" placeholder="e.g. Danche" value="'+esc(BF.name)+'">';
   }else{
@@ -9919,7 +9925,13 @@ function renderTools(){
     $('tgroups').style.display=q?'none':'';
     if(!q){$('thits').innerHTML='';return;}
     var hits=[];
-    DB.beans.forEach(function(b){if((b.name||'').toLowerCase().indexOf(q)>-1)hits.push({k:'Green',t:b.name,s:(b.process?b.process+' · ':'')+(Number(b.quantity)||0)+' kg',det:[['Process',b.process||'—'],['Green stock',(Number(b.quantity)||0)+' kg']]});});
+    /* G#ID 搜尋：打 g13 / G#00013 / 13 都命中（去掉 g/#/前導零後比數字） */
+    var qNum=/^g?#?0*(\d+)$/i.exec(q.replace(/\s/g,''));
+    DB.beans.forEach(function(b){
+      var byName=(b.name||'').toLowerCase().indexOf(q)>-1;
+      var byNo=qNum&&b.green_no!=null&&String(b.green_no)===qNum[1];
+      if(byName||byNo)hits.push({k:'Green',t:(gNo(b)?gNo(b)+' · ':'')+b.name,s:(b.process?b.process+' · ':'')+(Number(b.quantity)||0)+' kg',det:[['ID',gNo(b)||'—'],['Process',b.process||'—'],['Green stock',(Number(b.quantity)||0)+' kg']]});
+    });
     DB.customers.forEach(function(c){if((c.name||'').toLowerCase().indexOf(q)>-1){
       var os=DB.orders.filter(function(o){return o.customer_id===c.id;});
       hits.push({k:'Customer',t:c.name,s:(c.type||'')+' · '+os.length+' open order'+(os.length===1?'':'s')+(c.email?' · '+c.email:''),det:[['Type',c.type||'—'],['Email',c.email||'—'],['Open orders',String(os.length)]]});}});

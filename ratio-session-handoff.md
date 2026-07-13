@@ -64,6 +64,13 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之四（生豆身分證 G#ID：每支生豆一個人類可讀編號 ✅）
+- **老闆定案**：連環「拿錯豆」後下令——每支生豆一個 ID，G#00001 起。計畫檔 `~/.claude/plans/id-g-00001-shimmying-globe.md`。
+- **DB（migration `beans_green_no`）**：beans 加 `green_no integer unique`＋sequence `beans_green_no_seq` 設 default（**DB 自動發號——前端兩個進豆 insert 點零改動、永不重號**）；回填 27 支既有豆按 id 排序（id 內嵌 base36 時間戳＝進貨順序）＝G#00001 Danche v1 … G#00027 Karimikui AA（Alo Village CF=G#00012／WH=G#00013）；sequence 已 setval 27，下一支新豆自動 G#00028。
+- **前端（new/index.html）**：helper `gNo(b)`（procKey 旁）＝'G#'+padStart(5,'0')，沒號回空（容錯舊資料）。九落點：①loadAll beans select 加 green_no（不加記憶體看不到）②Green stock 清單行 sub ③openGreenDetail ID 列 ④openGreenEdit 標題旁唯讀 ⑤⑥⑦選豆下拉 ×3（Receive/Log roast/Backfill）option 前置 `G#00013 · Alo Village · White Honey · 25 kg`＝防拿錯豆主戰場 ⑧Stocktake 行 ⑨Coffee Stock 行（x.ref 有才顯示，批次孤兒沒有）＋全域搜尋（`g13`/`G#00013`/`13` 皆命中＝regex 去 g#/前導零比數字，名字搜尋照舊）。
+- **驗證**：SQL＝27 支全有號/無重複/進貨序 ✓；jscheck ✓；preview stub＝gNo 三態（12/13/無號空串）、清單 sub 帶號、詳情 ID 列、Receive 下拉 option 格式、搜尋四打法、rstRows ref 帶 G#00013、console 零錯誤。
+- **⏭ 老闆真機**：下次 Receive→New bean 收一支新豆，看自動拿 G#00028。**範圍外備忘**：samples/roasts 關聯改造（已有 bean_id 外鍵）、烘焙批次 R#ID、greenForPart/beanInfoRows 名字級對接改造——都是之後的工程。
+
 ## 〇、補記 — 2026-07-15 之三（Publish「拿不下架」修復：同名雙處理法的售罄鏈兩個洞 ✅）
 - **老闆回報**：Publish 裡 Alo Village White Honey 拿不下架。DB 實查：同名兩列 sync（Cold Fermentation paused／White Honey synced），三表 process 寫法一致無髒資料。
 - **洞一（Coffee Info 詳情，2491）**：`setShelfSold(nm,!sold)` **漏傳 proc**——同名雙 process 豆名字級打 edge availability，procKey('') 兩列都不中、rows.length=2 不走單列 fallback → **400 not synced yet**（「拿不下架」直接原因候選）。修：補第三參數 `proc`（openShelfBeanDetail 本來就有）。
