@@ -2488,7 +2488,7 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
   if(sbSold)sbSold.addEventListener('click',async function(){
     var btn=this;btn.disabled=true;btn.textContent='Working…';
     try{
-      await setShelfSold(nm,!sold); /* sold＝現在售罄中→回架；否則→標售罄 */
+      await setShelfSold(nm,!sold,proc); /* sold＝現在售罄中→回架；否則→標售罄；proc＝同名多處理法定位那一列（漏傳會 400 not synced yet） */
       toast(!sold?'Off shelf ✓':'Back on sale ✓');
       await reload();openRetailSheet();
     }catch(e){
@@ -3274,7 +3274,9 @@ function paintPublishSheet(sl,acts){
     if(act==='list'){openListSheet({ref:x.s});return;}
     if(act==='sold'){
       el.disabled=true;el.textContent='Working…';
-      try{await setShelfSold(x.nm,x.sync!=='paused',x.s&&x.s.process);toast(x.sync!=='paused'?'Off shelf ✓':'Back on sale ✓');openPublishSheet();}
+      /* proc 用 x.proc（列鍵，與 syncFor 判狀態同一把鑰匙）；成功後必 reload——
+         DB.syncs 是記憶體快照，不重抓的話重畫永遠顯示舊狀態（老闆 07-15「拿不下架」的體感元凶） */
+      try{await setShelfSold(x.nm,x.sync!=='paused',x.proc);toast(x.sync!=='paused'?'Off shelf ✓':'Back on sale ✓');await reload();openPublishSheet();}
       catch(e){alert('Update failed: '+(e&&e.message||e));openPublishSheet();}
       return;
     }

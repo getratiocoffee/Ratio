@@ -64,6 +64,13 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之三（Publish「拿不下架」修復：同名雙處理法的售罄鏈兩個洞 ✅）
+- **老闆回報**：Publish 裡 Alo Village White Honey 拿不下架。DB 實查：同名兩列 sync（Cold Fermentation paused／White Honey synced），三表 process 寫法一致無髒資料。
+- **洞一（Coffee Info 詳情，2491）**：`setShelfSold(nm,!sold)` **漏傳 proc**——同名雙 process 豆名字級打 edge availability，procKey('') 兩列都不中、rows.length=2 不走單列 fallback → **400 not synced yet**（「拿不下架」直接原因候選）。修：補第三參數 `proc`（openShelfBeanDetail 本來就有）。
+- **洞二（Publish sold 分支，3277）**：成功後只 `openPublishSheet()` **不 reload**——DB.syncs 是記憶體快照，重畫永遠顯示舊狀態＝按了 ✓ 畫面還是 Live（體感元凶）。修：成功後 `await reload()` 再重開（照 Coffee Info 慣例）；proc 改傳 **x.proc**（列鍵，與 syncFor 判鈕狀態同一把鑰匙；原傳 x.s.process 理論同值但不同源）。
+- **驗證**：jscheck ✓；preview stub 重演雙處理法場景——Publish 兩行狀態各自正確（CF Off shelf／WH Live）、點 WH 行 Take off shelf → callFn payload `{action:availability,sample_id:Alo Village,process:White Honey,sold_out:true}` ✓＋reload×1 ✓；Coffee Info 詳情 sb-sold 同 payload ✓＋reload＋openRetailSheet ✓；console 零錯誤。
+- **⚠ 提醒老闆**：昨晚（07-13 22:43）的 session 登出問題若還沒重新登入，任何 edge 操作仍會 401「unauthorized」——先登出再登入一次。
+
 ## 〇、補記 — 2026-07-15（Live cupping 主體補寫：前次工具異常沒落地，本次真完工 ✅）
 - **事故**：07-14 工具異常期，Live cupping「主體函式」的 Edit 假成功（commit 48f365c 只有磁貼＋分派 12 行）——老闆 push 後點磁貼**沒反應**（呼叫不存在的 openLiveCupSheet）。教訓：**大段 Edit 後必 grep 驗證函式定義真的在檔案裡**
 - **本次**：主體全函式群真正寫入（openDeleteCoffeeSheet 前）＝LC 狀態/lcCleanup/lcSplit（換行逗號頓號都切）/lcMine/openLiveCupSheet（今天最新一輪含已揭曉；無輪→picker）/lcPaintPick（toCupList 選豆）/lcStart/lcSub（channel ×2 訂閱）/lcDone/lcLiveUpdate（打字中只更新小字保鍵盤焦點）/lcPaint（三態）/lcSubmit（upsert onConflict session_id,cupper）/lcReveal（自己直翻別人靠 realtime）/lcSaveOfficial（去重彙總→照 saveCupSheet insert 形狀：no 流水號＋容錯鏈＋cupper='Team'→存完進 QC 待判定）
