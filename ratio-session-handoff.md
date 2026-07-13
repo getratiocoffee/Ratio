@@ -69,7 +69,13 @@
 - **驗證**：兩階段 stub 全過（鎖不互踢/兩行 Publish/獨立開合/listNameFor 後綴規則/availability payload/rtl_sold 複合 key/後綴拆解扣對批次不碰兄弟）＋jscheck＋console 零錯誤＋截圖；curl public-shop ok（beans 7＝老闆重新上架的豆，行為正確）
 - **⏭ 老闆真機收尾**：①QC 把 Cold Fermentation 重新 Pass（這次不會踢掉 White Honey 的鎖）②Publish 應見兩行 Alo Village 各帶處理法 ③CF 按 List（Square 建新商品「Alo Village — Cold Fermentation」）④WH 按 Update listing（商品名自動補後綴「Alo Village — White Honey」）⑤?shop 看兩張卡
 - **⚠ 已知限制（後補）**：Coffee Info/IG asset/Announce 清單仍名字級（同名一行、rep＝鎖優先）；?bean 公開豆頁 slug 已分流但 public-bean edge 未動（兩支詳情頁可能顯示同一筆）；rtl_sold 複合 key Coffee Info 讀不到（售罄真狀態看 product_sync，無礙）
-- **同輪之五：Log roast 單品多鍋 session**（老闆點名「今天烘豆卡卡的」，本 commit）：從「烘一鍋→存一次→關抽屜→重開重選」改成「開一次、連續 Add 鍋、最後一次 Submit 入庫」。老闆定案：①生豆 Submit 時一次扣（中途暫存可改可刪）②A+B 都要（先建清單/邊烘邊加/烘到一半加單）＝同一個累積列表、熟豆可之後回填③拼配不進這輪（維持 saveBlendBatch 單鍋）。
+- **同輪之六：連結 Roast log→Coffee Stock（待入庫批次現身＋補熟豆）**（老闆點名，本 commit）：烘了但沒秤熟豆的批次（green_kg>0 但 remaining_kg 空/0）以前在 Coffee Stock 完全看不到（只收 remaining>0）——現在現身標「待入庫」、點行補熟豆入庫。對稱 dg 池模式：
+  - 新 `rstPendingBatches(name,isBlend,process)`（rstDgBatches 旁）＝green>0＋remaining 空/≤0＋qc 非 downgrade/reroast＋同名同 procKey
+  - rstRows：has 判斷加 pending、孤兒迴圈放寬（`remaining>0 || (green>0 && remaining 空)`——roasts process 對不上 beans 主檔時用 roasts 自己的 name+process 現身、不漏）、每列掛 x.pending/x.pendKg
+  - openBatchesSheet：收合態「N to weigh」琥珀字、展開 dg 區後加「TO WEIGH」區（每筆一行不按日組＝各鍋熟豆各異，roast_date·green Xkg·weigh in ›）；血條總量不含 pending
+  - 新 `openWeighIn(r)` 補熟豆抽屜：green 顯示、輸入熟豆 kg＋失重率即時（重用 roastLossPct）、Save→update roasts {roasted_kg,remaining_kg}＝入庫（從 pending 變可賣/待 QC）、logAct、reload
+  - 驗證：stub——今天 4 筆情境＋孤兒（Mystery process 對不上）現身、to weigh badge、血條總量 4.3 不含 pending、展開 TO WEIGH 區、openWeighIn 填 8.6→失重率 −14%→PATCH {roasted_kg:8.6,remaining_kg:8.6}→r1 更新離開 pending、console 零錯誤＋截圖。⚠ **今天真資料**：4 筆（Danche v1/La Molienda/Danche v3/Hakuna Matata 各 green 10kg）待老闆秤熟豆——push 後 app 內 weigh in，或秤好告訴我代填（execute_sql）
+- **同輪之五：Log roast 單品多鍋 session**（老闆點名「今天烘豆卡卡的」）：從「烘一鍋→存一次→關抽屜→重開重選」改成「開一次、連續 Add 鍋、最後一次 Submit 入庫」。老闆定案：①生豆 Submit 時一次扣（中途暫存可改可刪）②A+B 都要（先建清單/邊烘邊加/烘到一半加單）＝同一個累積列表、熟豆可之後回填③拼配不進這輪（維持 saveBlendBatch 單鍋）。
   - **RO 加 `batches:[]`**；openRoastSheet 開頭 `await loadRoastDraft()` 讀回未 submit 的 session
   - **新 app_state key `roast_draft`**＝`{date,batches}`（跨裝置暫存、防手機鎖屏/關 app 丟；每次 Add/改/刪存、Submit 清空）
   - **新函式**：`roastLossPct(g,o)`（失重率）、`roastAddBatch`（驗證→push batches→清這鍋量與曲線**保留選中豆**＝連烘同豆只改 kg→存 draft）、`roastEditBatch`（拉回輸入區改）、`roastDelBatch`、`loadRoastDraft`/`saveRoastDraft`、`buildRoastRec`（抽自 saveRoastSheet 單筆組建）、`submitRoastSession`（未填熟豆 confirm 提示→迴圈 insert roasts→**同 beanId 累加一次扣 beans.quantity**→stock_moves 每鍋一筆→logAct→清 draft→reload）
