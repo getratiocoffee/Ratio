@@ -3788,13 +3788,27 @@ function lcPaint(){
     +(s.process?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(s.process)+'</span>':'')+'</div>';
   var done=lcDone(),h='';
   if(s.revealed){
-    /* 揭曉：每人一卡並排 → Save 進正式 */
-    h=head+'<div class="s" style="margin-top:2px">everyone’s flavours — side by side</div>'
+    /* 揭曉：豆名可改（2026-07-15 老闆點名）＋每人一卡並排＋AI 總結 → Save 進正式 */
+    var nameBlock=LC.editName
+      ?'<div class="dlab">Coffee name</div><input class="din" id="lc-en" value="'+esc(s.bean_name||'')+'">'
+        +'<div class="dlab">Process · optional</div><input class="din" id="lc-ep" value="'+esc(s.process||'')+'">'
+        +'<button class="act" id="lc-esave" style="margin-top:8px">Save name</button>'
+      :head+'<div class="s" style="margin-top:2px">everyone’s flavours — side by side · <span id="lc-edit" style="color:var(--accent);cursor:pointer">edit name</span></div>';
+    h=nameBlock
       +(done.length?done.map(function(n){
         return '<div style="background:var(--tint);border-radius:12px;padding:11px 13px;margin-top:8px"><div class="s" style="color:var(--muted);font-size:12px">'+esc(n.cupper||'—')+'</div>'
           +'<div class="t" style="font-size:14.5px;margin-top:2px">'+esc((n.notes||[]).join(' · ')||'—')+'</div></div>';
       }).join(''):'<div class="empty">Nobody submitted</div>')
-      +(done.length?'<button class="act" id="lc-save" style="margin-top:12px">Save to cupping record</button>':'')
+      /* AI 總結卡：共識風味＋一句杯測描述（cup-ai edge → Claude）；存正式時直接用 */
+      +(LC.ai
+        ?'<div style="border:1px solid var(--accent);border-radius:12px;padding:11px 13px;margin-top:12px">'
+          +'<div class="s" style="color:var(--accent);font-size:12px;font-weight:700">✨ AI SUMMARY</div>'
+          +'<div style="margin-top:6px">'+(LC.ai.features||[]).map(function(f){return '<span class="shop-chip">'+esc(f)+'</span>';}).join('')+'</div>'
+          +(LC.ai.comment?'<div class="s" style="font-style:italic;margin-top:6px">“'+esc(LC.ai.comment)+'”</div>':'')
+          +'<button class="chip" id="lc-ai" style="margin-top:8px">↻ Again</button></div>'
+        :(done.length?'<button class="dclose" id="lc-ai" style="margin-top:12px">✨ Summarise with AI</button>':''))
+      +(done.length?'<button class="act" id="lc-save" style="margin-top:12px">Save to cupping record</button>'
+        +'<div class="s" style="margin-top:4px;color:var(--muted);text-align:center">'+(LC.ai?'saves the AI flavours + note':'saves everyone’s flavours merged')+'</div>':'')
       +'<button class="dclose" id="lc-new">Start a new round</button>'
       +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
   }else if(lcMine()){
@@ -3820,7 +3834,10 @@ function lcPaint(){
   var sub=$('lc-submit');if(sub)sub.addEventListener('click',lcSubmit);
   var rv=$('lc-reveal');if(rv)rv.addEventListener('click',lcReveal);
   var sv=$('lc-save');if(sv)sv.addEventListener('click',lcSaveOfficial);
-  var nw=$('lc-new');if(nw)nw.addEventListener('click',function(){lcCleanup();LC.session=null;LC.sid=null;LC.notes=[];LC.draft='';lcPaintPick();});
+  var nw=$('lc-new');if(nw)nw.addEventListener('click',function(){lcCleanup();LC.session=null;LC.sid=null;LC.notes=[];LC.draft='';LC.ai=null;LC.editName=false;lcPaintPick();});
+  var ed=$('lc-edit');if(ed)ed.addEventListener('click',function(){LC.editName=true;lcPaint();});
+  var es=$('lc-esave');if(es)es.addEventListener('click',lcSaveName);
+  var ai=$('lc-ai');if(ai)ai.addEventListener('click',lcAISummary);
 }
 async function lcSubmit(){
   var ta=$('lc-ta');var notes=lcSplit(ta?ta.value:LC.draft);
@@ -3851,13 +3868,47 @@ async function lcReveal(){
     alert('Failed: '+(e&&e.message||e));
   }
 }
+/* 揭曉畫面改豆名（打錯/樣品補正名）——update session，別人畫面靠 realtime 同步 */
+async function lcSaveName(){
+  var nm=($('lc-en').value||'').trim();
+  if(!nm){toast('Type the coffee name');return;}
+  var proc=($('lc-ep').value||'').trim()||null;
+  var btn=$('lc-esave');if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  try{
+    var u=await sb.from('cupping_sessions').update({bean_name:nm,process:proc}).eq('id',LC.sid);
+    if(u.error)throw new Error(u.error.message);
+    LC.session.bean_name=nm;LC.session.process=proc;LC.editName=false;lcPaint();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Save name';}
+    alert('Failed: '+(e&&e.message||e));
+  }
+}
+/* AI 總結（cup-ai edge → Claude）：共識風味＋一句杯測描述 */
+async function lcAISummary(){
+  var s=LC.session,done=lcDone();
+  if(!s||!done.length)return;
+  var btn=$('lc-ai');if(btn){btn.disabled=true;btn.textContent='Thinking…';}
+  try{
+    var r=await callFn('cup-ai',{bean_name:s.bean_name,process:s.process||null,
+      notes:done.map(function(n){return {cupper:n.cupper,notes:n.notes||[]};})});
+    LC.ai={features:r.features||[],comment:r.comment||''};
+    lcPaint();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='✨ Summarise with AI';}
+    alert('AI summary failed: '+(e&&e.message||e));
+  }
+}
 async function lcSaveOfficial(){
   var s=LC.session,done=lcDone();
   if(!s||!done.length)return;
-  /* 彙總去重（保留第一個寫法的大小寫） */
-  var seen={},feats=[];
-  done.forEach(function(n){(n.notes||[]).forEach(function(f){var k=String(f).trim().toLowerCase();if(!k||seen[k])return;seen[k]=1;feats.push(String(f).trim());});});
-  if(!confirm('Save to the cupping record?\n\n'+s.bean_name+(s.process?' · '+s.process:'')+'\nFlavours ('+feats.length+'): '+feats.join(', ')+'\nCupper: Team ('+done.length+' people)'))return;
+  /* 有 AI 總結用 AI（共識風味＋描述）；沒有＝彙總去重全收（保留第一個寫法的大小寫） */
+  var feats,cmt=null;
+  if(LC.ai&&(LC.ai.features||[]).length){feats=LC.ai.features.slice();cmt=LC.ai.comment||null;}
+  else{
+    var seen={};feats=[];
+    done.forEach(function(n){(n.notes||[]).forEach(function(f){var k=String(f).trim().toLowerCase();if(!k||seen[k])return;seen[k]=1;feats.push(String(f).trim());});});
+  }
+  if(!confirm('Save to the cupping record?\n\n'+s.bean_name+(s.process?' · '+s.process:'')+'\nFlavours ('+feats.length+'): '+feats.join(', ')+(cmt?'\nNote: '+cmt:'')+'\nCupper: Team ('+done.length+' people)'))return;
   var btn=$('lc-save');if(btn){btn.disabled=true;btn.textContent='Saving…';}
   try{
     var r=(DB.roasts||[]).find(function(x){return String(x.id)===String(s.roast_id);})||{};
@@ -3867,7 +3918,7 @@ async function lcSaveOfficial(){
     var no=((mx.data&&mx.data[0]&&Number(mx.data[0].no))||0)+1;
     var rec={no:no,cupping_date:today,roast_date:r.roast_date||null,supplier:'Ratio Coffee',
       sample_id:s.bean_name,process:s.process||null,bean_id:r.bean_id||null,
-      features:feats,comment:null,decision:null,cupper:'Team'};
+      features:feats,comment:cmt,decision:null,cupper:'Team'};
     var ins=await sb.from('samples').insert(rec).select();
     if(ins.error){var r2=Object.assign({},rec);delete r2.features;ins=await sb.from('samples').insert(r2).select();}
     if(ins.error){var r3=Object.assign({},rec);delete r3.features;delete r3.cupper;ins=await sb.from('samples').insert(r3).select();}
