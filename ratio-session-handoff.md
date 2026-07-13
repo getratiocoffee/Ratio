@@ -56,6 +56,16 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-14 之五（Live cupping 多人盲測協作：系統首次用 Realtime ✅）
+- **老闆要**：杯測時大家各自登入→選同一支待杯豆→大框自由打風味→Submit 盲等其他人→揭曉對照→**算正式**（進 samples）。三拍板：每次一支豆／算正式（未來想接 AI 綜合風味）／真即時。介面鐵則：每畫面一個主要動作、大框自由打
+- **⚠ 系統第一次用 Supabase Realtime**（此前 grep=0）。真測通過：Chrome 登入態訂閱 cupping_notes → insert 一筆 → 收到 INSERT 廣播（SUBSCRIBED ✓）＝publication/RLS/廣播整鏈路運作
+- **migration `live_cupping_collab`**（已上線）：`cupping_sessions`（roast_id/bean_name/process/opened_by/revealed）＋`cupping_notes`（session_id FK cascade/cupper/notes jsonb/submitted_at；unique(session_id,cupper)）；RLS `is_staff()` 讀寫（信任模型）；**兩表加 supabase_realtime publication ＋ replica identity full**（reveal 翻牌要帶完整 row）
+- **前端（new/index.html，openDeleteCoffeeSheet 前）**：磁貼 `livecup`（QC 排，全 staff 無門檻）→ `openLiveCupSheet()`。狀態 `LC={sid,session,notes,draft,chan}`。函式群：lcCleanup（removeChannel）/lcSplit（換行逗號分隔）/lcMine/lcDone/lcPaintPick（列 toCupList）/lcStart（開輪 insert session）/lcEnter/lcSub（channel postgres_changes ×2：notes 變化＋session UPDATE 翻牌）/lcLiveUpdate（我在寫就只更新計數不動 textarea）/lcPaint（三態：未交=大 textarea+Submit；已交=計數+Reveal all；揭曉=每人一卡並排+Save）/lcSubmit（upsert notes onConflict session_id,cupper）/lcReveal（update revealed）/lcSaveOfficial（去重彙總風味→upsert samples 雙鍵、cupper='Team'、cupping_date=今日）
+- **盲測＝應用層**（非 DB）：揭曉前 realtime 雖推 rows，前端只畫「誰交了」不畫 notes 內容；揭曉才全畫。店內信任場景夠用，嚴格 DB 盲測列未來
+- **並存不動**：單人 openCupSheet/saveCupSheet 照舊；存正式重用 saveCupSheet 的 samples 寫入形狀
+- **驗證**：jscheck ✓；stub 全流程 payload 逐一對（開輪／submit notes array／reveal revealed:true／存正式 features 去重合併 6 詞＋雙鍵＋Team＋bean_id＋日期）；揭曉態渲染三人並排＋Save ✓；realtime 連線真測 ✓；console 零錯誤
+- **⚠ 待老闆**：①push 部署後**兩裝置端到端即時**現場一試（連線層＋DOM 流程各自驗過，組合信心高）②未來 AI 綜合風味＝lcSaveOfficial 存正式前插一段呼叫（掛鉤未寫，屆時加）③channel 清理：closeDrawer 沒 hook，靠 openLiveCupSheet 進入時先清舊＋Close 鈕呼叫 lcCleanup（背景點關殘留無害，下次進清）
+
 ## 〇、補記 — 2026-07-14 之二（Coffee Info 一堆 Off shelf 誤報：rtl_sold 殘留清掃＋push 自動清 ✅）
 - **老闆回報**：Coffee Info 突然一堆 Off shelf。**根因**：07-13 下架 12 支時 rtl_sold 標了 12 支；老闆重新上架走 Publish「List on Square」＝pushListToSquare 只寫 product_sync synced，**rtl_sold 舊標記沒人清**（Put back on sale 走 setShelfSold 會清、重新 List 不會）→ 明明在賣仍掛 Off shelf（Coffee Info/詳情的 sold 判斷＝rtl_sold ∪ paused）
 - **修**：①資料——SQL 把 rtl_sold 裡已 synced 的 7 支清掉（Dancer/Danche v1-v3/Dark Knight/Sugar Daddy/June Project），留真下架的 5 支（April Project/Hakuna Matata/Kiama AA/Kii AB/Dreamer）②根因——pushListToSquare 的記憶寫回段（read-modify-write）加 rtl_sold：push 成功刪該豆 key（listNm＋nm 兩種 key 大小寫容錯）。驗證：stub——push Dancer 後 rtl_sold 寫回只剩 April Project、alert 零、console 零錯誤。⚠ stub 測 pushListToSquare 要蓋 window.callFn（不然 Signed out 就 throw）
