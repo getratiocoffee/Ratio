@@ -536,7 +536,7 @@ async function loadAll(){
     sb.from('dialins').select('id,coffee,created_at,grind,dose,yield,time_s,barista,note').order('created_at',{ascending:false}).limit(200),
     sb.from('product_sync').select('bean_id,status,process').eq('channel','square'),
     sb.from('samples').select('id,sample_id,bean_id,process,roast_date,cupping_date,features,flavour_locked,fragrance,acidity,sweetness,body,aftertaste,comment,cupper').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
-    sb.from('roasts').select('id,roast_no,bean_name,bean_id,roast_date,qc,green_kg,status,kind,remaining_kg,roasted_kg,process').order('roast_date',{ascending:false}),
+    sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg,status,kind,remaining_kg,roasted_kg,process').order('roast_date',{ascending:false}),
     sb.from('beans').select('id,green_no,name,process,quantity,low_stock_kg,country,region,station,variety,harvest,altitude,cost_per_kg,supplier,roast_target_kg,roast_low_kg'),
     sb.from('feedback').select('*').is('reply',null).order('created_at',{ascending:false}),
     sb.from('rosters').select('week_start,shifts,deleted').eq('week_start',mondayStr()),
@@ -552,7 +552,7 @@ async function loadAll(){
     sb.from('app_state').select('value').eq('key','bean_swap').maybeSingle(),
     sb.from('subscriptions').select('*'),
     sb.from('activity_log').select('action,ts').gte('ts',todayStartISO()).limit(800), /* Home 進度條分子——只能 append 在最後（rs[0..21] 位置索引不能動） */
-    sb.from('blends').select('id,name,parts,target_kg,low_stock_kg').order('pos',{ascending:true}) /* 熟豆血條＋低量/超量聚合卡用（rs[22]） */
+    sb.from('blends').select('id,name,blend_no,parts,target_kg,low_stock_kg').order('pos',{ascending:true}) /* 熟豆血條＋低量/超量聚合卡用（rs[22]）；blend_no＝拼配的 R# 號 */
   ]);
   DB={orders:rs[0].data||[],customers:rs[1].data||[],tasks:rs[2].data||[],dialins:rs[3].data||[],
       syncs:rs[4].data||[],samples:rs[5].data||[],roasts:rs[6].data||[],beans:rs[7].data||[],
@@ -1113,10 +1113,34 @@ function procKey(p){return String(p||'').trim().toLowerCase();}
 /* 生豆身分證（2026-07-15 老闆定案）：每支生豆一個 G#00001 人類可讀編號——DB green_no 自動發號
    （sequence default），這裡只負責顯示。同名多處理法從此一眼分清（Alo Village G#00012/G#00013） */
 function gNo(b){return (b&&b.green_no!=null)?('G#'+String(b.green_no).padStart(5,'0')):'';}
-/* 烘焙批次編號 R#00001（2026-07-15 老闆加碼）：roasts.roast_no 同款 DB 自動發號 */
-function rNo(r){return (r&&r.roast_no!=null)?('R#'+String(r.roast_no).padStart(5,'0')):'';}
-/* 一組批次的 R# 清單（Coffee Stock 同日多鍋合併行用） */
-function rNos(batches){return (batches||[]).map(rNo).filter(Boolean).join(' ');}
+/* 熟豆編號 R#（2026-07-15 老闆改版）：一豆一號終身不變——號碼跟「豆」走，G/R 只是生熟狀態。
+   單品承生豆同號（G#00013 烘出來＝R#00013）、拼配用 blends.blend_no（同一個號碼池，全域唯一）。
+   批次之分＝R# ＋ 烘焙日（行內本來就顯示日期）；每鍋跳號的 roasts.roast_no 已廢除 */
+function rNo(r){
+  if(!r)return '';
+  var n=null;
+  if(r.kind==='blend'){
+    var nm=String(r.bean_name||'').trim().toLowerCase();
+    var bl=(DB.blends||[]).find(function(x){return String(x.name||'').trim().toLowerCase()===nm;});
+    n=bl?bl.blend_no:null;
+  }else{
+    /* 雙路慣例：有 bean_id 精準比對，否則豆名＋處理法備援（legacy 批次），再退名字級 */
+    var b=r.bean_id?(DB.beans||[]).find(function(x){return String(x.id)===String(r.bean_id);}):null;
+    if(!b){
+      var bn=String(r.bean_name||'').trim().toLowerCase(),pk=procKey(r.process);
+      b=(DB.beans||[]).find(function(x){return String(x.name||'').trim().toLowerCase()===bn&&procKey(x.process)===pk;})
+        ||(DB.beans||[]).find(function(x){return String(x.name||'').trim().toLowerCase()===bn;});
+    }
+    n=b?b.green_no:null;
+  }
+  return n!=null?('R#'+String(n).padStart(5,'0')):'';
+}
+/* 一組批次的 R# 清單（同組同豆＝同號，去重後通常就一個） */
+function rNos(batches){
+  var seen={},out=[];
+  (batches||[]).forEach(function(r){var k=rNo(r);if(k&&!seen[k]){seen[k]=1;out.push(k);}});
+  return out.join(' ');
+}
 /* 鎖風味＝單選（2026-07-12 老闆定調）：鎖＝「在賣的版本」。
    2026-07-13 收緊成「同名＋同處理法」互斥（Alo Village White Honey / Cold Fermentation 事件）——
    不同處理法是不同商品，鎖互不干涉；同名同處理法（重複豆/re-cup）仍只能一筆鎖著。
@@ -9938,9 +9962,21 @@ function renderTools(){
       var byNo=qG&&b.green_no!=null&&String(b.green_no)===qG[1];
       if(byName||byNo)hits.push({k:'Green',t:(gNo(b)?gNo(b)+' · ':'')+b.name,s:(b.process?b.process+' · ':'')+(Number(b.quantity)||0)+' kg',det:[['ID',gNo(b)||'—'],['Process',b.process||'—'],['Green stock',(Number(b.quantity)||0)+' kg']]});
     });
-    if(qR)(DB.roasts||[]).forEach(function(r){
-      if(r.roast_no!=null&&String(r.roast_no)===qR[1])hits.push({k:'Roast',t:rNo(r)+' · '+(r.bean_name||'—'),s:(r.process?r.process+' · ':'')+(r.roast_date?'roasted '+fmtD(r.roast_date)+' · ':'')+(Number(r.remaining_kg)||0)+' kg left',det:[['ID',rNo(r)],['Coffee',r.bean_name||'—'],['Process',r.process||'—'],['Roasted',r.roast_date?fmtD(r.roast_date):'—'],['QC',r.qc||'not judged'],['Stock left',(Number(r.remaining_kg)||0)+' kg']]});
-    });
+    /* r13＝13 號豆的所有烘焙批次（一豆一號，批次靠烘焙日分）；r28＝拼配（blend_no 同池） */
+    if(qR){
+      var rg=(DB.beans||[]).find(function(b){return b.green_no!=null&&String(b.green_no)===qR[1];});
+      var rbl=(DB.blends||[]).find(function(x){return x.blend_no!=null&&String(x.blend_no)===qR[1];});
+      if(rg||rbl){
+        var pnm=String((rg||rbl).name||'').trim().toLowerCase();
+        (DB.roasts||[]).filter(function(r){
+          if(rg)return r.kind!=='blend'&&(r.bean_id?String(r.bean_id)===String(rg.id):(String(r.bean_name||'').trim().toLowerCase()===pnm&&procKey(r.process)===procKey(rg.process)));
+          return r.kind==='blend'&&String(r.bean_name||'').trim().toLowerCase()===pnm;
+        }).sort(function(a,b){return String(b.roast_date||'').localeCompare(String(a.roast_date||''));})
+        .forEach(function(r){
+          hits.push({k:'Roast',t:rNo(r)+' · '+(r.bean_name||'—')+(r.roast_date?' · '+fmtD(r.roast_date):''),s:(r.process?r.process+' · ':'')+(r.qc||'not judged')+' · '+(Number(r.remaining_kg)||0)+' kg left',det:[['ID',rNo(r)],['Coffee',r.bean_name||'—'],['Process',r.process||'—'],['Roasted',r.roast_date?fmtD(r.roast_date):'—'],['QC',r.qc||'not judged'],['Stock left',(Number(r.remaining_kg)||0)+' kg']]});
+        });
+      }
+    }
     DB.customers.forEach(function(c){if((c.name||'').toLowerCase().indexOf(q)>-1){
       var os=DB.orders.filter(function(o){return o.customer_id===c.id;});
       hits.push({k:'Customer',t:c.name,s:(c.type||'')+' · '+os.length+' open order'+(os.length===1?'':'s')+(c.email?' · '+c.email:''),det:[['Type',c.type||'—'],['Email',c.email||'—'],['Open orders',String(os.length)]]});}});

@@ -64,6 +64,13 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之六（R#ID 改版：一豆一號終身不變，批次＝R#＋烘焙日 ✅）
+- **老闆指正**：R# 不要每鍋跳號——同一支豆（豆名＋處理法）固定同一個 ID，批次靠烘焙日分。**定案設計＝號碼跟「豆」走，G/R 只是生熟狀態**：單品熟豆承生豆同號（G#00013 烘出來＝R#00013）；拼配沒有生豆面，從**同一個號碼池**接著拿號（R#00028 Dark Knight／29 Dancer／30 Dreamer／31 April Project／32 June Project／33 Sugar Daddy）；號碼全域唯一，下一支新生豆＝G#00034、新配方自動拿下一號。
+- **DB（migration `blend_no_and_drop_roast_no`）**：blends 加 `blend_no integer unique`（回填 28–33 按 pos；default 掛 beans_green_no_seq **池共用**；setval 33）；roasts **drop roast_no**＋drop roasts_roast_no_seq（昨天之五的每鍋跳號廢除）。
+- **前端**：`rNo(r)` 重寫＝blend→DB.blends.blend_no（名字比對）、單品→bean_id 精準→豆名＋處理法備援→名字級（雙路慣例）；`rNos` 去重（同組同豆＝一號）；loadAll blends select 加 blend_no、roasts select 拿掉 roast_no；顯示落點（QC/Edit Add Stock/Coffee Stock 三行）**零改動自動繼承**（行內本有日期＝「R#00013 · 10/07 · 3d」）；搜尋 `r13`＝該豆**所有批次**（新→舊，各帶日期/QC/剩量）、`r28`＝拼配批次、g13/純數字找生豆照舊。
+- **驗證**：SQL blends 28–33 ✓ seq=33 ✓；jscheck ✓；stub——rNo 三路（bean_id/legacy 備援/blend）全對、rNos 同日兩鍋去重、Coffee Stock 行「R#00013 · 10/07 · 3d · 2 roasts」、搜尋三打法、console 零錯誤。
+- **⚠ 語義備忘**：R# 是「熟豆產品號」不是批次流水號；同一天同支豆多鍋＝同一批（既有同日合併規則）。袋標/罐標/掛牌印號之後想做再說。
+
 ## 〇、補記 — 2026-07-15 之五（烘焙批次編號 R#ID：比照 G# 辦理 ✅）
 - **老闆加碼**：烘焙完的豆子也要 ID，G 換 R。**DB（migration `roasts_roast_no`）**：roasts 加 `roast_no integer unique`＋sequence `roasts_roast_no_seq` default（DB 自動發號，Log roast/backfill insert 零改動）；回填 46 批按 roast_date→created_at 排＝R#00001…R#00046；下一鍋自動 R#00047。roasts.id 是原生 UUID（與 beans 的前端字串 id 不同，但做法相同）。
 - **前端**：helper `rNo(r)`＋`rNos(batches)`（gNo 旁；同日多鍋合併行列多個號）。落點：①loadAll roasts select 加 roast_no ②QC 抽屜 In hand 組行（cupGroups 加 rows 收集）＋To judge 行 sub ③openQcStockSheet 標題 ④Coffee Stock 展開三種批次行（可賣組/降級組/待入庫）⑤全域搜尋 `r31`/`R#00040` 找批次（回 ID/豆名/處理法/烘焙日/QC/剩量卡；純數字仍只找生豆）。
