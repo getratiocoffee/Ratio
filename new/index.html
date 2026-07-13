@@ -2388,7 +2388,7 @@ async function openRetailSheet(){
       :'<span class="red">no info — cup it in QC</span>';
     var sold=sy&&(!!m.rtl_sold[mkey]||!!m.rtl_sold[nm]||sy.status==='paused');
     /* 膠囊：現貨區才有上架狀態——售罄紅、重審熄燈 */
-    var pill=(zone==='stock'&&sy)?'<span class="k pill'+(sold?' sold':(inQC?' off':''))+'">'+(sold?'Sold out':'Live')+'</span>':'';
+    var pill=(zone==='stock'&&sy)?'<span class="k pill'+(sold?' sold':(inQC?' off':''))+'">'+(sold?'Off shelf':'Live')+'</span>':'';
     var procTxt=(rep&&rep.process)||c.proc||'';
     return '<div class="hit" data-shelf="'+esc(nm)+'" data-shelfp="'+esc(c.proc)+'" data-shelfb="'+(c.isBlend?'1':'0')+'"><span style="min-width:0"><div class="t" style="font-size:16px">'
       +(col?'<span style="color:'+col+';font-size:12px">●</span> ':'')+esc(nm)
@@ -2442,7 +2442,7 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
       sold=!!m.rtl_sold[mkey]||!!m.rtl_sold[nm]||(syncRow&&syncRow.status==='paused');
   var rdate=null;try{rdate=shelfLatestRoast(nm);}catch(e){}
   /* 順序照老闆定：名字 → 烘豆日＋天數/熟成 → 規格價格 → 雷達 → 風味 → 履歷 */
-  openDrawerHTML('<span class="tag" style="color:'+col+'">● Shelf'+(sold?' · <span class="red">sold out</span>':'')+'</span>'
+  openDrawerHTML('<span class="tag" style="color:'+col+'">● Shelf'+(sold?' · <span class="red">off shelf</span>':'')+'</span>'
     +'<div class="t" style="font-size:19px">'+esc(nm)
     +(s.process?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif;font-weight:400">'+esc(s.process)+'</span>':'')+'</div>'
     +'<div class="s" style="margin-top:2px">'+(rdate?'roasted '+fmtD(rdate)+' · ':'')
@@ -2476,7 +2476,7 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
     /* 詳情頁動作：Send back to QC ＋（已上架豆才有）售罄切換。上架/更新/Email/發文在 Publish，
        但 Publish 現在只列 Coffee Stock 有庫存的豆（2026-07-12 老闆定調）——賣光的已上架豆從 Publish 消失，
        故售罄/回架入口收在這裡（Coffee Info 母體含賣光的上架豆） */
-    +((syncRow&&canWrite())?'<button class="dclose" id="sb-sold">'+(sold?'Put back on sale':'Mark sold out')+'</button>':'')
+    +((syncRow&&canWrite())?'<button class="dclose" id="sb-sold">'+(sold?'Put back on sale':'Take off shelf')+'</button>':'')
     +'<button class="dclose" id="sb-requeue">Send back to QC</button>'
     +'<button class="dclose" id="sb-back">‹ Back to Coffee Info</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
@@ -2485,10 +2485,10 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
     var btn=this;btn.disabled=true;btn.textContent='Working…';
     try{
       await setShelfSold(nm,!sold); /* sold＝現在售罄中→回架；否則→標售罄 */
-      toast(!sold?'Sold out ✓':'Back on sale ✓');
+      toast(!sold?'Off shelf ✓':'Back on sale ✓');
       await reload();openRetailSheet();
     }catch(e){
-      btn.disabled=false;btn.textContent=sold?'Put back on sale':'Mark sold out';
+      btn.disabled=false;btn.textContent=sold?'Put back on sale':'Take off shelf';
       alert('Update failed: '+(e&&e.message||e));
     }
   });
@@ -3222,7 +3222,7 @@ function paintPublishSheet(sl,acts){
   var body=rows.length?rows.map(function(x,ix){
     /* 清單全是鎖了的豆＝膠囊固定 Locked ✓；shop 狀態在 chans 行（synced＋清單必鎖＝真 Live） */
     var qcPill=pill('Locked ✓','var(--accent)');
-    var shop=x.sync==='synced'?'Live':(x.sync==='paused'?'Sold out':'—');
+    var shop=x.sync==='synced'?'Live':(x.sync==='paused'?'Off shelf':'—');
     var chans='Shop (Square + Ratio): <b>'+shop+'</b> · FB/IG: <b>'+ago(x.fb)+'</b> · Email: <b>'+ago(x.em)+'</b>';
     var open=PUB.open===x.key; /* key＝nm|proc——同名兩處理法的卡開合互不干擾 */
     var h='<div style="border:1px solid '+(open?'var(--accent)':'var(--line)')+';border-radius:12px;padding:11px 13px;margin-top:8px">'
@@ -3241,7 +3241,7 @@ function paintPublishSheet(sl,acts){
         +(msg.length?'<div class="s" style="margin-bottom:8px;padding:9px 11px;background:var(--tint);border-radius:10px">'+esc(msg.join(' · '))+'</div>':'')
         +(noCup?'<div class="s" style="margin-bottom:6px"><span class="red">No cupping record — cup it first for listing, email and assets</span></div>':'')
         +'<button class="dclose" data-pubact="list" '+(noCup?'disabled style="opacity:.5"':'')+'>'+(x.sync?'Update listing (Square + Ratio shop)':'List on Square + Ratio shop')+'</button>'
-        +(x.sync?'<button class="dclose" data-pubact="sold">'+(x.sync==='paused'?'Put back on sale':'Mark sold out')+'</button>':'')
+        +(x.sync?'<button class="dclose" data-pubact="sold">'+(x.sync==='paused'?'Put back on sale':'Take off shelf')+'</button>':'')
         +'<button class="dclose" data-pubact="email" '+(noCup?'disabled style="opacity:.5"':'')+'>Email customers — new coffee</button>'
         +'<button class="dclose" data-pubact="social">Post to FB + IG</button>'
         +'<button class="dclose" data-pubact="ig" '+(noCup?'disabled style="opacity:.5"':'')+'>IG asset — cards &amp; captions</button>'
@@ -3264,7 +3264,7 @@ function paintPublishSheet(sl,acts){
     if(act==='list'){openListSheet({ref:x.s});return;}
     if(act==='sold'){
       el.disabled=true;el.textContent='Working…';
-      try{await setShelfSold(x.nm,x.sync!=='paused',x.s&&x.s.process);toast(x.sync!=='paused'?'Sold out ✓':'Back on sale ✓');openPublishSheet();}
+      try{await setShelfSold(x.nm,x.sync!=='paused',x.s&&x.s.process);toast(x.sync!=='paused'?'Off shelf ✓':'Back on sale ✓');openPublishSheet();}
       catch(e){alert('Update failed: '+(e&&e.message||e));openPublishSheet();}
       return;
     }
@@ -4239,7 +4239,7 @@ function openBatchesSheet(){
       +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
       +'<span style="min-width:0;display:flex;align-items:baseline;gap:7px"><span class="t" style="font-size:14.5px">'+esc(x.name)
       +(x.proc?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(x.proc)+'</span>':'')+'</span>'
-      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':x.locked?'background:var(--accent);color:#fff':'background:#B5791C;color:#fff')+'">'+(x.sync==='paused'?'Sold out':x.locked?'Live':'Not on shop')+'</span>':'')
+      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':x.locked?'background:var(--accent);color:#fff':'background:#B5791C;color:#fff')+'">'+(x.sync==='paused'?'Off shelf':x.locked?'Live':'Not on shop')+'</span>':'')
       +(x.noInfo?'<span class="red" style="flex:0 0 auto;font-size:11px;font-weight:600">no info — cup it</span>':'')
       +'</span>'
       +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto">'
