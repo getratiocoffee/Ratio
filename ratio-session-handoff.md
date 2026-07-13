@@ -61,6 +61,7 @@
 - **本次**：主體全函式群真正寫入（openDeleteCoffeeSheet 前）＝LC 狀態/lcCleanup/lcSplit（換行逗號頓號都切）/lcMine/openLiveCupSheet（今天最新一輪含已揭曉；無輪→picker）/lcPaintPick（toCupList 選豆）/lcStart/lcSub（channel ×2 訂閱）/lcDone/lcLiveUpdate（打字中只更新小字保鍵盤焦點）/lcPaint（三態）/lcSubmit（upsert onConflict session_id,cupper）/lcReveal（自己直翻別人靠 realtime）/lcSaveOfficial（去重彙總→照 saveCupSheet insert 形狀：no 流水號＋容錯鏈＋cupper='Team'→存完進 QC 待判定）
 - **驗證（本機 stub 全過）**：picker→開輪 payload（roast_id/bean_name/process/opened_by）→寫態→submit payload（notes 3 條）→等待態計數→reveal PATCH→揭曉三人並排→存正式 payload（features 7 個去重合併、雙鍵、Team）＋截圖＋console 零錯誤。⚠ stub 心得：**sb 是區域變數不在 window 上**（mock channel 蓋不到；channel 走 WebSocket 不走 fetch，stub 測試讓它真連無害）
 - **⚠ 待老闆**：push 部署後兩裝置真測即時（DB 表/RLS/realtime publication 07-14 已上線且驗過連通）
+- **同輪加做 ×3（老闆連發）**：①豆名自由填入（不綁待杯清單——別家豆/樣品可測；待杯批次降級快捷，點了帶批次資訊；自由豆 roast_id null＝存正式純紀錄不進 QC 佇列）②揭曉畫面豆名可改（edit name→update session 全場 realtime 同步）③**AI 總結風味**：新 edge **cup-ai v1**（Claude claude-haiku-4-5、team only、回 JSON {features 共識 3-6 詞, comment 一句杯測描述}）→ 揭曉畫面「✨ Summarise with AI」卡＋↻ Again；Save 有 AI 用 AI（features＋comment 進 samples），沒有照舊去重全收。**⚠ ANTHROPIC_API_KEY secret 還沒設**——真按會回明確錯誤；老闆要去 console.anthropic.com 拿 key → Supabase dashboard→Edge Functions→Secrets 加 ANTHROPIC_API_KEY（或貼給 Claude 代設路徑再議）
 
 ## 〇、補記 — 2026-07-14 之五（Live cupping 多人盲測協作：系統首次用 Realtime——⚠ 此輪主體未落地，見 07-15 補記）
 - **老闆要**：杯測時大家各自登入→選同一支待杯豆→大框自由打風味→Submit 盲等其他人→揭曉對照→**算正式**（進 samples）。三拍板：每次一支豆／算正式（未來想接 AI 綜合風味）／真即時。介面鐵則：每畫面一個主要動作、大框自由打
