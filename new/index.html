@@ -3191,7 +3191,7 @@ function paintPublishSheet(sl,acts){
      flavour_locked 的豆，沒鎖的根本不列——鎖了才會在這裡出現，與 public-shop QC gate 同口徑）。
      重用 rstRows（單品＋拼配兩分頁去重）＝母體仍與 Coffee Stock 同源；
      賣光沒庫存的豆不在 Coffee Stock、也就不在這裡＝標售罄/下架改去 Coffee Info 詳情；
-     沒鎖的豆去 Coffee Stock 看（synced 未鎖會掛 Not on shop 膠囊提醒去鎖） */
+     沒鎖的豆去 Coffee Stock 看（synced 未鎖會掛 No lock 膠囊提醒去鎖） */
   var rows=[],seen={};
   [false,true].forEach(function(isBl){
     rstRows(isBl).forEach(function(r){
@@ -4239,7 +4239,7 @@ function openBatchesSheet(){
       +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
       +'<span style="min-width:0;display:flex;align-items:baseline;gap:7px"><span class="t" style="font-size:14.5px">'+esc(x.name)
       +(x.proc?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(x.proc)+'</span>':'')+'</span>'
-      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':x.locked?'background:var(--accent);color:#fff':'background:#B5791C;color:#fff')+'">'+(x.sync==='paused'?'Off shelf':x.locked?'Live':'Not on shop')+'</span>':'')
+      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':x.locked?'background:var(--accent);color:#fff':'background:#B5791C;color:#fff')+'">'+(x.sync==='paused'?'Off shelf':x.locked?'Live':'No lock')+'</span>':'')
       +(x.noInfo?'<span class="red" style="flex:0 0 auto;font-size:11px;font-weight:600">no info — cup it</span>':'')
       +'</span>'
       +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto">'
