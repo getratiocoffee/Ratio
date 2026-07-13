@@ -56,6 +56,17 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-14（sync-to-square v25：專屬分類＋認養圍欄，House 品項誤連事件收拾 ✅）
+- **事故**：老闆 07-13 重新上架 Dark Knight/Dancer/Dreamer 時，push 的名字認養（matchItem 按名字段互含）**誤抓店內 POS 品項**（「House - Dark Knight」$0、「House - Dancer」$0、「House - Decaf (Dreamer)」$1）——?shop 因此顯示 $0、店內品項被寫入 ratio_ref＋掛 Grind 磨豆選項＋附卡片圖＋描述被蓋
+- **修法（老闆定調：上傳的商品要有自己的 category）——sync-to-square v25**：
+  - `ensureRatioCategory()`＝找/建 Square CATEGORY「**Ratio Online Shop**」（照 ensureGrindModifier 模式，快取）
+  - push：CREATED 模式掛 categories＋reporting_category；LINKED 模式只 append categories（不動老闆原 reporting）——`withRatioCat()`
+  - **matchItem 圍欄**：名字認養只考慮「已掛 Ratio 分類」的商品（`itemInCategory`）；分類建立失敗＝完全不做名字認養（fail-safe 走 create）。ratio_ref 精確認養照舊優先。**店內品項永遠不會再被抓**
+  - 新 utility action `detach {object_id}`：拆錯認商品＝清 ratio_ref＋移 Grind modifier＋刪 ratio card 圖＋清描述（名字/variations/分類不動）
+- **修復執行**：detach ×3（三個 House 品項恢復乾淨）；product_sync 三列 external_id/variation_id 清 null（價格記憶保留，重新上架走 create＋新分類）；全豆體檢＝其餘上架豆全部連對（ratio_ref 立功），paused 舊豆 catalog not found 屬正常
+- **意外驗收 🎉**：老闆已 push 部署新前端＋自己跑通同名多處理法全鏈——**Alo Village White Honey＋Cold Fermentation 同時在 ?shop 賣**（CF 商品名帶後綴「Alo Village — Cold Fermentation」）。店面現在 8 支豆
+- **⚠ 待老闆**：①White Honey 商品名還是純「Alo Village」（昨晚舊前端 push 的）——下次對它按 Update listing 會自動補後綴，兩支對稱 ②Square 後台瞄一眼三個 House 品項（描述被清空了，若原本有描述要自己補回）③Dark Knight/Dancer/Dreamer 要重新上架時照常 Publish 按 List＝建全新商品掛「Ratio Online Shop」分類
+
 ## 〇、補記 — 2026-07-13 之三（同名多處理法豆全鏈打通：Alo Village 兩處理法可同時鎖＋Publish＋上架 ✅）
 - **起因**：Alo Village 的 White Honey 和 Cold Fermentation 沒法同時在 Publish（鎖被單選踢掉）。根因＝07-12「處理法分開」只做到 Coffee Stock/QC 上游，**風味鎖→Publish→Square→product_sync→店面整條鏈是名字級**
 - **階段一（前端，commit e96ce91）**：`procKey()` helper（null/空白折 ''，全鏈比對統一用）；`lockFlavourSolo` 解鎖範圍改「同名＋同 procKey」（前端過濾 id 清單 `.in()` update，避開 PostgREST null 比對）；`lockedMate` 同範圍；新 `syncFor(nm,proc)` 統一上架列查找（proc undefined＝名字級、列 process null＝舊列名字級照舊配）；`shelfSampleFor(nm,proc)` 加可選參數（10 個舊呼叫點零改動）；Publish 母體按 name+process 分行＋PUB.open key `nm|proc`；rstRows 膠囊 locked/sync 各自處理法說話；杯測同日重複檢查加 process；Send back to QC 只解自己處理法的鎖
