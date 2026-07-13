@@ -3556,6 +3556,151 @@ function allRetailCoffees(){
   out.forEach(function(e){e.synced=!!(DB.syncs||[]).find(function(x){return (x.status==='synced'||x.status==='paused')&&String(x.bean_id||'').trim().toLowerCase()===e.name.toLowerCase();});});
   return out.sort(function(a,b){return a.name.localeCompare(b.name);});
 }
+/* ===== Clean up 清潔按鈕（2026-07-14 老闆點名）＝一鍵掃孤兒、分類清理 =====
+   五類：A Square 死連結（edge v28 reconcile）／B 舊杯測（沒鎖＋沒貨＝無存檔價值）／
+   C 待秤超期（>2 天沒 weigh in）／D 降級滯留（>30 天，純提醒）／E 下架記憶殘留（rtl_sold vs 實際）。
+   掃描條件全遵守雙鍵規則（名字＋處理法）。 */
+async function openCleanupSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Clean up</div><div class="empty">Scanning…</div>');
+  /* B 舊杯測：沒鎖＋該豆（名＋procKey）沒庫存沒待秤沒降級＋不在 QC 佇列（重審中的不碰） */
+  var inQ={};(QCQ||[]).forEach(function(q){inQ[String(q.s.id)]=1;});
+  var oldCups=(DB.samples||[]).filter(function(s){
+    if((s.supplier||'')!=='Ratio Coffee'||s.flavour_locked||inQ[String(s.id)])return false;
+    var nm=String(s.sample_id||'').trim();if(!nm)return false;
+    var isB=rtlIsBlend(nm),proc=isB?undefined:(s.process||'');
+    return rstStockKg(nm,isB,proc)<=0&&!rstPendingBatches(nm,isB,proc).length&&!rstDgBatches(nm,isB,proc).length;
+  });
+  /* C 待秤超期 >2 天 */
+  var pend=(DB.roasts||[]).filter(function(r){
+    return Number(r.green_kg)>0&&!(Number(r.remaining_kg)>0)&&r.qc!=='downgrade'&&r.qc!=='reroast'&&r.roast_date&&daysSince(r.roast_date)>2;
+  });
+  /* D 降級滯留 >30 天 */
+  var dgOld=(DB.roasts||[]).filter(function(r){
+    return r.qc==='downgrade'&&Number(r.remaining_kg)>0&&r.roast_date&&daysSince(r.roast_date)>30;
+  });
+  /* E rtl_sold 殘留：記憶說下架、product_sync 說在賣＝殘留（歷史 key 名字級比對） */
+  var soldKeys=[];
+  try{
+    var rs=await sb.from('app_state').select('value').eq('key','rtl_sold').maybeSingle();
+    var v=rs&&rs.data&&rs.data.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
+    if(v&&typeof v==='object')Object.keys(v).forEach(function(k){
+      if(!v[k])return;
+      var lk=String(k).trim().toLowerCase();
+      if((DB.syncs||[]).some(function(x){return x.status==='synced'&&String(x.bean_id||'').trim().toLowerCase()===lk;}))soldKeys.push(k);
+    });
+  }catch(e){}
+  /* A 死連結：edge 乾跑（需要登入態；失敗不擋其他區） */
+  var dead=null,deadErr=null;
+  try{var rr=await callFn('sync-to-square',{action:'reconcile'});dead=rr.dead||[];}
+  catch(e){deadErr=String(e&&e.message||e);}
+  paintCleanup({dead:dead,deadErr:deadErr,oldCups:oldCups,pend:pend,dgOld:dgOld,soldKeys:soldKeys});
+}
+function paintCleanup(sc){
+  var sec=function(title,hint){return '<div class="dlab">'+title+'</div>'+(hint?'<div class="s" style="margin-top:2px;color:var(--muted)">'+hint+'</div>':'');};
+  var h='<div class="t" style="font-size:19px">Clean up</div>'
+    +'<div class="s" style="margin-top:2px">orphans and dead links — each section cleans separately</div>';
+  var any=false;
+  /* A 死連結 */
+  if(sc.deadErr){any=true;h+=sec('Square dead links')+'<div class="s"><span class="red">scan failed: '+esc(sc.deadErr)+'</span></div>';}
+  else if(sc.dead&&sc.dead.length){any=true;
+    h+=sec('Square dead links · '+sc.dead.length,'listed as on sale but the Square item is gone — customers cannot buy these')
+    +sc.dead.map(function(d){return '<div class="dl"><span>'+esc(d.bean_id)+(d.process?' <span style="color:var(--muted);font-size:12px">'+esc(d.process)+'</span>':'')+'</span><span class="red">'+esc(d.status||'')+'</span></div>';}).join('')
+    +'<button class="act" id="cl-fixdead" style="margin-top:8px">Fix '+sc.dead.length+' dead link'+(sc.dead.length>1?'s':'')+'</button>';
+  }
+  /* B 舊杯測 */
+  if(sc.oldCups.length){any=true;
+    h+=sec('Old cupping records · '+sc.oldCups.length,'not locked and no stock left — secondary batches, safe to delete')
+    +sc.oldCups.map(function(s){return '<div class="dl"><span>'+esc(s.sample_id)+(s.process?' <span style="color:var(--muted);font-size:12px">'+esc(s.process)+'</span>':'')+'</span><span style="color:var(--muted)">'+(s.cupping_date?fmtD(s.cupping_date):'—')+'</span></div>';}).join('')
+    +'<button class="act" id="cl-delcups" style="margin-top:8px">Delete '+sc.oldCups.length+' record'+(sc.oldCups.length>1?'s':'')+'</button>';
+  }
+  /* C 待秤超期 */
+  if(sc.pend.length){any=true;
+    h+=sec('Awaiting weigh-in · '+sc.pend.length,'roasted over 2 days ago, never weighed — weigh in, or delete a mislog (green refunds)')
+    +sc.pend.map(function(r,i){return '<div class="dl" style="align-items:center"><span data-clwi="'+i+'" style="cursor:pointer;flex:1;min-width:0">'+esc(r.bean_name)+(r.process?' <span style="color:var(--muted);font-size:12px">'+esc(r.process)+'</span>':'')+'<div class="s">'+(r.roast_date?fmtD(r.roast_date)+' · '+daysSince(r.roast_date)+'d':'no date')+' · green '+(Number(r.green_kg)||0)+' kg · <span style="color:#B5791C">weigh in ›</span></div></span>'
+      +'<button class="chip" data-clpx="'+i+'" style="margin:0 0 0 8px;padding:2px 10px;font-size:14px" aria-label="delete mislog">✕</button></div>';}).join('');
+  }
+  /* D 降級滯留 */
+  if(sc.dgOld.length){any=true;
+    h+=sec('Stale downgraded · '+sc.dgOld.length,'over 30 days old — use in a blend or deduct it')
+    +sc.dgOld.map(function(r,i){return '<div class="dl" style="cursor:pointer" data-cldg="'+i+'"><span>'+esc(r.bean_name)+(r.process?' <span style="color:var(--muted);font-size:12px">'+esc(r.process)+'</span>':'')+'</span><span style="color:var(--danger)">'+(Number(r.remaining_kg)||0)+' kg · '+daysSince(r.roast_date)+'d</span></div>';}).join('');
+  }
+  /* E rtl_sold 殘留 */
+  if(sc.soldKeys.length){any=true;
+    h+=sec('Stale off-shelf memory · '+sc.soldKeys.length,'marked off shelf in memory but actually on sale — makes Coffee Info lie')
+    +sc.soldKeys.map(function(k){return '<div class="dl"><span>'+esc(k)+'</span><span style="color:var(--muted)">memory says off shelf</span></div>';}).join('')
+    +'<button class="act" id="cl-fixsold" style="margin-top:8px">Fix memory</button>';
+  }
+  if(!any)h+='<div class="empty">All clean ✓<br>No orphans found</div>';
+  h+='<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
+  openDrawerHTML(h);
+  $('d-cl').addEventListener('click',closeDrawer);
+  var fd=$('cl-fixdead');
+  if(fd)fd.addEventListener('click',async function(){
+    if(!confirm('Fix '+sc.dead.length+' dead link'+(sc.dead.length>1?'s':'')+'?\n\nThe rows unlink from Square and show Off shelf. Re-list them from Publish whenever you want.'))return;
+    fd.disabled=true;fd.textContent='Fixing…';
+    try{var r=await callFn('sync-to-square',{action:'reconcile',fix:true});
+      logAct('cleaned up','dead links',String(r.fixed||0));toast('Fixed '+(r.fixed||0)+' ✓');await reload();openCleanupSheet();
+    }catch(e){fd.disabled=false;fd.textContent='Fix dead links';alert('Failed: '+(e&&e.message||e));}
+  });
+  var dc=$('cl-delcups');
+  if(dc)dc.addEventListener('click',async function(){
+    if(!confirm('Delete '+sc.oldCups.length+' old cupping record'+(sc.oldCups.length>1?'s':'')+'?\n\nThese are unlocked with no stock — the locked (selling) records stay. This cannot be undone.'))return;
+    if(!confirm('Really delete? Last chance.'))return;
+    dc.disabled=true;dc.textContent='Deleting…';
+    try{
+      var ids=sc.oldCups.map(function(s){return s.id;});
+      var d=await sb.from('samples').delete().in('id',ids);
+      if(d.error)throw new Error(d.error.message);
+      DB.samples=(DB.samples||[]).filter(function(s){return ids.indexOf(s.id)<0;});
+      logAct('cleaned up','old cuppings',String(ids.length));
+      toast('Deleted '+ids.length+' ✓');buildItems();openCleanupSheet();
+    }catch(e){dc.disabled=false;alert('Failed: '+(e&&e.message||e));}
+  });
+  document.querySelectorAll('#drawer [data-clwi]').forEach(function(el){el.addEventListener('click',function(){openWeighIn(sc.pend[+el.dataset.clwi]);});});
+  document.querySelectorAll('#drawer [data-clpx]').forEach(function(el){el.addEventListener('click',async function(){
+    var r=sc.pend[+el.dataset.clpx];if(!r)return;
+    var g=Number(r.green_kg)||0;
+    var bean=(DB.beans||[]).find(function(b){return String(b.id)===String(r.bean_id);})
+      ||(DB.beans||[]).find(function(b){return String(b.name||'').trim().toLowerCase()===String(r.bean_name||'').trim().toLowerCase()&&procKey(b.process)===procKey(r.process);});
+    if(!confirm('Delete this mislogged roast?\n\n'+r.bean_name+(r.process?' · '+r.process:'')+' · green '+g+' kg'
+      +(bean?'\nThe '+g+' kg green refunds to stock ('+bean.name+').':'\n⚠ Green bean not found in the ledger — the roast deletes but nothing refunds.')
+      +'\n\nThis cannot be undone.'))return;
+    try{
+      var d=await sb.from('roasts').delete().eq('id',r.id);
+      if(d.error)throw new Error(d.error.message);
+      DB.roasts=(DB.roasts||[]).filter(function(x){return String(x.id)!==String(r.id);});
+      if(bean&&g>0){
+        var nq=Math.round(((Number(bean.quantity)||0)+g)*1000)/1000;
+        var u=await sb.from('beans').update({quantity:nq}).eq('id',bean.id);
+        if(!u.error){bean.quantity=nq;
+          try{await sb.from('stock_moves').insert({bean_id:bean.id,kind:'adjust',delta_kg:g,after_kg:nq,note:'Cleanup refund — mislogged roast'});}catch(e2){}
+        }
+      }
+      logAct('cleaned up','mislogged roast',r.bean_name+' '+g+' kg');
+      toast('Deleted ✓'+(bean?' green +'+g+' kg':''));buildItems();openCleanupSheet();
+    }catch(e){alert('Failed: '+(e&&e.message||e));}
+  });});
+  document.querySelectorAll('#drawer [data-cldg]').forEach(function(el){el.addEventListener('click',function(){
+    var r=sc.dgOld[+el.dataset.cldg];if(!r)return;
+    RST.seg=(r.kind==='blend')?'blend':'single';
+    RST.open=String(r.bean_name||'').trim().toLowerCase()+'|'+String(r.kind==='blend'?'':(r.process||'')).trim().toLowerCase();
+    openBatchesSheet();
+  });});
+  var fs=$('cl-fixsold');
+  if(fs)fs.addEventListener('click',async function(){
+    fs.disabled=true;fs.textContent='Fixing…';
+    try{
+      var rr=await sb.from('app_state').select('value').eq('key','rtl_sold').maybeSingle();
+      var v=(rr&&rr.data&&rr.data.value)||{};if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v={};}}
+      if(!v||typeof v!=='object')v={};
+      sc.soldKeys.forEach(function(k){delete v[k];});
+      var u=await sb.from('app_state').upsert({key:'rtl_sold',value:v,updated_at:new Date().toISOString()},{onConflict:'key'});
+      if(u.error)throw new Error(u.error.message);
+      logAct('cleaned up','off-shelf memory',String(sc.soldKeys.length));
+      toast('Fixed ✓');openCleanupSheet();
+    }catch(e){fs.disabled=false;fs.textContent='Fix memory';alert('Failed: '+(e&&e.message||e));}
+  });
+}
 function openDeleteCoffeeSheet(){
   var list=allRetailCoffees();
   openDrawerHTML('<div class="t" style="font-size:19px">Delete a coffee</div>'
@@ -9460,7 +9605,7 @@ function renderTools(){
       +_tiles([['Green stock','full list','greens','stock'],['Sample analyse','green cupping','sampleana','qc',1],['Buy log','green purchases','buylog','order',1],['C Market','futures · landed cost','cmarket','statement']]))
     +_sec('Roast',DEPT.roast,
       (_mk?_mkTile('t-roast','Log roast','green in','flame'):'')
-      +_tiles([['Coffee Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Coffee Info','flavour · dossier','retail','market']].concat(_mk?[['Delete a coffee','remove · careful','delbean','trash',1]]:[])))
+      +_tiles([['Coffee Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Coffee Info','flavour · dossier','retail','market']].concat(_mk?[['Delete a coffee','remove · careful','delbean','trash',1],['Clean up','orphans · dead links','cleanup','refresh',1]]:[])))
     +_sec('QC &amp; Recipe',DEPT.qc,
       _tiles([['QC','cup and judge','qcgo','qc'],['Recipe','blends · dial-in','recipe','recipe'],['Dial in','espresso shots','dialin','espresso',1]]))
     /* 2026-07-12 統整：Coffee Info/Post to socials/IG asset/Announce 四顆收進 Publish 一鍵上架面板 */
@@ -9567,6 +9712,7 @@ function renderTools(){
     if(k==='social4'){openSocialSplitSheet();return;}
     if(k==='menus'){openMenusSheet();return;}
     if(k==='delbean'){openDeleteCoffeeSheet();return;}
+    if(k==='cleanup'){openCleanupSheet();return;}
     if(k==='subs'){openSubsSheet();return;}
     if(k==='wholesale'){openWholesaleSheet();return;}
     if(k==='team'){openTeamSheet();return;}

@@ -61,6 +61,18 @@
 - **修**：①資料——SQL 把 rtl_sold 裡已 synced 的 7 支清掉（Dancer/Danche v1-v3/Dark Knight/Sugar Daddy/June Project），留真下架的 5 支（April Project/Hakuna Matata/Kiama AA/Kii AB/Dreamer）②根因——pushListToSquare 的記憶寫回段（read-modify-write）加 rtl_sold：push 成功刪該豆 key（listNm＋nm 兩種 key 大小寫容錯）。驗證：stub——push Dancer 後 rtl_sold 寫回只剩 April Project、alert 零、console 零錯誤。⚠ stub 測 pushListToSquare 要蓋 window.callFn（不然 Signed out 就 throw）
 - **烘豆日期修正（同 session 稍早）**：shelfLatestRoast/shelfFreshness 加可選 proc 參數（undefined＝名字級照舊）；Coffee Info 排序/列/詳情帶 proc——Alo Village WH（05-18）/CF（06-01）烘豆日不再互相污染。老闆點名先驗後 commit——本輪一起 commit
 
+## 〇、補記 — 2026-07-14 之四（Tools「Clean up」清潔按鈕 ✅）
+- **背景**：生產線體檢揪出四漏洞（賣超/待秤黑洞/死連結復發/未 QC 可出貨——後兩者本輪處理，前兩者待老闆排期）。老闆點名做清潔按鈕
+- **交付**：Tools→Coffee 區磁貼「Clean up」（director only）→ `openCleanupSheet()` 五區掃描（雙鍵規則）＋分區清理：
+  - **A Square 死連結**：edge **sync-to-square v28 +action `reconcile`**（掃 product_sync external_id 逐一驗 Square、404=dead；fix:true 清連結＋synced→paused；其他錯誤只報不修）；前端「Fix N dead links」
+  - **B 舊杯測**（沒鎖＋沒貨＋不在 QCQ）：列出＋雙 confirm 刪 samples
+  - **C 待秤超期**（>2 天）：點行 openWeighIn；✕ 誤記刪除＝刪 roasts＋green 退回生豆（找不到主檔只刪不退有提示）＋stock_moves 沖銷（kind:'adjust'）
+  - **D 降級滯留**（>30 天）：純提醒、點行跳 Coffee Stock 該豆
+  - **E rtl_sold 殘留**（記憶說下架、實際 synced）：Fix memory＝read-modify-write 清 keys——上次 Coffee Info 誤報 off shelf 的病根有工具了
+  - 全空＝All clean ✓；各動作 logAct 記名
+- **驗證**：stub 五區各一例＋鎖了的不列＋執行 payload（samples in(s1)/roasts delete＋beans 20→30＋stock_moves +10/rtl_sold 清 key）＋All clean 空態＋截圖 console 零錯誤；**現網 reconcile 乾跑＝checked 16、dead 0** ✓
+- **⚠ 剩餘漏洞待排期**：①賣超（庫存歸零不自動下架——建議出貨歸零觸發 off shelf 或推播）②待秤黑洞的自動提醒（今日流卡/晨報——Clean up 是手動版）
+
 ## 〇、補記 — 2026-07-14 之三（Roast → Publish 營運藍圖文件 ✅）
 - **老闆要求**：Log roast 到 Publish 做一份可下載的藍圖。交付：`Ratio-blueprint-roast-to-publish.html`（repo 根目錄，單檔自包含、亮/夜版、可列印成 PDF）＋Artifact 網頁版 https://claude.ai/code/artifact/f6d9755d-55c6-47fd-bbbf-6493e07fd140（手機隨時開）
 - **內容**：總覽 SVG 流程圖（生豆→Log roast 多鍋→Coffee Stock 三池→QC→Publish→店面＋出貨 FIFO 迴圈＋降級回流）＋五站規則卡（Log roast/Coffee Stock/QC/Publish/Coffee Info）＋鐵律五條（豆子雙鍵/鎖=閘門/降級不隱形/off shelf=消失/FIFO）——全部照 2026-07-13~14 定稿規則，紙白玫瑰設計語言與 app 同款
