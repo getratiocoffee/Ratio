@@ -61,6 +61,11 @@
 - **修**：①資料——SQL 把 rtl_sold 裡已 synced 的 7 支清掉（Dancer/Danche v1-v3/Dark Knight/Sugar Daddy/June Project），留真下架的 5 支（April Project/Hakuna Matata/Kiama AA/Kii AB/Dreamer）②根因——pushListToSquare 的記憶寫回段（read-modify-write）加 rtl_sold：push 成功刪該豆 key（listNm＋nm 兩種 key 大小寫容錯）。驗證：stub——push Dancer 後 rtl_sold 寫回只剩 April Project、alert 零、console 零錯誤。⚠ stub 測 pushListToSquare 要蓋 window.callFn（不然 Signed out 就 throw）
 - **烘豆日期修正（同 session 稍早）**：shelfLatestRoast/shelfFreshness 加可選 proc 參數（undefined＝名字級照舊）；Coffee Info 排序/列/詳情帶 proc——Alo Village WH（05-18）/CF（06-01）烘豆日不再互相污染。老闆點名先驗後 commit——本輪一起 commit
 
+## 〇、補記 — 2026-07-14 之三（Roast → Publish 營運藍圖文件 ✅）
+- **老闆要求**：Log roast 到 Publish 做一份可下載的藍圖。交付：`Ratio-blueprint-roast-to-publish.html`（repo 根目錄，單檔自包含、亮/夜版、可列印成 PDF）＋Artifact 網頁版 https://claude.ai/code/artifact/f6d9755d-55c6-47fd-bbbf-6493e07fd140（手機隨時開）
+- **內容**：總覽 SVG 流程圖（生豆→Log roast 多鍋→Coffee Stock 三池→QC→Publish→店面＋出貨 FIFO 迴圈＋降級回流）＋五站規則卡（Log roast/Coffee Stock/QC/Publish/Coffee Info）＋鐵律五條（豆子雙鍵/鎖=閘門/降級不隱形/off shelf=消失/FIFO）——全部照 2026-07-13~14 定稿規則，紙白玫瑰設計語言與 app 同款
+- **規則有變時記得同步這份文件**（改完重發 Artifact 同 URL）
+
 ## 〇、補記 — 2026-07-14 之二（sync-to-square v26→v27：Blend/Single Origin 分類歸納 ✅）
 - **老闆定調**：Square 商品按豆型歸類——「Blend」「Single Origin」（重用 Square 既有同名分類）；「Ratio Online Shop」降級為純認養圍欄（每支都掛、防誤抓店內品項，v25 防護邏輯不動）
 - **v27**：泛用 `ensureCat(name)`（快取 map）取代單一 ensureRatioCategory；`isBlendBean(admin,name)`＝blends 主檔 ilike 命中或 roasts kind='blend' 同名；push 自動掛〔圍欄＋豆型〕雙分類、reporting=豆型；新 action `categorize_all`＝一次掃 product_sync 有 external_id 的全部商品補掛（訂閱按名字帶 blend/single 判）。v26 是中間版（單一分類版 categorize_all），部署後即被 v27 蓋掉
