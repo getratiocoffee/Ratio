@@ -3705,7 +3705,7 @@ function paintCleanup(sc){
    流程：選待杯豆開輪 → 各自大框寫風味（一行一個）→ Submit 盲等 → 誰都能 Reveal → 並排對照 →
    Save＝進正式 samples（照 saveCupSheet 的 insert 形狀，cupper='Team'，之後照常進 QC 判定）。
    盲測＝應用層：揭曉前只畫「誰交了」不畫內容。介面鐵則：每畫面一個主要動作。 */
-var LC={sid:null,session:null,notes:[],draft:'',chan:null};
+var LC={sid:null,session:null,notes:[],draft:'',chan:null,ai:null,editName:false};
 function lcCleanup(){if(LC.chan){try{sb.removeChannel(LC.chan);}catch(e){}LC.chan=null;}}
 function lcSplit(t){return String(t||'').split(/[\n,，、]/).map(function(s){return s.trim();}).filter(Boolean);}
 function lcMine(){var me=(WHO||'—');return (LC.notes||[]).find(function(n){return n.cupper===me;})||null;}
