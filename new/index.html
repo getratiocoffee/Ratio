@@ -3701,6 +3701,176 @@ function paintCleanup(sc){
     }catch(e){fs.disabled=false;fs.textContent='Fix memory';alert('Failed: '+(e&&e.message||e));}
   });
 }
+/* ===== Live cupping 多人盲測協作（2026-07-14 老闆點名；系統首次用 Supabase Realtime）=====
+   流程：選待杯豆開輪 → 各自大框寫風味（一行一個）→ Submit 盲等 → 誰都能 Reveal → 並排對照 →
+   Save＝進正式 samples（照 saveCupSheet 的 insert 形狀，cupper='Team'，之後照常進 QC 判定）。
+   盲測＝應用層：揭曉前只畫「誰交了」不畫內容。介面鐵則：每畫面一個主要動作。 */
+var LC={sid:null,session:null,notes:[],draft:'',chan:null};
+function lcCleanup(){if(LC.chan){try{sb.removeChannel(LC.chan);}catch(e){}LC.chan=null;}}
+function lcSplit(t){return String(t||'').split(/[\n,，、]/).map(function(s){return s.trim();}).filter(Boolean);}
+function lcMine(){var me=(WHO||'—');return (LC.notes||[]).find(function(n){return n.cupper===me;})||null;}
+async function openLiveCupSheet(){
+  lcCleanup();LC.draft='';
+  openDrawerHTML('<div class="t" style="font-size:19px">Live cupping</div><div class="empty">Loading…</div>');
+  try{
+    /* 今天最新一輪（含已揭曉——揭曉後大家還能看結果、從那裡開新輪） */
+    var q=await sb.from('cupping_sessions').select('*').gte('created_at',todayStartISO()).order('created_at',{ascending:false}).limit(1);
+    var ses=(q.data||[])[0]||null;
+    if(!ses){lcPaintPick();return;}
+    LC.sid=ses.id;LC.session=ses;
+    var nq=await sb.from('cupping_notes').select('*').eq('session_id',ses.id);
+    LC.notes=nq.data||[];
+    lcSub();lcPaint();
+  }catch(e){openDrawerHTML('<div class="t" style="font-size:19px">Live cupping</div><div class="empty">Load failed — '+esc(String(e&&e.message||e))+'</div><button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');var c=$('d-cl');if(c)c.addEventListener('click',closeDrawer);}
+}
+function lcPaintPick(){
+  var list=toCupList();
+  openDrawerHTML('<div class="t" style="font-size:19px">Live cupping</div>'
+    +'<div class="s" style="margin-top:2px">pick the coffee on the table — everyone joins the same round</div>'
+    +(list.length?list.map(function(r,ix){
+      var b=(DB.beans||[]).find(function(x){return String(x.id)===String(r.bean_id);});
+      var proc=r.process||(b&&b.process)||'';
+      return '<div class="hit" data-lcpick="'+ix+'" style="cursor:pointer"><span><div class="t">'+esc(r.bean_name||'—')
+        +(proc?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(proc)+'</span>':'')+'</div>'
+        +'<div class="s">'+(r.roast_date?'roasted '+fmtD(r.roast_date):'roast batch')+'</div></span><span class="k">start ›</span></div>';
+    }).join(''):'<div class="empty">No batches waiting to cup<br>Log a roast first</div>')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('d-cl').addEventListener('click',function(){lcCleanup();closeDrawer();});
+  document.querySelectorAll('#drawer [data-lcpick]').forEach(function(el){el.addEventListener('click',function(){lcStart(list[+el.dataset.lcpick]);});});
+}
+async function lcStart(r){
+  var b=(DB.beans||[]).find(function(x){return String(x.id)===String(r.bean_id);});
+  var proc=r.process||(b&&b.process)||null;
+  try{
+    var ins=await sb.from('cupping_sessions').insert({roast_id:String(r.id),bean_name:r.bean_name,process:proc,opened_by:WHO||null}).select();
+    if(ins.error)throw new Error(ins.error.message);
+    LC.session=ins.data[0];LC.sid=LC.session.id;LC.notes=[];LC.draft='';
+    logAct('started live cupping',r.bean_name||'—');
+    lcSub();lcPaint();
+  }catch(e){alert('Could not start: '+(e&&e.message||e));}
+}
+function lcSub(){
+  lcCleanup();
+  LC.chan=sb.channel('cup-'+LC.sid)
+    .on('postgres_changes',{event:'*',schema:'public',table:'cupping_notes',filter:'session_id=eq.'+LC.sid},function(p){
+      var row=p&&p.new;if(!row||!row.id)return;
+      var i=LC.notes.findIndex(function(n){return n.id===row.id;});
+      if(i>-1)LC.notes[i]=row;else LC.notes.push(row);
+      lcLiveUpdate();
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'cupping_sessions',filter:'id=eq.'+LC.sid},function(p){
+      if(p&&p.new){LC.session=p.new;lcPaint();} /* 有人揭曉＝所有人自動翻牌 */
+    })
+    .subscribe();
+}
+function lcDone(){return (LC.notes||[]).filter(function(n){return n.submitted_at;});}
+function lcLiveUpdate(){
+  /* 自己還在打字（textarea 在畫面上）＝只更新「誰交了」小字，不重繪（鍵盤焦點不能掉） */
+  var ta=$('lc-ta');
+  if(ta){var el=$('lc-live');if(el)el.textContent=lcDone().length?lcDone().map(function(n){return n.cupper;}).join(' · ')+' submitted':'';return;}
+  lcPaint();
+}
+function lcPaint(){
+  var s=LC.session;if(!s)return;
+  var head='<div class="t" style="font-size:19px">'+esc(s.bean_name||'—')
+    +(s.process?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(s.process)+'</span>':'')+'</div>';
+  var done=lcDone(),h='';
+  if(s.revealed){
+    /* 揭曉：每人一卡並排 → Save 進正式 */
+    h=head+'<div class="s" style="margin-top:2px">everyone’s flavours — side by side</div>'
+      +(done.length?done.map(function(n){
+        return '<div style="background:var(--tint);border-radius:12px;padding:11px 13px;margin-top:8px"><div class="s" style="color:var(--muted);font-size:12px">'+esc(n.cupper||'—')+'</div>'
+          +'<div class="t" style="font-size:14.5px;margin-top:2px">'+esc((n.notes||[]).join(' · ')||'—')+'</div></div>';
+      }).join(''):'<div class="empty">Nobody submitted</div>')
+      +(done.length?'<button class="act" id="lc-save" style="margin-top:12px">Save to cupping record</button>':'')
+      +'<button class="dclose" id="lc-new">Start a new round</button>'
+      +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
+  }else if(lcMine()){
+    /* 已交等待：大字 N submitted＋名單＋Reveal */
+    h=head+'<div class="s" style="margin-top:2px">waiting for the others…</div>'
+      +'<div style="text-align:center;margin:22px 0 6px;font-size:44px;font-weight:800">'+done.length+'</div>'
+      +'<div class="s" style="text-align:center;color:var(--muted)">submitted</div>'
+      +'<div style="margin-top:12px">'+done.map(function(n){return '<div class="dl"><span>'+esc(n.cupper||'—')+'</span><span style="color:var(--accent)">✓</span></div>';}).join('')+'</div>'
+      +'<button class="act" id="lc-reveal" style="margin-top:14px">Reveal all</button>'
+      +'<div class="s" style="margin-top:4px;color:var(--muted);text-align:center">reveal when everyone has submitted</div>'
+      +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
+  }else{
+    /* 寫風味：一個大框，一行一個，Submit */
+    h=head+'<div class="s" style="margin-top:2px">type what you taste — one per line, as many as you like</div>'
+      +'<textarea class="din" id="lc-ta" rows="8" placeholder="strawberry&#10;red wine&#10;honey sweetness" style="width:100%;margin-top:10px;resize:vertical;font-size:16px;line-height:1.7">'+esc(LC.draft)+'</textarea>'
+      +'<div class="s" id="lc-live" style="margin-top:6px;color:var(--muted)">'+(lcDone().length?lcDone().map(function(n){return n.cupper;}).join(' · ')+' submitted':'')+'</div>'
+      +'<button class="act" id="lc-submit" style="margin-top:8px">Submit</button>'
+      +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
+  }
+  openDrawerHTML(h);
+  $('d-cl').addEventListener('click',function(){lcCleanup();closeDrawer();});
+  var ta=$('lc-ta');if(ta)ta.addEventListener('input',function(){LC.draft=this.value;});
+  var sub=$('lc-submit');if(sub)sub.addEventListener('click',lcSubmit);
+  var rv=$('lc-reveal');if(rv)rv.addEventListener('click',lcReveal);
+  var sv=$('lc-save');if(sv)sv.addEventListener('click',lcSaveOfficial);
+  var nw=$('lc-new');if(nw)nw.addEventListener('click',function(){lcCleanup();LC.session=null;LC.sid=null;LC.notes=[];LC.draft='';lcPaintPick();});
+}
+async function lcSubmit(){
+  var ta=$('lc-ta');var notes=lcSplit(ta?ta.value:LC.draft);
+  if(!notes.length){toast('Type at least one flavour');return;}
+  var btn=$('lc-submit');if(btn){btn.disabled=true;btn.textContent='Submitting…';}
+  try{
+    var rec={session_id:LC.sid,cupper:WHO||'—',notes:notes,submitted_at:new Date().toISOString()};
+    var u=await sb.from('cupping_notes').upsert(rec,{onConflict:'session_id,cupper'}).select();
+    if(u.error)throw new Error(u.error.message);
+    var row=u.data&&u.data[0];
+    if(row){var i=LC.notes.findIndex(function(n){return n.id===row.id;});if(i>-1)LC.notes[i]=row;else LC.notes.push(row);}
+    logAct('cupped live',LC.session&&LC.session.bean_name||'—',notes.length+' notes');
+    lcPaint();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Submit';}
+    alert('Submit failed: '+(e&&e.message||e));
+  }
+}
+async function lcReveal(){
+  if(!confirm('Reveal everyone’s flavours? Make sure everyone has submitted.'))return;
+  var btn=$('lc-reveal');if(btn){btn.disabled=true;btn.textContent='Revealing…';}
+  try{
+    var u=await sb.from('cupping_sessions').update({revealed:true}).eq('id',LC.sid);
+    if(u.error)throw new Error(u.error.message);
+    LC.session.revealed=true;lcPaint(); /* 自己直接翻，別人靠 realtime */
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Reveal all';}
+    alert('Failed: '+(e&&e.message||e));
+  }
+}
+async function lcSaveOfficial(){
+  var s=LC.session,done=lcDone();
+  if(!s||!done.length)return;
+  /* 彙總去重（保留第一個寫法的大小寫） */
+  var seen={},feats=[];
+  done.forEach(function(n){(n.notes||[]).forEach(function(f){var k=String(f).trim().toLowerCase();if(!k||seen[k])return;seen[k]=1;feats.push(String(f).trim());});});
+  if(!confirm('Save to the cupping record?\n\n'+s.bean_name+(s.process?' · '+s.process:'')+'\nFlavours ('+feats.length+'): '+feats.join(', ')+'\nCupper: Team ('+done.length+' people)'))return;
+  var btn=$('lc-save');if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  try{
+    var r=(DB.roasts||[]).find(function(x){return String(x.id)===String(s.roast_id);})||{};
+    var today=todayStr();
+    /* 照 saveCupSheet 形狀：流水號＋insert＋容錯鏈（存完照常進 QC 待判定） */
+    var mx=await sb.from('samples').select('no').eq('cupping_date',today).order('no',{ascending:false}).limit(1);
+    var no=((mx.data&&mx.data[0]&&Number(mx.data[0].no))||0)+1;
+    var rec={no:no,cupping_date:today,roast_date:r.roast_date||null,supplier:'Ratio Coffee',
+      sample_id:s.bean_name,process:s.process||null,bean_id:r.bean_id||null,
+      features:feats,comment:null,decision:null,cupper:'Team'};
+    var ins=await sb.from('samples').insert(rec).select();
+    if(ins.error){var r2=Object.assign({},rec);delete r2.features;ins=await sb.from('samples').insert(r2).select();}
+    if(ins.error){var r3=Object.assign({},rec);delete r3.features;delete r3.cupper;ins=await sb.from('samples').insert(r3).select();}
+    if(ins.error)throw new Error(ins.error.message);
+    if(ins.data&&ins.data[0])(DB.samples||[]).push(ins.data[0]);
+    logAct('team cupping saved',s.bean_name||'—',done.length+' people · '+feats.length+' flavours');
+    toast('Saved ✓ — judge it in QC');
+    lcCleanup();
+    try{buildItems();}catch(e){}
+    closeDrawer();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Save to cupping record';}
+    alert('Save failed: '+(e&&e.message||e));
+  }
+}
 function openDeleteCoffeeSheet(){
   var list=allRetailCoffees();
   openDrawerHTML('<div class="t" style="font-size:19px">Delete a coffee</div>'

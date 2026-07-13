@@ -56,7 +56,13 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
-## 〇、補記 — 2026-07-14 之五（Live cupping 多人盲測協作：系統首次用 Realtime ✅）
+## 〇、補記 — 2026-07-15（Live cupping 主體補寫：前次工具異常沒落地，本次真完工 ✅）
+- **事故**：07-14 工具異常期，Live cupping「主體函式」的 Edit 假成功（commit 48f365c 只有磁貼＋分派 12 行）——老闆 push 後點磁貼**沒反應**（呼叫不存在的 openLiveCupSheet）。教訓：**大段 Edit 後必 grep 驗證函式定義真的在檔案裡**
+- **本次**：主體全函式群真正寫入（openDeleteCoffeeSheet 前）＝LC 狀態/lcCleanup/lcSplit（換行逗號頓號都切）/lcMine/openLiveCupSheet（今天最新一輪含已揭曉；無輪→picker）/lcPaintPick（toCupList 選豆）/lcStart/lcSub（channel ×2 訂閱）/lcDone/lcLiveUpdate（打字中只更新小字保鍵盤焦點）/lcPaint（三態）/lcSubmit（upsert onConflict session_id,cupper）/lcReveal（自己直翻別人靠 realtime）/lcSaveOfficial（去重彙總→照 saveCupSheet insert 形狀：no 流水號＋容錯鏈＋cupper='Team'→存完進 QC 待判定）
+- **驗證（本機 stub 全過）**：picker→開輪 payload（roast_id/bean_name/process/opened_by）→寫態→submit payload（notes 3 條）→等待態計數→reveal PATCH→揭曉三人並排→存正式 payload（features 7 個去重合併、雙鍵、Team）＋截圖＋console 零錯誤。⚠ stub 心得：**sb 是區域變數不在 window 上**（mock channel 蓋不到；channel 走 WebSocket 不走 fetch，stub 測試讓它真連無害）
+- **⚠ 待老闆**：push 部署後兩裝置真測即時（DB 表/RLS/realtime publication 07-14 已上線且驗過連通）
+
+## 〇、補記 — 2026-07-14 之五（Live cupping 多人盲測協作：系統首次用 Realtime——⚠ 此輪主體未落地，見 07-15 補記）
 - **老闆要**：杯測時大家各自登入→選同一支待杯豆→大框自由打風味→Submit 盲等其他人→揭曉對照→**算正式**（進 samples）。三拍板：每次一支豆／算正式（未來想接 AI 綜合風味）／真即時。介面鐵則：每畫面一個主要動作、大框自由打
 - **⚠ 系統第一次用 Supabase Realtime**（此前 grep=0）。真測通過：Chrome 登入態訂閱 cupping_notes → insert 一筆 → 收到 INSERT 廣播（SUBSCRIBED ✓）＝publication/RLS/廣播整鏈路運作
 - **migration `live_cupping_collab`**（已上線）：`cupping_sessions`（roast_id/bean_name/process/opened_by/revealed）＋`cupping_notes`（session_id FK cascade/cupper/notes jsonb/submitted_at；unique(session_id,cupper)）；RLS `is_staff()` 讀寫（信任模型）；**兩表加 supabase_realtime publication ＋ replica identity full**（reveal 翻牌要帶完整 row）
