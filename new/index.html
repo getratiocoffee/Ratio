@@ -6853,11 +6853,13 @@ async function beanInfoRows(full,opts){
 }
 /* 單卡的正反面 HTML（cover＝封面＋QR、info＝雷達＋明細）——四格混排 PDF 的原料 */
 async function infoCardFaces(s){
-  /* full row（flavour_locked 優先）＋顏色＋brew（同 immersion 的目標解析） */
+  /* full row（flavour_locked 優先）＋顏色＋brew（同 immersion 的目標解析）
+     ⚠ 雙鍵：豆名＋處理法（同名多處理法是不同商品——只比名字會抓到別支處理法的鎖定風味） */
   var full=s;
   try{
-    var fq=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',s.sample_id)
-      .order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
+    var q=sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',s.sample_id);
+    if(s.process)q=q.eq('process',s.process);
+    var fq=await q.order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
     if(fq.data&&fq.data[0])full=fq.data[0];
   }catch(e){}
   var dots={};try{dots=await cardDots();}catch(e){}

@@ -60,7 +60,8 @@
 - **老闆需求**：A4 田字格的左上/右上/左下/右下四張卡**各自選豆**（原本只能單豆 ×4），第二頁（背面）跟著換。
 - **改動（new/index.html）**：①`openInfoCardsSheet` 改四槽位 UI＝2×2 select（Top left/Top right/Bottom left/Bottom right，母體 passedBeans，「— empty —」＝該格留白）＋「Same coffee in all four」快速鈕（＝舊單豆行為）＋Download PDF ②原 `openInfoCardPrint` 拆兩段：`infoCardFaces(s)`＝單豆的 {cover,info} 卡面 HTML（fetch full row/雷達/明細全在此，同豆多格 cache 共用一次）＋`infoCard4Pdf(slotIds)`＝四格組裝＋html2pdf 下載（版式/CSS/html2pdf 參數零改動）。舊函式名 openInfoCardPrint 已移除（唯一呼叫者就是這抽屜）。
 - **⚠ 鏡像關鍵**：第一頁（雷達＋明細面）照 [左上,右上,左下,右下]；第二頁（封面＋QR 面）排 **[右下,左下,右上,左上]**（左右＋上下都對調＝旋轉 180° 排列；老闆 07-15 指示第二頁下方跟上方對調），裁開每張卡正反才同一支豆。四格同豆時鏡不鏡像無差＝向後相容。**若老闆真機印出正反對不上＝印表機雙面翻頁邊（長邊/短邊）與假設相反，回報再調**。檔名：單一豆 `infocard-<slug>.pdf`、混豆 `infocard-4up.pdf`。
-- **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
+- **雙鍵補洞（07-15 老闆點名查核）**：infoCardFaces 的 full row 查詢原只比豆名（承自舊 openInfoCardPrint）——同名多處理法會抓到別支的鎖定風味；已補 `.eq('process',s.process)`（有 process 才加）。⚠ 同款「只比名字」查詢仍在 openSocialPostBean（3361）與 uploadCardForBean 兩處，待老闆點頭一併補。
+- **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
 ## 〇、補記 — 2026-07-15（Live cupping 主體補寫：前次工具異常沒落地，本次真完工 ✅）
