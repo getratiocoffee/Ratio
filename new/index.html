@@ -4218,15 +4218,17 @@ function openBatchesSheet(){
   var dgTot=0;rows.forEach(function(x){dgTot+=x.dgKg||0;});
   dgTot=Math.round(dgTot*100)/100;
   var h='<div class="t" style="font-size:19px">Coffee Stock</div>'
+    +'<div class="gs-sum"><div class="box"><div class="n">'+totKg+'</div><div class="l">kg on shelf</div></div>'
+    +'<div class="box"><div class="n">'+rows.length+'</div><div class="l">Coffee'+(rows.length===1?'':'s')+'</div></div></div>'
+    +(dgTot>0?'<div class="s" style="margin-top:6px;text-align:center;color:var(--danger)">+'+dgTot+' kg downgraded (not counted in shelf total)</div>':'')
+    +'<div class="pm-seg" style="margin-top:10px"><button id="rst-b" class="'+(isBlend?'on':'')+'">Blends</button><button id="rst-s" class="'+(isBlend?'':'on')+'">Single origins</button></div>'
+    +(ed?'<button class="act" id="rst-intake" style="margin-top:10px">＋ Intake — add roasted stock</button>':'')
     /* 圖例＝血條新鮮度色（v3 定稿）：黃 aging · 綠 ready · 紅 fading · 灰 no date */
-    +'<div class="s" style="margin-top:2px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">'
+    +'<div class="s" style="margin-top:14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center">'
     +'<span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#C29036;vertical-align:-1px"></span> aging</span>'
     +'<span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#3F9A66;vertical-align:-1px"></span> ready</span>'
     +'<span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--danger);vertical-align:-1px"></span> fading</span>'
-    +'<span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--line2);vertical-align:-1px"></span> no date</span></div>'
-    +'<div class="dl" style="margin-top:10px"><span>'+rows.length+' coffee'+(rows.length===1?'':'s')+' on the shelf</span><span><b>'+totKg+' kg</b>'+(dgTot>0?' <span style="color:var(--danger);font-size:12px">+'+dgTot+' kg downgraded</span>':'')+'</span></div>'
-    +(ed?'<button class="act" id="rst-intake" style="margin-top:10px">＋ Intake — add roasted stock</button>':'')
-    +'<div class="pm-seg" style="margin-top:10px"><button id="rst-b" class="'+(isBlend?'on':'')+'">Blends</button><button id="rst-s" class="'+(isBlend?'':'on')+'">Single origins</button></div>';
+    +'<span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--line2);vertical-align:-1px"></span> no date</span></div>';
   if(!rows.length)h+='<div class="empty">Nothing here yet<br>Use Intake above or log the roasted-out kg when roasting</div>';
   rows.forEach(function(x,xi){
     var openRow=RST.open===x.key;
