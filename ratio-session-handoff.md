@@ -64,6 +64,12 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之五（烘焙批次編號 R#ID：比照 G# 辦理 ✅）
+- **老闆加碼**：烘焙完的豆子也要 ID，G 換 R。**DB（migration `roasts_roast_no`）**：roasts 加 `roast_no integer unique`＋sequence `roasts_roast_no_seq` default（DB 自動發號，Log roast/backfill insert 零改動）；回填 46 批按 roast_date→created_at 排＝R#00001…R#00046；下一鍋自動 R#00047。roasts.id 是原生 UUID（與 beans 的前端字串 id 不同，但做法相同）。
+- **前端**：helper `rNo(r)`＋`rNos(batches)`（gNo 旁；同日多鍋合併行列多個號）。落點：①loadAll roasts select 加 roast_no ②QC 抽屜 In hand 組行（cupGroups 加 rows 收集）＋To judge 行 sub ③openQcStockSheet 標題 ④Coffee Stock 展開三種批次行（可賣組/降級組/待入庫）⑤全域搜尋 `r31`/`R#00040` 找批次（回 ID/豆名/處理法/烘焙日/QC/剩量卡；純數字仍只找生豆）。
+- **驗證**：SQL 46 批全有號無重複 ✓；jscheck ✓；preview stub——rNo/rNos 三態、Coffee Stock 三行帶號（同日兩鍋 `R#00031 R#00032 · 10/07 · QC ✓`）、QC To judge 行 `R#00040 · roasted 13/07`、搜尋 r31/R#00040 命中、console 零錯誤。
+- **⏭ 老闆**：下一鍋 Log roast 自動拿 R#00047。標籤/掛牌印 G#/R# 之後想做再說。
+
 ## 〇、補記 — 2026-07-15 之四（生豆身分證 G#ID：每支生豆一個人類可讀編號 ✅）
 - **老闆定案**：連環「拿錯豆」後下令——每支生豆一個 ID，G#00001 起。計畫檔 `~/.claude/plans/id-g-00001-shimmying-globe.md`。
 - **DB（migration `beans_green_no`）**：beans 加 `green_no integer unique`＋sequence `beans_green_no_seq` 設 default（**DB 自動發號——前端兩個進豆 insert 點零改動、永不重號**）；回填 27 支既有豆按 id 排序（id 內嵌 base36 時間戳＝進貨順序）＝G#00001 Danche v1 … G#00027 Karimikui AA（Alo Village CF=G#00012／WH=G#00013）；sequence 已 setval 27，下一支新豆自動 G#00028。
