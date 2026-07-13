@@ -6910,9 +6910,9 @@ async function infoCardFaces(s){
 /* ===== A4 直式雙面＝2×2 田字格 4 張雙面卡（老闆定稿 2026-07-09；2026-07-14 升級四格各自選豆）=====
    每卡 105×148.5mm；第一頁＝4 張卡的雷達＋明細面、第二頁＝封面＋QR 面。
    slotIds＝[左上,右上,左下,右下] 的 samples.id（''＝該格留白）。
-   ⚠ 鏡像：第二頁排 [右上,左上,右下,左下]——A4 直式雙面翻面後背面左右對調，
-     這樣裁開的每張卡正反才是同一支豆（四格同豆時鏡不鏡像無差，向後相容）。
-     若真機印出正反對不上＝印表機雙面翻頁邊設定（長邊/短邊）跟這裡的假設相反，回報再調 */
+   ⚠ 鏡像：第二頁排 [右下,左下,右上,左上]——左右對調＋上下對調（老闆 2026-07-15 指示：
+     第二頁下方要跟上方對調），翻面裁開每張卡正反才是同一支豆（四格同豆時無差，向後相容）。
+     若真機印出正反對不上＝印表機雙面翻頁邊設定（長邊/短邊）變了，回報再調 */
 async function infoCard4Pdf(slotIds){
   toast('Preparing card…');
   var cache={},faces=[];
@@ -6927,7 +6927,7 @@ async function infoCard4Pdf(slotIds){
   }
   var blank='<div class="card4"></div>';
   var p1=[0,1,2,3].map(function(i){return faces[i]?faces[i].info:blank;}).join('');
-  var p2=[1,0,3,2].map(function(i){return faces[i]?faces[i].cover:blank;}).join('');
+  var p2=[3,2,1,0].map(function(i){return faces[i]?faces[i].cover:blank;}).join('');
   var slugs=[];faces.forEach(function(f){if(f&&slugs.indexOf(beanSlug(f.nm))<0)slugs.push(beanSlug(f.nm));});
   var fname='infocard-'+(slugs.length===1?slugs[0]:'4up')+'.pdf';
   var html='<div class="icroot">'
