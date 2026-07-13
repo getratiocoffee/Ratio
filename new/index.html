@@ -3724,28 +3724,40 @@ async function openLiveCupSheet(){
   }catch(e){openDrawerHTML('<div class="t" style="font-size:19px">Live cupping</div><div class="empty">Load failed — '+esc(String(e&&e.message||e))+'</div><button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');var c=$('d-cl');if(c)c.addEventListener('click',closeDrawer);}
 }
 function lcPaintPick(){
+  /* 2026-07-15 老闆定調：豆名自由填（別家豆/樣品都能測），待杯批次降級成快捷（點了直接開輪帶批次資訊） */
   var list=toCupList();
   openDrawerHTML('<div class="t" style="font-size:19px">Live cupping</div>'
-    +'<div class="s" style="margin-top:2px">pick the coffee on the table — everyone joins the same round</div>'
-    +(list.length?list.map(function(r,ix){
-      var b=(DB.beans||[]).find(function(x){return String(x.id)===String(r.bean_id);});
-      var proc=r.process||(b&&b.process)||'';
-      return '<div class="hit" data-lcpick="'+ix+'" style="cursor:pointer"><span><div class="t">'+esc(r.bean_name||'—')
-        +(proc?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(proc)+'</span>':'')+'</div>'
-        +'<div class="s">'+(r.roast_date?'roasted '+fmtD(r.roast_date):'roast batch')+'</div></span><span class="k">start ›</span></div>';
-    }).join(''):'<div class="empty">No batches waiting to cup<br>Log a roast first</div>')
+    +'<div class="s" style="margin-top:2px">type any coffee — everyone joins the same round</div>'
+    +'<div class="dlab">Coffee name</div><input class="din" id="lc-name" placeholder="e.g. Danche v1">'
+    +'<div class="dlab">Process · optional</div><input class="din" id="lc-proc" placeholder="e.g. Red Honey">'
+    +'<button class="act" id="lc-go">Start the round</button>'
+    +(list.length?'<div class="dlab" style="margin-top:14px">Waiting in QC · tap to start</div>'
+      +list.map(function(r,ix){
+        var b=(DB.beans||[]).find(function(x){return String(x.id)===String(r.bean_id);});
+        var proc=r.process||(b&&b.process)||'';
+        return '<div class="hit" data-lcpick="'+ix+'" style="cursor:pointer"><span><div class="t">'+esc(r.bean_name||'—')
+          +(proc?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(proc)+'</span>':'')+'</div>'
+          +'<div class="s">'+(r.roast_date?'roasted '+fmtD(r.roast_date):'roast batch')+'</div></span><span class="k">start ›</span></div>';
+      }).join(''):'')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',function(){lcCleanup();closeDrawer();});
-  document.querySelectorAll('#drawer [data-lcpick]').forEach(function(el){el.addEventListener('click',function(){lcStart(list[+el.dataset.lcpick]);});});
+  $('lc-go').addEventListener('click',function(){
+    var nm=($('lc-name').value||'').trim();
+    if(!nm){toast('Type the coffee name');return;}
+    lcStart({bean_name:nm,process:($('lc-proc').value||'').trim()||null,roast_id:null,bean_id:null});
+  });
+  document.querySelectorAll('#drawer [data-lcpick]').forEach(function(el){el.addEventListener('click',function(){
+    var r=list[+el.dataset.lcpick];
+    var b=(DB.beans||[]).find(function(x){return String(x.id)===String(r.bean_id);});
+    lcStart({bean_name:r.bean_name,process:r.process||(b&&b.process)||null,roast_id:String(r.id),bean_id:r.bean_id||null});
+  });});
 }
-async function lcStart(r){
-  var b=(DB.beans||[]).find(function(x){return String(x.id)===String(r.bean_id);});
-  var proc=r.process||(b&&b.process)||null;
+async function lcStart(o){
   try{
-    var ins=await sb.from('cupping_sessions').insert({roast_id:String(r.id),bean_name:r.bean_name,process:proc,opened_by:WHO||null}).select();
+    var ins=await sb.from('cupping_sessions').insert({roast_id:o.roast_id,bean_name:o.bean_name,process:o.process,opened_by:WHO||null}).select();
     if(ins.error)throw new Error(ins.error.message);
     LC.session=ins.data[0];LC.sid=LC.session.id;LC.notes=[];LC.draft='';
-    logAct('started live cupping',r.bean_name||'—');
+    logAct('started live cupping',o.bean_name||'—');
     lcSub();lcPaint();
   }catch(e){alert('Could not start: '+(e&&e.message||e));}
 }
