@@ -5406,9 +5406,11 @@ var RO=null;
 function todayStr(){var t=new Date();return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
 async function openRoastSheet(pre){
   RO={mode:'single',beanId:'',kg:'',out:'',date:todayStr(),charge:'',fc:'',drop:'',dur:'',logOpen:false,
-    blendName:'',bkg:'',bamt:{},blends:[],pre:(pre&&pre.length)?pre:null};
+    blendName:'',bkg:'',bamt:{},blends:[],batches:[],pre:(pre&&pre.length)?pre:null};
   /* 拼配模式要配方表（比例快照＋成分扣帳）——已隨 loadAll 常駐 DB.blends，不再另查 */
   RO.blends=(DB.blends||[]).filter(function(b){return b.name;});
+  /* 單品多鍋 session 暫存：讀回上次沒 submit 的 batches（手機鎖屏/關 app 都不丟） */
+  try{await loadRoastDraft();}catch(e){}
   paintRoastSheet();
 }
 /* 成分熟豆批次可用量：非 blend、同名、remaining_kg>0 */
@@ -5506,13 +5508,39 @@ function paintRoastSheet(){
   var single=RO.mode==='single';
   var body;
   if(single){
-    body='<div class="dlab">Green coffee</div>'
+    var lossNow=roastLossPct(RO.kg,RO.out);
+    /* Add a batch 輸入區（含每鍋曲線摺疊） */
+    var addBox='<div class="dlab">Add a batch</div>'
     +'<select class="din" id="ro-bean" style="padding:12px"><option value="">— pick a bean —</option>'
     +beans.map(function(b){return '<option value="'+esc(b.id)+'"'+(String(RO.beanId)===String(b.id)?' selected':'')+'>'+esc(b.name)+(b.process?' · '+esc(b.process):'')+' · '+(Number(b.quantity)||0)+' kg</option>';}).join('')
     +'</select>'
     +(sel?'<div class="s" style="margin-top:4px">stock '+(Number(sel.quantity)||0)+' kg'+(over?' · <span class=red>exceeds stock</span>':'')+'</div>':'')
-    +'<div class="dlab">Green in (kg)</div><input class="din" id="ro-kg" inputmode="decimal" placeholder="e.g. 10" value="'+esc(RO.kg)+'">'
-    +'<div class="dlab">Roasted out (kg) · optional</div><input class="din" id="ro-out" inputmode="decimal" placeholder="—" value="'+esc(RO.out)+'">';
+    +'<div style="display:flex;gap:8px">'
+    +'<div style="flex:1"><div class="dlab">Green in (kg)</div><input class="din" id="ro-kg" inputmode="decimal" placeholder="e.g. 10" value="'+esc(RO.kg)+'"></div>'
+    +'<div style="flex:1"><div class="dlab">Roasted out (kg)</div><input class="din" id="ro-out" inputmode="decimal" placeholder="— optional" value="'+esc(RO.out)+'"></div>'
+    +'</div>'
+    +'<div class="s" style="margin-top:6px;display:flex;justify-content:space-between"><span style="color:var(--muted)">weight loss</span><span id="ro-loss" style="color:var(--accent);font-weight:700">'+(lossNow!=null?'−'+lossNow+'%':'—')+'</span></div>'
+    +'<button class="dclose" id="ro-log-t" style="margin-top:8px">Roast log (optional) '+(RO.logOpen?'▴':'▾')+'</button>'
+    +(RO.logOpen?'<div class="dlab">Charge temp °C</div><input class="din" id="ro-charge" inputmode="decimal" value="'+esc(RO.charge)+'">'
+      +'<div class="dlab">First crack mm:ss</div><input class="din" id="ro-fc" placeholder="e.g. 8:30" value="'+esc(RO.fc)+'">'
+      +'<div class="dlab">Drop temp °C</div><input class="din" id="ro-drop" inputmode="decimal" value="'+esc(RO.drop)+'">'
+      +'<div class="dlab">Total time mm:ss</div><input class="din" id="ro-dur" placeholder="e.g. 11:20" value="'+esc(RO.dur)+'">':'')
+    +'<button class="act" id="ro-add" style="margin-top:10px">＋ Add this batch</button>';
+    /* This session 累積列表＋生豆扣除預覽 */
+    var listBox='';
+    if(RO.batches.length){
+      var byBeanG={};RO.batches.forEach(function(b){byBeanG[b.beanName]=(byBeanG[b.beanName]||0)+b.green;});
+      listBox='<div class="dlab" style="margin-top:14px">This session · '+RO.batches.length+' batch'+(RO.batches.length>1?'es':'')+'</div>'
+      +RO.batches.map(function(bt,ix){
+        var lp=roastLossPct(bt.green,bt.out);
+        var line=(bt.out!=null&&bt.out>0)?(bt.green+' → '+bt.out+' kg'+(lp!=null?' · −'+lp+'%':'')):(bt.green+' kg green · <span style="color:var(--muted)">roasted out pending</span>');
+        return '<div class="dl" style="align-items:center"><span data-editbatch="'+ix+'" style="cursor:pointer;flex:1;min-width:0"><span class="t" style="font-size:14px">'+esc(bt.beanName)+'</span>'+(bt.process?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(bt.process)+'</span>':'')+'<div class="s">'+line+'</div></span>'
+          +'<button class="chip" data-delbatch="'+ix+'" style="margin:0 0 0 8px;padding:2px 10px;font-size:14px" aria-label="remove">✕</button></div>';
+      }).join('')
+      +'<div style="background:var(--tint);border-radius:10px;padding:9px 11px;margin-top:8px"><div class="s" style="color:var(--muted)">Green to deduct on submit</div><div class="s">'
+      +Object.keys(byBeanG).map(function(nm){return esc(nm)+' '+(Math.round(byBeanG[nm]*100)/100)+' kg';}).join(' · ')+'</div></div>';
+    }
+    body=addBox+listBox;
   }else{
     var bl=RO.blends.find(function(b){return b.name===RO.blendName;})||null;
     var parts=bl?(bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}):[];
@@ -5532,18 +5560,15 @@ function paintRoastSheet(){
     +'<div class="dlab">Roasted out (kg) · total — type it or any part above</div><input class="din" id="ro-bkg" inputmode="decimal" placeholder="e.g. 1.2" value="'+esc(RO.bkg)+'">';
   }
   openDrawerHTML('<div class="t" style="font-size:19px">Log roast</div>'
-    +'<div class="s" style="margin-top:2px">'+(single?'writes the batch and deducts green stock':'writes the blend batch and consumes component batches (oldest first)')+'</div>'
+    +'<div class="s" style="margin-top:2px">'+(single?'add each kettle as you go · submit once to deduct green and log all':'writes the blend batch and consumes component batches (oldest first)')+'</div>'
     +chips
     +'<div class="pm-seg"><button id="ro-m-s" class="'+(single?'on':'')+'">Single origin</button><button id="ro-m-b" class="'+(single?'':'on')+'">Blend</button></div>'
     +body
-    +'<div class="dlab">Roast date</div><input class="din" id="ro-date" type="date" value="'+esc(RO.date)+'">'
-    +(single?'<button class="dclose" id="ro-log-t">Roast log (optional) '+(RO.logOpen?'▴':'▾')+'</button>'
-      +(RO.logOpen?'<div class="dlab">Charge temp °C</div><input class="din" id="ro-charge" inputmode="decimal" value="'+esc(RO.charge)+'">'
-      +'<div class="dlab">First crack mm:ss</div><input class="din" id="ro-fc" placeholder="e.g. 8:30" value="'+esc(RO.fc)+'">'
-      +'<div class="dlab">Drop temp °C</div><input class="din" id="ro-drop" inputmode="decimal" value="'+esc(RO.drop)+'">'
-      +'<div class="dlab">Total time mm:ss</div><input class="din" id="ro-dur" placeholder="e.g. 11:20" value="'+esc(RO.dur)+'">':''):'')
-    +'<button class="act" id="ro-save">'+(single?'Log roast':'Log blend batch')+'</button>'
-    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+    +'<div class="dlab" style="margin-top:14px">Roast date · whole session</div><input class="din" id="ro-date" type="date" value="'+esc(RO.date)+'">'
+    +(single
+      ?'<button class="act" id="ro-submit"'+(RO.batches.length?'':' disabled style="opacity:.5"')+'>'+(RO.batches.length?'Submit — log '+RO.batches.length+' roast'+(RO.batches.length>1?'s':'')+' to stock':'Submit — add a batch first')+'</button>'
+      :'<button class="act" id="ro-save">Log blend batch</button>')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">'+(single?'Close':'Cancel')+'</button>');
   /* 重畫前先把已打的值收回 RO，避免切豆/切模式時打到一半的字消失 */
   function grab(){['kg','out','date','charge','fc','drop','dur','bkg'].forEach(function(k){var el=$('ro-'+k);if(el)RO[k]=el.value;});
     document.querySelectorAll('#drawer [data-bp]').forEach(function(el){RO.bamt[+el.dataset.bp]=el.value;});}
@@ -5556,6 +5581,10 @@ function paintRoastSheet(){
   $('ro-m-s').addEventListener('click',function(){grab();RO.mode='single';paintRoastSheet();});
   $('ro-m-b').addEventListener('click',function(){grab();RO.mode='blend';paintRoastSheet();});
   var rbSel=$('ro-bean');if(rbSel)rbSel.addEventListener('change',function(){grab();RO.beanId=this.value;paintRoastSheet();});
+  /* 失重率即時（不 repaint，免掉鍵盤焦點）：打生豆/熟豆當下更新百分比 */
+  function updLoss(){var el=$('ro-loss');if(!el)return;var kel=$('ro-kg'),oel=$('ro-out');var lp=roastLossPct(kel?kel.value:RO.kg,oel?oel.value:RO.out);el.textContent=lp!=null?'−'+lp+'%':'—';}
+  var kgEl=$('ro-kg');if(kgEl)kgEl.addEventListener('input',updLoss);
+  var outEl=$('ro-out');if(outEl)outEl.addEventListener('input',updLoss);
   var blSel=$('ro-blend');if(blSel)blSel.addEventListener('change',function(){grab();RO.blendName=this.value;RO.bamt={};RO.bkg='';paintRoastSheet();});
   /* 比例聯動：blTot＝配方比例總和（正規化分母）；不重繪抽屜（會掉鍵盤焦點），直接改別的框 */
   var blTot=0;document.querySelectorAll('#drawer [data-bp]').forEach(function(el){blTot+=parseFloat(el.dataset.pct)||0;});
@@ -5585,7 +5614,11 @@ function paintRoastSheet(){
   if(bkEl&&!single)bkEl.addEventListener('input',function(){RO.bkg=bkEl.value;roSpread(parseFloat(bkEl.value)||0,null);});
   document.querySelectorAll('#drawer [data-bp]').forEach(function(el){roStockHint(el,el.value);});
   var lt=$('ro-log-t');if(lt)lt.addEventListener('click',function(){grab();RO.logOpen=!RO.logOpen;paintRoastSheet();});
-  $('ro-save').addEventListener('click',function(){grab();if(RO.mode==='blend')saveBlendBatch();else saveRoastSheet();});
+  var addB=$('ro-add');if(addB)addB.addEventListener('click',function(){grab();roastAddBatch();});
+  var subB=$('ro-submit');if(subB)subB.addEventListener('click',function(){grab();submitRoastSession();});
+  var svB=$('ro-save');if(svB)svB.addEventListener('click',function(){grab();saveBlendBatch();});
+  document.querySelectorAll('#drawer [data-editbatch]').forEach(function(el){el.addEventListener('click',function(){grab();roastEditBatch(+el.dataset.editbatch);});});
+  document.querySelectorAll('#drawer [data-delbatch]').forEach(function(el){el.addEventListener('click',function(){roastDelBatch(+el.dataset.delbatch);});});
   $('d-cl').addEventListener('click',closeDrawer);
 }
 /* 拼配批次存檔（照 classic addCoffeeSubmit blend 路徑：快照配方→insert→FIFO 扣成分）*/
@@ -5687,6 +5720,98 @@ async function saveRoastSheet(){
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent='Log roast';}
     alert('Log failed: '+(e&&e.message||e));
+  }
+}
+/* ===== 單品多鍋 session（2026-07-13 老闆點名：一個介面連續記、最後一次入庫）=====
+   烘一鍋 Add 一鍋進 RO.batches（暫存 app_state roast_draft 防手機鎖屏丟），Submit 才建 roasts＋一次扣生豆。
+   拼配維持單鍋 saveBlendBatch 不動。 */
+function roastLossPct(g,o){var gg=parseFloat(g),oo=parseFloat(o);if(!(gg>0)||o==null||String(o).trim()===''||isNaN(oo))return null;return Math.round((gg-oo)/gg*1000)/10;}
+async function loadRoastDraft(){
+  try{
+    var r=await sb.from('app_state').select('value').eq('key','roast_draft').maybeSingle();
+    var v=r&&r.data&&r.data.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
+    if(v&&Array.isArray(v.batches)&&v.batches.length){RO.batches=v.batches;if(v.date)RO.date=v.date;}
+  }catch(e){}
+}
+async function saveRoastDraft(){
+  try{await sb.from('app_state').upsert({key:'roast_draft',value:{date:RO.date,batches:RO.batches},updated_at:new Date().toISOString()},{onConflict:'key'});}catch(e){}
+}
+function roastAddBatch(){
+  var b=(DB.beans||[]).find(function(x){return String(x.id)===String(RO.beanId);});
+  if(!b){toast('Pick a bean first');return;}
+  var kg=parseFloat(RO.kg);
+  if(isNaN(kg)||kg<=0){toast('Enter the green kg');return;}
+  var out=String(RO.out).trim()===''?null:parseFloat(RO.out);
+  if(out!=null&&(isNaN(out)||out<0)){toast('Roasted out must be a number');return;}
+  if(out!=null&&out>kg&&!confirm('Roasted out ('+out+' kg) is more than green in ('+kg+' kg). Add anyway?'))return;
+  RO.batches.push({beanId:b.id,beanName:b.name,country:b.country||null,process:b.process||null,
+    green:kg,out:out,charge:RO.charge,fc:RO.fc,drop:RO.drop,dur:RO.dur});
+  /* 清這鍋的量與曲線，保留選中的豆＝連烘同豆只要改 kg */
+  RO.kg='';RO.out='';RO.charge='';RO.fc='';RO.dur='';RO.drop='';RO.logOpen=false;
+  saveRoastDraft();paintRoastSheet();
+}
+function roastEditBatch(i){
+  var bt=RO.batches[i];if(!bt)return;
+  RO.beanId=bt.beanId;RO.kg=String(bt.green);RO.out=bt.out!=null?String(bt.out):'';
+  RO.charge=bt.charge||'';RO.fc=bt.fc||'';RO.drop=bt.drop||'';RO.dur=bt.dur||'';
+  if(bt.charge||bt.fc||bt.drop||bt.dur)RO.logOpen=true;
+  RO.batches.splice(i,1);saveRoastDraft();paintRoastSheet();
+}
+function roastDelBatch(i){RO.batches.splice(i,1);saveRoastDraft();paintRoastSheet();}
+/* 單筆 roasts rec 組建（抽自 saveRoastSheet，供 submit 迴圈重用；roast_date＝session date） */
+function buildRoastRec(bt){
+  var rec={bean_id:bt.beanId,bean_name:bt.beanName,country:bt.country||null,process:bt.process||null,green_kg:bt.green,status:'pending_cupping'};
+  if(bt.out!=null&&bt.out>0){rec.roasted_kg=bt.out;rec.remaining_kg=bt.out;}
+  if(RO.date)rec.roast_date=RO.date;
+  var num=function(v){var n=parseFloat(v);return (String(v).trim()===''||isNaN(n))?null:n;};
+  if(num(bt.charge)!=null)rec.charge_temp=num(bt.charge);
+  if(String(bt.fc||'').trim())rec.first_crack=String(bt.fc).trim();
+  if(num(bt.drop)!=null)rec.drop_temp=num(bt.drop);
+  if(String(bt.dur||'').trim())rec.duration=String(bt.dur).trim();
+  return rec;
+}
+async function submitRoastSession(){
+  if(!RO.batches.length){toast('Add a batch first');return;}
+  var noOut=RO.batches.filter(function(b){return b.out==null||!(b.out>0);}).length;
+  if(noOut&&!confirm(noOut+' batch'+(noOut>1?'es':'')+' still have no roasted-out weight — they log green in only (no sellable stock yet). Submit like this?'))return;
+  /* 生豆累加扣：同 beanId 加總 green */
+  var byBean={};RO.batches.forEach(function(b){byBean[b.beanId]=(byBean[b.beanId]||0)+b.green;});
+  var shorts=[];
+  Object.keys(byBean).forEach(function(id){
+    var bn=(DB.beans||[]).find(function(x){return String(x.id)===String(id);});
+    var stock=bn?Number(bn.quantity)||0:0;
+    if(byBean[id]>stock+0.0001)shorts.push((bn?bn.name:id)+': '+(Math.round(byBean[id]*100)/100)+' kg used, '+stock+' kg in stock');
+  });
+  if(shorts.length&&!confirm('Stock check:\n'+shorts.join('\n')+'\n\nSubmit anyway? Stock stops at 0 — fix later with Stocktake.'))return;
+  var btn=$('ro-submit');if(btn){btn.disabled=true;btn.textContent='Submitting…';}
+  try{
+    for(var i=0;i<RO.batches.length;i++){
+      var ins=await sb.from('roasts').insert(buildRoastRec(RO.batches[i])).select();
+      if(ins.error)throw new Error(ins.error.message);
+      if(ins.data&&ins.data[0])DB.roasts.unshift(ins.data[0]);
+    }
+    var ids=Object.keys(byBean);
+    for(var j=0;j<ids.length;j++){
+      var bn=(DB.beans||[]).find(function(x){return String(x.id)===String(ids[j]);});
+      if(!bn)continue;
+      var newQty=Math.max(0,Math.round(((Number(bn.quantity)||0)-byBean[ids[j]])*1000)/1000);
+      var u=await sb.from('beans').update({quantity:newQty}).eq('id',bn.id);
+      if(u.error)throw new Error('roasts saved but green stock update failed: '+u.error.message);
+      bn.quantity=newQty;
+    }
+    for(var k=0;k<RO.batches.length;k++){
+      var bt=RO.batches[k],bn2=(DB.beans||[]).find(function(x){return String(x.id)===String(bt.beanId);});
+      try{await sb.from('stock_moves').insert({bean_id:bt.beanId,kind:'roast',delta_kg:-bt.green,after_kg:bn2?bn2.quantity:null,note:'Roast'+(RO.date?' '+RO.date:'')});}catch(e){}
+    }
+    var totGreen=ids.reduce(function(s,id){return s+byBean[id];},0);
+    var n=RO.batches.length;
+    logAct('roasted',n+' batch'+(n>1?'es':''),(Math.round(totGreen*100)/100)+' kg green');
+    RO.batches=[];await saveRoastDraft();
+    closeDrawer();toast(n+' roast'+(n>1?'s':'')+' logged ✓ green −'+(Math.round(totGreen*100)/100)+' kg');
+    await reload();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Submit — log to stock';}
+    alert('Submit failed: '+(e&&e.message||e));
   }
 }
 /* ===== 滑卡（兩段式）=====
