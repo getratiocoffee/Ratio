@@ -2285,13 +2285,16 @@ function shelfSampleFor(nm,proc){
   });
   return pool.find(function(s){return s.flavour_locked;})||pool[0]||null;
 }
-function shelfLatestRoast(nm){
+/* proc（2026-07-14）：undefined＝名字級照舊（舊呼叫點零改動）；給值（含 ''）＝只算同處理法的烘豆——
+   同名多處理法（Alo Village White Honey vs Cold Fermentation）烘豆日不再互相污染 */
+function shelfLatestRoast(nm,proc){
   var best=null;
-  /* 先照上架樣品的 bean_id 找同一支生豆批的烘豆（同名不同處理法不再互相污染） */
-  var s=shelfSampleFor(nm);
+  /* 先照上架樣品的 bean_id 找同一支生豆批的烘豆 */
+  var s=shelfSampleFor(nm,proc);
   if(s&&s.bean_id){
     (DB.roasts||[]).forEach(function(r){
       if(String(r.bean_id||'')!==String(s.bean_id)||!r.roast_date)return;
+      if(proc!==undefined&&!rstProcMatch(r,proc))return;
       if(!best||r.roast_date>best)best=r.roast_date;
     });
     if(best)return best;
@@ -2299,12 +2302,13 @@ function shelfLatestRoast(nm){
   var k=String(nm||'').trim().toLowerCase();
   (DB.roasts||[]).forEach(function(r){
     if(String(r.bean_name||'').trim().toLowerCase()!==k||!r.roast_date)return;
+    if(proc!==undefined&&!rstProcMatch(r,proc))return;
     if(!best||r.roast_date>best)best=r.roast_date;
   });
   return best;
 }
-function shelfFreshness(nm){
-  var d=shelfLatestRoast(nm);
+function shelfFreshness(nm,proc){
+  var d=shelfLatestRoast(nm,proc);
   if(!d)return {txt:'no roast date',cls:'',days:null};
   var age=daysSince(d);
   if(age<SHELF_FRESH_REST)return {txt:'roasted '+age+'d — aging',cls:'fr-yellow',days:age};
@@ -2359,7 +2363,7 @@ async function openRetailSheet(){
   });
   /* 排序：現貨/Pending 烘豆日舊→新（先賣先清）；History 新→舊（最近賣完先看） */
   function byRoast(asc){return function(a,b){
-    var da=null,db=null;try{da=shelfLatestRoast(a.nm);}catch(e){}try{db=shelfLatestRoast(b.nm);}catch(e){}
+    var da=null,db=null;try{da=shelfLatestRoast(a.nm,a.isBlend?undefined:a.proc);}catch(e){}try{db=shelfLatestRoast(b.nm,b.isBlend?undefined:b.proc);}catch(e){}
     if(!!da!==!!db)return da?-1:1;
     var c=String(da||'').localeCompare(String(db||''));
     return (asc?c:-c)||a.nm.localeCompare(b.nm);
@@ -2372,7 +2376,7 @@ async function openRetailSheet(){
   function rowHTML(c,zone){
     var nm=c.nm,rep=c.rep;
     var col=uiDot(dotColorFor(nm,dots));
-    var fr=shelfFreshness(nm);
+    var fr=shelfFreshness(nm,c.isBlend?undefined:c.proc);
     var feats=(rep&&Array.isArray(rep.features)?rep.features.slice(0,3).join(' · '):'');
     var sy=syncFor(nm,c.isBlend?undefined:c.proc);
     var mkey=listNameFor(nm,rep||{process:c.proc});
@@ -2435,12 +2439,12 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
   var feats=(s.features||[]).filter(Boolean).slice(0,3);
   var hasScores=['fragrance','acidity','sweetness','body','aftertaste'].some(function(k){return s[k]!=null;});
   var sc={fragrance:s.fragrance,acidity:s.acidity,sweetness:s.sweetness,body:s.body,aftertaste:s.aftertaste};
-  var fr=shelfFreshness(nm);
+  var fr=shelfFreshness(nm,proc);
   var syncRow=syncFor(nm,proc); /* 2026-07-13 process 級：同名多處理法取自己的上架列 */
   var mkey=listNameFor(nm,s); /* 價格記憶 key＝上架顯示名（同名多處理法帶後綴），退回名字級相容舊記憶 */
   var price=m.rtl_price[mkey]!=null?m.rtl_price[mkey]:m.rtl_price[nm],g=m.rtl_g[mkey]||m.rtl_g[nm]||250,szc=m.rtl_sizes[mkey]||m.rtl_sizes[nm]||{},
       sold=!!m.rtl_sold[mkey]||!!m.rtl_sold[nm]||(syncRow&&syncRow.status==='paused');
-  var rdate=null;try{rdate=shelfLatestRoast(nm);}catch(e){}
+  var rdate=null;try{rdate=shelfLatestRoast(nm,proc);}catch(e){}
   /* 順序照老闆定：名字 → 烘豆日＋天數/熟成 → 規格價格 → 雷達 → 風味 → 履歷 */
   openDrawerHTML('<span class="tag" style="color:'+col+'">● Shelf'+(sold?' · <span class="red">off shelf</span>':'')+'</span>'
     +'<div class="t" style="font-size:19px">'+esc(nm)
