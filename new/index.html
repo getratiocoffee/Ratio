@@ -6727,24 +6727,39 @@ async function openBeanRotSheet(showForm){
   });
   $('br-cl').addEventListener('click',closeDrawer);
 }
+/* 四槽位挑豆（老闆 2026-07-14：一張 A4 的左上/右上/左下/右下各自選豆，背面跟著對位）
+   槽位空＝該格留白；Same in all four＝舊「單豆 ×4」行為 */
 async function openInfoCardsSheet(){
   var list=passedBeans();
-  var dots={};try{dots=await cardDots();}catch(e){}
+  var POS=[['tl','Top left'],['tr','Top right'],['bl','Bottom left'],['br','Bottom right']];
+  var opts='<option value="">— empty —</option>'+list.map(function(s){
+    return '<option value="'+esc(String(s.id))+'">'+esc(s.sample_id||'—')+(s.process?' · '+esc(s.process):'')+'</option>';
+  }).join('');
   openDrawerHTML('<div class="t" style="font-size:19px">Folding Info Card</div>'
-    +'<div class="s" style="margin-top:2px">QC-passed coffees · tap one for an A4 PDF — print double-sided, cut the cross into four 105 × 148.5 mm cards</div>'
-    +(list.length?list.map(function(s){
-      var c=uiDot(dotColorFor(s.sample_id,dots));
-      return '<div class="dl" data-ic="'+esc(s.id)+'" style="cursor:pointer;align-items:center">'
-        +'<span style="color:var(--ink);font-weight:600">'+(c?'<span style="color:'+c+'">●</span> ':'')+esc(s.sample_id||'—')
-        +(s.process?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(s.process)+'</span>':'')+'</span>'
-        +'<span style="color:var(--muted)">PDF →</span></div>';
-    }).join(''):'<div class="empty">No QC-passed coffees yet</div>')
+    +'<div class="s" style="margin-top:2px">pick a coffee for each quarter · print the A4 double-sided, cut the cross into four 105 × 148.5 mm cards</div>'
+    +(list.length?(
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px;margin-top:10px">'
+      +POS.map(function(p){return '<div><div class="dlab">'+p[1]+'</div><select class="din" data-icslot="'+p[0]+'" style="padding:11px">'+opts+'</select></div>';}).join('')
+      +'</div>'
+      +'<button class="dclose" id="ic-same">Same coffee in all four</button>'
+      +'<button class="act" id="ic-go">Download PDF</button>'
+    ):'<div class="empty">No QC-passed coffees yet</div>')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);
-  document.querySelectorAll('#drawer [data-ic]').forEach(function(el){el.addEventListener('click',function(){
-    var s=(DB.samples||[]).find(function(x){return String(x.id)===String(el.dataset.ic);});
-    if(s)openInfoCardPrint(s);
-  });});
+  var same=$('ic-same');if(same)same.addEventListener('click',function(){
+    var sl=[].slice.call(document.querySelectorAll('#drawer [data-icslot]'));
+    var v='';sl.some(function(el){if(el.value){v=el.value;return true;}return false;});
+    if(!v){toast('Pick a coffee in any slot first');return;}
+    sl.forEach(function(el){el.value=v;});
+  });
+  var go=$('ic-go');if(go)go.addEventListener('click',async function(){
+    var ids=[].slice.call(document.querySelectorAll('#drawer [data-icslot]')).map(function(el){return el.value;});
+    if(!ids.some(Boolean)){toast('Pick at least one coffee');return;}
+    var b=this;b.disabled=true;b.textContent='Preparing…';
+    try{await infoCard4Pdf(ids);}
+    catch(e){alert('PDF failed: '+(e&&e.message||e));}
+    b.disabled=false;b.textContent='Download PDF';
+  });
 }
 /* 印刷卡雷達：html2canvas **不畫行內 SVG**（老闆真機 PDF 雷達整個消失的破圖根因）
    → 用 canvas 畫成 PNG 嵌 <img>，4 倍超取樣夠印刷 */
@@ -6836,8 +6851,8 @@ async function beanInfoRows(full,opts){
   add('Sourced via',gb&&gb.supplier);
   return info;
 }
-async function openInfoCardPrint(s){
-  toast('Preparing card…');
+/* 單卡的正反面 HTML（cover＝封面＋QR、info＝雷達＋明細）——四格混排 PDF 的原料 */
+async function infoCardFaces(s){
   /* full row（flavour_locked 優先）＋顏色＋brew（同 immersion 的目標解析） */
   var full=s;
   try{
@@ -6852,10 +6867,6 @@ async function openInfoCardPrint(s){
   var feats=(full.features||[]).filter(Boolean).slice(0,3);
   var comment=String(full.comment||'').trim();
   var sc={fragrance:full.fragrance,acidity:full.acidity,sweetness:full.sweetness,body:full.body,aftertaste:full.aftertaste};
-  /* ===== A4 直式雙面＝2×2 田字格 4 張雙面卡（老闆定稿 2026-07-09：把摺卡轉 90° 縮成 4 張一面）=====
-     每卡 105×148.5mm；正面頁＝4 張卡正面（豆名＋風味＋雷達）、背面頁＝4 張卡背面（明細＋QR＋聯絡）
-     4 張同一支豆（identical）→ 裁成 4 張時正反自動對齊，不需鏡像；雙面短邊翻（.flip 補正背面朝向）
-     若真機背面上下顛倒＝把印表機雙面設定在短邊/長邊之間切換即可（同卡故對齊永遠對，只影響背面正立） */
   var orn='<div style="display:flex;align-items:center;justify-content:center;gap:2.4mm;margin:2.6mm 0 2.4mm">'
     +'<div style="width:11mm;border-top:.2mm solid #C9C2BB"></div>'
     +'<div style="width:1.9mm;height:1.9mm;background:'+col+';transform:rotate(45deg)"></div>'
@@ -6894,6 +6905,31 @@ async function openInfoCardPrint(s){
       var pct=/^\d+(\.\d+)?%$/.test(String(r[0]||''));
       return '<div class="br"><span'+(pct?' style="font-family:\'Fraunces\',serif;font-size:9.5pt;font-weight:600;color:#1E1A19;letter-spacing:0;text-transform:none"':'')+'>'+esc(r[0])+'</span><b>'+esc(String(r[1]))+'</b></div>';}).join('')+'</div>'
     +'</div></div></div>';
+  return {cover:cardCover,info:cardInfo,nm:nm};
+}
+/* ===== A4 直式雙面＝2×2 田字格 4 張雙面卡（老闆定稿 2026-07-09；2026-07-14 升級四格各自選豆）=====
+   每卡 105×148.5mm；第一頁＝4 張卡的雷達＋明細面、第二頁＝封面＋QR 面。
+   slotIds＝[左上,右上,左下,右下] 的 samples.id（''＝該格留白）。
+   ⚠ 鏡像：第二頁排 [右上,左上,右下,左下]——A4 直式雙面翻面後背面左右對調，
+     這樣裁開的每張卡正反才是同一支豆（四格同豆時鏡不鏡像無差，向後相容）。
+     若真機印出正反對不上＝印表機雙面翻頁邊設定（長邊/短邊）跟這裡的假設相反，回報再調 */
+async function infoCard4Pdf(slotIds){
+  toast('Preparing card…');
+  var cache={},faces=[];
+  for(var i=0;i<4;i++){
+    var id=String(slotIds[i]||'');
+    if(!id){faces.push(null);continue;}
+    if(!(id in cache)){
+      var s=(DB.samples||[]).find(function(x){return String(x.id)===id;});
+      cache[id]=s?await infoCardFaces(s):null;
+    }
+    faces.push(cache[id]);
+  }
+  var blank='<div class="card4"></div>';
+  var p1=[0,1,2,3].map(function(i){return faces[i]?faces[i].info:blank;}).join('');
+  var p2=[1,0,3,2].map(function(i){return faces[i]?faces[i].cover:blank;}).join('');
+  var slugs=[];faces.forEach(function(f){if(f&&slugs.indexOf(beanSlug(f.nm))<0)slugs.push(beanSlug(f.nm));});
+  var fname='infocard-'+(slugs.length===1?slugs[0]:'4up')+'.pdf';
   var html='<div class="icroot">'
     +'<style>'
     +'.icroot{font-family:Inter,sans-serif;color:#1E1A19}'
@@ -6919,8 +6955,8 @@ async function openInfoCardPrint(s){
     +'</style>'
     /* 老闆定位（2026-07-09）：面 2（雷達＋明細）排第一頁正立、面 1（封面＋QR）排第二頁。
        ⚠ 背面朝向改由印表機雙面設定處理（2026-07-09 老闆改印表機設定），故第二頁不再軟體轉 180°（原 .flip 已移除）；若哪天印出背面顛倒，改印表機雙面短邊/長邊設定即可 */
-    +'<div class="page pb"><div class="cutv"></div><div class="cuth4"></div><div class="grid">'+cardInfo+cardInfo+cardInfo+cardInfo+'</div></div>'
-    +'<div class="page"><div class="cutv"></div><div class="cuth4"></div><div class="grid">'+cardCover+cardCover+cardCover+cardCover+'</div></div>'
+    +'<div class="page pb"><div class="cutv"></div><div class="cuth4"></div><div class="grid">'+p1+'</div></div>'
+    +'<div class="page"><div class="cutv"></div><div class="cuth4"></div><div class="grid">'+p2+'</div></div>'
     +'</div>';
   /* 老闆指定：不開列印框，直接產 PDF 檔下載（html2pdf 首次用時才載，兩頁 297×105mm）
      ⚠ 兩個坑：①離螢幕定位不能寫在交給 html2pdf 的元素上（會被 clone 走→截到空白）——包殼藏、把乾淨的 .icroot 交出去
@@ -6937,7 +6973,7 @@ async function openInfoCardPrint(s){
       return (im.complete&&im.naturalWidth)?Promise.resolve():new Promise(function(r){im.onload=r;im.onerror=r;});
     }));
     await html2pdf().set({
-      filename:'infocard-'+beanSlug(nm)+'.pdf',
+      filename:fname,
       image:{type:'jpeg',quality:.95},
       /* scale 2.6：兩頁疊一張大 canvas，3.3 會爆 iPhone 的 16.7MP canvas 上限（真機全白破圖的另一根因） */
       html2canvas:{scale:2.6,useCORS:true,backgroundColor:'#ffffff'},

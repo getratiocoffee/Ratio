@@ -56,6 +56,13 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-15 之二（Folding Info Card 升級：四格各自選豆 ✅）
+- **老闆需求**：A4 田字格的左上/右上/左下/右下四張卡**各自選豆**（原本只能單豆 ×4），第二頁（背面）跟著換。
+- **改動（new/index.html）**：①`openInfoCardsSheet` 改四槽位 UI＝2×2 select（Top left/Top right/Bottom left/Bottom right，母體 passedBeans，「— empty —」＝該格留白）＋「Same coffee in all four」快速鈕（＝舊單豆行為）＋Download PDF ②原 `openInfoCardPrint` 拆兩段：`infoCardFaces(s)`＝單豆的 {cover,info} 卡面 HTML（fetch full row/雷達/明細全在此，同豆多格 cache 共用一次）＋`infoCard4Pdf(slotIds)`＝四格組裝＋html2pdf 下載（版式/CSS/html2pdf 參數零改動）。舊函式名 openInfoCardPrint 已移除（唯一呼叫者就是這抽屜）。
+- **⚠ 鏡像關鍵**：第一頁（雷達＋明細面）照 [左上,右上,左下,右下]；第二頁（封面＋QR 面）排 **[右上,左上,右下,左下]**——A4 直式雙面翻面後背面左右對調，裁開每張卡正反才同一支豆。四格同豆時鏡不鏡像無差＝向後相容。**若老闆真機印出正反對不上＝印表機雙面翻頁邊（長邊/短邊）與假設相反，回報再調**。檔名：單一豆 `infocard-<slug>.pdf`、混豆 `infocard-4up.pdf`。
+- **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
+- **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
+
 ## 〇、補記 — 2026-07-15（Live cupping 主體補寫：前次工具異常沒落地，本次真完工 ✅）
 - **事故**：07-14 工具異常期，Live cupping「主體函式」的 Edit 假成功（commit 48f365c 只有磁貼＋分派 12 行）——老闆 push 後點磁貼**沒反應**（呼叫不存在的 openLiveCupSheet）。教訓：**大段 Edit 後必 grep 驗證函式定義真的在檔案裡**
 - **本次**：主體全函式群真正寫入（openDeleteCoffeeSheet 前）＝LC 狀態/lcCleanup/lcSplit（換行逗號頓號都切）/lcMine/openLiveCupSheet（今天最新一輪含已揭曉；無輪→picker）/lcPaintPick（toCupList 選豆）/lcStart/lcSub（channel ×2 訂閱）/lcDone/lcLiveUpdate（打字中只更新小字保鍵盤焦點）/lcPaint（三態）/lcSubmit（upsert onConflict session_id,cupper）/lcReveal（自己直翻別人靠 realtime）/lcSaveOfficial（去重彙總→照 saveCupSheet insert 形狀：no 流水號＋容錯鏈＋cupper='Team'→存完進 QC 待判定）
