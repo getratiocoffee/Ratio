@@ -2520,6 +2520,14 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
   $('sb-back').addEventListener('click',openRetailSheet);
   $('d-cl').addEventListener('click',closeDrawer);
 }
+/* 雙鍵查杯測 full row（flavour_locked 優先）：豆名必帶、處理法有值才加（ilike 寬鬆比對）。
+   ⚠ 規則：同名多處理法是不同商品——只比名字會抓到別支處理法的鎖定風味。
+   所有產出物（摺卡/社群圖/商品卡/信件卡）的資料源統一走這裡 */
+function fullSampleQuery(nm,proc){
+  var q=sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',nm);
+  if(proc!=null&&String(proc).trim()!=='')q=q.ilike('process',String(proc).trim());
+  return q.order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
+}
 /* ===== Social post kit（社群曝光 Phase 4 第一刀：貨架豆一鍵出 IG/小紅書素材）=====
    卡片＝同 Square/信件設計但走 tight 白邊（IG 貼文沒有平台裁切，同 classic Print Centre 下載版）；
    文案照 cupAutoComment 慣例本機模板組句（不呼叫 AI），是草稿——老闆貼上前自行修 */
@@ -2561,11 +2569,10 @@ async function openPromoSheet(s,m){
   $('pk-back').addEventListener('click',function(){openShelfBeanDetail(nm,m);});
   $('d-cl').addEventListener('click',closeDrawer);
   try{
-    /* full row（flavour_locked 優先）＋顏色＋blend 配方——同 openCardPreview 管線 */
+    /* full row（flavour_locked 優先）＋顏色＋blend 配方——同 openCardPreview 管線；雙鍵（豆名＋處理法） */
     var full=s;
     try{
-      var fq=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',nm)
-        .order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
+      var fq=await fullSampleQuery(nm,s&&s.process);
       if(fq.data&&fq.data[0])full=fq.data[0];
     }catch(e){}
     var dots={};try{dots=await cardDots();}catch(e){}
@@ -3057,8 +3064,7 @@ async function socialSplitPick(s){
     var rows=$('soc-rows');if(rows)rows.querySelectorAll('[data-ph="'+nm.replace(/"/g,'')+'"]').forEach(function(b){b.textContent='Replace';});
   }
   var full=s;
-  try{var fq=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',nm)
-    .order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
+  try{var fq=await fullSampleQuery(nm,s.process); /* 雙鍵：豆名＋處理法 */
     if(fq.data&&fq.data[0])full=fq.data[0];}catch(e){}
   var dots={};try{dots=await cardDots();}catch(e){}
   var col=dotColorFor(nm,dots)||'#C87E8E';
@@ -3286,7 +3292,7 @@ function paintPublishSheet(sl,acts){
             :'Could not check the connection: '+((st&&st.error)||'unknown');
         alert(msg);el.disabled=false;el.textContent='Post to FB + IG';return;
       }
-      openSocialPostBean(x.nm,sl.m,st);
+      openSocialPostBean(x.nm,sl.m,st,x.s&&x.s.process);
       return;
     }
     if(act==='ig'){openPromoSheet(x.s,sl.m);return;}
@@ -3349,17 +3355,17 @@ async function openSocialPostSheet(){
     +(rows||'<div class="empty">Nothing on the shelf to post yet</div>')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   document.querySelectorAll('#drawer [data-sp]').forEach(function(el){el.addEventListener('click',function(){
-    openSocialPostBean(el.dataset.sp,sl.m,st);
+    var rep=null;try{rep=shelfSampleFor(el.dataset.sp);}catch(e){}
+    openSocialPostBean(el.dataset.sp,sl.m,st,rep&&rep.process);
   });});
   $('d-cl').addEventListener('click',closeDrawer);
 }
-async function openSocialPostBean(nm,m,st){
+async function openSocialPostBean(nm,m,st,proc){
   openDrawerHTML('<div class="t" style="font-size:19px">'+esc(nm)+'</div><div class="empty" style="margin-top:16px">Loading…</div>');
-  /* 資料管線照 openPromoSheet：full row（flavour_locked 優先）＋點色＋產區明細＋caption */
+  /* 資料管線照 openPromoSheet：full row（flavour_locked 優先）＋點色＋產區明細＋caption；雙鍵（proc 有才過濾） */
   var full={sample_id:nm};
   try{
-    var fq=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',nm)
-      .order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
+    var fq=await fullSampleQuery(nm,proc);
     if(fq.data&&fq.data[0])full=fq.data[0];
   }catch(e){}
   var dots={};try{dots=await cardDots();}catch(e){}
@@ -3459,10 +3465,9 @@ async function runSocialPost(){
 /* ===== 新豆通知信群發（社群曝光 Phase 4：一份內容三發的「信」——IG/小紅書在 Social post kit）=====
    照抄 classic announceCoffee/uploadCardFor：QC 閘門→客戶人數確認→畫卡上傳 mail-assets（Square 安全白邊版，
    不是 IG tight 版）→ send-email announce_coffee 群發 */
-async function uploadCardForBean(nm){
+async function uploadCardForBean(nm,proc){
   try{
-    var fq=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',nm)
-      .order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
+    var fq=await fullSampleQuery(nm,proc); /* 雙鍵：豆名＋處理法（proc 有才過濾） */
     var full=fq&&fq.data&&fq.data[0];if(!full)return '';
     var dots={};try{dots=await cardDots();}catch(e){}
     var blendMap={};
@@ -3521,7 +3526,7 @@ async function announceShelfBean(s,nm,btn){
   if(!confirm('Email "New coffee: '+nm+'" to '+n+' customer'+(n>1?'s':'')+'?'))return;
   var orig=btn.textContent;btn.disabled=true;btn.textContent='Sending…';
   try{
-    var cardUrl=await uploadCardForBean(nm);
+    var cardUrl=await uploadCardForBean(nm,s&&s.process);
     var flav=(s.features&&s.features.length)?s.features.slice(0,3).join(', '):'';
     var r=await callFn('send-email',{action:'announce_coffee',name:nm,card_url:cardUrl,flavour:flav,note:(s.comment||'').trim()});
     logAct('announced coffee',nm,(r.sent||0)+' customers'); /* Publish 面板的 Email 狀態靠這筆 */
@@ -5200,9 +5205,7 @@ async function pushListToSquare(){
     var img64=null,imgs64=null;
     try{
       /* 同名多處理法（2026-07-13）：卡片素材只抓「這個處理法」的杯測——不然兩支互相拿錯風味 */
-      var fq0=sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',nm);
-      if(s.process!=null&&String(s.process).trim()!=='')fq0=fq0.ilike('process',String(s.process).trim());
-      var fq=await fq0.order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
+      var fq=await fullSampleQuery(nm,s.process);
       var full=fq&&fq.data&&fq.data[0];
       if(full){
         var dots=await cardDots();
@@ -6637,8 +6640,7 @@ async function openCardPreview(q){
   try{
     var full=q.s;
     try{
-      var fq=await sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',q.s.sample_id)
-        .order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
+      var fq=await fullSampleQuery(q.s.sample_id,q.s.process); /* 雙鍵：豆名＋處理法 */
       if(fq.data&&fq.data[0])full=fq.data[0];
     }catch(e){}
     var dots=await cardDots();
@@ -6857,9 +6859,7 @@ async function infoCardFaces(s){
      ⚠ 雙鍵：豆名＋處理法（同名多處理法是不同商品——只比名字會抓到別支處理法的鎖定風味） */
   var full=s;
   try{
-    var q=sb.from('samples').select('*').eq('supplier','Ratio Coffee').eq('sample_id',s.sample_id);
-    if(s.process)q=q.eq('process',s.process);
-    var fq=await q.order('flavour_locked',{ascending:false}).order('cupping_date',{ascending:false}).limit(1);
+    var fq=await fullSampleQuery(s.sample_id,s.process);
     if(fq.data&&fq.data[0])full=fq.data[0];
   }catch(e){}
   var dots={};try{dots=await cardDots();}catch(e){}
