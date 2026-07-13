@@ -61,6 +61,13 @@
 - **修**：①資料——SQL 把 rtl_sold 裡已 synced 的 7 支清掉（Dancer/Danche v1-v3/Dark Knight/Sugar Daddy/June Project），留真下架的 5 支（April Project/Hakuna Matata/Kiama AA/Kii AB/Dreamer）②根因——pushListToSquare 的記憶寫回段（read-modify-write）加 rtl_sold：push 成功刪該豆 key（listNm＋nm 兩種 key 大小寫容錯）。驗證：stub——push Dancer 後 rtl_sold 寫回只剩 April Project、alert 零、console 零錯誤。⚠ stub 測 pushListToSquare 要蓋 window.callFn（不然 Signed out 就 throw）
 - **烘豆日期修正（同 session 稍早）**：shelfLatestRoast/shelfFreshness 加可選 proc 參數（undefined＝名字級照舊）；Coffee Info 排序/列/詳情帶 proc——Alo Village WH（05-18）/CF（06-01）烘豆日不再互相污染。老闆點名先驗後 commit——本輪一起 commit
 
+## 〇、補記 — 2026-07-14 之二（sync-to-square v26→v27：Blend/Single Origin 分類歸納 ✅）
+- **老闆定調**：Square 商品按豆型歸類——「Blend」「Single Origin」（重用 Square 既有同名分類）；「Ratio Online Shop」降級為純認養圍欄（每支都掛、防誤抓店內品項，v25 防護邏輯不動）
+- **v27**：泛用 `ensureCat(name)`（快取 map）取代單一 ensureRatioCategory；`isBlendBean(admin,name)`＝blends 主檔 ilike 命中或 roasts kind='blend' 同名；push 自動掛〔圍欄＋豆型〕雙分類、reporting=豆型；新 action `categorize_all`＝一次掃 product_sync 有 external_id 的全部商品補掛（訂閱按名字帶 blend/single 判）。v26 是中間版（單一分類版 categorize_all），部署後即被 v27 蓋掉
+- **執行**：categorize_all 16 支歸好（4 Blend：Dancer/Dark Knight/April Project/Sugar Daddy/June Project…＋Subscription—Blend；其餘 Single Origin）；**又揪出 2 支死連結**：La Molienda/Mwendi Wega AB（synced 掛著但 Square 商品早刪、客人買不到）→ 清 external_id/variation_id＋轉 paused（重新上架走 create 即復活）
+- **驗證**：inspect Dark Knight→Blend（重用店內既有分類 VDEA…）、Alo Village · Cold Fermentation→Single Origin ✓；圍欄不受影響（matchItem 仍只認 Ratio Online Shop）
+- **⚠ 備忘**：「Blend」分類是店內既有的——Square 後台按它篩會同時看到 House 飲品和網店拼配豆（老闆自己的分類系統，設計如此）；死連結病根＝Square 後台手動刪商品不會同步 product_sync，之後可考慮 push 前 preflight 或定期對帳
+
 ## 〇、補記 — 2026-07-14（sync-to-square v25：專屬分類＋認養圍欄，House 品項誤連事件收拾 ✅）
 - **事故**：老闆 07-13 重新上架 Dark Knight/Dancer/Dreamer 時，push 的名字認養（matchItem 按名字段互含）**誤抓店內 POS 品項**（「House - Dark Knight」$0、「House - Dancer」$0、「House - Decaf (Dreamer)」$1）——?shop 因此顯示 $0、店內品項被寫入 ratio_ref＋掛 Grind 磨豆選項＋附卡片圖＋描述被蓋
 - **修法（老闆定調：上傳的商品要有自己的 category）——sync-to-square v25**：
