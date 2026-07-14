@@ -750,7 +750,7 @@ function buildItems(){
     var f=(s.features||[]).slice(0,3).join(', ');
     out.push({id:'list:'+s.id,st:'Shelf',hot:0,t:'List · '+esc(s.sample_id||'—'),
       s:(bNoFor(s.sample_id,s.process)?bNoFor(s.sample_id,s.process)+' · ':'')+'QC passed · not on Square yet'+(f?' · '+esc(f):''),
-      act:'List on Square…',det:[['Flavour',f||'—'],['Process',s.process||'—'],['Starred ★',s.flavour_locked?'yes':'added when pushed']],
+      act:'List on Square…',det:[['Flavour',f||'—'],['Process',s.process||'—'],['★ On shelf',s.flavour_locked?'yes':'added when pushed']],
       det2:'Later',roles:['director'],kind:'list',ref:s});
   });
   packQ.forEach(function(o){
@@ -2634,8 +2634,8 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
     btn.disabled=true;btn.textContent='Working…';
     var rs=await starSample(s,false);
     if(!rs.ok){btn.disabled=false;btn.textContent='★ Star · set as selling version';return;}
-    logAct('★ starred',nm);
-    toast('★ starred — the selling version now');buildItems();
+    logAct('★ added',nm);
+    toast('★ on shelf — the selling version now');buildItems();
     /* 從已上架批手上接星＝架上的風味/烘焙日資訊過期了 → 直開 Update 抽屜一鍵 push（原 qcSwap 體驗搬家） */
     if(rs.swapped){openListSheet({ref:s});return;}
     await reload();openShelfBeanDetail(nm,m,proc);
@@ -3110,7 +3110,7 @@ async function openSocialSplitSheet(){
   SOC_PHOTOS=await listBeanPhotos();
   var mayEdit=canWrite();
   function rowsHTML(){
-    if(!list.length)return '<div class="empty">No starred coffees yet — ★ is added when you list on Square</div>';
+    if(!list.length)return '<div class="empty">No ★ coffees on shelf yet — ★ is added when you list on Square</div>';
     return list.map(function(s){
       var nm=String(s.sample_id||'').trim();
       var c=uiDot(dotColorFor(nm,dots,s.process));
@@ -3388,8 +3388,8 @@ function paintPublishSheet(sl,acts){
   function ago(ts){if(!ts)return '—';var d=daysSince(String(ts).slice(0,10));return d<=0?'today':(d+'d ago');}
   var pill=function(txt,bg){return '<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;background:'+bg+';color:#fff">'+txt+'</span>';};
   var body=rows.length?rows.map(function(x,ix){
-    /* 清單全是有星的豆＝膠囊固定 ★ Starred；shop 狀態在 chans 行（synced＋清單必星＝真 Live） */
-    var qcPill=pill('★ Starred','var(--accent)');
+    /* 清單全是有星的豆＝膠囊固定 ★ On shelf；shop 狀態在 chans 行 */
+    var qcPill=pill('★ On shelf','var(--accent)');
     var shop=x.sync==='synced'?'On shelf':(x.sync==='paused'?'Off shelf':'—');
     var chans='Shop (Square + Ratio): <b>'+shop+'</b> · FB/IG: <b>'+ago(x.fb)+'</b> · Email: <b>'+ago(x.em)+'</b>';
     var open=PUB.open===x.key; /* key＝nm|proc——同名兩處理法的卡開合互不干擾 */
@@ -3417,9 +3417,9 @@ function paintPublishSheet(sl,acts){
         +'</div>';
     }
     return h+'</div>';
-  }).join(''):'<div class="empty">No starred coffees yet<br>Pass a coffee in QC, then List it on Square — pushing adds the ★</div>';
+  }).join(''):'<div class="empty">No ★ coffees on shelf yet<br>Pass a coffee in QC, then List it on Square — pushing adds the ★</div>';
   openDrawerHTML('<div class="t" style="font-size:19px">Publish</div>'
-    +'<div class="s" style="margin-top:2px">your ★ starred coffees → every channel · shop listing = Square + Ratio site together</div>'
+    +'<div class="s" style="margin-top:2px">your ★ on-shelf coffees → every channel · shop listing = Square + Ratio site together</div>'
     +body
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);
@@ -3682,7 +3682,7 @@ async function announceShelfBean(s,nm,btn){
   var warns=[];
   if(!qr||!qr.qc)warns.push('no QC pass recorded for the latest batch');
   /* ★ 硬擋（三態簡化）：沒星＝沒有「在賣版本」資料源，一律不准發（原本只軟警告） */
-  if(!s.flavour_locked){alert('Only starred coffees can be announced — add a ★ first (it marks the selling version).');return;}
+  if(!s.flavour_locked){alert('Only ★ on-shelf coffees can be announced — add a ★ first.');return;}
   if(warns.length&&!confirm('Heads up: '+warns.join('; ')+'.\nAnnounce anyway?'))return;
   var res=null;
   try{res=await sb.from('customers').select('id,email').not('email','is',null);}catch(e){}
@@ -4827,7 +4827,7 @@ function openBatchesSheet(){
       /* 來源生豆 S#ID（有對到 beans 列才有——批次孤兒沒有） */
       +(x.ref&&gNo(x.ref)?' <span style="color:var(--muted);font-weight:400;font-size:11px">'+gNo(x.ref)+'</span>':'')+'</span>'
       /* 膠囊只講貨架兩態（沒星不是狀態，老闆定調）：On shelf（有星帶 ★）／Off shelf */
-      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':'background:var(--accent);color:#fff')+'">'+(x.sync==='paused'?'Off shelf':(x.locked?'On shelf ★':'On shelf'))+'</span>':'')
+      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':'background:var(--accent);color:#fff')+'">'+(x.sync==='paused'?'Off shelf':(x.locked?'★ On shelf':'On shelf'))+'</span>':'')
       +(x.noInfo?'<span class="red" style="flex:0 0 auto;font-size:11px;font-weight:600">no info — cup it</span>':'')
       +'</span>'
       +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto">'
@@ -4957,8 +4957,8 @@ function openBatchesSheet(){
     var btn=this;btn.disabled=true;btn.textContent='Working…';
     var rs=await starSample(s,false);
     if(!rs.ok){btn.disabled=false;btn.textContent='★ Star · selling version';return;}
-    logAct('★ starred',x.name);
-    toast('★ starred ✓');buildItems();
+    logAct('★ added',x.name);
+    toast('★ on shelf ✓');buildItems();
     /* 從已上架批接星＝架上資訊過期 → 直開 Update 抽屜 push 新資訊 */
     if(rs.swapped){openListSheet({ref:s});return;}
     openBatchesSheet();
@@ -5414,7 +5414,7 @@ async function pushListToSquare(){
   var p500=Number(String(LST.p500).replace(/[^0-9.]/g,''))||0;
   var p1k=Number(String(LST.p1k).replace(/[^0-9.]/g,''))||0;
   /* 只剩「更新模式、使用者手動關掉 ★」才問一聲；新上架必星、requeue 黃字已講明 */
-  if(LST.upd&&!s.flavour_locked&&!LST.lock&&!LST.requeue&&!confirm('This batch will not be starred (★ = the selling version) — push anyway?'))return;
+  if(LST.upd&&!s.flavour_locked&&!LST.lock&&!LST.requeue&&!confirm('This batch will not get the ★ (selling version) — push anyway?'))return;
   /* photo 模式但這支豆還沒照片 → 先選照片，取消＝中止 push（照 socialSplitPick 的路數） */
   if(LST.imgMode==='photo'&&!LST.hasPhoto){
     var okp=await changeBeanPhoto(nm,null);
