@@ -64,6 +64,13 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之九（全 app 掛號：所有找豆子的地方都顯示 S#/B# ✅）
+- **老闆下令**：所有找豆子的都要對應 ID。Explore 盤點 18 個內部落點＋7 個對客面（店面/?bean/菜單/標籤/信件卡/社群圖＝**刻意不加**，ID 是內部語彙）。
+- **新 helper（rNos 旁）**：`bNoFor(nm,proc)`＝豆名＋處理法→'B#00013'（拼配名先命中 blends.blend_no；proc undefined＝名字級**同名唯一才回號**，多處理法回空防掛錯）；`bNosForName(nm)`＝同名全部號（'S#00012 S#00013'，Delete 名字級聚合用）。
+- **落點（18）**：Cup/View-Edit 標題（rNo）、Live cupping 待杯清單（rNo）、Clean up 五清單（roasts 兩個 rNo＋samples/字串三個 bNoFor，rtl_sold key 有解析 ' @ '）、Dial in 下拉（**option 補了 value 屬性**——文字帶號後不能再拿 textContent 當存檔名）＋Latest 卡、Recipe 唯讀卡＋編輯 head（bNoFor 名字）＋成分下拉（gNo＝S#）、今日流 Low green 卡（gNo）/List 卡/Dial in 卡（bNoFor）、Coffee Info 清單行＋詳情標題＋**詳情拼配成分各標 S#（greenForPart→gNo）**、Publish 列、List/Update 表單標題、Bean rotation 下拉＋吧台行、Folding Info Card 四槽、Social Images picker、IG asset picker、Post to socials picker＋詳情標題、Announce picker、Delete a coffee（bNosForName 多號）。
+- **跳過（有原因）**：Sample analyse（供應商生豆樣品未入庫沒號）、Live cupping 揭曉（自由字串可能非自家豆）、今日流聚合卡（QC nav/Roast demand/Lock——摘要卡，抽屜裡有號）。
+- **驗證**：jscheck ✓；stub——helper 六情境（單品/拼配/名字級歧義回空/名字級唯一/Delete 雙號/拼配單號）、Dial in 下拉「Dark Knight · B#00028」、Delete「Alo Village S#00012 S#00013」、Coffee Info 行帶 B#、console 零錯誤。
+
 ## 〇、補記 — 2026-07-15 之八（ID 前綴改版：G→S、R→B ✅）
 - **老闆定案**：生豆 **S#**、熟豆 **B#**（原 G#/R# 棄用）。純顯示層——DB 欄位（green_no/blend_no）與號碼全部不動。
 - **改動（new/index.html）**：gNo→'S#'、rNo→'B#'、ID book 兩段文案與拼配硬編碼、磁貼副標 'all S# & B# numbers'、搜尋 regex（s13/S#00013/純數字＝生豆、b13/B#00013＝批次；g/r 打法停用）、註解同步。⚠ 函式名仍叫 gNo/rNo（green_no/roast 語源），別被名字騙——輸出已是 S#/B#。

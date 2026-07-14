@@ -733,7 +733,7 @@ function buildItems(){
   LISTQ.forEach(function(s){
     var f=(s.features||[]).slice(0,3).join(', ');
     out.push({id:'list:'+s.id,st:'Shelf',hot:0,t:'List · '+esc(s.sample_id||'—'),
-      s:'QC passed · not on Square yet'+(f?' · '+esc(f):''),
+      s:(bNoFor(s.sample_id,s.process)?bNoFor(s.sample_id,s.process)+' · ':'')+'QC passed · not on Square yet'+(f?' · '+esc(f):''),
       act:'List on Square…',det:[['Flavour',f||'—'],['Process',s.process||'—'],['Flavour locked',s.flavour_locked?'yes':'not yet']],
       det2:'Later',roles:['director'],kind:'list',ref:s});
   });
@@ -767,13 +767,13 @@ function buildItems(){
   });
   stale.forEach(function(x){
     out.push({id:'di:'+x.name,st:'Recipe',hot:0,t:'Dial in · '+esc(x.name),
-      s:x.last==null?'<span class=red>never dialled in</span>':'<span class=red>'+x.last+'d since last dial-in</span>',
+      s:(bNoFor(x.name)?bNoFor(x.name)+' · ':'')+(x.last==null?'<span class=red>never dialled in</span>':'<span class=red>'+x.last+'d since last dial-in</span>'),
       act:'Dial in…',det:[['Coffee',x.name],['Last dial-in',x.last==null?'never':x.last+' days ago']],
       det2:'Not today',roles:['director','retail','staff'],kind:'dialin',ref:x});
   });
   low.forEach(function(b){
     out.push({id:'low:'+b.id,st:'Green',hot:0,t:'Low · '+esc(b.name),
-      s:(b.process?esc(b.process)+' · ':'')+(Number(b.quantity)||0)+' kg left',
+      s:(gNo(b)?gNo(b)+' · ':'')+(b.process?esc(b.process)+' · ':'')+(Number(b.quantity)||0)+' kg left',
       act:'Got it',det:[['Stock',(Number(b.quantity)||0)+' kg'],['Rotation','sold out = cup a new sample (Tools → Sample analyse)']],
       roles:['director','roaster'],kind:'dismiss',ref:b});
   });
@@ -1140,6 +1140,29 @@ function rNos(batches){
   var seen={},out=[];
   (batches||[]).forEach(function(r){var k=rNo(r);if(k&&!seen[k]){seen[k]=1;out.push(k);}});
   return out.join(' ');
+}
+/* 統一取號口（2026-07-15 全 app 掛號）：豆名＋處理法 → 'B#00013'。
+   拼配名先命中 blends.blend_no；單品照 procKey 找 beans.green_no。
+   proc undefined＝名字級：同名唯一才回號（多處理法回空，避免掛錯） */
+function bNoFor(nm,proc){
+  var k=String(nm||'').trim().toLowerCase();
+  if(!k)return '';
+  var bl=(DB.blends||[]).find(function(x){return String(x.name||'').trim().toLowerCase()===k;});
+  if(bl)return bl.blend_no!=null?('B#'+String(bl.blend_no).padStart(5,'0')):'';
+  var pool=(DB.beans||[]).filter(function(x){return String(x.name||'').trim().toLowerCase()===k;});
+  var b;
+  if(proc!==undefined){var pk=procKey(proc);b=pool.find(function(x){return procKey(x.process)===pk;})||(pool.length===1?pool[0]:null);}
+  else b=(pool.length===1?pool[0]:null);
+  return (b&&b.green_no!=null)?('B#'+String(b.green_no).padStart(5,'0')):'';
+}
+/* 同名下所有號（Delete a coffee 名字級聚合用；同名多處理法列全部＝提醒這名字下有幾支） */
+function bNosForName(nm){
+  var k=String(nm||'').trim().toLowerCase();
+  if(!k)return '';
+  var bl=(DB.blends||[]).find(function(x){return String(x.name||'').trim().toLowerCase()===k;});
+  if(bl)return bl.blend_no!=null?('B#'+String(bl.blend_no).padStart(5,'0')):'';
+  return (DB.beans||[]).filter(function(x){return String(x.name||'').trim().toLowerCase()===k&&x.green_no!=null;})
+    .map(function(x){return 'S#'+String(x.green_no).padStart(5,'0');}).join(' ');
 }
 /* 鎖風味＝單選（2026-07-12 老闆定調）：鎖＝「在賣的版本」。
    2026-07-13 收緊成「同名＋同處理法」互斥（Alo Village White Honey / Cold Fermentation 事件）——
@@ -2175,7 +2198,7 @@ function openDialinSheet(){
     var d=latest[k];
     return '<div style="border:1px solid var(--line);border-radius:12px;padding:10px 13px;margin-top:8px">'
       +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
-      +'<span class="t" style="font-size:14px">'+esc(d.coffee)+'</span>'
+      +'<span class="t" style="font-size:14px">'+esc(d.coffee)+(bNoFor(d.coffee)?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+bNoFor(d.coffee)+'</span>':'')+'</span>'
       +'<span class="s" style="color:var(--muted)">'+esc(String(d.created_at||'').slice(5,10))+(d.barista?' · '+esc(d.barista):'')+'</span></div>'
       +'<div class="s" style="margin-top:3px">'+esc(dlMeta(d)||'—')+(d.note?' · '+esc(d.note):'')+'</div>'
       +(canWrite()&&d.id?'<button class="chip" data-dlap="'+esc(d.id)+'" style="margin-top:7px">Apply to brew guide</button>':'')
@@ -2188,7 +2211,7 @@ function openDialinSheet(){
     +'<div class="s" style="margin-top:2px">log espresso shots for any coffee or blend — pick one and the last numbers load</div>'
     +'<div class="dlab">Coffee</div>'
     +'<select class="din" id="dls-coffee" style="padding:12px"><option value="">— pick a coffee —</option>'
-    +names.map(function(n){return '<option'+(DLS.coffee===n?' selected':'')+'>'+esc(n)+'</option>';}).join('')+'</select>'
+    +names.map(function(n){var bn=bNoFor(n);return '<option value="'+esc(n)+'"'+(DLS.coffee===n?' selected':'')+'>'+esc(n)+(bn?' · '+bn:'')+'</option>';}).join('')+'</select>'
     +'<div class="s" id="dls-last" style="margin-top:4px;color:var(--muted)"></div>'
     +'<div class="dlab">Grind setting</div><input class="din" id="dls-g" inputmode="decimal" placeholder="e.g. 2.4">'
     +'<div class="dlab">Dose g</div><input class="din" id="dls-d" inputmode="decimal" placeholder="20">'
@@ -2425,9 +2448,11 @@ async function openRetailSheet(){
     /* 膠囊：現貨區才有上架狀態——售罄紅、重審熄燈 */
     var pill=(zone==='stock'&&sy)?'<span class="k pill'+(sold?' sold':(inQC?' off':''))+'">'+(sold?'Off shelf':'Live')+'</span>':'';
     var procTxt=(rep&&rep.process)||c.proc||'';
+    var cbn=bNoFor(nm,c.isBlend?undefined:(procTxt||c.proc));
     return '<div class="hit" data-shelf="'+esc(nm)+'" data-shelfp="'+esc(c.proc)+'" data-shelfb="'+(c.isBlend?'1':'0')+'"><span style="min-width:0"><div class="t" style="font-size:16px">'
       +(col?'<span style="color:'+col+';font-size:12px">●</span> ':'')+esc(nm)
-      +(procTxt?' <span style="color:var(--muted);font-weight:400;font-size:12.5px;font-family:Inter,sans-serif">'+esc(procTxt)+'</span>':'')+'</div>'
+      +(procTxt?' <span style="color:var(--muted);font-weight:400;font-size:12.5px;font-family:Inter,sans-serif">'+esc(procTxt)+'</span>':'')
+      +(cbn?' <span style="color:var(--muted);font-weight:400;font-size:12px;font-family:Inter,sans-serif">'+cbn+'</span>':'')+'</div>'
       +'<div class="s">'+sub+'</div></span>'+pill+'</div>';
   }
   function section(title,arr,zone){return arr.length?'<div class="dlab">'+title+'</div>'+arr.map(function(c){return rowHTML(c,zone);}).join(''):'';}
@@ -2479,7 +2504,8 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
   /* 順序照老闆定：名字 → 烘豆日＋天數/熟成 → 規格價格 → 雷達 → 風味 → 履歷 */
   openDrawerHTML('<span class="tag" style="color:'+col+'">● Shelf'+(sold?' · <span class="red">off shelf</span>':'')+'</span>'
     +'<div class="t" style="font-size:19px">'+esc(nm)
-    +(s.process?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif;font-weight:400">'+esc(s.process)+'</span>':'')+'</div>'
+    +(s.process?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif;font-weight:400">'+esc(s.process)+'</span>':'')
+    +(bNoFor(nm,proc)?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif;font-weight:400">'+bNoFor(nm,proc)+'</span>':'')+'</div>'
     +'<div class="s" style="margin-top:2px">'+(rdate?'roasted '+fmtD(rdate)+' · ':'')
     +'<span class="'+fr.cls+'"'+(fr.cls?'':' style="color:var(--muted)"')+'>'+esc(fr.days!=null?fr.days+'d — '+fr.txt.split('— ')[1]:fr.txt)+'</span>'
     +(s.flavour_locked?'':' · flavour unlocked')
@@ -2500,8 +2526,12 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
     +(recipe.length?'<div class="dlab" style="color:'+col+'">Recipe</div>'
       +recipe.map(function(p){
         var sub=[p.process,p.variety].filter(Boolean).join(' · ');
+        /* 成分豆掛 S#（生豆號）：greenForPart 消歧同款——名字＋處理法找 beans 列 */
+        var pg=null;try{pg=greenForPart(p);}catch(e){}
+        var psn=pg?gNo(pg):'';
         return '<div class="dl" style="align-items:flex-start">'
           +'<span style="flex:1;min-width:0"><span style="color:var(--ink);font-weight:600">'+esc(p.pct+'% '+p.bean)+'</span>'
+          +(psn?' <span style="color:var(--muted);font-size:12px">'+psn+'</span>':'')
           +(sub?'<span style="display:block;font-size:12.5px;color:var(--muted);margin-top:2px">'+esc(sub)+'</span>':'')+'</span>'
           +'<span style="flex:none;text-align:right;color:var(--muted)">'+esc(p.country||'—')+'</span></div>';
       }).join(''):'')
@@ -2994,6 +3024,7 @@ async function openSocialSplitSheet(){
         +'<span data-sc="'+esc(s.id)+'" style="flex:1;min-width:0;cursor:pointer">'
           +'<span style="color:var(--ink);font-weight:600">'+(c?'<span style="color:'+c+'">●</span> ':'')+esc(nm||'—')+'</span>'
           +(s.process?' <span style="color:var(--muted);font-size:13px">'+esc(s.process)+'</span>':'')
+          +(bNoFor(nm,s.process)?' <span style="color:var(--muted);font-size:12px">'+bNoFor(nm,s.process)+'</span>':'')
           +'<span style="display:block;font-size:12.5px;color:'+(has?'var(--accent)':'var(--muted)')+'">'+(has?'✓ photo saved':'no photo yet')+'</span>'
         +'</span>'
         +(mayEdit?'<button data-ph="'+esc(nm)+'" style="flex:none;padding:7px 12px;border:1px solid var(--line2);background:transparent;color:var(--muted);border-radius:999px;font-size:12.5px;font-weight:600;font-family:inherit;white-space:nowrap;cursor:pointer">'+(has?'Replace':'Photo')+'</button>':'')
@@ -3270,7 +3301,8 @@ function paintPublishSheet(sl,acts){
       +'<div data-pub="'+ix+'" style="cursor:pointer">'
       +'<div style="display:flex;align-items:center;gap:8px"><span class="t" style="font-size:14.5px;flex:1;min-width:0">'+esc(x.nm)
       /* 處理法（2026-07-13 老闆點名）：跟 Coffee Stock/Coffee Info 同款灰字，來源＝鎖定 sample */
-      +(x.s&&x.s.process?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(x.s.process)+'</span>':'')+'</span>'+qcPill+'</div>'
+      +(x.s&&x.s.process?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(x.s.process)+'</span>':'')
+      +(bNoFor(x.nm,x.proc)?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+bNoFor(x.nm,x.proc)+'</span>':'')+'</span>'+qcPill+'</div>'
       +'<div class="s" style="margin-top:4px">'+chans+'</div>'
       +'</div>';
     if(open&&_mk){
@@ -3340,7 +3372,8 @@ async function openIGSheet(){
     var rep=null;try{rep=shelfSampleFor(nm);}catch(e2){}
     var fr;try{fr=shelfFreshness(nm);}catch(e2){fr={txt:'',cls:''};}
     rows+='<div class="hit" data-ig="'+esc(nm)+'"><span><div class="t" style="font-size:16px">'+esc(nm)
-      +(rep&&rep.process?' <span style="color:var(--muted);font-weight:400;font-size:12.5px;font-family:Inter,sans-serif">'+esc(rep.process)+'</span>':'')+'</div>'
+      +(rep&&rep.process?' <span style="color:var(--muted);font-weight:400;font-size:12.5px;font-family:Inter,sans-serif">'+esc(rep.process)+'</span>':'')
+      +(bNoFor(nm,rep&&rep.process)?' <span style="color:var(--muted);font-weight:400;font-size:12px;font-family:Inter,sans-serif">'+bNoFor(nm,rep&&rep.process)+'</span>':'')+'</div>'
       +'<div class="s"><span class="'+fr.cls+'">'+esc(fr.txt)+'</span></div></span><span class="k">post ›</span></div>';
   });
   openDrawerHTML('<div class="t" style="font-size:19px">IG asset</div>'
@@ -3380,7 +3413,7 @@ async function openSocialPostSheet(){
   var seen={},rows='';
   sl.live.forEach(function(e){
     var nm=e.nm,k=nm.toLowerCase();if(seen[k])return;seen[k]=true;
-    rows+='<div class="hit" data-sp="'+esc(nm)+'"><span><div class="t" style="font-size:16px">'+esc(nm)+'</div>'
+    rows+='<div class="hit" data-sp="'+esc(nm)+'"><span><div class="t" style="font-size:16px">'+esc(nm)+(bNoFor(nm)?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+bNoFor(nm)+'</span>':'')+'</div>'
       +'<div class="s">'+(e.d?('roasted '+(fmtD(e.d)||'')):'')+'</div></span><span class="k">post ›</span></div>';
   });
   openDrawerHTML('<div class="t" style="font-size:19px">Post to socials</div>'
@@ -3394,7 +3427,7 @@ async function openSocialPostSheet(){
   $('d-cl').addEventListener('click',closeDrawer);
 }
 async function openSocialPostBean(nm,m,st,proc){
-  openDrawerHTML('<div class="t" style="font-size:19px">'+esc(nm)+'</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  openDrawerHTML('<div class="t" style="font-size:19px">'+esc(nm)+(bNoFor(nm,proc)?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+bNoFor(nm,proc)+'</span>':'')+'</div><div class="empty" style="margin-top:16px">Loading…</div>');
   /* 資料管線照 openPromoSheet：full row（flavour_locked 優先）＋點色＋產區明細＋caption；雙鍵（proc 有才過濾） */
   var full={sample_id:nm};
   try{
@@ -3527,7 +3560,8 @@ async function openAnnounceSheet(){
     var nm=e.nm,k=nm.toLowerCase();if(seen[k])return;seen[k]=true;
     var rep=null;try{rep=shelfSampleFor(nm);}catch(e2){}
     rows+='<div class="hit" data-ann="'+esc(nm)+'"><span><div class="t">'+esc(nm)
-      +(rep&&rep.process?' <span class="s" style="color:var(--muted)">· '+esc(rep.process)+'</span>':'')+'</div>'
+      +(rep&&rep.process?' <span class="s" style="color:var(--muted)">· '+esc(rep.process)+'</span>':'')
+      +(bNoFor(nm,rep&&rep.process)?' <span class="s" style="color:var(--muted)">'+bNoFor(nm,rep&&rep.process)+'</span>':'')+'</div>'
       +(rep&&rep.features&&rep.features.length?'<div class="s">'+esc(rep.features.slice(0,3).join(' · '))+'</div>':'')
       +'</span><span class="k" style="font-size:13px;color:var(--accent)">Announce ›</span></div>';
   });
@@ -3642,30 +3676,30 @@ function paintCleanup(sc){
   if(sc.deadErr){any=true;h+=sec('Square dead links')+'<div class="s"><span class="red">scan failed: '+esc(sc.deadErr)+'</span></div>';}
   else if(sc.dead&&sc.dead.length){any=true;
     h+=sec('Square dead links · '+sc.dead.length,'listed as on sale but the Square item is gone — customers cannot buy these')
-    +sc.dead.map(function(d){return '<div class="dl"><span>'+esc(d.bean_id)+(d.process?' <span style="color:var(--muted);font-size:12px">'+esc(d.process)+'</span>':'')+'</span><span class="red">'+esc(d.status||'')+'</span></div>';}).join('')
+    +sc.dead.map(function(d){var bn=bNoFor(d.bean_id,d.process);return '<div class="dl"><span>'+esc(d.bean_id)+(d.process?' <span style="color:var(--muted);font-size:12px">'+esc(d.process)+'</span>':'')+(bn?' <span style="color:var(--muted);font-size:12px">'+bn+'</span>':'')+'</span><span class="red">'+esc(d.status||'')+'</span></div>';}).join('')
     +'<button class="act" id="cl-fixdead" style="margin-top:8px">Fix '+sc.dead.length+' dead link'+(sc.dead.length>1?'s':'')+'</button>';
   }
   /* B 舊杯測 */
   if(sc.oldCups.length){any=true;
     h+=sec('Old cupping records · '+sc.oldCups.length,'not locked and no stock left — secondary batches, safe to delete')
-    +sc.oldCups.map(function(s){return '<div class="dl"><span>'+esc(s.sample_id)+(s.process?' <span style="color:var(--muted);font-size:12px">'+esc(s.process)+'</span>':'')+'</span><span style="color:var(--muted)">'+(s.cupping_date?fmtD(s.cupping_date):'—')+'</span></div>';}).join('')
+    +sc.oldCups.map(function(s){var bn=bNoFor(s.sample_id,s.process);return '<div class="dl"><span>'+esc(s.sample_id)+(s.process?' <span style="color:var(--muted);font-size:12px">'+esc(s.process)+'</span>':'')+(bn?' <span style="color:var(--muted);font-size:12px">'+bn+'</span>':'')+'</span><span style="color:var(--muted)">'+(s.cupping_date?fmtD(s.cupping_date):'—')+'</span></div>';}).join('')
     +'<button class="act" id="cl-delcups" style="margin-top:8px">Delete '+sc.oldCups.length+' record'+(sc.oldCups.length>1?'s':'')+'</button>';
   }
   /* C 待秤超期 */
   if(sc.pend.length){any=true;
     h+=sec('Awaiting weigh-in · '+sc.pend.length,'roasted over 2 days ago, never weighed — weigh in, or delete a mislog (green refunds)')
-    +sc.pend.map(function(r,i){return '<div class="dl" style="align-items:center"><span data-clwi="'+i+'" style="cursor:pointer;flex:1;min-width:0">'+esc(r.bean_name)+(r.process?' <span style="color:var(--muted);font-size:12px">'+esc(r.process)+'</span>':'')+'<div class="s">'+(r.roast_date?fmtD(r.roast_date)+' · '+daysSince(r.roast_date)+'d':'no date')+' · green '+(Number(r.green_kg)||0)+' kg · <span style="color:#B5791C">weigh in ›</span></div></span>'
+    +sc.pend.map(function(r,i){return '<div class="dl" style="align-items:center"><span data-clwi="'+i+'" style="cursor:pointer;flex:1;min-width:0">'+esc(r.bean_name)+(r.process?' <span style="color:var(--muted);font-size:12px">'+esc(r.process)+'</span>':'')+(rNo(r)?' <span style="color:var(--muted);font-size:12px">'+rNo(r)+'</span>':'')+'<div class="s">'+(r.roast_date?fmtD(r.roast_date)+' · '+daysSince(r.roast_date)+'d':'no date')+' · green '+(Number(r.green_kg)||0)+' kg · <span style="color:#B5791C">weigh in ›</span></div></span>'
       +'<button class="chip" data-clpx="'+i+'" style="margin:0 0 0 8px;padding:2px 10px;font-size:14px" aria-label="delete mislog">✕</button></div>';}).join('');
   }
   /* D 降級滯留 */
   if(sc.dgOld.length){any=true;
     h+=sec('Stale downgraded · '+sc.dgOld.length,'over 30 days old — use in a blend or deduct it')
-    +sc.dgOld.map(function(r,i){return '<div class="dl" style="cursor:pointer" data-cldg="'+i+'"><span>'+esc(r.bean_name)+(r.process?' <span style="color:var(--muted);font-size:12px">'+esc(r.process)+'</span>':'')+'</span><span style="color:var(--danger)">'+(Number(r.remaining_kg)||0)+' kg · '+daysSince(r.roast_date)+'d</span></div>';}).join('');
+    +sc.dgOld.map(function(r,i){return '<div class="dl" style="cursor:pointer" data-cldg="'+i+'"><span>'+esc(r.bean_name)+(r.process?' <span style="color:var(--muted);font-size:12px">'+esc(r.process)+'</span>':'')+(rNo(r)?' <span style="color:var(--muted);font-size:12px">'+rNo(r)+'</span>':'')+'</span><span style="color:var(--danger)">'+(Number(r.remaining_kg)||0)+' kg · '+daysSince(r.roast_date)+'d</span></div>';}).join('');
   }
   /* E rtl_sold 殘留 */
   if(sc.soldKeys.length){any=true;
     h+=sec('Stale off-shelf memory · '+sc.soldKeys.length,'marked off shelf in memory but actually on sale — makes Coffee Info lie')
-    +sc.soldKeys.map(function(k){return '<div class="dl"><span>'+esc(k)+'</span><span style="color:var(--muted)">memory says off shelf</span></div>';}).join('')
+    +sc.soldKeys.map(function(k){var kp=String(k).split(' @ ');var bn=bNoFor(kp[0],kp[1]);return '<div class="dl"><span>'+esc(k)+(bn?' <span style="color:var(--muted);font-size:12px">'+bn+'</span>':'')+'</span><span style="color:var(--muted)">memory says off shelf</span></div>';}).join('')
     +'<button class="act" id="cl-fixsold" style="margin-top:8px">Fix memory</button>';
   }
   if(!any)h+='<div class="empty">All clean ✓<br>No orphans found</div>';
@@ -3775,7 +3809,7 @@ function lcPaintPick(){
         var proc=r.process||(b&&b.process)||'';
         return '<div class="hit" data-lcpick="'+ix+'" style="cursor:pointer"><span><div class="t">'+esc(r.bean_name||'—')
           +(proc?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(proc)+'</span>':'')+'</div>'
-          +'<div class="s">'+(r.roast_date?'roasted '+fmtD(r.roast_date):'roast batch')+'</div></span><span class="k">start ›</span></div>';
+          +'<div class="s">'+(rNo(r)?rNo(r)+' · ':'')+(r.roast_date?'roasted '+fmtD(r.roast_date):'roast batch')+'</div></span><span class="k">start ›</span></div>';
       }).join(''):'')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',function(){lcCleanup();closeDrawer();});
@@ -3978,6 +4012,8 @@ function openDeleteCoffeeSheet(){
     +'<div class="s" style="margin-top:2px">removes cupping records and roast batches — green bean stock is never touched</div>'
     +(list.length?list.map(function(e,ix){
       return '<div class="dl" style="align-items:center"><span><b>'+esc(e.name)+'</b>'
+        /* 名字級聚合：同名多處理法列全部 S# 號＝提醒這名字下有幾支（拼配＝單一 B#） */
+        +(bNosForName(e.name)?' <span style="color:var(--muted);font-size:12px">'+bNosForName(e.name)+'</span>':'')
         +(e.synced?' <span style="color:var(--muted);font-size:12px">on Square</span>':'')
         +'<br><span style="color:var(--muted);font-size:13px">'+e.cups+' cupping'+(e.cups===1?'':'s')+' · '+e.roasts+' batch'+(e.roasts===1?'':'es')+'</span></span>'
         +'<button class="dclose red" style="margin:0;width:auto;padding:8px 14px;border-color:var(--danger);color:var(--danger)" data-delc="'+ix+'">Delete…</button></div>';
@@ -5195,7 +5231,7 @@ async function openListSheet(i){
 }
 function paintListSheet(){
   var s=LST.s;
-  openDrawerHTML('<div class="t" style="font-size:19px">'+(LST.upd?'Update':'List')+' · '+esc(LST.name)+'</div>'
+  openDrawerHTML('<div class="t" style="font-size:19px">'+(LST.upd?'Update':'List')+' · '+esc(LST.name)+(s&&bNoFor(s.sample_id,s.process)?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+bNoFor(s.sample_id,s.process)+'</span>':'')+'</div>'
     +'<div class="s" style="margin-top:2px">'+(LST.upd?'re-pushes prices, sizes and a fresh info card to Square':'draws a fresh info card and pushes to Square')+'</div>'
     +'<div class="dlab">Bag size</div>'
     +'<div class="pm-seg">'+[100,150,200,250].map(function(g){return '<button data-g="'+g+'"'+(LST.grams===g?' class="on"':'')+'>'+g+'g</button>';}).join('')+'</div>'
@@ -5421,7 +5457,7 @@ function paintCupSheet(){
     return '<text x="'+q[0].toFixed(1)+'" y="'+(q[1]+4).toFixed(1)+'" text-anchor="'+anch+'" font-size="11.5" font-weight="600" fill="var(--muted)">'+k[1]+'</text>';
   }).join('');
   var dots=K.map(function(_,i){return '<circle id="cup-dot'+i+'" r="3.5" fill="var(--accent)"/>';}).join('');
-  openDrawerHTML('<div class="t" style="font-size:19px">'+(CUP.editId?'View/Edit':'Cup')+' · '+esc(r.bean_name||'—')+'</div>'
+  openDrawerHTML('<div class="t" style="font-size:19px">'+(CUP.editId?'View/Edit':'Cup')+' · '+esc(r.bean_name||'—')+(rNo(r)?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+rNo(r)+'</span>':'')+'</div>'
     +'<div class="s" style="margin-top:2px">'+(r.roast_date?'roasted '+fmtD(r.roast_date)+' · ':'')+(CUP.editId?'updates the existing cupping record':'saves a cupping record and queues it for QC')+'</div>'
     +'<div style="border:1.5px solid var(--ink);border-radius:14px;padding:12px 10px;margin-top:12px;background:var(--surface)">'
     +'<svg viewBox="0 0 300 236" style="width:100%;max-width:300px;display:block;margin:0 auto">'+rings+spokes
@@ -6745,7 +6781,7 @@ async function openBeanRotSheet(showForm){
     var barCol=bsc.daysLeft<=0?'var(--danger)':'var(--accent)';
     barHTML='<div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px">'
       +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
-      +'<span class="t" style="font-size:16px"><span style="color:'+col+'">●</span> '+esc(BEAN_SWAP.bean)+'</span>'
+      +'<span class="t" style="font-size:16px"><span style="color:'+col+'">●</span> '+esc(BEAN_SWAP.bean)+(bNoFor(BEAN_SWAP.bean)?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+bNoFor(BEAN_SWAP.bean)+'</span>':'')+'</span>'
       +'<span class="s" style="color:var(--muted);white-space:nowrap">swap '+fmtD(bsc.swapKey)+'</span></div>'
       +'<div class="s" style="margin-top:3px;color:var(--muted)">changed '+fmtD(BEAN_SWAP.changed)+' · lasts '+bsc.total+' days</div>'
       +'<div style="height:6px;border-radius:6px;background:var(--line);margin-top:9px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+barCol+'"></div></div>'
@@ -6757,7 +6793,7 @@ async function openBeanRotSheet(showForm){
   if(showForm){
     var beans=passedBeans();
     var curBean=(BEAN_SWAP&&BEAN_SWAP.bean)||'';
-    var opts=beans.map(function(s){var v=esc(s.sample_id||'');return '<option value="'+v+'"'+(s.sample_id===curBean?' selected':'')+'>'+v+(s.process?' · '+esc(s.process):'')+'</option>';});
+    var opts=beans.map(function(s){var v=esc(s.sample_id||''),bn=bNoFor(s.sample_id,s.process);return '<option value="'+v+'"'+(s.sample_id===curBean?' selected':'')+'>'+v+(s.process?' · '+esc(s.process):'')+(bn?' · '+bn:'')+'</option>';});
     if(curBean&&!beans.some(function(s){return s.sample_id===curBean;}))opts.unshift('<option value="'+esc(curBean)+'" selected>'+esc(curBean)+' · current</option>');
     if(!opts.length)opts.push('<option value="">no QC-passed coffees yet</option>');
     var defDays=(BEAN_SWAP&&BEAN_SWAP.days)||7;
@@ -6801,7 +6837,8 @@ async function openInfoCardsSheet(){
   var list=passedBeans();
   var POS=[['tl','Top left'],['tr','Top right'],['bl','Bottom left'],['br','Bottom right']];
   var opts='<option value="">— empty —</option>'+list.map(function(s){
-    return '<option value="'+esc(String(s.id))+'">'+esc(s.sample_id||'—')+(s.process?' · '+esc(s.process):'')+'</option>';
+    var bn=bNoFor(s.sample_id,s.process);
+    return '<option value="'+esc(String(s.id))+'">'+(bn?bn+' · ':'')+esc(s.sample_id||'—')+(s.process?' · '+esc(s.process):'')+'</option>';
   }).join('');
   openDrawerHTML('<div class="t" style="font-size:19px">Folding Info Card</div>'
     +'<div class="s" style="margin-top:2px">pick a coffee for each quarter · print the A4 double-sided, cut the cross into four 105 × 148.5 mm cards</div>'
@@ -10100,7 +10137,7 @@ function blBeanOptions(selName,selProc){
   (DB.beans||[]).slice().sort(function(a,b){var n=(a.name||'').localeCompare(b.name||'');return n!==0?n:(a.process||'').localeCompare(b.process||'');}).forEach(function(b){
     var nm=(b.name||'').trim();if(!nm)return;var proc=(b.process||'').trim();var val=blPartVal(nm,proc);
     var sel=(val===selVal)?' selected':'';if(sel)matched=true;
-    o+='<option value="'+esc(val)+'"'+sel+'>'+esc(nm)+(proc?' · '+esc(proc):'')+'</option>';
+    o+='<option value="'+esc(val)+'"'+sel+'>'+(gNo(b)?gNo(b)+' · ':'')+esc(nm)+(proc?' · '+esc(proc):'')+'</option>';
   });
   if(selName&&!matched){var v=blPartVal(selName,selProc);o+='<option value="'+esc(v)+'" selected>'+esc(selName)+(selProc?' · '+esc(selProc):'')+'</option>';} /* 保留已刪但仍被引用的豆 */
   return o;
@@ -10142,11 +10179,12 @@ function paintRecipe(){
       if(!ed){ /* 唯讀：同移植前的清單樣子 */
         var vp=(bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;});
         var line=vp.length?vp.map(function(p){return esc((p.bean||'').trim())+' '+parseFloat(p.pct)+'%';}).join(' · '):'<span class="red">no parts</span>';
-        return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-top:8px"><div class="t" style="font-size:15px">'+esc(bl.name)+'</div><div class="s" style="margin-top:3px">'+line+'</div>'+(bl.note?'<div class="s" style="margin-top:2px;color:var(--muted)">'+esc(bl.note)+'</div>':'')+'</div>';
+        return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-top:8px"><div class="t" style="font-size:15px">'+esc(bl.name)+(bNoFor(bl.name)?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+bNoFor(bl.name)+'</span>':'')+'</div><div class="s" style="margin-top:3px">'+line+'</div>'+(bl.note?'<div class="s" style="margin-top:2px;color:var(--muted)">'+esc(bl.note)+'</div>':'')+'</div>';
       }
       var open=!!RCP.open[bi],tot=blTotal(bl),totOk=tot===100,dup=!!dups[String(bl.name||'').trim().toLowerCase()];
       var head='<div style="display:flex;align-items:center;gap:8px">'
         +'<button data-bo="'+bi+'" class="chip" style="padding:4px 9px;margin:0">'+(open?'▾':'▸')+'</button>'
+        +(bNoFor(bl.name)?'<span class="s" style="flex:0 0 auto;color:var(--muted);font-size:12px">'+bNoFor(bl.name)+'</span>':'')
         +'<input class="din" data-bn="'+bi+'" value="'+esc(bl.name||'')+'" placeholder="Blend name" style="flex:1;margin:0'+(dup?';border-color:var(--accent)':'')+'">'
         +'<button data-bdel="'+bi+'" class="chip" style="padding:4px 9px;margin:0;color:var(--muted)">✕</button></div>';
       var body='';
