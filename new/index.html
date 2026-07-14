@@ -356,10 +356,9 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .hit{background:var(--surface);border:1px solid var(--line2);border-radius:12px;padding:13px 15px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px}
 .hit .t{font-size:17px}
 .hit .k{flex:0 0 auto;font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--accent)}
-/* 狀態膠囊（Retail Info）＝紅綠燈：亮＝完全正常不用管；熄燈（空心）＝有附屬狀態要處理；紅＝售罄。
-   行內文字愛有幾種顏色都行，掃「沒亮的膠囊」就知道動哪支。⚠ 只掛在 .k.pill，別動全域 .k（IG 清單/生豆 kg/訂單 channel 共用） */
+/* 狀態膠囊（Retail Info）只有兩態（2026-07-14 老闆定調，熄燈中間態退役）：亮＝On shelf、紅＝Off shelf。
+   ⚠ 只掛在 .k.pill，別動全域 .k（IG 清單/生豆 kg/訂單 channel 共用） */
 .hit .k.pill{border-radius:999px;padding:5px 12px;border:1px solid transparent;background:var(--accent);color:var(--inv-t)}
-.hit .k.pill.off{background:transparent;border-color:var(--line2);color:var(--muted)}
 .hit .k.pill.sold{background:var(--danger);color:#fff}
 /* ===== 遊戲風首頁 Home（view='home'）：手遊主畫面——站台磁貼＋數字＋紅點＋今日進度條。全 hm- 前綴、只用既有 CSS 變數（夜版自動對） ===== */
 .hm-prog{background:var(--surface);border:1px solid var(--line2);border-radius:20px;padding:15px 17px;margin:2px 0 14px;box-shadow:0 8px 20px rgba(120,90,160,.08)}
@@ -2511,7 +2510,7 @@ async function openRetailSheet(){
       :'<span class="red">no info — cup it in QC</span>';
     var sold=sy&&(!!m.rtl_sold[mkey]||!!m.rtl_sold[nm]||sy.status==='paused');
     /* 膠囊：現貨區才有上架狀態——售罄紅、重審熄燈 */
-    var pill=(zone==='stock'&&sy)?'<span class="k pill'+(sold?' sold':(inQC?' off':''))+'">'+(sold?'Off shelf':'On shelf')+'</span>':'';
+    var pill=(zone==='stock'&&sy)?'<span class="k pill'+(sold?' sold':'')+'">'+(sold?'Off shelf':'On shelf')+'</span>':'';
     var procTxt=(rep&&rep.process)||c.proc||'';
     var cbn=bNoFor(nm,c.isBlend?undefined:(procTxt||c.proc));
     return '<div class="hit" data-shelf="'+esc(nm)+'" data-shelfp="'+esc(c.proc)+'" data-shelfb="'+(c.isBlend?'1':'0')+'"><span style="min-width:0"><div class="t" style="font-size:16px">'
