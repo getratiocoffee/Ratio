@@ -1271,18 +1271,6 @@ async function qcVerdict(r,v,btn,cardId,s){
   var vNm=(s&&s.sample_id)||r.bean_name||'this batch';
   /* downgrade 警訊（老闆點名，防左滑誤觸）：取消＝什麼都不寫 */
   if(v==='downgrade'&&!confirm('Downgrade '+vNm+'? It will not be sold as this bean.'))return;
-  /* 換鎖警訊：pass＝上鎖，但每隻豆只能鎖一個——同名已有鎖著的批次要先問過才換。
-     取消＝整個判定不做（豆留在待判定，不產生 passed-沒鎖 的中間態） */
-  var qcSwap=false;
-  if(v==='pass'&&s&&!s.flavour_locked&&lockedMate(s)){
-    var qnm=String(s.sample_id||'').trim();
-    var qsy=syncFor(qnm,s.process);
-    qcSwap=!!(qsy&&qsy.status==='synced');
-    var msg=qcSwap
-      ?qnm+' already has a locked batch on the shelf.\nReplace it with this batch? Shop info (flavours, roast date) will switch to this one.'
-      :qnm+' already has a locked batch.\nMove the lock to this batch?';
-    if(!confirm(msg))return;
-  }
   if(btn){btn.disabled=true;btn.textContent='Saving…';}
   var u=await sb.from('roasts').update({qc:v}).eq('id',r.id);
   if(u.error){if(btn){btn.disabled=false;}alert('QC failed: '+u.error.message);return;}
@@ -1301,22 +1289,14 @@ async function qcVerdict(r,v,btn,cardId,s){
     try{var mu=await sb.from('roasts').update({qc:v}).eq('id',mates[mi].id);if(!mu.error)mates[mi].qc=v;}catch(e){}
   }
   logAct('qc '+v,r.bean_name||('roast '+r.id));
-  /* pass＝必鎖（2026-07-12 老闆定調右滑＝鎖頭：風味確定才給過，原 QCLOCK 開關退役）。
-     鎖走 lockFlavourSolo＝同名其他筆自動解鎖——pass 的這筆就是「在賣的版本」；
-     鎖失敗不擋判定但要說出來（曾靜默吞掉害老闆以為鎖了） */
-  var locked=false,lockFail=false;
-  if(v==='pass'&&s){
-    try{if(await lockFlavourSolo(s))locked=true;else lockFail=true;}catch(e){lockFail=true;}
-  }
-  var lockNote=locked?' · flavours locked'
-    :lockFail?' · ⚠ flavour lock failed — lock it from Coffee Info':'';
-  toast(qcSwap&&locked?'QC pass ✓ · lock moved — push the update so the shelf shows this batch':'QC '+v+' ✓'+lockNote);
+  /* 三態簡化（2026-07-16 老闆拍板）：pass 不再自動鎖——★（原鎖風味）由上架 push 自動蓋
+     或手動點，QC 歸 QC、賣哪個版本歸 ★，兩件事分開 */
+  toast(v==='pass'
+    ?('QC pass ✓'+(s&&!s.flavour_locked&&lockedMate(s)?' · ★ stays on the current batch — star this one to switch':' — List on Square to publish'))
+    :'QC '+v+' ✓');
   if(cardId)dropCard(cardId);
   /* 全量重算：pass 完 List 卡要立刻長出來（原本只濾 QCQ，Today 流舊資料害 List 卡等下次刷新才出現） */
   buildItems();
-  /* 換鎖且已在架上＝架上的風味/烘焙日期揭露訊息過期了——直接開 Update 抽屜（價格有記憶預填），
-     老闆按一下 push 就換新；上架/定價的決定仍在 publish 這邊，QC 不越權 */
-  if(qcSwap&&locked){openListSheet({ref:s});return;}
   if($('drawer').classList.contains('show'))openQCSheet();
 }
 /* ===== 抽屜 ===== */
@@ -5350,8 +5330,13 @@ function paintListSheet(){
       +'<input type="range" id="ls-imscrim" min="20" max="92" value="'+(LST.imgScrim==null?60:Math.round(LST.imgScrim*100))+'" style="width:100%;accent-color:var(--accent)">'
       +'<div class="s" style="color:var(--muted);font-size:12.5px">Fades the photo behind the text so it stays readable — higher = clearer text. Auto suits most photos.</div></div>'
       :'')
-    +(LST.requeue?'<div class="s fr-yellow" style="margin-top:12px">Re-checking in QC — the flavour description stays unlocked until it passes QC again</div>'
-      :(s.flavour_locked?'':'<div class="pm-seg" style="margin-top:14px"><button id="ls-lk"'+(LST.lock?' class="on"':'')+'>'+(LST.lock?'✓ ':'')+'Lock flavour description</button></div>'))
+    /* ★（三態簡化）：新上架＝push 必星（上架＝宣告這批在賣），只給說明不給開關；
+       更新模式沒星才給 toggle；requeue（QC 重審中）一律不星＝黃字說明 */
+    +(LST.requeue?'<div class="s fr-yellow" style="margin-top:12px">Re-checking in QC — no ★ until it passes QC again</div>'
+      :(s.flavour_locked?''
+        :(LST.upd
+          ?'<div class="pm-seg" style="margin-top:14px"><button id="ls-lk"'+(LST.lock?' class="on"':'')+'>'+(LST.lock?'✓ ':'')+'★ Star this batch · selling version</button></div>'
+          :'<div class="s" style="margin-top:12px;color:var(--muted)">★ Pushing stars this batch as the selling version</div>')))
     +'<button class="act" id="ls-push">'+(LST.upd?'Push update to Square':'Push to Square')+'</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
   function grab(){LST.price=$('ls-p').value;LST.p500=$('ls-p5').value;LST.p1k=$('ls-p1').value;}
@@ -5388,8 +5373,8 @@ async function pushListToSquare(){
   if(!price||price<=0){toast('Enter a price first');return;}
   var p500=Number(String(LST.p500).replace(/[^0-9.]/g,''))||0;
   var p1k=Number(String(LST.p1k).replace(/[^0-9.]/g,''))||0;
-  /* 重審中 push 不再彈「沒鎖要推嗎」——抽屜黃字已講明鎖定等 QC Pass */
-  if(!s.flavour_locked&&!LST.lock&&!LST.requeue&&!confirm('Flavour description is not locked — push anyway?'))return;
+  /* 只剩「更新模式、使用者手動關掉 ★」才問一聲；新上架必星、requeue 黃字已講明 */
+  if(LST.upd&&!s.flavour_locked&&!LST.lock&&!LST.requeue&&!confirm('This batch will not be starred (★ = the selling version) — push anyway?'))return;
   /* photo 模式但這支豆還沒照片 → 先選照片，取消＝中止 push（照 socialSplitPick 的路數） */
   if(LST.imgMode==='photo'&&!LST.hasPhoto){
     var okp=await changeBeanPhoto(nm,null);
@@ -5450,7 +5435,8 @@ async function pushListToSquare(){
       });
       for(var k in m)await sb.from('app_state').upsert({key:k,value:m[k],updated_at:new Date().toISOString()},{onConflict:'key'});
     }catch(e){console.error('price memory',e);}
-    if(!s.flavour_locked&&LST.lock){try{await lockFlavourSolo(s);}catch(e){}}
+    /* ★：新上架＝必星；更新模式看 toggle；requeue 一律不星（等 QC 重過）。quiet＝push 本身就是宣告 */
+    if(!s.flavour_locked&&!LST.requeue&&(!LST.upd||LST.lock)){try{await starSample(s,true);}catch(e){}}
     closeDrawer();toast(LST.upd?'Updated on Square ✓':'Live on Square ✓');
     await reload();
   }catch(e){
@@ -6610,7 +6596,7 @@ function openQCSheet(){
   if(selQC!=null&&!queue.find(function(q){return q.r.id===selQC;}))selQC=null;
   var qSec='';
   if(queue.length){
-    qSec='<div class="dlab">To judge — tap to open'+(canWrite()?' · swipe → lock &amp; pass · ← downgrade':'')+'</div>'
+    qSec='<div class="dlab">To judge — tap to open'+(canWrite()?' · swipe → pass · ← downgrade':'')+'</div>'
       +queue.map(function(q){
         var f=(q.s.features||[]).slice(0,3).join(', ');
         var op=q.r.id===selQC;
@@ -6622,9 +6608,9 @@ function openQCSheet(){
           +'<button class="chip" data-qact="stock" style="flex:1;margin:0">Edit/Add Stock</button>'
           +'<button class="chip" data-qact="date" style="flex:1;margin:0">Roast Date</button></div>'
           +(q.s.flavour_locked
-            ?'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:9px 0 4px">flavours already locked ✓</div>'
-            :'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:9px 0 4px">🔒 pass locks these flavours as the selling version</div>')
-          +'<div style="display:flex;gap:8px;margin-top:6px"><button class="act" data-qact="pass" style="flex:1;margin:0">🔒 Pass</button><button class="act" data-qact="down" style="flex:1;margin:0;background:var(--danger)">Downgrade</button></div>'
+            ?'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:9px 0 4px">★ this batch is the selling version</div>'
+            :'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:9px 0 4px">pass = OK to sell · ★ is added when you list it on Square</div>')
+          +'<div style="display:flex;gap:8px;margin-top:6px"><button class="act" data-qact="pass" style="flex:1;margin:0">Pass</button><button class="act" data-qact="down" style="flex:1;margin:0;background:var(--danger)">Downgrade</button></div>'
           +'</div>';
         return head+body;
       }).join('');
