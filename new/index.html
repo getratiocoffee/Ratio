@@ -6021,10 +6021,13 @@ async function openRoastSheet(pre){
   paintRoastSheet();
 }
 /* 成分熟豆批次可用量：非 blend、同名、remaining_kg>0 */
-function blendPartPool(name,process){
-  var key=String(name||'').trim().toLowerCase(),sum=0;
+function blendPartPool(name,process,beanId){
+  /* 成分可用熟豆量：part.bean_id 與 roast.bean_id 兩邊都有就比 ID（同名多處理法精準）；否則名字＋處理法 */
+  var key=String(name||'').trim().toLowerCase(),pid=(beanId!=null&&String(beanId).trim()!=='')?String(beanId):'',sum=0;
   (DB.roasts||[]).forEach(function(r){
-    if(r.kind!=='blend'&&Number(r.remaining_kg)>0&&String(r.bean_name||'').trim().toLowerCase()===key&&rstProcMatch(r,process))sum+=Number(r.remaining_kg)||0;
+    if(r.kind==='blend'||!(Number(r.remaining_kg)>0))return;
+    var m=(pid&&r.bean_id)?(String(r.bean_id)===pid):(String(r.bean_name||'').trim().toLowerCase()===key&&rstProcMatch(r,process));
+    if(m)sum+=Number(r.remaining_kg)||0;
   });
   return Math.round(sum*1000)/1000;
 }
@@ -6171,7 +6174,7 @@ function paintRoastSheet(){
     +(bl?parts.map(function(p,pi){
         /* 比例聯動：輸任一成分 kg → 其他成分與總量自動反推（正規化 pct/blendTotal 防比例不滿 100）
            成分 stock 帶 process（同名多處理法只看自己的批；舊配方沒記＝名字級） */
-        var have=blendPartPool(p.bean,(p.process!=null&&String(p.process).trim()!=='')?p.process:undefined);
+        var have=blendPartPool(p.bean,(p.process!=null&&String(p.process).trim()!=='')?p.process:undefined,p.bean_id);
         return '<div style="display:flex;gap:8px;align-items:center;margin-top:6px">'
           +'<span class="s" style="flex:1">'+esc(p.pct+'% '+p.bean)+(p.process?' <span style="color:var(--muted);font-size:11px">'+esc(p.process)+'</span>':'')+'</span>'
           +'<input class="din" data-bp="'+pi+'" data-pct="'+parseFloat(p.pct)+'" data-bn="'+esc(p.bean)+'" data-bproc="'+esc(p.process||'')+'" inputmode="decimal" placeholder="kg" value="'+esc(RO.bamt[pi]!=null?String(RO.bamt[pi]):'')+'" style="width:80px;margin:0;text-align:right">'
@@ -6281,10 +6284,12 @@ async function consumeBlendParts(parts,totalKg){
     var need=totalKg*(parseFloat(p.pct)||0)/100;
     if(!(need>0))continue;
     var key=String(p.bean||'').trim().toLowerCase();
-    /* 配方成分帶 process（同名多處理法只吃自己的批）；舊配方沒記 → 名字級照舊 */
+    /* ID 優先（2026-07-15）：part.bean_id 與 roast.bean_id 兩邊都有比 ID；否則名字＋處理法（舊配方/舊批） */
     var pProc=(p.process!=null&&String(p.process).trim()!=='')?p.process:undefined;
+    var pid=(p.bean_id!=null&&String(p.bean_id).trim()!=='')?String(p.bean_id):'';
     var pool=(DB.roasts||[]).filter(function(r){
-      return r.kind!=='blend'&&Number(r.remaining_kg)>0&&String(r.bean_name||'').trim().toLowerCase()===key&&rstProcMatch(r,pProc);
+      if(r.kind==='blend'||!(Number(r.remaining_kg)>0))return false;
+      return (pid&&r.bean_id)?(String(r.bean_id)===pid):(String(r.bean_name||'').trim().toLowerCase()===key&&rstProcMatch(r,pProc));
     }).sort(function(a,b){
       /* 降級豆優先進配方（2026-07-13 老闆定調：downgrade＝配方豆首選）；同級內照 roast_date 舊→新 FIFO */
       var da=a.qc==='downgrade'?0:1,db=b.qc==='downgrade'?0:1;
@@ -6302,7 +6307,7 @@ async function consumeBlendParts(parts,totalKg){
         b.remaining_kg=nr;left-=take;
       }catch(e){}
     }
-    if(left>0.0001)short.push(p.bean+': short '+(Math.round(left*100)/100)+' kg (needed '+(Math.round(need*100)/100)+' kg)');
+    if(left>0.0001)short.push(p.bean+(p.process?' ('+p.process+')':'')+': short '+(Math.round(left*100)/100)+' kg (needed '+(Math.round(need*100)/100)+' kg)');
   }
   return short;
 }
@@ -6962,6 +6967,11 @@ function printRadarPNG(sc,color,opts){
    ⚠ 配方寫泛稱、生豆帶版本號（配方 "Danche" ↔ 生豆 "Danche v1/v2/v3"），
      所以精確比對落空時再退一步用「前綴＋空白」比，仍以處理法挑對的那支 */
 function greenForPart(p){
+  /* ID 優先（2026-07-15）：配方成分帶 bean_id → 記憶體精準命中那支生豆；舊配方沒記才退名字＋處理法消歧 */
+  if(p&&p.bean_id!=null&&String(p.bean_id).trim()!==''){
+    var byId=(DB.beans||[]).find(function(b){return String(b.id)===String(p.bean_id);});
+    if(byId)return byId;
+  }
   var nm=String(p.bean||'').trim().toLowerCase();
   if(!nm)return null;
   var proc=String(p.process||'').trim().toLowerCase();
@@ -10211,7 +10221,9 @@ function blCostPerKg(bl){
   var parts=(bl&&bl.parts)||[],sum=0,any=false;
   parts.forEach(function(p){
     var nm=(p.bean||'').trim();if(!nm)return;var pct=parseFloat(p.pct);if(isNaN(pct))return;
-    var b=(DB.beans||[]).find(function(x){return (x.name||'').trim()===nm&&(x.process||'').trim()===String(p.process||'').trim();})
+    /* ID 優先（2026-07-15）：成分成本認 bean_id，退名字＋處理法 */
+    var b=(p.bean_id!=null&&String(p.bean_id).trim()!=='')?(DB.beans||[]).find(function(x){return String(x.id)===String(p.bean_id);}):null;
+    if(!b)b=(DB.beans||[]).find(function(x){return (x.name||'').trim()===nm&&(x.process||'').trim()===String(p.process||'').trim();})
         ||(DB.beans||[]).find(function(x){return (x.name||'').trim()===nm;});
     if(!b||b.cost_per_kg==null||b.cost_per_kg==='')return;
     var c=parseFloat(b.cost_per_kg);if(isNaN(c))return;
@@ -10291,7 +10303,11 @@ function paintRecipe(){
   document.querySelectorAll('[data-bnote]').forEach(function(inp){inp.addEventListener('input',function(){RCP.defs[+inp.dataset.bnote].note=inp.value;});});
   document.querySelectorAll('[data-bcmt]').forEach(function(inp){inp.addEventListener('input',function(){RCP.defs[+inp.dataset.bcmt].comment=inp.value;});});
   document.querySelectorAll('[data-bgo]').forEach(function(b){b.addEventListener('click',function(){var nm=(RCP.defs[+b.dataset.bgo]||{}).name;if(nm)openRoastPreset('blend',nm);});});
-  document.querySelectorAll('[data-bs]').forEach(function(s){s.addEventListener('change',function(){var parsed=String(s.value||'').split(BL_SEP);var pt=RCP.defs[+s.dataset.bs].parts[+s.dataset.pi];pt.bean=parsed[0]||'';pt.process=parsed[1]||'';var ce=document.querySelector('[data-bcost="'+s.dataset.bs+'"]');if(ce)ce.innerHTML=blCostHTML(RCP.defs[+s.dataset.bs]);});});
+  document.querySelectorAll('[data-bs]').forEach(function(s){s.addEventListener('change',function(){var parsed=String(s.value||'').split(BL_SEP);var pt=RCP.defs[+s.dataset.bs].parts[+s.dataset.pi];pt.bean=parsed[0]||'';pt.process=parsed[1]||'';
+    /* 選定成分＝存 bean_id（認 ID 不認名字）：下拉每項對一支 beans，name+process 唯一命中 */
+    var _b=(DB.beans||[]).find(function(b){return String(b.name||'').trim().toLowerCase()===pt.bean.toLowerCase()&&procKey(b.process)===procKey(pt.process);});
+    pt.bean_id=_b?String(_b.id):null;
+    var ce=document.querySelector('[data-bcost="'+s.dataset.bs+'"]');if(ce)ce.innerHTML=blCostHTML(RCP.defs[+s.dataset.bs]);});});
   document.querySelectorAll('[data-bp]').forEach(function(i){i.addEventListener('input',function(){var bi=+i.dataset.bp;RCP.defs[bi].parts[+i.dataset.pi].pct=i.value;var tt=blTotal(RCP.defs[bi]);var te=document.querySelector('[data-btot="'+bi+'"]');if(te){te.style.color=(tt===100?'var(--muted)':'var(--accent)');te.innerHTML='Total <b>'+tt+'%</b>'+(tt===100?'':' · should be 100%');}var ce=document.querySelector('[data-bcost="'+bi+'"]');if(ce)ce.innerHTML=blCostHTML(RCP.defs[bi]);});});
   var add=$('rcp-add');if(add)add.addEventListener('click',function(){RCP.defs.push(blankBlend(''));RCP.open[RCP.defs.length-1]=true;paintRecipe();});
   var save=$('rcp-save');if(save)save.addEventListener('click',recipeSave);

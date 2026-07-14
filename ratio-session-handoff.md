@@ -64,6 +64,13 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之十六（🔴③配方成分存 bean_id：成分身世/扣庫存/成本全認 ID ✅）
+- **背景**：blends.parts 只存 {bean,process,pct}，greenForPart/consumeBlendParts/blendPartPool/blCostPerKg 用名字＋處理法消歧。beans 本以 name+process 為唯一鍵＝現有成分能唯一對到，**目前零實際風險，趁乾淨根治**（防未來 process 拼寫不一致/泛稱）。
+- **DB 回填（execute_sql，非 migration——parts 是 jsonb）**：blends.parts 每個成分加 bean_id（name+process 對 beans 唯一鍵，保序 jsonb_agg order by ordinality）。6 配方全部成分對到（Dark Knight/Dancer 3/3、其餘非空成分全中）。
+- **前端（new/index.html）**：①greenForPart：p.bean_id → DB.beans 記憶體命中，退名字＋處理法 ②blendPartPool 加第三參數 beanId＝part.bean_id 與 roast.bean_id 兩邊都有比 ID、否則名字＋處理法（呼叫端 Log roast 6177 傳 p.bean_id）③consumeBlendParts pool filter 同款 ID 優先 ④blCostPerKg ID 優先 ⑤Recipe change handler 選成分存 pt.bean_id（下拉每項對一支 beans 唯一命中）⑥recipeSave 存整個 parts 陣列＝bean_id 自動帶回 ⑦consumeBlendParts short 訊息帶 process 區分同名。
+- **驗證**：jscheck ✓；stub 最刁鑽（Finca Milan 兩支同名、process 故意寫空、只有 bean_id 能救）——greenForPart 各拿 Pink Bourbon/Huila vs Geisha/Cauca、blendPartPool 各算 4kg/2kg、blCostPerKg 28.5（名字級會錯算 22）、consumeBlendParts 各扣各批（Nitro 4→0 short1、Sakura 2→0 short3）、console 零錯誤。
+- **⏭ 🔴 剩最後一項**：④product_sync.bean_id 存名字字串（syncFor/setShelfSold/上架 push＋Square edge，跨前後端最大工程）。
+
 ## 〇、補記 — 2026-07-15 之十五（🔴②Dial in 認 target_id：沖煮設定不再寫到第一支同名豆 ✅）
 - **背景**：dialins 表只有 coffee 名字、無 process/id，applyDialinBrew 寫沖煮設定用名字取第一支同名（同名多處理法會寫錯豆）。**現況 4 筆全拼配名字唯一＝零實際風險，趁乾淨根治**。
 - **DB（migration `dialins_target_id`）**：加 `target_id text`（存 beans.id 或 blends.id），回填——拼配對 blends（Dreamer/June/April Project 都對到；May Project 是已刪配方→null 正確不亂綁）、單品只回填同名唯一的。
