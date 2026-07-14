@@ -8842,10 +8842,9 @@ function renderRoster(){
     +'<div style="margin-top:4px">'+body+'</div>'
     +(canEdit?'<button class="act" id="rs-save">Save '+['this week','next week','week after'][RS_WK]+'</button>':'')
     +(WHO?'<button class="'+(canEdit?'dclose':'act')+'" id="rs-myna">My unavailability</button>':'')
-    +((rsMoney()||canEdit)?'<button class="dclose" id="rs-hist">Past weeks &amp; pay →</button>':'')
+    /* Past weeks & pay 入口移出排班抽屜（2026-07-14 老闆點名）：排班歸排班、薪資走 Tools→Payroll 磁貼 */
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   document.querySelectorAll('#drawer [data-rswk]').forEach(function(b){b.addEventListener('click',function(){RS_WK=+b.dataset.rswk;renderRoster();});});
-  var hs=$('rs-hist');if(hs)hs.addEventListener('click',openPayrollSheet);
   var mn=$('rs-myna');if(mn)mn.addEventListener('click',openMyNA);
   document.querySelectorAll('#drawer [data-rsmode]').forEach(function(b){b.addEventListener('click',function(){RS_VIEW=b.dataset.rsmode;renderRoster();});});
   document.querySelectorAll('#drawer [data-rsedit]').forEach(function(b){b.addEventListener('click',function(){openShiftEdit(ws,+b.dataset.rsedit);});});
