@@ -641,7 +641,8 @@ function buildItems(){
       /* process 級（2026-07-15）：同名多處理法各看各的上架列，不再名字級誤判 */
       var sync=syncFor(nm,s.process);
       if(!(sync&&sync.status==='synced'))LISTQ.push(s);
-      else if(!s.flavour_locked)LOCKQ.push(s);
+      /* STARQ 孤兒網：已上架但整個名+處理法池都沒星才提醒（lockedMate 有星＝正常在賣，別誤觸） */
+      else if(!s.flavour_locked&&!lockedMate(s))LOCKQ.push(s);
     }
   });
   /* 晨報 */
@@ -740,14 +741,14 @@ function buildItems(){
     var f=(s.features||[]).slice(0,3).join(', ');
     out.push({id:'list:'+s.id,st:'Shelf',hot:0,t:'List · '+esc(s.sample_id||'—'),
       s:(bNoFor(s.sample_id,s.process)?bNoFor(s.sample_id,s.process)+' · ':'')+'QC passed · not on Square yet'+(f?' · '+esc(f):''),
-      act:'List on Square…',det:[['Flavour',f||'—'],['Process',s.process||'—'],['Flavour locked',s.flavour_locked?'yes':'not yet']],
+      act:'List on Square…',det:[['Flavour',f||'—'],['Process',s.process||'—'],['Starred ★',s.flavour_locked?'yes':'added when pushed']],
       det2:'Later',roles:['director'],kind:'list',ref:s});
   });
-  /* 鎖風味聚合卡：已上架但風味沒鎖（鎖定的紀錄才會優先上資訊卡） */
+  /* ★ 孤兒聚合卡：已上架但沒星（沒星＝publish 沒資料源；正常路徑 push 會自動星，這是安全網） */
   if(LOCKQ.length){
-    out.push({id:'locks',st:'Shelf',hot:0,t:'Lock flavours — '+LOCKQ.length+' coffee'+(LOCKQ.length>1?'s':''),
+    out.push({id:'locks',st:'Shelf',hot:0,t:'Add ★ — '+LOCKQ.length+' coffee'+(LOCKQ.length>1?'s':'')+' on Square without a star',
       s:LOCKQ.slice(0,3).map(function(x){return esc(x.sample_id);}).join(' · ')+(LOCKQ.length>3?' · +'+(LOCKQ.length-3)+' more':''),
-      act:'Lock…',det:LOCKQ.map(function(x){return [x.sample_id,(x.features||[]).slice(0,3).join(', ')||'no flavour notes'];}),
+      act:'Add ★…',det:LOCKQ.map(function(x){return [x.sample_id,(x.features||[]).slice(0,3).join(', ')||'no flavour notes'];}),
       det2:'Later',roles:['director'],kind:'locks',ref:LOCKQ});
   }
   packQ.forEach(function(o){
@@ -2582,7 +2583,7 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
     +(bNoFor(nm,proc)?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif;font-weight:400">'+bNoFor(nm,proc)+'</span>':'')+'</div>'
     +'<div class="s" style="margin-top:2px">'+(rdate?'roasted '+fmtD(rdate)+' · ':'')
     +'<span class="'+fr.cls+'"'+(fr.cls?'':' style="color:var(--muted)"')+'>'+esc(fr.days!=null?fr.days+'d — '+fr.txt.split('— ')[1]:fr.txt)+'</span>'
-    +(s.flavour_locked?'':' · flavour unlocked')
+    +(s.flavour_locked?' · ★':' · ☆ not starred')
     +((QCQ||[]).some(function(q){return String(q.s.sample_id||'').trim().toLowerCase()===nm.toLowerCase();})?' · <span class="fr-yellow">re-checking in QC</span>':'')+'</div>'
     +'<div style="margin-top:10px">'
     +(price!=null?'<div class="dl"><span>'+g+'g</span><span>'+money(price)+'</span></div>':'<div class="dl"><span>Price</span><span class="red">not recorded</span></div>')
@@ -2615,10 +2616,40 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
     /* 詳情頁動作：Send back to QC ＋（已上架豆才有）售罄切換。上架/更新/Email/發文在 Publish，
        但 Publish 現在只列 Coffee Stock 有庫存的豆（2026-07-12 老闆定調）——賣光的已上架豆從 Publish 消失，
        故售罄/回架入口收在這裡（Coffee Info 母體含賣光的上架豆） */
+    /* ★ 鈕（三態簡化）：有星→可移除（警告失去 publish 資格）；沒星且最新批 pass→可手動點星
+       （換批接手貨架的支線入口；主線是 List push 自動星） */
+    +((canWrite()&&s.id)?(s.flavour_locked
+      ?'<button class="dclose" id="sb-star">Remove ★ · not the selling version</button>'
+      :((function(){var qr=null;try{qr=matchRoast(s);}catch(e){}return qr&&qcState(qr)==='pass';})()
+        ?'<button class="dclose" id="sb-star">★ Star · set as selling version</button>':'')):'')
     +((syncRow&&canWrite())?'<button class="dclose" id="sb-sold">'+(sold?'Put back on sale':'Take off shelf')+'</button>':'')
     +'<button class="dclose" id="sb-requeue">Send back to QC</button>'
     +'<button class="dclose" id="sb-back">‹ Back to Coffee Info</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  var sbStar=$('sb-star');
+  if(sbStar)sbStar.addEventListener('click',async function(){
+    var btn=this;
+    if(s.flavour_locked){
+      if(!confirm('Remove the ★ from "'+nm+'"?\n\nWithout a ★ it cannot be published — info cards, shop page and announcements lose their source.'))return;
+      btn.disabled=true;btn.textContent='Working…';
+      try{
+        var u=await sb.from('samples').update({flavour_locked:false}).eq('id',s.id);
+        if(u.error)throw new Error(u.error.message);
+        s.flavour_locked=false;logAct('★ removed',nm);
+        toast('★ removed');buildItems();
+        await reload();openShelfBeanDetail(nm,m,proc);
+      }catch(e){btn.disabled=false;btn.textContent='Remove ★ · not the selling version';alert('Failed: '+(e&&e.message||e));}
+      return;
+    }
+    btn.disabled=true;btn.textContent='Working…';
+    var rs=await starSample(s,false);
+    if(!rs.ok){btn.disabled=false;btn.textContent='★ Star · set as selling version';return;}
+    logAct('★ starred',nm);
+    toast('★ starred — the selling version now');buildItems();
+    /* 從已上架批手上接星＝架上的風味/烘焙日資訊過期了 → 直開 Update 抽屜一鍵 push（原 qcSwap 體驗搬家） */
+    if(rs.swapped){openListSheet({ref:s});return;}
+    await reload();openShelfBeanDetail(nm,m,proc);
+  });
   var sbSold=$('sb-sold');
   if(sbSold)sbSold.addEventListener('click',async function(){
     var btn=this;btn.disabled=true;btn.textContent='Working…';
@@ -2639,7 +2670,7 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
       return String(x.bean_name||'').trim().toLowerCase()===nm.toLowerCase();
     });
     if(!r){alert('No judged batch found for "'+nm+'".');return;}
-    if(!confirm('Send "'+nm+'" back to the QC queue?\n\nThe batch verdict ('+r.qc+') is cleared and the flavour unlocks — re-cup to fix the notes, then Pass it again.\nIt drops off the shop menu until you Pass it again.'))return;
+    if(!confirm('Send "'+nm+'" back to the QC queue?\n\nThe batch verdict ('+qcState(r)+') is cleared and the ★ comes off — re-cup to fix the notes, then Pass it again.\nIt drops off the shop menu until you Pass it again.'))return;
     var btn=this;btn.disabled=true;btn.textContent='Sending…';
     try{
       var u=await sb.from('roasts').update({qc:null}).eq('id',r.id);
@@ -4804,7 +4835,7 @@ function openBatchesSheet(){
       +(x.proc?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(x.proc)+'</span>':'')
       /* 來源生豆 S#ID（有對到 beans 列才有——批次孤兒沒有） */
       +(x.ref&&gNo(x.ref)?' <span style="color:var(--muted);font-weight:400;font-size:11px">'+gNo(x.ref)+'</span>':'')+'</span>'
-      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':x.locked?'background:var(--accent);color:#fff':'background:#B5791C;color:#fff')+'">'+(x.sync==='paused'?'Off shelf':x.locked?'Live':'No lock')+'</span>':'')
+      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':x.locked?'background:var(--accent);color:#fff':'background:#B5791C;color:#fff')+'">'+(x.sync==='paused'?'Off shelf':x.locked?'Live ★':'No ★')+'</span>':'')
       +(x.noInfo?'<span class="red" style="flex:0 0 auto;font-size:11px;font-weight:600">no info — cup it</span>':'')
       +'</span>'
       +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto">'
@@ -4822,7 +4853,9 @@ function openBatchesSheet(){
       var bl=xg.length?xg.map(function(g,gi){
         var age=daysSince(g.date),tags=[];
         if(g.date&&age>30)tags.push('<span class="red">&gt;30d</span>');
-        if(g.batches.length&&g.batches.every(function(r){return r.qc==='pass';}))tags.push('QC ✓');
+        /* 三態 tag：全 pass＝Pass ✓、還有未判＝Pending（可賣池只有這兩種；降級批在下面紅標區） */
+        if(g.batches.length&&g.batches.every(function(r){return qcState(r)==='pass';}))tags.push('Pass ✓');
+        else if(g.batches.some(function(r){return qcState(r)==='pending';}))tags.push('Pending');
         if(g.batches.length>1)tags.push(g.batches.length+' roasts');
         return '<div class="dl"'+(ed?' data-bat="'+gi+'" style="cursor:pointer"':'')+'><span><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(g.date)+';margin-right:6px;vertical-align:0"></span>'+(rNos(g.batches)?rNos(g.batches)+' · ':'')+(g.date?fmtD(g.date)+' · '+age+'d':'no date')+(tags.length?' · '+tags.join(' · '):'')+'</span><span>'+g.kg+' kg</span></div>';
       }).join(''):'<div class="sempty">No batches in stock</div>';
@@ -4840,8 +4873,10 @@ function openBatchesSheet(){
         }).join(''):'';
       h+='<div style="margin-top:6px">'+bl+dgl+pdl
         +(x.batches.length&&ed?'<div class="s" style="margin-top:4px;color:var(--muted)">tap a batch row → deduct that exact roast date</div>':'')
-        +((x.sync==='synced'&&!x.locked)?'<div class="s" style="margin-top:8px;color:#B5791C">On Square but hidden from the shop — lock its flavour so customers can see it (Lock flavours card in the daily flow).</div>':'')
+        +((x.sync==='synced'&&!x.locked)?'<div class="s" style="margin-top:8px;color:#B5791C">On Square but no ★ — star a passed batch so customers can see it.</div>':'')
         +(x.noInfo?'<button class="chip" id="rst-cup" style="margin-top:8px;color:var(--danger);border-color:var(--danger)">Cup it in QC →</button>':'')
+        /* ★ chip（三態簡化）：沒星且有 pass 批＝可點星（支線入口；主線是 List push 自動星） */
+        +((ed&&!x.noInfo&&!x.locked&&(x.batches||[]).some(function(b){return qcState(b)==='pass';}))?'<button class="chip" id="rst-star" style="margin-top:8px">★ Star · selling version</button>':'')
         /* Send back to QC（2026-07-13 老闆點名）：同 Coffee Info 詳情那顆——清判定＋解鎖重審；
            有杯測且有已判定批次（含 downgrade 池）才出 */
         +((ed&&!x.noInfo&&((x.batches||[]).some(function(b){return b.qc;})||(x.dg||[]).length))?'<button class="chip" id="rst-sbqc" style="margin-top:8px">Send back to QC</button>':'');
@@ -4922,6 +4957,20 @@ function openBatchesSheet(){
       btn.disabled=false;btn.textContent='Send back to QC';
       alert('Failed: '+(e&&e.message||e));
     }
+  });
+  var rstStar=$('rst-star');
+  if(rstStar)rstStar.addEventListener('click',async function(){
+    var x=rows.find(function(r){return r.key===RST.open;});if(!x)return;
+    var s=shelfSampleFor(x.name,x.isBlend?undefined:(x.proc||''));
+    if(!s||!s.id){toast('No cupping record — cup it in QC first');return;}
+    var btn=this;btn.disabled=true;btn.textContent='Working…';
+    var rs=await starSample(s,false);
+    if(!rs.ok){btn.disabled=false;btn.textContent='★ Star · selling version';return;}
+    logAct('★ starred',x.name);
+    toast('★ starred ✓');buildItems();
+    /* 從已上架批接星＝架上資訊過期 → 直開 Update 抽屜 push 新資訊 */
+    if(rs.swapped){openListSheet({ref:s});return;}
+    openBatchesSheet();
   });
   document.querySelectorAll('#drawer [data-bat]').forEach(function(el){el.addEventListener('click',function(){
     var x=rows.find(function(r){return r.key===RST.open;});if(!x)return;
@@ -5448,19 +5497,21 @@ async function pushListToSquare(){
 function openLocksSheet(i){
   var list=i.ref.slice();
   function paint(){
-    openDrawerHTML('<div class="t" style="font-size:19px">Lock flavour descriptions</div>'
-      +'<div class="s" style="margin-top:2px">locked records go on info cards and emails — lock when the notes are right</div>'
+    openDrawerHTML('<div class="t" style="font-size:19px">Add ★ · selling versions</div>'
+      +'<div class="s" style="margin-top:2px">★ records go on info cards, shop page and emails — star when the notes are right</div>'
       +list.map(function(s,ix){
         return '<div class="dl" style="align-items:center"><span><b>'+esc(s.sample_id)+'</b><br><span style="color:var(--muted);font-size:13px">'+esc((s.features||[]).slice(0,3).join(', ')||'no flavour notes')+'</span></span>'
-          +(s.flavour_locked?'<span>locked ✓</span>':'<button class="dclose" style="margin:0;width:auto;padding:8px 14px" data-lk="'+ix+'">Lock</button>')+'</div>';
+          +(s.flavour_locked?'<span>★</span>':'<button class="dclose" style="margin:0;width:auto;padding:8px 14px" data-lk="'+ix+'">★ Star</button>')+'</div>';
       }).join('')
       +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
     document.querySelectorAll('#drawer [data-lk]').forEach(function(el){el.addEventListener('click',async function(){
       var s=list[+el.dataset.lk];
       el.disabled=true;el.textContent='…';
-      var u=await sb.from('samples').update({flavour_locked:true}).eq('id',s.id);
-      if(u.error){el.disabled=false;el.textContent='Lock';alert('Lock failed: '+u.error.message);return;}
-      s.flavour_locked=true;toast('Locked ✓');paint();
+      /* 走 starSample＝互斥單選把關（原本裸寫 flavour_locked=true 沒解同名其他筆的星——順手修掉） */
+      var rs=await starSample(s,false);
+      if(!rs.ok){el.disabled=false;el.textContent='★ Star';return;}
+      logAct('★ starred',s.sample_id||'');
+      toast('★ starred ✓');paint();
     });});
     $('d-cl').addEventListener('click',async function(){
       closeDrawer();
