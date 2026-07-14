@@ -56,6 +56,16 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-14 晚（豆況三態簡化：Pending / Pass / Downgrade ＋ ★ ✅ 全四 commit）
+- **老闆拍板**：豆況簡化成三態＋附屬星標——烘完/手動入庫＝Pending、QC 過＝Pass、沒過＝Downgrade；Pass 可加 ★（＝可 publish 的豆）。**零 schema 改動零搬家**：qc 欄本來就是三值；★＝flavour_locked 重塑（語意不變「在賣的版本」、同名同處理法互斥單選）；legacy 'reroast' 讀取一律視同 downgrade、永不再寫入。roasts.status（pending_cupping/cupped）降為幕後流程欄（只餵 toCupList）。
+- **Commit ①（4ee6c1a，老闆 GitHub Desktop 收的）**：helper `qcState(r)`（null→pending/pass/其餘→downgrade）＋`starSample(s,quiet)`（加星唯一入口：換星 confirm 把關、quiet＝push 用不問、回 {ok,swapped}，寫入走 lockFlavourSolo）；九處散寫 `!=='reroast'&&!=='downgrade'` 全改 qcState（rstBatches/rstDgBatches/rstPendingBatches/批次孤兒/Clean-up C+D/配方降級優先排序/announce 閘門併一條/兩處 send-back confirm）。**reroast 批現身降級池＝刻意（原是幽靈庫存）**。
+- **Commit ②（66d12b1）**：qcVerdict pass **不再自動鎖**（刪換鎖 confirm/自動 lockFlavourSolo/qcSwap 開抽屜；同日連動蓋 qc 保留）；toast 引導（有星 mate→'★ stays on the current batch'、無→'List on Square to publish'）；QC 台去鎖頭（swipe → pass、Pass 鈕）。**上架 push＝自動星**：新上架必星（starSample quiet，抽屜固定顯示說明無開關）、更新模式沒星才給 ★ toggle（預設開、關掉 push 會 confirm）、requeue 一律不星（黃字）。老闆動線 pass→List→push 步數不變。
+- **Commit ③（5a23144）**：★ 入口三處——openShelfBeanDetail（`· ★`/`☆ not starred`＋`★ Star · set as selling version`（最新批 pass 才出、swapped→直開 List Update 抽屜＝原 qcSwap 體驗搬家）＋`Remove ★`（confirm 警告失去 publish 資格））；Coffee Stock（膠囊 Live ★/No ★、批次 tag 三態 Pass ✓/Pending、`★ Star` chip）；LOCKQ→STARQ 孤兒卡（條件加 `!lockedMate(s)` 防「新批 pass 未星+舊批有星在賣」誤觸；文案 Add ★；**openLocksSheet 改走 starSample＝順手修裸寫 flavour_locked=true 沒互斥的 bug**）。
+- **Commit ④**：publish 閘門綁 ★——announceShelfBean 沒星**硬擋**（原軟警告；no QC pass 留軟警告當異常偵測）；passedBeans 加星過濾（**⚠ 星檢查在 seen 去重前**——最新沒星/較舊有星的豆否則會漏）；Publish 面板膠囊 ★ Starred、Coffee Info 四象限 Pending 區 'no ★ yet'、Clean-up 等文案統一。Publish 面板母體本來就是 flavour_locked 過濾＝邏輯零改。
+- **Edge 四支零改**（public-shop/public-bean 讀同一欄，星＝鎖自動一致）。現有在賣豆＝pass+locked＝Pass ★，上線零影響；歷史硬推未鎖豆由 STARQ 卡接住。
+- **驗證**：每 commit JXA 語法 ✓＋serve 複本假資料 DOM（攔 window.fetch）✓ console 零錯誤——qcState 五值/三池分流/reroast 進降級池/announce 三劇本/starSample 搶星-取消-quiet/pushListToSquare 三模式/STARQ 防誤觸/互斥點星/詳情兩態鈕/膠囊 tag chip/passedBeans 去重陷阱。⚠ **真機還沒掃**：老闆 push 部署後掃一輪（QC 右滑 pass→List 卡→push 自動星→Publish 面板 ★；Coffee Stock 膠囊）。
+- ⏭ 可選收尾：老闆若要「先手動點星才出 List 卡」嚴格版＝改 LISTQ 條件一行。
+
 ## 〇、補記 — 2026-07-15 之二（Folding Info Card 升級：四格各自選豆 ✅）
 - **老闆需求**：A4 田字格的左上/右上/左下/右下四張卡**各自選豆**（原本只能單豆 ×4），第二頁（背面）跟著換。
 - **改動（new/index.html）**：①`openInfoCardsSheet` 改四槽位 UI＝2×2 select（Top left/Top right/Bottom left/Bottom right，母體 passedBeans，「— empty —」＝該格留白）＋「Same coffee in all four」快速鈕（＝舊單豆行為）＋Download PDF ②原 `openInfoCardPrint` 拆兩段：`infoCardFaces(s)`＝單豆的 {cover,info} 卡面 HTML（fetch full row/雷達/明細全在此，同豆多格 cache 共用一次）＋`infoCard4Pdf(slotIds)`＝四格組裝＋html2pdf 下載（版式/CSS/html2pdf 參數零改動）。舊函式名 openInfoCardPrint 已移除（唯一呼叫者就是這抽屜）。

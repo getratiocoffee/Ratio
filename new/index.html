@@ -2516,7 +2516,7 @@ async function openRetailSheet(){
         +(feats?' · '+esc(feats):'')
         +(zone==='stock'&&sy&&price==null?' · <span class="red">no price</span>':'')
         +(inQC?' · <span class="fr-yellow">re-checking in QC</span>':'')
-        +(zone==='pending'?' · <span style="color:var(--muted)">not locked yet</span>':'')
+        +(zone==='pending'?' · <span style="color:var(--muted)">no ★ yet</span>':'')
         +(zone==='history'?' · <span style="color:var(--muted)">sold through</span>':''))
       :'<span class="red">no info — cup it in QC</span>';
     var sold=sy&&(!!m.rtl_sold[mkey]||!!m.rtl_sold[nm]||sy.status==='paused');
@@ -2531,7 +2531,7 @@ async function openRetailSheet(){
       +'<div class="s">'+sub+'</div></span>'+pill+'</div>';
   }
   function section(title,arr,zone){return arr.length?'<div class="dlab">'+title+'</div>'+arr.map(function(c){return rowHTML(c,zone);}).join(''):'';}
-  var body=section('In stock',inStock,'stock')+section('Pending — lock in QC to list',pending,'pending')+section('History — sold through',history,'history');
+  var body=section('In stock',inStock,'stock')+section('Pending — ★ when you list it',pending,'pending')+section('History — sold through',history,'history');
   var errs=(DB.syncs||[]).filter(function(x){return x.status&&x.status!=='synced'&&x.status!=='paused';});
   openDrawerHTML('<div class="t" style="font-size:19px">Coffee Info</div>'
     +'<div class="s" style="margin-top:2px">in stock now · waiting to list · sold-through history</div>'
@@ -3120,7 +3120,7 @@ async function openSocialSplitSheet(){
   SOC_PHOTOS=await listBeanPhotos();
   var mayEdit=canWrite();
   function rowsHTML(){
-    if(!list.length)return '<div class="empty">No QC-passed coffees yet</div>';
+    if(!list.length)return '<div class="empty">No starred coffees yet — ★ is added when you list on Square</div>';
     return list.map(function(s){
       var nm=String(s.sample_id||'').trim();
       var c=uiDot(dotColorFor(nm,dots,s.process));
@@ -3398,8 +3398,8 @@ function paintPublishSheet(sl,acts){
   function ago(ts){if(!ts)return '—';var d=daysSince(String(ts).slice(0,10));return d<=0?'today':(d+'d ago');}
   var pill=function(txt,bg){return '<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;background:'+bg+';color:#fff">'+txt+'</span>';};
   var body=rows.length?rows.map(function(x,ix){
-    /* 清單全是鎖了的豆＝膠囊固定 Locked ✓；shop 狀態在 chans 行（synced＋清單必鎖＝真 Live） */
-    var qcPill=pill('Locked ✓','var(--accent)');
+    /* 清單全是有星的豆＝膠囊固定 ★ Starred；shop 狀態在 chans 行（synced＋清單必星＝真 Live） */
+    var qcPill=pill('★ Starred','var(--accent)');
     var shop=x.sync==='synced'?'Live':(x.sync==='paused'?'Off shelf':'—');
     var chans='Shop (Square + Ratio): <b>'+shop+'</b> · FB/IG: <b>'+ago(x.fb)+'</b> · Email: <b>'+ago(x.em)+'</b>';
     var open=PUB.open===x.key; /* key＝nm|proc——同名兩處理法的卡開合互不干擾 */
@@ -3427,9 +3427,9 @@ function paintPublishSheet(sl,acts){
         +'</div>';
     }
     return h+'</div>';
-  }).join(''):'<div class="empty">No locked coffees yet<br>Pass a coffee in QC — passing locks its flavours and it shows up here</div>';
+  }).join(''):'<div class="empty">No starred coffees yet<br>Pass a coffee in QC, then List it on Square — pushing adds the ★</div>';
   openDrawerHTML('<div class="t" style="font-size:19px">Publish</div>'
-    +'<div class="s" style="margin-top:2px">your flavour-locked coffees → every channel · shop listing = Square + Ratio site together</div>'
+    +'<div class="s" style="margin-top:2px">your ★ starred coffees → every channel · shop listing = Square + Ratio site together</div>'
     +body
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);
@@ -3691,7 +3691,8 @@ async function announceShelfBean(s,nm,btn){
   if(qr&&qcState(qr)==='downgrade'){alert('The latest batch is downgraded — not retail grade.');return;}
   var warns=[];
   if(!qr||!qr.qc)warns.push('no QC pass recorded for the latest batch');
-  if(!s.flavour_locked)warns.push('flavour description not locked');
+  /* ★ 硬擋（三態簡化）：沒星＝沒有「在賣版本」資料源，一律不准發（原本只軟警告） */
+  if(!s.flavour_locked){alert('Only starred coffees can be announced — add a ★ first (it marks the selling version).');return;}
   if(warns.length&&!confirm('Heads up: '+warns.join('; ')+'.\nAnnounce anyway?'))return;
   var res=null;
   try{res=await sb.from('customers').select('id,email').not('email','is',null);}catch(e){}
@@ -3788,7 +3789,7 @@ function paintCleanup(sc){
   }
   /* B 舊杯測 */
   if(sc.oldCups.length){any=true;
-    h+=sec('Old cupping records · '+sc.oldCups.length,'not locked and no stock left — secondary batches, safe to delete')
+    h+=sec('Old cupping records · '+sc.oldCups.length,'no ★ and no stock left — secondary batches, safe to delete')
     +sc.oldCups.map(function(s){var bn=bNoFor(s.sample_id,s.process);return '<div class="dl"><span>'+esc(s.sample_id)+(s.process?' <span style="color:var(--muted);font-size:12px">'+esc(s.process)+'</span>':'')+(bn?' <span style="color:var(--muted);font-size:12px">'+bn+'</span>':'')+'</span><span style="color:var(--muted)">'+(s.cupping_date?fmtD(s.cupping_date):'—')+'</span></div>';}).join('')
     +'<button class="act" id="cl-delcups" style="margin-top:8px">Delete '+sc.oldCups.length+' record'+(sc.oldCups.length>1?'s':'')+'</button>';
   }
@@ -3823,7 +3824,7 @@ function paintCleanup(sc){
   });
   var dc=$('cl-delcups');
   if(dc)dc.addEventListener('click',async function(){
-    if(!confirm('Delete '+sc.oldCups.length+' old cupping record'+(sc.oldCups.length>1?'s':'')+'?\n\nThese are unlocked with no stock — the locked (selling) records stay. This cannot be undone.'))return;
+    if(!confirm('Delete '+sc.oldCups.length+' old cupping record'+(sc.oldCups.length>1?'s':'')+'?\n\nThese have no ★ and no stock — the ★ (selling) records stay. This cannot be undone.'))return;
     if(!confirm('Really delete? Last chance.'))return;
     dc.disabled=true;dc.textContent='Deleting…';
     try{
@@ -4950,7 +4951,7 @@ function openBatchesSheet(){
       if(u.error)throw new Error(u.error.message);
       var s=shelfSampleFor(x.name,x.isBlend?undefined:(x.proc||'')); /* 只解自己處理法的鎖 */
       if(s&&s.id&&s.flavour_locked){try{await sb.from('samples').update({flavour_locked:false}).eq('id',s.id);}catch(e){}}
-      logAct('sent back to QC',x.name,'verdict '+r.qc+' cleared · flavour unlocked');
+      logAct('sent back to QC',x.name,'verdict '+qcState(r)+' cleared · ★ removed');
       toast('"'+x.name+'" is back in the QC queue ✓');
       await reload();openBatchesSheet();
     }catch(e){
@@ -6902,10 +6903,13 @@ function beanSlug(name){return String(name||'').trim().toLowerCase().replace(/[^
 function passedBeans(){
   var seen={},out=[];
   (DB.samples||[]).forEach(function(s){
+    /* ★ 閘門（三態簡化）：有星才是 publish 候選——星檢查要在去重前，
+       不然「最新一筆沒星、較舊那筆有星」的豆會被 seen 擋掉漏列 */
+    if(!s.flavour_locked)return;
     var k=s.bean_id?('id:'+String(s.bean_id)):((s.sample_id||'')+'·'+(s.process||'')).toLowerCase();
     if(seen[k])return;seen[k]=1;
     var r=matchRoast(s);
-    if(r&&r.qc==='pass')out.push(s);
+    if(r&&qcState(r)==='pass')out.push(s);
   });
   return out;
 }
