@@ -4440,6 +4440,36 @@ async function openNotesSheet(){
   $('d-cl').addEventListener('click',closeDrawer);
 }
 /* ===== 生豆清單（產地分組；點豆看供應商/單價/警戒線＋最近流水帳）===== */
+/* ID book（2026-07-15 老闆點名）：一頁看所有 G#/R# 編號。
+   一豆一號：G#＝生豆面、R#＝熟豆面（同號）；拼配只有 R#。點豆行→生豆詳情 */
+function openIdBookSheet(){
+  var beans=(DB.beans||[]).filter(function(b){return b.green_no!=null;})
+    .sort(function(a,b){return a.green_no-b.green_no;});
+  var blends=(DB.blends||[]).filter(function(x){return x.blend_no!=null;})
+    .sort(function(a,b){return a.blend_no-b.blend_no;});
+  var rows='';
+  if(beans.length){
+    rows+='<div class="dlab">Coffees — G# green · R# roasted (same number)</div>';
+    beans.forEach(function(b,ix){
+      rows+='<div class="hit" data-idb="'+ix+'"><span><div class="t" style="font-size:15px">'+gNo(b)+'</div>'
+        +'<div class="s">'+esc(b.name)+(b.process?' · '+esc(b.process):'')+'</div></span>'
+        +'<span class="k" style="font-size:13px">'+(Number(b.quantity)||0)+' kg green</span></div>';
+    });
+  }
+  if(blends.length){
+    rows+='<div class="dlab">Blends — R# only (no green side)</div>';
+    blends.forEach(function(x){
+      rows+='<div class="hit"><span><div class="t" style="font-size:15px">R#'+String(x.blend_no).padStart(5,'0')+'</div>'
+        +'<div class="s">'+esc(x.name)+'</div></span><span class="k" style="font-size:13px">blend</span></div>';
+    });
+  }
+  openDrawerHTML('<div class="t" style="font-size:19px">ID book</div>'
+    +'<div class="s" style="margin-top:2px">one number per coffee, for life · say the number, never grab the wrong bean</div>'
+    +(rows||'<div class="empty">No numbered coffees yet</div>')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  document.querySelectorAll('#drawer [data-idb]').forEach(function(el){el.addEventListener('click',function(){openGreenDetail(beans[+el.dataset.idb]);});});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
 function openGreensSheet(){
   var beans=(DB.beans||[]).slice().sort(function(a,b){
     var c=String(a.country||'').localeCompare(String(b.country||''));
@@ -9909,7 +9939,7 @@ function renderTools(){
   function _sec(title,color,inner){return '<div class="gsec" style="color:'+color+'"><span class="gdot"></span>'+title+'</div><div class="tgrid" style="--dept:'+color+'">'+inner+'</div>';}
   var _groups=_sec('Green',DEPT.green,
       (_mk?_mkTile('t-recv','Receive green','delivery in','receive')+_mkTile('t-stk','Stocktake','weigh greens','tasks'):'')
-      +_tiles([['Green stock','full list','greens','stock'],['Sample analyse','green cupping','sampleana','qc',1],['Buy log','green purchases','buylog','order',1],['C Market','futures · landed cost','cmarket','statement']]))
+      +_tiles([['Green stock','full list','greens','stock'],['ID book','all G# &amp; R# numbers','idbook','menu'],['Sample analyse','green cupping','sampleana','qc',1],['Buy log','green purchases','buylog','order',1],['C Market','futures · landed cost','cmarket','statement']]))
     +_sec('Roast',DEPT.roast,
       (_mk?_mkTile('t-roast','Log roast','green in','flame'):'')
       +_tiles([['Coffee Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Coffee Info','flavour · dossier','retail','market']].concat(_mk?[['Delete a coffee','remove · careful','delbean','trash',1],['Clean up','orphans · dead links','cleanup','refresh',1]]:[])))
@@ -10018,6 +10048,7 @@ function renderTools(){
     if(k==='upcoming'){openUpcomingSheet();return;}
     if(k==='orders'){openOrdersSheet();return;}
     if(k==='greens'){openGreensSheet();return;}
+    if(k==='idbook'){openIdBookSheet();return;}
     if(k==='batches'){openBatchesSheet();return;}
     if(k==='sampleana'){openSampleSheet();return;}
     if(k==='buylog'){openBuyLogSheet();return;}
