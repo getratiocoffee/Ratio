@@ -1694,12 +1694,16 @@ async function cardDataFor(s,blendMap,dots){
   }else{
     data.kind='single';
     var gb=null;
-    try{
-      var q=await sb.from('beans').select('process,variety,altitude,region,country').ilike('name',s.sample_id||'');
-      var pool=q.data||[];
-      var proc=String(s.process||'').trim().toLowerCase();
-      gb=(proc?pool.find(function(b){return String(b.process||'').trim().toLowerCase()===proc;}):null)||pool[0]||null;
-    }catch(e){}
+    /* 2026-07-15 ID 優先（同 beanInfoRows）：s.bean_id → DB.beans 記憶體命中，消滅同名多支歧義 */
+    if(s.bean_id)gb=(DB.beans||[]).find(function(b){return String(b.id)===String(s.bean_id);})||null;
+    if(!gb){
+      try{
+        var q=await sb.from('beans').select('process,variety,altitude,region,country').ilike('name',s.sample_id||'');
+        var pool=q.data||[];
+        var proc=String(s.process||'').trim().toLowerCase();
+        gb=(proc?pool.find(function(b){return String(b.process||'').trim().toLowerCase()===proc;}):null)||pool[0]||null;
+      }catch(e){}
+    }
     data.origin={process:s.process||(gb&&gb.process)||'',variety:(gb&&gb.variety)||'',
       altitude:(gb&&gb.altitude!=null&&gb.altitude!=='')?String(gb.altitude):'',
       region:gb?[gb.region,gb.country].filter(Boolean).join(', '):''};
@@ -3255,8 +3259,9 @@ async function shelfLiveBeans(){
     (r.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
       if(v&&typeof v==='object')m[x.key]=v;});
   }catch(e){}
+  /* proc 帶出來（product_sync 有 process 欄）＝挑豆器可按處理法分行；單品 process 級、拼配（process 空）名字級 */
   var live=(DB.syncs||[]).filter(function(x){return (x.status==='synced'||x.status==='paused')&&String(x.bean_id||'').trim()&&!isSubName(x.bean_id);})
-    .map(function(x){var nm=String(x.bean_id).trim();var d=null;try{d=shelfLatestRoast(nm);}catch(e){}return {nm:nm,d:d};})
+    .map(function(x){var nm=String(x.bean_id).trim();var pr=x.process||'';var d=null;try{d=shelfLatestRoast(nm,pr||undefined);}catch(e){}return {nm:nm,proc:pr,d:d};})
     .sort(function(a,b){if(!!a.d!==!!b.d)return a.d?-1:1;return String(b.d||'').localeCompare(String(a.d||''))||a.nm.localeCompare(b.nm);});
   return {m:m,live:live};
 }
@@ -3387,12 +3392,12 @@ async function openIGSheet(){
   var sl=await shelfLiveBeans(),m=sl.m,live=sl.live;
   var seen={},rows='';
   live.forEach(function(e){
-    var nm=e.nm,k=nm.toLowerCase();if(seen[k])return;seen[k]=true;
-    var rep=null;try{rep=shelfSampleFor(nm);}catch(e2){}
-    var fr;try{fr=shelfFreshness(nm);}catch(e2){fr={txt:'',cls:''};}
-    rows+='<div class="hit" data-ig="'+esc(nm)+'"><span><div class="t" style="font-size:16px">'+esc(nm)
+    var nm=e.nm,pr=e.proc||'',k=nm.toLowerCase()+'|'+procKey(pr);if(seen[k])return;seen[k]=true;
+    var rep=null;try{rep=shelfSampleFor(nm,pr||undefined);}catch(e2){}
+    var fr;try{fr=shelfFreshness(nm,pr||undefined);}catch(e2){fr={txt:'',cls:''};}
+    rows+='<div class="hit" data-ig="'+esc(nm)+'" data-igp="'+esc(pr)+'"><span><div class="t" style="font-size:16px">'+esc(nm)
       +(rep&&rep.process?' <span style="color:var(--muted);font-weight:400;font-size:12.5px;font-family:Inter,sans-serif">'+esc(rep.process)+'</span>':'')
-      +(bNoFor(nm,rep&&rep.process)?' <span style="color:var(--muted);font-weight:400;font-size:12px;font-family:Inter,sans-serif">'+bNoFor(nm,rep&&rep.process)+'</span>':'')+'</div>'
+      +(bNoFor(nm,pr||undefined)?' <span style="color:var(--muted);font-weight:400;font-size:12px;font-family:Inter,sans-serif">'+bNoFor(nm,pr||undefined)+'</span>':'')+'</div>'
       +'<div class="s"><span class="'+fr.cls+'">'+esc(fr.txt)+'</span></div></span><span class="k">post ›</span></div>';
   });
   openDrawerHTML('<div class="t" style="font-size:19px">IG asset</div>'
@@ -3400,8 +3405,8 @@ async function openIGSheet(){
     +(rows||'<div class="empty">Nothing on the shelf to feature yet</div>')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   document.querySelectorAll('#drawer [data-ig]').forEach(function(el){el.addEventListener('click',function(){
-    var nm=el.dataset.ig,s=null;try{s=shelfSampleFor(nm);}catch(e2){}
-    openPromoSheet(s||{sample_id:nm},m);
+    var nm=el.dataset.ig,pr=el.dataset.igp||'',s=null;try{s=shelfSampleFor(nm,pr||undefined);}catch(e2){}
+    openPromoSheet(s||{sample_id:nm,process:pr},m);
   });});
   $('d-cl').addEventListener('click',closeDrawer);
 }
@@ -3431,8 +3436,10 @@ async function openSocialPostSheet(){
   var who=[st.targets&&st.targets.ig&&st.targets.ig.name,st.targets&&st.targets.fb&&st.targets.fb.name].filter(Boolean).join(' · ');
   var seen={},rows='';
   sl.live.forEach(function(e){
-    var nm=e.nm,k=nm.toLowerCase();if(seen[k])return;seen[k]=true;
-    rows+='<div class="hit" data-sp="'+esc(nm)+'"><span><div class="t" style="font-size:16px">'+esc(nm)+(bNoFor(nm)?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+bNoFor(nm)+'</span>':'')+'</div>'
+    var nm=e.nm,pr=e.proc||'',k=nm.toLowerCase()+'|'+procKey(pr);if(seen[k])return;seen[k]=true;
+    rows+='<div class="hit" data-sp="'+esc(nm)+'" data-spp="'+esc(pr)+'"><span><div class="t" style="font-size:16px">'+esc(nm)
+      +(pr?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(pr)+'</span>':'')
+      +(bNoFor(nm,pr||undefined)?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+bNoFor(nm,pr||undefined)+'</span>':'')+'</div>'
       +'<div class="s">'+(e.d?('roasted '+(fmtD(e.d)||'')):'')+'</div></span><span class="k">post ›</span></div>';
   });
   openDrawerHTML('<div class="t" style="font-size:19px">Post to socials</div>'
@@ -3440,8 +3447,8 @@ async function openSocialPostSheet(){
     +(rows||'<div class="empty">Nothing on the shelf to post yet</div>')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   document.querySelectorAll('#drawer [data-sp]').forEach(function(el){el.addEventListener('click',function(){
-    var rep=null;try{rep=shelfSampleFor(el.dataset.sp);}catch(e){}
-    openSocialPostBean(el.dataset.sp,sl.m,st,rep&&rep.process);
+    var pr=el.dataset.spp||'';
+    openSocialPostBean(el.dataset.sp,sl.m,st,pr||undefined);
   });});
   $('d-cl').addEventListener('click',closeDrawer);
 }
@@ -3576,11 +3583,11 @@ async function openAnnounceSheet(){
   var sl=await shelfLiveBeans(),live=sl.live;
   var seen={},rows='';
   live.forEach(function(e){
-    var nm=e.nm,k=nm.toLowerCase();if(seen[k])return;seen[k]=true;
-    var rep=null;try{rep=shelfSampleFor(nm);}catch(e2){}
-    rows+='<div class="hit" data-ann="'+esc(nm)+'"><span><div class="t">'+esc(nm)
+    var nm=e.nm,pr=e.proc||'',k=nm.toLowerCase()+'|'+procKey(pr);if(seen[k])return;seen[k]=true;
+    var rep=null;try{rep=shelfSampleFor(nm,pr||undefined);}catch(e2){}
+    rows+='<div class="hit" data-ann="'+esc(nm)+'" data-annp="'+esc(pr)+'"><span><div class="t">'+esc(nm)
       +(rep&&rep.process?' <span class="s" style="color:var(--muted)">· '+esc(rep.process)+'</span>':'')
-      +(bNoFor(nm,rep&&rep.process)?' <span class="s" style="color:var(--muted)">'+bNoFor(nm,rep&&rep.process)+'</span>':'')+'</div>'
+      +(bNoFor(nm,pr||undefined)?' <span class="s" style="color:var(--muted)">'+bNoFor(nm,pr||undefined)+'</span>':'')+'</div>'
       +(rep&&rep.features&&rep.features.length?'<div class="s">'+esc(rep.features.slice(0,3).join(' · '))+'</div>':'')
       +'</span><span class="k" style="font-size:13px;color:var(--accent)">Announce ›</span></div>';
   });
@@ -3590,8 +3597,8 @@ async function openAnnounceSheet(){
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);
   document.querySelectorAll('#drawer [data-ann]').forEach(function(el){el.addEventListener('click',function(){
-    var nm=el.dataset.ann,s=null;
-    try{s=shelfSampleFor(nm);}catch(e){}
+    var nm=el.dataset.ann,pr=el.dataset.annp||'',s=null;
+    try{s=shelfSampleFor(nm,pr||undefined);}catch(e){}
     if(!s){alert('No cupping record found for "'+nm+'"');return;}
     announceShelfBean(s,nm,el.querySelector('.k')||el);
   });});
@@ -6958,12 +6965,17 @@ async function beanInfoRows(full,opts){
     return info;
   }
   var gb=null;
-  try{
-    var gq=await sb.from('beans').select('process,variety,altitude,region,country,station,harvest,supplier').ilike('name',nm);
-    var pool=gq.data||[];
-    var proc=String(full.process||'').trim().toLowerCase();
-    gb=(proc?pool.find(function(b){return String(b.process||'').trim().toLowerCase()===proc;}):null)||pool[0]||null;
-  }catch(e){}
+  /* 2026-07-15 ID 優先：samples 帶 bean_id → 記憶體 DB.beans 精準命中（消滅同名多支的 pool[0] 猜測，
+     且省一次 DB 查詢——DB.beans 已載全欄位）。沒 bean_id 的舊資料才退回名字＋處理法查 */
+  if(full.bean_id)gb=(DB.beans||[]).find(function(b){return String(b.id)===String(full.bean_id);})||null;
+  if(!gb){
+    try{
+      var gq=await sb.from('beans').select('process,variety,altitude,region,country,station,harvest,supplier').ilike('name',nm);
+      var pool=gq.data||[];
+      var proc=String(full.process||'').trim().toLowerCase();
+      gb=(proc?pool.find(function(b){return String(b.process||'').trim().toLowerCase()===proc;}):null)||pool[0]||null;
+    }catch(e){}
+  }
   add('Origin',gb?[gb.region,gb.country].filter(Boolean).join(', '):'');
   add('Station',gb&&gb.station);
   add('Variety',gb&&gb.variety);

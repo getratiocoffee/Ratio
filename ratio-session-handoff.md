@@ -64,6 +64,12 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之十二（收官掃描第一批：有 bean_id 卻偷看名字的落點改認 ID ✅）
+- **背景**：老闆下令「所有跟豆子相關的都只抓 ID，其他只是 information」。兩個 Explore 代理全 app 審查，分三層（✅已ID／🟡有ID偷看名字·小修／🔴沒記ID需改結構）。本輪做**第一批 🟡**（六處）。
+- **改動（new/index.html）**：①`beanInfoRows` 單品段：有 `full.bean_id` → **記憶體 DB.beans 精準命中**（消滅同名多支 pool[0] 猜測＋省一次 DB 查詢，DB.beans 已載全欄位），沒 ID 退名字＋處理法 ②`cardDataFor` origin 段：同款 s.bean_id 優先 ③`shelfLiveBeans` live 加 `proc`（product_sync 有 process 欄）＋烘焙日帶 proc ④⑤⑥三個挑豆器（IG asset/Post to socials/Announce）去重 key 從 `nm` 改 `nm|procKey(proc)`＝同名多處理法各出一列、data 屬性帶 proc、點擊 `shelfSampleFor(nm,proc)`／`openSocialPostBean(...,proc)`／`announceShelfBean` 拿 process-scoped sample。
+- **驗證**：jscheck ✓；stub——同名兩支不同 bean_id 不同產區：beanInfoRows WH→Yirgacheffe/74158、CF→Guji/Heirloom（不再互污）、cardDataFor origin 同對 ✓；IG/Announce 挑豆器 Alo Village 分兩列各帶對 proc＋B#00012/B#00013、拼配 Dark Knight 單列 B#00028 ✓；console 零錯誤。
+- **⏭ 剩 🔴 未做（需改 schema/回填，老闆逐項拍板）**：①烘豆需求卡 buildItems（訂單品項無 process）②出貨扣熟豆 deductOrderStock＋點單品項不帶 bean_id ③Dial in applyDialinBrew（dialins 無 bean_id/process，同名取第一支零消歧）④配方 parts 不存 bean_id（拖累 greenForPart/beanInfoRows 拼配段/成本/扣庫）⑤product_sync.bean_id 存名字字串（syncFor/setShelfSold/push）。建議從烘豆需求卡開始。
+
 ## 〇、補記 — 2026-07-15 之十一（卡片色點雙鍵化：改 S#00012 顏色 S#00013 不再跟著變 ✅）
 - **老闆回報**：改 S#00012 顏色 S#00013 跟著變。**根因**：色點存 app_state `rtl_dot`，值形狀 `{豆名:'y|b|r|d'}`——**key 只有豆名**（classic 老設計），同名兩支共用一筆。
 - **修法**：`saveDotFor(name,key,proc)` proc 有值寫雙鍵「豆名 @ 處理法」（照 rtl_sold 慣例）；`dotKeyFor/dotColorFor` 加 proc 參數＝先查雙鍵、退名字級（舊資料/拼配/沒 proc 的呼叫端）。**名字級舊值不清**——同名另一支還靠它 fallback，等它自己被改色時才寫自己的雙鍵。
