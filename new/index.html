@@ -632,10 +632,20 @@ function buildItems(){
   DB.samples.forEach(function(s){
     var k=s.bean_id?('id:'+String(s.bean_id)):((s.sample_id||'')+'·'+(s.process||'')).toLowerCase();
     if(seen[k])return;seen[k]=1;
+    /* 逐鍋 QC（2026-07-14 老闆定調「過 QC 都要手動，不能 assume」——同日連動退役的配套）：
+       這支豆所有未判定、有庫存的鍋全部進佇列，一鍋一列各自親手判；配對條件照 matchRoast
+       （ID 優先、名字退路帶處理法雙鍵、舊資料沒 process 容忍），排序舊→新先烘先判 */
+    var nmL=String(s.sample_id||'').trim().toLowerCase();
+    var pend=(nmL||s.bean_id)?(DB.roasts||[]).filter(function(x){
+      if(x.qc||!(Number(x.remaining_kg)>0))return false;
+      if(s.bean_id&&x.bean_id)return String(x.bean_id)===String(s.bean_id);
+      if(String(x.bean_name||'').trim().toLowerCase()!==nmL)return false;
+      if(s.process&&x.process&&procKey(x.process)!==procKey(s.process))return false;
+      return true;
+    }).sort(function(a,b){return String(a.roast_date||'9999')<String(b.roast_date||'9999')?-1:1;}):[];
+    if(pend.length){pend.forEach(function(x){QCQ.push({s:s,r:x});});return;}
     var r=matchRoast(s);
-    /* remaining>0＝跟 Coffee Stock 同步：沒庫存（被吃光/沒填重量）的批次不進 QC 待判定 */
-    if(r&&!r.qc&&Number(r.remaining_kg)>0){QCQ.push({s:s,r:r});return;}
-    /* 上架佇列：QC pass 後未上 Square → List 卡；已上架但風味沒鎖 → Lock 聚合卡 */
+    /* 上架佇列：QC pass 後未上 Square → List 卡 */
     if(r&&r.qc==='pass'){
       var nm=String(s.sample_id||'').trim();if(!nm)return;
       /* process 級（2026-07-15）：同名多處理法各看各的上架列，不再名字級誤判 */
@@ -1268,20 +1278,9 @@ async function qcVerdict(r,v,btn,cardId,s){
   var u=await sb.from('roasts').update({qc:v}).eq('id',r.id);
   if(u.error){if(btn){btn.disabled=false;}alert('QC failed: '+u.error.message);return;}
   r.qc=v;
-  /* 同一支豆同一天烘的幾鍋＝同一批，一起判（2026-07-12 老闆點名 QC 同日合併）——
-     否則合併顯示的其他鍋 qc 還是 null，判完又冒出來。同名+同處理法+同烘焙日、還沒判定的一起蓋 */
-  var mates=(DB.roasts||[]).filter(function(x){
-    if(String(x.id)===String(r.id)||x.qc)return false;
-    /* ID 檢查（2026-07-15）：兩邊都掛了生豆 ID 就必須同一支——ID 不同名字再像也不聯動 */
-    if(r.bean_id&&x.bean_id&&String(x.bean_id)!==String(r.bean_id))return false;
-    return String(x.bean_name||'').trim().toLowerCase()===String(r.bean_name||'').trim().toLowerCase()
-      &&String(x.process||'').trim().toLowerCase()===String(r.process||'').trim().toLowerCase()
-      &&String(x.roast_date||'')===String(r.roast_date||'');
-  });
-  for(var mi=0;mi<mates.length;mi++){
-    try{var mu=await sb.from('roasts').update({qc:v}).eq('id',mates[mi].id);if(!mu.error)mates[mi].qc=v;}catch(e){}
-  }
-  logAct('qc '+v,r.bean_name||('roast '+r.id));
+  /* 同日連動已退役（2026-07-14 老闆定調「任何豆子要過 QC 都要手動，不能 assume」，
+     覆蓋 07-12 的同日合併）：一次只判這一鍋——同豆同日其他鍋判完會依序再冒出待判定，逐鍋親手判 */
+  logAct('qc '+v,r.bean_name||('roast '+r.id)+(r.roast_date?' · '+r.roast_date:''));
   /* 三態簡化（2026-07-16 老闆拍板）：pass 不再自動鎖——★（原鎖風味）由上架 push 自動蓋
      或手動點，QC 歸 QC、賣哪個版本歸 ★，兩件事分開 */
   toast(v==='pass'
