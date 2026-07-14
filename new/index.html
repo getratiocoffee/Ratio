@@ -1390,22 +1390,15 @@ async function deductOrderStock(o){
   var items=Array.isArray(o.items)?o.items:[];
   for(var ii=0;ii<items.length;ii++){
     var it=items[ii];
-    var nm=String(it&&it.name||'').trim();
-    if(!nm||!it.grams)continue; /* 假品項（運費行等）不扣 */
-    if(typeof isSubName==='function'&&isSubName(nm))continue; /* 網店訂閱商品行不是豆名 */
+    var nm0=String(it&&it.name||'').trim();
+    if(!nm0||!it.grams)continue; /* 假品項（運費行等）不扣 */
+    if(typeof isSubName==='function'&&isSubName(nm0))continue; /* 網店訂閱商品行不是豆名 */
     var kg=(Number(it.grams)||0)*(Number(it.qty)||1)/1000;
     if(!(kg>0))continue;
-    var isBlend=(DB.blends||[]).some(function(b){return String(b.name||'').trim().toLowerCase()===nm.toLowerCase();});
-    /* 訂單行有 process → 精準扣同處理法批次；沒有 → 名字級照舊 */
-    var itProc=(it&&it.process!=null&&String(it.process).trim()!=='')?String(it.process).trim():undefined;
-    /* 商品名可能帶處理法後綴「名 — 處理法」（2026-07-13 同名多處理法上架）——
-       精確名找不到任何批次時拆回 name+process 再扣（訂閱行已在上面擋掉，不會誤拆） */
-    if(!itProc&&!isBlend&&nm.indexOf(' — ')>-1&&!rstBatches(nm,false,undefined).length){
-      var cutAt=nm.lastIndexOf(' — ');
-      var nm2=nm.slice(0,cutAt).trim(),pr2=nm.slice(cutAt+3).trim();
-      if(nm2&&pr2&&rstBatches(nm2,false,pr2).length){nm=nm2;itProc=pr2;}
-    }
-    var pool=rstBatches(nm,isBlend,isBlend?undefined:itProc);
+    /* 2026-07-15 統一走 itemBeanRef（同烘豆需求卡）＝品項→coffee stock 批次身份，
+       process 優先 it.process、否則拆「名 — 處理法」後綴，同名多處理法認對批 */
+    var ref=itemBeanRef(it),nm=ref.name;
+    var pool=rstBatches(ref.name,ref.isBlend,ref.isBlend?undefined:ref.proc);
     var left=kg;
     for(var j=0;j<pool.length&&left>0.0001;j++){
       var b=pool[j];

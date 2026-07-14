@@ -64,6 +64,11 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之十四（🔴①出貨扣熟豆統一走 itemBeanRef ✅）
+- **deductOrderStock（1387）改用 `itemBeanRef(it)`**（同烘豆需求卡）取代自帶的後綴拆解——單一事實源，且拆解 valid 從「只驗熟豆批」升級成「beans 或 roasts 任一」（更穩健）。行為對齊：同名多處理法認對批扣。保留 `var nm=ref.name` 給 short 訊息。
+- **驗證**：jscheck ✓；stub 攔 roasts PATCH——訂單要 Alo Village White Honey 1kg（帶後綴無 process），只扣 rwh（3→2kg）、CF 批 rcf 5kg 不動、short 空、console 零錯誤。
+- **⏭ 🔴 剩三項**：②Dial in applyDialinBrew ③配方 parts 存 bean_id ④product_sync.bean_id 存名字。
+
 ## 〇、補記 — 2026-07-15 之十三（烘豆需求卡認 coffee stock 的 B#：同名多處理法分開算該烘多少 ✅）
 - **老闆定調（回應 🔴 第 1 項）**：「這個是看 coffee stock 的 id」——烘豆需求卡該以熟豆庫存的 B# 認豆。**關鍵洞察**：出貨扣豆 deductOrderStock 早就靠「名 — 處理法」後綴把品項對到精確批次，烘豆需求卡只是還停在純名字。**不用改資料結構**（商品名帶後綴＝上架時 listNameFor 加的，處理法資訊已在名字裡）。
 - **改動（new/index.html）**：①新 helper `itemBeanRef(it)`＝訂單品項→{name,proc,isBlend}：process 優先 it.process，否則拆「名 — 處理法」後綴；**拆解 valid 用「beans 生豆主檔 or 熟豆批任一對得到」**（⚠ 要烘的豆沒熟豆批但有生豆，只驗熟豆會漏拆）②buildItems 烘豆需求：dem 按 `name|procKey(proc)` 聚合、shelfG 改 `rstStockKg(name,isBlend,proc)`（process 級貨架，已排除 reroast/downgrade）、卡片 detail/summary 顯示 B#、ref 帶 proc ③RO.pre chip（paintRoastSheet）：找生豆批帶處理法（同名挑對支）＋顯示 S#。
