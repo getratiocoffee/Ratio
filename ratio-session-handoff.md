@@ -64,6 +64,14 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之十七（🔴④product_sync 認 ID：上架/下架/查狀態全走 target_id ✅，含 edge v29）
+- **老闆定調升級**：「凡判別到名字的一律改判 ID」——④做徹底含 Square edge。
+- **DB（migration `product_sync_target_id`）**：product_sync 加 target_id（beans.id 或 blends.id）；回填——單品 name+process 精準、process null 的 name 唯一（Alo Bona Village 等）、拼配對 blends。全部真豆對到，只兩個訂閱商品 null（正確）。bean_id 名字欄保留（Square 商品名/顯示/edge 相容）。
+- **前端（new/index.html）**：①product_sync select 加 target_id ②新 helper `beanIdFor(nm,proc)`＝name+proc→底層 id（bNoFor 的解析版）③syncFor 認 target_id（beanIdFor 解析→比 x.target_id，訂閱/認不出退名字級）④濃縮提醒 stale 認 target_id（dialins/product_sync 都有）⑤setShelfSold/上架 push 的 callFn 加傳 `target_id:beanIdFor(...)`。
+- **edge（sync-to-square v29 已 deploy）**：定位 product_sync 列改「target_id 優先 → 退 bean_id+process」（**向後相容**：沒傳 target_id＝行為完全同 v28，訂閱列無 target_id 照舊）；push 的 rec 寫 target_id。commit 只含交接檔（edge source 在 Supabase 不在 repo）。
+- **驗證**：SQL 回填全對；jscheck ✓；stub——syncFor 同名兩支 WH synced/CF paused 不混、拼配對、訂閱名字級退路、beanIdFor 解析對；console 零錯誤。⚠ **edge 真呼叫驗證待老闆真機**：deploy 向後相容零破壞，但上架/下架的 target_id 路徑要老闆真按一次才實測（前端已傳 target_id，v29 會用它定位）。
+- **✅ 全 ID 化收官**：①出貨扣豆 ②Dial in ③配方成分 ④product_sync＋edge 全數認 ID。凡「判別哪支豆做操作」的地方都認 ID 了；剩極少數純顯示聚合（allRetailCoffees 的 on Square 標／soldKeys／onShelf 排序）名字級但不影響操作正確性。
+
 ## 〇、補記 — 2026-07-15 之十六（🔴③配方成分存 bean_id：成分身世/扣庫存/成本全認 ID ✅）
 - **背景**：blends.parts 只存 {bean,process,pct}，greenForPart/consumeBlendParts/blendPartPool/blCostPerKg 用名字＋處理法消歧。beans 本以 name+process 為唯一鍵＝現有成分能唯一對到，**目前零實際風險，趁乾淨根治**（防未來 process 拼寫不一致/泛稱）。
 - **DB 回填（execute_sql，非 migration——parts 是 jsonb）**：blends.parts 每個成分加 bean_id（name+process 對 beans 唯一鍵，保序 jsonb_agg order by ordinality）。6 配方全部成分對到（Dark Knight/Dancer 3/3、其餘非空成分全中）。
