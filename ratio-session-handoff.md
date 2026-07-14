@@ -64,6 +64,13 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之十五（🔴②Dial in 認 target_id：沖煮設定不再寫到第一支同名豆 ✅）
+- **背景**：dialins 表只有 coffee 名字、無 process/id，applyDialinBrew 寫沖煮設定用名字取第一支同名（同名多處理法會寫錯豆）。**現況 4 筆全拼配名字唯一＝零實際風險，趁乾淨根治**。
+- **DB（migration `dialins_target_id`）**：加 `target_id text`（存 beans.id 或 blends.id），回填——拼配對 blends（Dreamer/June/April Project 都對到；May Project 是已刪配方→null 正確不亂綁）、單品只回填同名唯一的。
+- **前端（new/index.html）**：①loadAll dialins select 加 target_id ②DLS 加 targetId ③openDialinSheet 下拉從「名字去重」改**每支豆一項**（beans 帶 process＋S#、blends＋B#，value=id）④Latest per coffee／loadLast 分組認 target_id（同名多處理法各自一組）⑤save 存 target_id（欄不存在容錯）⑥applyDialinBrew 認 target_id 直接命中 beans/blends（舊紀錄無 target_id 退名字級）⑦今日流 Dial in 卡入口（i.ref.name 上架名字級）綁得到唯一配方/生豆才帶 target_id、同名多支留 null。
+- **驗證**：jscheck ✓；stub 同名兩支（bean_cf/bean_wh 各一筆 dial in）——下拉出 S#00012 CF／S#00013 WH／B#00028 Dark Knight 三項、Latest 兩組（d_wh/d_cf 各自）、apply d_wh（target_id=bean_wh）只寫 bean_wh 的 brew（grind 2.4）不碰 bean_cf、console 零錯誤。
+- **⏭ 🔴 剩兩項**：③配方 parts 存 bean_id ④product_sync.bean_id 存名字。
+
 ## 〇、補記 — 2026-07-15 之十四（🔴①出貨扣熟豆統一走 itemBeanRef ✅）
 - **deductOrderStock（1387）改用 `itemBeanRef(it)`**（同烘豆需求卡）取代自帶的後綴拆解——單一事實源，且拆解 valid 從「只驗熟豆批」升級成「beans 或 roasts 任一」（更穩健）。行為對齊：同名多處理法認對批扣。保留 `var nm=ref.name` 給 short 訊息。
 - **驗證**：jscheck ✓；stub 攔 roasts PATCH——訂單要 Alo Village White Honey 1kg（帶後綴無 process），只扣 rwh（3→2kg）、CF 批 rcf 5kg 不動、short 空、console 零錯誤。
