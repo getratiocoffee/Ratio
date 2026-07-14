@@ -7119,7 +7119,7 @@ async function infoCard4Pdf(slotIds){
   }
   var blank='<div class="card4"></div>';
   var p1=[0,1,2,3].map(function(i){return faces[i]?faces[i].info:blank;}).join('');
-  var p2=[3,2,1,0].map(function(i){return faces[i]?faces[i].cover:blank;}).join('');
+  var p2=[2,3,0,1].map(function(i){return faces[i]?faces[i].cover:blank;}).join('');
   var slugs=[];faces.forEach(function(f){if(f&&slugs.indexOf(beanSlug(f.nm))<0)slugs.push(beanSlug(f.nm));});
   var fname='infocard-'+(slugs.length===1?slugs[0]:'4up')+'.pdf';
   var html='<div class="icroot">'
