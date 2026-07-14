@@ -1215,6 +1215,35 @@ function lockedMate(s){
       &&procKey(x.process)===procKey(s.process);
   })||null;
 }
+/* ===== 三態豆況（2026-07-16 老闆拍板簡化）=====
+   qc 欄三態：null=Pending／'pass'=Pass／其餘=Downgrade（legacy 'reroast' 一律視同降級、永不再寫入）。
+   「排除不可賣批」的判斷統一走這裡，別再散寫 !=='reroast'&&!=='downgrade' */
+function qcState(r){
+  if(!r||!r.qc)return 'pending';
+  return r.qc==='pass'?'pass':'downgrade';
+}
+/* 手動加星（★＝flavour_locked 重塑：「在賣的版本」，同名同處理法互斥單選）。
+   加星唯一入口——換星 confirm 在此把關（原 qcVerdict pass 自動鎖的警訊搬來）；
+   quiet=true＝不問直接換（上架 push 用：push 本身就是宣告這批在賣）。
+   回傳 {ok,swapped}：swapped＝從已上架批手上換來的星，呼叫端該接開 List Update 抽屜 push 新資訊 */
+async function starSample(s,quiet){
+  if(!s||!s.id)return {ok:false,swapped:false};
+  var swapped=false;
+  if(!s.flavour_locked&&lockedMate(s)){
+    var nm=String(s.sample_id||'').trim();
+    var sy=syncFor(nm,s.process);
+    swapped=!!(sy&&sy.status==='synced');
+    if(!quiet){
+      var msg=swapped
+        ?nm+' already has a ★ batch on the shelf.\nMove the ★ to this batch? Shop info (flavours, roast date) will switch to this one.'
+        :nm+' already has a ★ batch.\nMove the ★ to this batch?';
+      if(!confirm(msg))return {ok:false,swapped:false};
+    }
+  }
+  var ok=false;
+  try{ok=await lockFlavourSolo(s);}catch(e){}
+  return {ok:ok,swapped:swapped&&ok};
+}
 /* 上架顯示名（2026-07-13 階段二）：同名有多個處理法的杯測 → Square 商品名帶後綴「名 — 處理法」
    （後台/收據/店面才分得清）；單一處理法豆照舊純名＝既有商品不會被改名 */
 function listNameFor(nm,s){
@@ -3648,8 +3677,7 @@ async function openAnnounceSheet(){
 async function announceShelfBean(s,nm,btn){
   /* QC 閘門同 classic listingGate：打槍批擋死，沒 pass/沒鎖風味只警告 */
   var qr=null;try{qr=matchRoast(s);}catch(e){}
-  if(qr&&qr.qc==='reroast'){alert('QC verdict for the latest batch is Re-roast — fix the batch before announcing.');return;}
-  if(qr&&qr.qc==='downgrade'){alert('The latest batch is downgraded — not retail grade.');return;}
+  if(qr&&qcState(qr)==='downgrade'){alert('The latest batch is downgraded — not retail grade.');return;}
   var warns=[];
   if(!qr||!qr.qc)warns.push('no QC pass recorded for the latest batch');
   if(!s.flavour_locked)warns.push('flavour description not locked');
@@ -3712,11 +3740,11 @@ async function openCleanupSheet(){
   });
   /* C 待秤超期 >2 天 */
   var pend=(DB.roasts||[]).filter(function(r){
-    return Number(r.green_kg)>0&&!(Number(r.remaining_kg)>0)&&r.qc!=='downgrade'&&r.qc!=='reroast'&&r.roast_date&&daysSince(r.roast_date)>2;
+    return Number(r.green_kg)>0&&!(Number(r.remaining_kg)>0)&&qcState(r)!=='downgrade'&&r.roast_date&&daysSince(r.roast_date)>2;
   });
   /* D 降級滯留 >30 天 */
   var dgOld=(DB.roasts||[]).filter(function(r){
-    return r.qc==='downgrade'&&Number(r.remaining_kg)>0&&r.roast_date&&daysSince(r.roast_date)>30;
+    return qcState(r)==='downgrade'&&Number(r.remaining_kg)>0&&r.roast_date&&daysSince(r.roast_date)>30;
   });
   /* E rtl_sold 殘留：記憶說下架、product_sync 說在賣＝殘留（歷史 key 名字級比對） */
   var soldKeys=[];
@@ -4728,7 +4756,7 @@ function rstRows(isBlend){
   }
   /* 批次孤兒（主檔已刪/process 對不上，但批次有血或待秤）也要列，不能憑空消失；單品孤兒按 name+process 分桶 */
   (DB.roasts||[]).forEach(function(r){
-    if((isBlend?r.kind==='blend':r.kind!=='blend')&&(Number(r.remaining_kg)>0||(Number(r.green_kg)>0&&!(Number(r.remaining_kg)>0)&&r.qc!=='downgrade'&&r.qc!=='reroast'))){
+    if((isBlend?r.kind==='blend':r.kind!=='blend')&&(Number(r.remaining_kg)>0||(Number(r.green_kg)>0&&!(Number(r.remaining_kg)>0)&&qcState(r)!=='downgrade'))){
       var nm=String(r.bean_name||'').trim();if(!nm)return;
       var proc=isBlend?'':String(r.process||'').trim();
       var lk=isBlend?nm.toLowerCase():(nm.toLowerCase()+'|'+proc.toLowerCase());
@@ -4900,7 +4928,7 @@ function openBatchesSheet(){
     /* 找已判定批（可賣池優先、再看降級池）——照 Coffee Info sb-requeue 邏輯，清一筆即回 QC 佇列 */
     var r=(x.batches||[]).concat(x.dg||[]).find(function(b){return b.qc;});
     if(!r){toast('No judged batch here');return;}
-    if(!confirm('Send "'+x.name+'" back to the QC queue?\n\nThe batch verdict ('+r.qc+') is cleared and the flavour unlocks — it drops off the shop menu until you Pass it again.'))return;
+    if(!confirm('Send "'+x.name+'" back to the QC queue?\n\nThe batch verdict ('+qcState(r)+') is cleared and the ★ comes off — it drops off the shop menu until you Pass it again.'))return;
     var btn=this;btn.disabled=true;btn.textContent='Sending…';
     try{
       var u=await sb.from('roasts').update({qc:null}).eq('id',r.id);
@@ -6056,7 +6084,7 @@ function rstProcMatch(r,process){
 function rstBatches(name,isBlend,process){
   var key=String(name||'').trim().toLowerCase();
   return (DB.roasts||[]).filter(function(r){
-    return (isBlend?r.kind==='blend':r.kind!=='blend')&&Number(r.remaining_kg)>0&&r.qc!=='reroast'&&r.qc!=='downgrade'&&String(r.bean_name||'').trim().toLowerCase()===key&&rstProcMatch(r,process);
+    return (isBlend?r.kind==='blend':r.kind!=='blend')&&Number(r.remaining_kg)>0&&qcState(r)!=='downgrade'&&String(r.bean_name||'').trim().toLowerCase()===key&&rstProcMatch(r,process);
   }).sort(function(a,b){return String(a.roast_date||'9999')<String(b.roast_date||'9999')?-1:1;});
 }
 function rstStockKg(name,isBlend,process){
@@ -6068,7 +6096,7 @@ function rstStockKg(name,isBlend,process){
 function rstDgBatches(name,isBlend,process){
   var key=String(name||'').trim().toLowerCase();
   return (DB.roasts||[]).filter(function(r){
-    return (isBlend?r.kind==='blend':r.kind!=='blend')&&Number(r.remaining_kg)>0&&r.qc==='downgrade'&&String(r.bean_name||'').trim().toLowerCase()===key&&rstProcMatch(r,process);
+    return (isBlend?r.kind==='blend':r.kind!=='blend')&&Number(r.remaining_kg)>0&&qcState(r)==='downgrade'&&String(r.bean_name||'').trim().toLowerCase()===key&&rstProcMatch(r,process);
   }).sort(function(a,b){return String(a.roast_date||'9999')<String(b.roast_date||'9999')?-1:1;});
 }
 /* 待入庫批次（2026-07-13 老闆點名：連結 roast log→coffee stock）＝烘了但還沒秤熟豆的批次
@@ -6077,7 +6105,7 @@ function rstDgBatches(name,isBlend,process){
 function rstPendingBatches(name,isBlend,process){
   var key=String(name||'').trim().toLowerCase();
   return (DB.roasts||[]).filter(function(r){
-    return (isBlend?r.kind==='blend':r.kind!=='blend')&&Number(r.green_kg)>0&&!(Number(r.remaining_kg)>0)&&r.qc!=='downgrade'&&r.qc!=='reroast'&&String(r.bean_name||'').trim().toLowerCase()===key&&rstProcMatch(r,process);
+    return (isBlend?r.kind==='blend':r.kind!=='blend')&&Number(r.green_kg)>0&&!(Number(r.remaining_kg)>0)&&qcState(r)!=='downgrade'&&String(r.bean_name||'').trim().toLowerCase()===key&&rstProcMatch(r,process);
   }).sort(function(a,b){return String(a.roast_date||'9999')<String(b.roast_date||'9999')?-1:1;});
 }
 /* 分段血條（2026-07-12 v3 定稿：顏色＝該批新鮮度，跨豆一致）：黃=aging(<21d 養豆) 綠=ready(21-42d)
@@ -6305,7 +6333,7 @@ async function consumeBlendParts(parts,totalKg){
       return (pid&&r.bean_id)?(String(r.bean_id)===pid):(String(r.bean_name||'').trim().toLowerCase()===key&&rstProcMatch(r,pProc));
     }).sort(function(a,b){
       /* 降級豆優先進配方（2026-07-13 老闆定調：downgrade＝配方豆首選）；同級內照 roast_date 舊→新 FIFO */
-      var da=a.qc==='downgrade'?0:1,db=b.qc==='downgrade'?0:1;
+      var da=qcState(a)==='downgrade'?0:1,db=qcState(b)==='downgrade'?0:1;
       if(da!==db)return da-db;
       return String(a.roast_date||'9999')<String(b.roast_date||'9999')?-1:1;
     });
