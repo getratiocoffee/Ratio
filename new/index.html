@@ -534,7 +534,7 @@ async function loadAll(){
     sb.from('customers').select('id,name,email,type'),
     sb.from('tasks').select('*').eq('done',false).order('created_at',{ascending:false}),
     sb.from('dialins').select('id,coffee,target_id,created_at,grind,dose,yield,time_s,barista,note').order('created_at',{ascending:false}).limit(200),
-    sb.from('product_sync').select('bean_id,status,process').eq('channel','square'),
+    sb.from('product_sync').select('bean_id,target_id,status,process').eq('channel','square'),
     sb.from('samples').select('id,sample_id,bean_id,process,roast_date,cupping_date,features,flavour_locked,fragrance,acidity,sweetness,body,aftertaste,comment,cupper').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
     sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg,status,kind,remaining_kg,roasted_kg,process').order('roast_date',{ascending:false}),
     sb.from('beans').select('id,green_no,name,process,quantity,low_stock_kg,country,region,station,variety,harvest,altitude,cost_per_kg,supplier,roast_target_kg,roast_low_kg'),
@@ -649,10 +649,12 @@ function buildItems(){
   var packQ=DB.orders.filter(function(o){return o.status==='Confirmed'||o.status==='Roasting';});
   var shipQ=DB.orders.filter(function(o){return o.status==='Ready';});
   var payQ=DB.orders.filter(function(o){return (o.status||'New')!=='New'&&(o.payment_status==='pending_payment'||o.payment_status==='overdue');});
-  var latest={};DB.dialins.forEach(function(d){var k=String(d.coffee||'').trim().toLowerCase();if(k&&!latest[k])latest[k]=d;});
+  /* 濃縮提醒認 target_id（2026-07-15）：dialins/product_sync 都有 target_id，同名多處理法各自的 dial-in 各算 */
+  var latest={};DB.dialins.forEach(function(d){var dk=d.target_id?('id:'+d.target_id):('nm:'+String(d.coffee||'').trim().toLowerCase());if(!latest[dk])latest[dk]=d;});
   var stale=[];DB.syncs.forEach(function(x){
     if(x.status!=='synced'||isSubName(x.bean_id))return; /* 訂閱商品不是豆，永遠沒 dial-in */
-    var d=latest[String(x.bean_id||'').trim().toLowerCase()];
+    var dk=x.target_id?('id:'+x.target_id):('nm:'+String(x.bean_id||'').trim().toLowerCase());
+    var d=latest[dk];
     if(!d||daysSince(d.created_at)>ESP_STALE_DAYS)stale.push({name:x.bean_id,last:d?daysSince(d.created_at):null});});
   var low=DB.beans.filter(function(b){var t=(b.low_stock_kg==null?GREEN_LOW_KG:Number(b.low_stock_kg));return b.quantity!=null&&t>0&&Number(b.quantity)<=t;});
   /* 晨報卡退役（2026-07）：改為每日自動彈出的 briefing 抽屜（openBriefSheet）——班表摘要收進 BRIEF 全域；
@@ -1145,6 +1147,19 @@ function rNos(batches){
   (batches||[]).forEach(function(r){var k=rNo(r);if(k&&!seen[k]){seen[k]=1;out.push(k);}});
   return out.join(' ');
 }
+/* 名字＋處理法 → 底層 id（beans.id 或 blends.id）：認 ID 的解析器（bNoFor 是它的顯示版）。
+   拼配名先命中 blends；單品照 procKey 找 beans（proc undefined＝名字級同名唯一才回）。回空＝認不出（走名字級退路） */
+function beanIdFor(nm,proc){
+  var k=String(nm||'').trim().toLowerCase();
+  if(!k)return '';
+  var bl=(DB.blends||[]).find(function(x){return String(x.name||'').trim().toLowerCase()===k;});
+  if(bl)return String(bl.id);
+  var pool=(DB.beans||[]).filter(function(x){return String(x.name||'').trim().toLowerCase()===k;});
+  var b;
+  if(proc!==undefined){var pk=procKey(proc);b=pool.find(function(x){return procKey(x.process)===pk;})||(pool.length===1?pool[0]:null);}
+  else b=(pool.length===1?pool[0]:null);
+  return b?String(b.id):'';
+}
 /* 統一取號口（2026-07-15 全 app 掛號）：豆名＋處理法 → 'B#00013'。
    拼配名先命中 blends.blend_no；單品照 procKey 找 beans.green_no。
    proc undefined＝名字級：同名唯一才回號（多處理法回空，避免掛錯） */
@@ -1217,9 +1232,12 @@ function listNameFor(nm,s){
 /* 上架列查找（統一比對點）：proc===undefined＝名字級（呼叫端沒 process 在手／拼配）；
    列的 process 為 null＝階段二前的舊列，名字級照舊配——向前向後都相容 */
 function syncFor(nm,proc){
-  var k=String(nm||'').trim().toLowerCase();
+  /* ID 優先（2026-07-15）：name+proc 解析成 target_id，比 product_sync.target_id；
+     訂閱商品/認不出 id 才退名字＋處理法（tid 空或該列無 target_id） */
+  var tid=beanIdFor(nm,proc),k=String(nm||'').trim().toLowerCase();
   return (DB.syncs||[]).find(function(x){
     if(!(x.status==='synced'||x.status==='paused'))return false;
+    if(tid&&x.target_id)return String(x.target_id)===tid;
     if(String(x.bean_id||'').trim().toLowerCase()!==k)return false;
     return x.process==null||proc===undefined||procKey(x.process)===procKey(proc);
   })||null;
