@@ -64,6 +64,10 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之七（ID book 磁貼：一頁看所有 G#/R# ✅）
+- **老闆點名**：Tools 加 icon 顯示所有剛設的 ID。**改動（new/index.html）**：①Production 區磁貼 `['ID book','all G# & R# numbers','idbook','menu']`（Green stock 旁，唯讀不上 mk 色）＋dispatch ②`openIdBookSheet()`（openGreensSheet 前）＝兩段清單：Coffees（beans 按 green_no 排，行＝G# 大字＋名字·處理法＋右側 kg green，**點行→openGreenDetail**）＋Blends（blends 按 blend_no，R# 大字＋配方名）；沒號的豆不列（容錯）。
+- **驗證**：jscheck ✓；stub——磁貼在/點開抽屜、兩段排序對、沒號豆不列、點行跳生豆詳情、截圖乾淨、console 零錯誤。
+
 ## 〇、補記 — 2026-07-15 之六（R#ID 改版：一豆一號終身不變，批次＝R#＋烘焙日 ✅）
 - **老闆指正**：R# 不要每鍋跳號——同一支豆（豆名＋處理法）固定同一個 ID，批次靠烘焙日分。**定案設計＝號碼跟「豆」走，G/R 只是生熟狀態**：單品熟豆承生豆同號（G#00013 烘出來＝R#00013）；拼配沒有生豆面，從**同一個號碼池**接著拿號（R#00028 Dark Knight／29 Dancer／30 Dreamer／31 April Project／32 June Project／33 Sugar Daddy）；號碼全域唯一，下一支新生豆＝G#00034、新配方自動拿下一號。
 - **DB（migration `blend_no_and_drop_roast_no`）**：blends 加 `blend_no integer unique`（回填 28–33 按 pos；default 掛 beans_green_no_seq **池共用**；setval 33）；roasts **drop roast_no**＋drop roasts_roast_no_seq（昨天之五的每鍋跳號廢除）。
