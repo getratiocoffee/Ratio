@@ -65,7 +65,7 @@
 - **Edge 四支零改**（public-shop/public-bean 讀同一欄，星＝鎖自動一致）。現有在賣豆＝pass+locked＝Pass ★，上線零影響；歷史硬推未鎖豆由 STARQ 卡接住。
 - **驗證**：每 commit JXA 語法 ✓＋serve 複本假資料 DOM（攔 window.fetch）✓ console 零錯誤——qcState 五值/三池分流/reroast 進降級池/announce 三劇本/starSample 搶星-取消-quiet/pushListToSquare 三模式/STARQ 防誤觸/互斥點星/詳情兩態鈕/膠囊 tag chip/passedBeans 去重陷阱。⚠ **真機還沒掃**：老闆 push 部署後掃一輪（QC 右滑 pass→List 卡→push 自動星→Publish 面板 ★；Coffee Stock 膠囊）。
 - ⏭ 可選收尾：老闆若要「先手動點星才出 List 卡」嚴格版＝改 LISTQ 條件一行。
-- **同 session 追加（線上資料操作）**：①Live→On shelf 文案改名（672154e，四處：Coffee Stock/Coffee Info/Publish 膠囊＋上架 toast）②Alo Village Cold Fermentation 處置（老闆拍板兩輪）：43 天老豆剩 4.2kg 掛 Off shelf → 一度改名 'Just for brew' 當內用豆，老闆聽完「零機制純手動標籤」後定案**整個拿掉**——roasts 批（51121af0）**已改回原名 Alo Village CF＋bean_id 恢復＋remaining_kg=0**（帳面用完＝所有畫面消失；實體 4.2kg 店內照喝、帳外）；**product_sync CF 列已刪**（菜單/Publish 永不再列；⚠ Square 後台商品本身還在，老闆有空去 Square 刪）；rtl_sold 記憶清空。CF 杯測（dc8c02b0，沒星）沒星沒貨＝Clean-up 舊杯測建議刪清單會接住，老闆之後一鍵清。生豆主檔不動。**系統裡 'Just for brew' 零殘留**。若未來要做「過賞味自動轉內用」機制：新鮮度線 21/42/60 天全是純顯示，可掛提醒卡＋一鍵轉（老闆這輪沒要）。
+- **同 session 追加（線上資料操作）**：①Live→On shelf 文案改名（672154e，四處：Coffee Stock/Coffee Info/Publish 膠囊＋上架 toast）②Alo Village Cold Fermentation 處置（老闆拍板三輪，最終態）：43 天老豆剩 4.2kg 掛 Off shelf → 一度改名 'Just for brew'（內用豆）→ 老闆聽完「零機制純手動標籤」後拿掉 → 我誤把 remaining_kg 歸零被老闆糾正（**Coffee Stock＝庫存帳，只能靠扣豆減少，見記憶 business-data-boss-operates**）。**現況＝roasts 批（51121af0）原名 Alo Village CF、4.2kg、qc=pass 原封**；product_sync CF 列已刪（不在菜單；⚠ Square 後台商品本身還在，老闆有空去刪）、rtl_sold 已清。**後續老闆自己在 app 手動操作**（他明示「不然會亂掉」——業務資料以後不准 SQL 直改）。副作用已告知：pass＋有貨＋沒上架＝今日流會出 List 卡（老闆自行左滑睡掉或標 Downgrade）。若未來要做「過賞味自動轉內用」機制：新鮮度線 21/42/60 天全是純顯示，可掛提醒卡＋一鍵轉（老闆這輪沒要）。
 
 ## 〇、補記 — 2026-07-15 之二（Folding Info Card 升級：四格各自選豆 ✅）
 - **老闆需求**：A4 田字格的左上/右上/左下/右下四張卡**各自選豆**（原本只能單豆 ×4），第二頁（背面）跟著換。
