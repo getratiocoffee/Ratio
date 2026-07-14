@@ -406,7 +406,7 @@ const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
    總閘門＝在 sb.from 源頭包一層 Proxy：select 等讀取照舊，insert/update/upsert/delete 一律擋，
    回傳一個「解析成 {error} 的可鏈式 thenable」讓現有 await/.then 不會炸、只是靜默失敗。
    canWrite() 於呼叫當下才判定（boot 設好 ROLE/LEAD 之後才會有使用者動作，安全）。 */
-function canWrite(){return isLead();}
+function canWrite(){return isLead()||ROLE==='staff';} /* 2026-07-14 staff 八站可寫；Green/Marketing/敏感點各自 isLead 把關 */
 var _roToastAt=0;
 function roToast(){var n=Date.now();if(n-_roToastAt<2500)return;_roToastAt=n;try{toast('Read-only — ask a manager to make changes');}catch(e){}}
 function _roBuilder(){
@@ -707,7 +707,7 @@ function buildItems(){
         s:needs.slice(0,3).map(function(n){var bn=bNoFor(n.name,n.isBlend?undefined:n.proc);return esc(n.name)+(bn?' '+bn:'')+' '+n.g+'g';}).join(' · ')+(needs.length>3?' · +'+(needs.length-3)+' more':'')+(covered?' · '+covered+' covered by shelf':''),
         act:'Log roast…',
         det:detRows.concat([['Total','roast '+totNeed+'g · ~'+Math.round(totNeed*1.15)+'g green']]),
-        roles:['director','roaster'],kind:'roastlog',
+        roles:['director','roaster','staff'],kind:'roastlog',
         ref:needs.map(function(n){return {name:n.name,proc:n.proc,g:n.g};})});
     }
   }
@@ -743,7 +743,7 @@ function buildItems(){
       act:'Open QC →',
       det:tocup.map(function(r){return [r.bean_name||'—','to cup · roasted '+(fmtD(r.roast_date)||'—')];})
         .concat(QCQ.map(function(x){return [x.s.sample_id||'—','awaiting verdict · roasted '+(fmtD(x.r.roast_date)||'—')];})),
-      det2:'Later',roles:['director','roaster'],kind:'qcnav'});
+      det2:'Later',roles:['director','roaster','staff'],kind:'qcnav'});
   }
   /* 上架卡：QC pass、Square 還沒上 → 抽屜定價推上架 */
   LISTQ.forEach(function(s){
@@ -805,13 +805,13 @@ function buildItems(){
     out.push({id:'rstlow',st:'Roast',hot:0,t:'Roasted stock low · '+rstLow.length,
       s:rstLow.map(function(x){return esc(x.name)+' '+x.kg+' kg';}).join(' · '),
       act:'Open stock',det:rstLow.map(function(x){return [x.name,x.kg+' kg left'+(x.isBlend?' · blend':'')];}),
-      det2:'Not today',roles:['director','roaster'],kind:'rstlow',ref:rstLow});
+      det2:'Not today',roles:['director','roaster','staff'],kind:'rstlow',ref:rstLow});
   }
   if(rstOver.length){
     out.push({id:'rstover',st:'Roast',hot:0,t:'Overstocked · '+rstOver.length,
       s:rstOver.map(function(x){return esc(x.name)+' '+x.kg+' / '+x.target+' kg';}).join(' · '),
       act:'Got it',det:rstOver.map(function(x){return [x.name,x.kg+' kg vs target '+x.target];}),
-      det2:'Open stock',roles:['director','roaster'],kind:'dismiss',ref:rstOver});
+      det2:'Open stock',roles:['director','roaster','staff'],kind:'dismiss',ref:rstOver});
   }
   DB.tasks.forEach(function(t){
     /* 派工層：assigned_to＝派給誰（null＝共用）；自己的任務 mine 置頂（晨報後第一批）＋紅邊；全隊透明都看得到 */
@@ -842,7 +842,7 @@ function buildItems(){
       s:esc(String(f.comment||'').slice(0,90))||'no comment',
       act:f.email?'Reply…':'Got it',
       det:[['Rating',stars],['Comment',String(f.comment||'—').slice(0,200)],['From',f.name||'Anonymous'],['Email',f.email||'—'],['When',fmtD(f.created_at)||'—']],
-      det2:'Later',roles:['director'],kind:'fb',ref:f});
+      det2:'Later',roles:['director','staff'],kind:'fb',ref:f});
   });
   /* 回購提醒卡（社群曝光 Phase 4：回購提醒附評論連結）：零售客最後一單 28–120 天前 → 提醒卡；
      一天最多 2 張（最久沒買的優先）；送過記 NUDGE_LOG（app_state），同一輪（沒有新單）60 天內不再出；
@@ -1026,7 +1026,7 @@ function renderFeed(){
 function bindBars(m){
   m.querySelectorAll('[data-vm]').forEach(function(b){b.addEventListener('click',function(){VIEW_MODE=b.dataset.vm;if(VIEW_MODE==='all')VIEW_AS='';renderFeed();});});
   m.querySelectorAll('[data-vw]').forEach(function(b){b.addEventListener('click',function(){VIEW_AS=(b.dataset.vw===WHO)?'':b.dataset.vw;VIEW_MODE='mine';renderFeed();});});
-  var ag=$('asg-go');if(ag)ag.addEventListener('click',function(){if(!canWrite()){roToast();return;}ASSIGN_MODE=true;VIEW_MODE='all';renderFeed();});
+  var ag=$('asg-go');if(ag)ag.addEventListener('click',function(){if(!isLead()){roToast();return;}ASSIGN_MODE=true;VIEW_MODE='all';renderFeed();});
   var ad=$('asg-done');if(ad)ad.addEventListener('click',function(){ASSIGN_MODE=false;VIEW_MODE='mine';logAct('assigned the day');renderFeed();toast('Day assigned — everyone sees their own list');});
 }
 /* 貪睡統一入口：點 Later 鈕（或抽屜 det2）走這裡——toast 直接給 Undo */
@@ -2608,11 +2608,11 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
        故售罄/回架入口收在這裡（Coffee Info 母體含賣光的上架豆） */
     /* ★ 鈕（三態簡化）：有星→可移除（警告失去 publish 資格）；沒星且最新批 pass→可手動點星
        （換批接手貨架的支線入口；主線是 List push 自動星） */
-    +((canWrite()&&s.id)?(s.flavour_locked
+    +((isLead()&&s.id)?(s.flavour_locked
       ?'<button class="dclose" id="sb-star">Remove ★ · not the selling version</button>'
       :((function(){var qr=null;try{qr=matchRoast(s);}catch(e){}return qr&&qcState(qr)==='pass';})()
         ?'<button class="dclose" id="sb-star">★ Star · set as selling version</button>':'')):'')
-    +((syncRow&&canWrite())?'<button class="dclose" id="sb-sold">'+(sold?'Put back on sale':'Take off shelf')+'</button>':'')
+    +((syncRow&&isLead())?'<button class="dclose" id="sb-sold">'+(sold?'Put back on sale':'Take off shelf')+'</button>':'')
     +'<button class="dclose" id="sb-requeue">Send back to QC</button>'
     +'<button class="dclose" id="sb-back">‹ Back to Coffee Info</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
@@ -3108,7 +3108,7 @@ async function openSocialSplitSheet(){
   var list=passedBeans();
   var dots={};try{dots=await cardDots();}catch(e){}
   SOC_PHOTOS=await listBeanPhotos();
-  var mayEdit=canWrite();
+  var mayEdit=isLead();
   function rowsHTML(){
     if(!list.length)return '<div class="empty">No ★ coffees on shelf yet — ★ is added when you list on Square</div>';
     return list.map(function(s){
@@ -3194,7 +3194,7 @@ async function openSocialSplitSheet(){
 }
 /* 選一張照片存給這支豆（覆蓋舊的）。上傳走 storage，唯讀護欄的 sb.from Proxy 管不到，自己擋 */
 async function changeBeanPhoto(nm,btn){
-  if(!canWrite()){roToast();return false;}
+  if(!isLead()){roToast();return false;}
   var f=await pickPhotoFile();
   if(!f)return false;
   var orig=btn?btn.textContent:'';
@@ -3214,7 +3214,7 @@ async function socialSplitPick(s){
   var nm=String(s.sample_id||'').trim();
   /* photo 模式但這支豆還沒照片 → 先選照片，選完才產圖 */
   if(SOC_MODE==='photo'&&!SOC_PHOTOS[beanSlug(nm)]){
-    if(!canWrite()){roToast();return;}
+    if(!isLead()){roToast();return;}
     toast('Pick a background photo for '+nm);
     var ok=await changeBeanPhoto(nm,null);
     if(!ok)return;
@@ -3354,7 +3354,7 @@ async function openPublishSheet(){
   paintPublishSheet(sl,acts);
 }
 function paintPublishSheet(sl,acts){
-  var _mk=canWrite();
+  var _mk=isLead();
   /* 母體＝Coffee Stock 裡「風味已鎖」的豆（老闆定調 2026-07-13 二次更正：Publish 清單只索取
      flavour_locked 的豆，沒鎖的根本不列——鎖了才會在這裡出現，與 public-shop QC gate 同口徑）。
      重用 rstRows（單品＋拼配兩分頁去重）＝母體仍與 Coffee Stock 同源；
@@ -3650,7 +3650,7 @@ async function uploadCardForBean(nm,proc){
 /* Announce 磁貼入口（缺口 #6 收尾）：挑上架豆→跑現成 announceShelfBean（QC 閘門/收件人數/卡圖/群發全在裡面）。
    核心早在 Coffee Info 詳情的 sb-ann 鈕做好了——這裡只補 Tools 直達（照 classic renderMarketing 的挑豆介面）。 */
 async function openAnnounceSheet(){
-  if(!canWrite()){roToast();return;}
+  if(!isLead()){roToast();return;}
   openDrawerHTML('<div class="t" style="font-size:19px">Announce</div><div class="empty" style="margin-top:16px">Loading…</div>');
   var sl=await shelfLiveBeans(),live=sl.live;
   var seen={},rows='';
@@ -3731,6 +3731,7 @@ function allRetailCoffees(){
    C 待秤超期（>2 天沒 weigh in）／D 降級滯留（>30 天，純提醒）／E 下架記憶殘留（rtl_sold vs 實際）。
    掃描條件全遵守雙鍵規則（名字＋處理法）。 */
 async function openCleanupSheet(){
+  if(!isLead()){roToast();return;} /* Green/敏感操作：staff 不開放（2026-07-14 權限矩陣） */
   openDrawerHTML('<div class="t" style="font-size:19px">Clean up</div><div class="empty">Scanning…</div>');
   /* B 舊杯測：沒鎖＋該豆（名＋procKey）沒庫存沒待秤沒降級＋不在 QC 佇列（重審中的不碰） */
   var inQ={};(QCQ||[]).forEach(function(q){inQ[String(q.s.id)]=1;});
@@ -4105,6 +4106,7 @@ async function lcSaveOfficial(){
   }
 }
 function openDeleteCoffeeSheet(){
+  if(!isLead()){roToast();return;} /* Green/敏感操作：staff 不開放（2026-07-14 權限矩陣） */
   var list=allRetailCoffees();
   openDrawerHTML('<div class="t" style="font-size:19px">Delete a coffee</div>'
     +'<div class="s" style="margin-top:2px">removes cupping records and roast batches — green bean stock is never touched</div>'
@@ -4867,7 +4869,7 @@ function openBatchesSheet(){
         +(x.batches.length&&ed?'<div class="s" style="margin-top:4px;color:var(--muted)">tap a batch row → deduct that exact roast date</div>':'')
         +(x.noInfo?'<button class="chip" id="rst-cup" style="margin-top:8px;color:var(--danger);border-color:var(--danger)">Cup it in QC →</button>':'')
         /* ★ chip（三態簡化）：沒星且有 pass 批＝可點星（支線入口；主線是 List push 自動星） */
-        +((ed&&!x.noInfo&&!x.locked&&(x.batches||[]).some(function(b){return qcState(b)==='pass';}))?'<button class="chip" id="rst-star" style="margin-top:8px">★ Star · selling version</button>':'')
+        +((isLead()&&!x.noInfo&&!x.locked&&(x.batches||[]).some(function(b){return qcState(b)==='pass';}))?'<button class="chip" id="rst-star" style="margin-top:8px">★ Star · selling version</button>':'')
         /* Send back to QC（2026-07-13 老闆點名）：同 Coffee Info 詳情那顆——清判定＋解鎖重審；
            有杯測且有已判定批次（含 downgrade 池）才出 */
         +((ed&&!x.noInfo&&((x.batches||[]).some(function(b){return b.qc;})||(x.dg||[]).length))?'<button class="chip" id="rst-sbqc" style="margin-top:8px">Send back to QC</button>':'');
@@ -5168,6 +5170,7 @@ function openOrderDetail(o){
 /* ===== 收生豆（照 classic receivePurchase 規則但免採購單：併現有批次或開新豆＋stock_moves 'receive'）===== */
 var RCV=null;
 function openReceiveSheet(){
+  if(!isLead()){roToast();return;} /* Green/敏感操作：staff 不開放（2026-07-14 權限矩陣） */
   RCV={mode:'existing',beanId:'',name:'',country:'',process:'',kg:'',cost:'',supplier:'',lot:''};
   paintReceiveSheet();
 }
@@ -5258,6 +5261,7 @@ async function saveReceiveSheet(){
 /* ===== 盤點（照 classic T8 saveStocktakeAll：只存有改動的，逐筆 beans 更新＋stock_moves 'stocktake'）===== */
 var STK=null;
 function openStocktakeSheet(){
+  if(!isLead()){roToast();return;} /* Green/敏感操作：staff 不開放（2026-07-14 權限矩陣） */
   STK={vals:{}};
   var beans=(DB.beans||[]).slice().sort(function(a,b){
     var c=String(a.country||'').localeCompare(String(b.country||''));
@@ -5316,7 +5320,7 @@ async function saveStocktakeSheet(){
 /* ===== 上架（照 classic pushToSquare：定價→現畫資訊卡→sync-to-square push；價格記憶走 app_state 跨 app 同步）===== */
 var LST=null;
 async function openListSheet(i){
-  if(!canWrite()){roToast();return;}
+  if(!isLead()){roToast();return;}
   var s=i.ref;var nm=String(s.sample_id||'').trim();
   /* 帶上次的價格/規格記憶（classic 同款鑰匙）＋商品圖模式記憶（rtl_imgstyle，per-bean） */
   var mem={rtl_price:{},rtl_g:{},rtl_sizes:{},rtl_imgstyle:{}};
@@ -5700,7 +5704,7 @@ async function openSampleSheet(){
 }
 /* 列表渲染（decision/展開等就地操作走這裡重畫，不重查 DB） */
 function renderSampleSheetHTML(rows){
-  var ed=canWrite();
+  var ed=isLead();
   var h='<div class="t" style="font-size:19px">Sample analyse</div>'
     +'<div class="s" style="margin-top:2px">green samples from suppliers — cup, score, then mark Buy / Maybe / Skip</div>'
     +(ed?'<button class="act" id="smp-new" style="margin-top:12px">+ New sample</button>':'');
@@ -5768,7 +5772,7 @@ function wireSampleRowActions(){
 }
 /* 表單：抄 paintCupSheet 的活雷達＋滑桿（獨立於 CUP 熟豆流程）；s=null 新增、s=紀錄 編輯 */
 function openSampleForm(s){
-  if(!canWrite()){roToast();return;}
+  if(!isLead()){roToast();return;}
   SMP={editId:s?s.id:null,date:(s&&String(s.cupping_date||'').slice(0,10))||todayStr(),name:(s&&s.sample_id)||'',supplier:(s&&s.supplier)||'',process:(s&&s.process)||'',
     scores:{fragrance:(s&&s.fragrance)||2,acidity:(s&&s.acidity)||2,sweetness:(s&&s.sweetness)||2,body:(s&&s.body)||2,aftertaste:(s&&s.aftertaste)||2},
     feats:(s&&(s.features||[]).filter(Boolean))||[],comment:(s&&s.comment)||''};
@@ -5909,7 +5913,7 @@ function buyCard(p,pi){
     +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
     +'<span class="t" style="font-size:14.5px">'+esc(p.name||'—')+(p.process?' <span class="s" style="color:var(--muted)">· '+esc(p.process)+'</span>':'')+'</span>'+badge+'</div>'
     +(sub.length?'<div class="s" style="margin-top:3px;color:var(--muted)">'+sub.join(' · ')+'</div>':'');
-  if(p.status==='ordered'&&canWrite()){
+  if(p.status==='ordered'&&isLead()){
     h+='<div style="display:flex;gap:8px;margin-top:9px">'
       +'<button class="chip" data-borecv="'+pi+'" style="flex:1;margin:0;color:var(--accent)">Received →</button>'
       +'<button class="chip" data-bocxl="'+pi+'" style="flex:0 0 auto;margin:0;color:var(--muted)">Cancel</button></div>';
@@ -5927,7 +5931,7 @@ async function openBuyLogSheet(){
     sl=(sm.data||[]).filter(function(s){return !used[s.id];}); /* Buy 樣品未下單的才進 shortlist */
   }catch(e){}
   BUY.pos=pos;BUY.shortlist=sl;
-  var ed=canWrite();
+  var ed=isLead();
   var onOrder=pos.filter(function(p){return p.status==='ordered';});
   var hist=pos.filter(function(p){return p.status!=='ordered';}).slice(0,10);
   var h='<div class="t" style="font-size:19px">Buy log</div>'
@@ -5963,7 +5967,7 @@ async function openBuyLogSheet(){
 }
 /* 開採購單（seed＝shortlist 帶入 {sample_ref,name,process,supplier}）——payload 照 classic savePurchase */
 function openBuyForm(seed){
-  if(!canWrite()){roToast();return;}
+  if(!isLead()){roToast();return;}
   var v=seed||{};
   openDrawerHTML('<div class="t" style="font-size:19px">New purchase order</div>'
     +'<div class="s" style="margin-top:2px">'+(v.sample_ref?'from the cupping shortlist — check the numbers and order':'order green beans from a supplier')+'</div>'
@@ -5998,7 +6002,7 @@ function openBuyForm(seed){
 }
 /* 收貨入庫（照 classic receivePurchase＝同名+處理法併批或新建＋stock_moves＋purchases 蓋 received） */
 function openBuyReceive(p){
-  if(!canWrite()){roToast();return;}
+  if(!isLead()){roToast();return;}
   openDrawerHTML('<span class="tag">Receive</span><div class="t" style="font-size:19px">'+esc(p.name||'—')+(p.process?' · '+esc(p.process):'')+'</div>'
     +'<div class="s" style="margin-top:2px">'+(p.supplier?esc(p.supplier)+' · ':'')+'adds to green stock and closes the order</div>'
     +'<div class="dlab">Received quantity (kg)</div><input class="din" id="br-kg" inputmode="decimal" value="'+esc(p.kg!=null?String(p.kg):'')+'">'
@@ -10092,17 +10096,18 @@ function renderTools(){
      Marketing、Team 卡片端無對應 → 各給一個不撞色的新色；App=中性灰 */
   var DEPT={green:'var(--green)',roast:'var(--roast)',qc:'var(--qc)',mkt:'var(--mkt)',ord:'var(--orders)',cust:'var(--cust)',fin:'var(--fin)',day:'var(--day)',team:'var(--team)',print:'var(--print)',set:'var(--set)'};
   function _sec(title,color,inner){return '<div class="gsec" style="color:'+color+'"><span class="gdot"></span>'+title+'</div><div class="tgrid" style="--dept:'+color+'">'+inner+'</div>';}
-  var _groups=_sec('Green',DEPT.green,
+  /* Green/Marketing 整區 lead 以上才見（2026-07-14 老闆權限矩陣：staff 八站不含這兩區） */
+  var _groups=(isLead()?_sec('Green',DEPT.green,
       (_mk?_mkTile('t-recv','Receive green','delivery in','receive')+_mkTile('t-stk','Stocktake','weigh greens','tasks'):'')
-      +_tiles([['Green stock','full list','greens','stock'],['ID book','all S# &amp; B# numbers','idbook','menu'],['Sample analyse','green cupping','sampleana','qc',1],['Buy log','green purchases','buylog','order',1],['C Market','futures · landed cost','cmarket','statement']]))
+      +_tiles([['Green stock','full list','greens','stock'],['ID book','all S# &amp; B# numbers','idbook','menu'],['Sample analyse','green cupping','sampleana','qc',1],['Buy log','green purchases','buylog','order',1],['C Market','futures · landed cost','cmarket','statement']])):'')
     +_sec('Roast',DEPT.roast,
       (_mk?_mkTile('t-roast','Log roast','green in','flame'):'')
-      +_tiles([['Coffee Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Coffee Info','flavour · dossier','retail','market']].concat(_mk?[['Delete a coffee','remove · careful','delbean','trash',1],['Clean up','orphans · dead links','cleanup','refresh',1]]:[])))
+      +_tiles([['Coffee Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Coffee Info','flavour · dossier','retail','market']].concat(isLead()?[['Delete a coffee','remove · careful','delbean','trash',1],['Clean up','orphans · dead links','cleanup','refresh',1]]:[])))
     +_sec('QC &amp; Recipe',DEPT.qc,
       _tiles([['QC','cup and judge','qcgo','qc'],['Live cupping','blind · together','livecup','qc'],['Recipe','blends · dial-in','recipe','recipe'],['Dial in','espresso shots','dialin','espresso',1]]))
     /* 2026-07-12 統整：Coffee Info/Post to socials/IG asset/Announce 四顆收進 Publish 一鍵上架面板 */
-    +_sec('Marketing',DEPT.mkt,
-      _tiles([['Publish','QC → every channel','publish','mega',1]]))
+    +(isLead()?_sec('Marketing',DEPT.mkt,
+      _tiles([['Publish','QC → every channel','publish','mega',1]])):'')
     +_sec('Orders',DEPT.ord,
       (_mk?_mkTile('t-neworder','New order','right here','plus'):'')
       +_tiles([['Orders','recent list','orders','order']].concat(ROLE==='director'?[['Subscriptions','fortnightly beans · plans','subs','reorder',1],['Wholesale','discount % · accounts','wholesale','statement',1]]:[])))
@@ -10117,7 +10122,7 @@ function renderTools(){
       _tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster','today',_mk?1:0],['Team notes','notes · problems','notes','recipe',_mk?1:0],['Activity','who did what · when','activity','refresh']].concat(isLead()?[['Team','who is on · assign','team','team',1]]:[]).concat(ROLE==='director'?[['Add account','new sign-in','addacc','user',1]]:[])))
     +_sec('Print',DEPT.print,
       (_mk?_mkTile('t-label','Labels','bag / tin','tag'):'')
-      +_tiles([['Menus','menu PDFs · in-store','menus','menu'],['Brew Card','A4 · pour-over guide','brewcard','recipe'],['Folding Info Card','A4 · 4 fold cards','infocards','image'],['Social Images','4-up · pick a coffee','social4','camera'],['Files','agreement · manuals','files','book']]))
+      +_tiles([['Menus','menu PDFs · in-store','menus','menu'],['Brew Card','A4 · pour-over guide','brewcard','recipe'],['Folding Info Card','A4 · 4 fold cards','infocards','image']].concat(isLead()?[['Social Images','4-up · pick a coffee','social4','camera']]:[]).concat([['Files','agreement · manuals','files','book']])))
     +_sec('Setting',DEPT.set,
       _tiles([['How it works','gestures and cards','help','qc'],['Sign out','back to the shop menu','signout','chev']]));
   m.innerHTML='<input class="search" id="tsearch" type="search" placeholder="Search beans, customers, orders…">'
@@ -10632,9 +10637,9 @@ function showFbOverlay(ref){
    全新增程式碼：只讀 buildItems 算好的 ITEMS/QCQ/toCupList 與 DB.actToday，零資料庫寫入；
    紅點已讀存 localStorage home_seen_v1（個人狀態、非 lead 也滅得掉——app_state 有唯讀護欄擋著） */
 var HOME_TILES=[
-  {k:'roast',lab:'Roast',sts:['Roast','Green'],roles:['director','roaster']},
+  {k:'roast',lab:'Roast',sts:['Roast','Green'],roles:['director','roaster','staff']},
   {k:'qc',lab:'QC &amp; Recipe',sts:['QC','Recipe'],roles:['director','roaster','retail','staff']},
-  {k:'marketing',lab:'Marketing',sts:['Shelf'],roles:['director','retail','staff']},
+  {k:'marketing',lab:'Marketing',sts:['Shelf'],roles:['director','retail']},
   {k:'orders',lab:'Orders',sts:['Orders','Wholesale'],roles:['director','retail','staff']},
   {k:'customers',lab:'Customers',sts:['Customers'],roles:['director','retail','staff']},
   {k:'tasks',lab:'Daily Task',sts:['Daily Task'],roles:['director','roaster','retail','staff']}
