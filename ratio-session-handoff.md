@@ -64,6 +64,13 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之十八（瘦身＋bug/孤兒審查 ✅）
+- **孤兒掃描**（596 函式）：純孤兒只有 `rsRangeLbl`（8911，排班標籤定義了沒呼叫）＝已刪；`init` 是 IIFE 啟動入口非孤兒；低引用 30 個全是 addEventListener 引用/dispatch 觸發＝正常。codebase 很乾淨無死碼堆。
+- **瘦身**：`beanIdFor`/`bNoFor` 前半「解析豆」邏輯 100% 重複 → 抽共用 `resolveCoffee(nm,proc)`（回 {kind,obj}），兩者各自只做格式化（id vs B#）。`bNosForName` 語意不同（列全部同名 S#）保留獨立。
+- **bug 修**：`resolveCoffee` 首行 `if(proc==='')proc=undefined`——原 beanIdFor/bNoFor 傳空字串會走「找 process 為空的特定豆」與名字級語意不一致的隱藏陷阱，統一折成名字級。
+- **審查結論**（代理＋自審）：syncFor/matchRoast/itemBeanRef/雙路「ID 優先退名字級」邏輯確認無 bug；後半 helper（consumeBlendParts/greenForPart/blendPartPool/blCostPerKg/dot*/fullSampleQuery/buildItems 需求卡）本輪改時都各自 stub 驗證過。
+- **驗證**：jscheck ✓；preview——resolveCoffee 重構後 beanIdFor/bNoFor 六情境（單品/拼配/名字級歧義/唯一/空字串/認不出/無號）行為與重構前完全一致、空字串陷阱修復、bNosForName 回歸對；console 零錯誤。
+
 ## 〇、補記 — 2026-07-15 之十七（🔴④product_sync 認 ID：上架/下架/查狀態全走 target_id ✅，含 edge v29）
 - **老闆定調升級**：「凡判別到名字的一律改判 ID」——④做徹底含 Square edge。
 - **DB（migration `product_sync_target_id`）**：product_sync 加 target_id（beans.id 或 blends.id）；回填——單品 name+process 精準、process null 的 name 唯一（Alo Bona Village 等）、拼配對 blends。全部真豆對到，只兩個訂閱商品 null（正確）。bean_id 名字欄保留（Square 商品名/顯示/edge 相容）。

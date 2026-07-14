@@ -1147,32 +1147,27 @@ function rNos(batches){
   (batches||[]).forEach(function(r){var k=rNo(r);if(k&&!seen[k]){seen[k]=1;out.push(k);}});
   return out.join(' ');
 }
-/* 名字＋處理法 → 底層 id（beans.id 或 blends.id）：認 ID 的解析器（bNoFor 是它的顯示版）。
-   拼配名先命中 blends；單品照 procKey 找 beans（proc undefined＝名字級同名唯一才回）。回空＝認不出（走名字級退路） */
-function beanIdFor(nm,proc){
+/* 名字＋處理法 → 命中的豆/配方 {kind:'blend'|'bean',obj}（認 ID 的統一解析器；beanIdFor/bNoFor 都用它）。
+   拼配名先命中 blends；單品照 procKey 找 beans（proc undefined／空字串＝名字級，同名唯一才回）。回 null＝認不出 */
+function resolveCoffee(nm,proc){
   var k=String(nm||'').trim().toLowerCase();
-  if(!k)return '';
+  if(!k)return null;
+  if(proc==='')proc=undefined; /* 空字串折成名字級——避免誤配 process 為空的特定豆（原 beanIdFor/bNoFor 的隱藏陷阱） */
   var bl=(DB.blends||[]).find(function(x){return String(x.name||'').trim().toLowerCase()===k;});
-  if(bl)return String(bl.id);
+  if(bl)return {kind:'blend',obj:bl};
   var pool=(DB.beans||[]).filter(function(x){return String(x.name||'').trim().toLowerCase()===k;});
   var b;
   if(proc!==undefined){var pk=procKey(proc);b=pool.find(function(x){return procKey(x.process)===pk;})||(pool.length===1?pool[0]:null);}
   else b=(pool.length===1?pool[0]:null);
-  return b?String(b.id):'';
+  return b?{kind:'bean',obj:b}:null;
 }
-/* 統一取號口（2026-07-15 全 app 掛號）：豆名＋處理法 → 'B#00013'。
-   拼配名先命中 blends.blend_no；單品照 procKey 找 beans.green_no。
-   proc undefined＝名字級：同名唯一才回號（多處理法回空，避免掛錯） */
+/* 名字＋處理法 → 底層 id（beans.id 或 blends.id）；回空＝認不出（走名字級退路） */
+function beanIdFor(nm,proc){var r=resolveCoffee(nm,proc);return r?String(r.obj.id):'';}
+/* 統一取號口（2026-07-15 全 app 掛號）：豆名＋處理法 → 'B#00013'（拼配用 blend_no、單品用 green_no） */
 function bNoFor(nm,proc){
-  var k=String(nm||'').trim().toLowerCase();
-  if(!k)return '';
-  var bl=(DB.blends||[]).find(function(x){return String(x.name||'').trim().toLowerCase()===k;});
-  if(bl)return bl.blend_no!=null?('B#'+String(bl.blend_no).padStart(5,'0')):'';
-  var pool=(DB.beans||[]).filter(function(x){return String(x.name||'').trim().toLowerCase()===k;});
-  var b;
-  if(proc!==undefined){var pk=procKey(proc);b=pool.find(function(x){return procKey(x.process)===pk;})||(pool.length===1?pool[0]:null);}
-  else b=(pool.length===1?pool[0]:null);
-  return (b&&b.green_no!=null)?('B#'+String(b.green_no).padStart(5,'0')):'';
+  var r=resolveCoffee(nm,proc);if(!r)return '';
+  var no=r.kind==='blend'?r.obj.blend_no:r.obj.green_no;
+  return no!=null?('B#'+String(no).padStart(5,'0')):'';
 }
 /* 同名下所有號（Delete a coffee 名字級聚合用；同名多處理法列全部＝提醒這名字下有幾支） */
 function bNosForName(nm){
@@ -8913,7 +8908,6 @@ async function saveRosterWeek(ws,btn){
 }
 /* ===== My unavailability：員工自己標休（staff_na）＝唯讀班表下唯一能寫的東西。
    RLS＝is_staff() 且 name=my_profile_name()（或 money）——只能動自己那筆，名字自動帶 WHO */
-function rsRangeLbl(s,e){var d1=rsDateFor(s,0);if(String(s)===String(e))return rsDMY(d1)+'/'+d1.getFullYear();var d2=rsDateFor(e,0);return rsDMY(d1)+' – '+rsDMY(d2)+'/'+d2.getFullYear();}
 var NA_Y=null,NA_M=null,NA_SEL=null;
 function openMyNA(){
   if(NA_Y==null){var now=new Date();NA_Y=now.getFullYear();NA_M=now.getMonth();}
