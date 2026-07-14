@@ -64,6 +64,11 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之十九（Add account 磁貼：開帳號直達入口 ✅）
+- **老闆要「可以申請帳號的 icon」**：`openAddAccountSheet`（缺口 #9 自 classic signUp 移植，走獨立 client persistSession:false）早就做好，只藏在 Team 抽屜的「+ Add account」按鈕。本輪加 Tools 磁貼直達。
+- **改動（new/index.html）**：Team 區磁貼行尾 `.concat(ROLE==='director'?[['Add account','new sign-in','addacc','user',1]]:[])`（**director 專屬**——開帳號權限高於 lead）＋dispatch `if(k==='addacc')openAddAccountSheet()`。openAddAccountSheet 本體零改動（back 仍回 Team，帳號設角色在那）。
+- **驗證**：jscheck ✓；preview——director 見磁貼「Add account · new sign-in」點開進抽屜、retail 角色磁貼隱藏（權限 gate 對）、console 零錯誤。⚠ 真開帳號要 email confirmation（signUp 後 session null，toast 提醒確認 email），新帳號 role 走 DB 預設＝customer，去 Team Accounts 點 chips 指派角色。
+
 ## 〇、補記 — 2026-07-15 之十八（瘦身＋bug/孤兒審查 ✅）
 - **孤兒掃描**（596 函式）：純孤兒只有 `rsRangeLbl`（8911，排班標籤定義了沒呼叫）＝已刪；`init` 是 IIFE 啟動入口非孤兒；低引用 30 個全是 addEventListener 引用/dispatch 觸發＝正常。codebase 很乾淨無死碼堆。
 - **瘦身**：`beanIdFor`/`bNoFor` 前半「解析豆」邏輯 100% 重複 → 抽共用 `resolveCoffee(nm,proc)`（回 {kind,obj}），兩者各自只做格式化（id vs B#）。`bNosForName` 語意不同（列全部同名 S#）保留獨立。

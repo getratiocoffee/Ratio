@@ -10082,7 +10082,7 @@ function renderTools(){
       (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'),'plus'):'')
       +_tiles([['Upcoming','30 days · bookings · parcels','upcoming','today']]))
     +_sec('Team',DEPT.team,
-      _tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster','today',_mk?1:0],['Team notes','notes · problems','notes','recipe',_mk?1:0],['Activity','who did what · when','activity','refresh']].concat(isLead()?[['Team','who is on · assign','team','team',1]]:[])))
+      _tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster','today',_mk?1:0],['Team notes','notes · problems','notes','recipe',_mk?1:0],['Activity','who did what · when','activity','refresh']].concat(isLead()?[['Team','who is on · assign','team','team',1]]:[]).concat(ROLE==='director'?[['Add account','new sign-in','addacc','user',1]]:[])))
     +_sec('Print',DEPT.print,
       (_mk?_mkTile('t-label','Labels','bag / tin','tag'):'')
       +_tiles([['Menus','menu PDFs · in-store','menus','menu'],['Brew Card','A4 · pour-over guide','brewcard','recipe'],['Folding Info Card','A4 · 4 fold cards','infocards','image'],['Social Images','4-up · pick a coffee','social4','camera'],['Files','agreement · manuals','files','book']]))
@@ -10201,6 +10201,7 @@ function renderTools(){
     if(k==='subs'){openSubsSheet();return;}
     if(k==='wholesale'){openWholesaleSheet();return;}
     if(k==='team'){openTeamSheet();return;}
+    if(k==='addacc'){openAddAccountSheet();return;}
     if(k==='roster'){openRosterSheet();return;}
     if(k==='signout'){
       if(!confirm('Sign out? The app returns to the public shop menu.'))return;
