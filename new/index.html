@@ -612,8 +612,12 @@ function toCupList(){
 function matchRoast(s){
   var nm=String(s.sample_id||'').trim().toLowerCase();if(!nm&&!s.bean_id)return null;
   var cands=DB.roasts.filter(function(r){
+    /* ID 優先（2026-07-15 老闆定調 QC 只認 ID）：兩邊都有 bean_id＝只比 ID，不看名字 */
     if(s.bean_id&&r.bean_id)return String(r.bean_id)===String(s.bean_id);
-    return String(r.bean_name||'').trim().toLowerCase()===nm;});
+    if(String(r.bean_name||'').trim().toLowerCase()!==nm)return false;
+    /* 名字退路加雙鍵：兩邊都記了處理法就必須相同（同名多處理法不互相污染）；舊資料沒記 process 容忍 */
+    if(s.process&&r.process&&procKey(r.process)!==procKey(s.process))return false;
+    return true;});
   if(!cands.length)return null;
   /* 有貨的批次優先配（同名一批吃光一批有貨 → sample 掛到有貨那批判定）；全沒貨才退回原候選，交給 QCQ 的 >0 擋掉 */
   var withStock=cands.filter(function(r){return Number(r.remaining_kg)>0;});
@@ -634,7 +638,8 @@ function buildItems(){
     /* 上架佇列：QC pass 後未上 Square → List 卡；已上架但風味沒鎖 → Lock 聚合卡 */
     if(r&&r.qc==='pass'){
       var nm=String(s.sample_id||'').trim();if(!nm)return;
-      var sync=DB.syncs.find(function(x){return String(x.bean_id||'').trim().toLowerCase()===nm.toLowerCase();});
+      /* process 級（2026-07-15）：同名多處理法各看各的上架列，不再名字級誤判 */
+      var sync=syncFor(nm,s.process);
       if(!(sync&&sync.status==='synced'))LISTQ.push(s);
       else if(!s.flavour_locked)LOCKQ.push(s);
     }
@@ -1244,8 +1249,10 @@ async function qcVerdict(r,v,btn,cardId,s){
   /* 同一支豆同一天烘的幾鍋＝同一批，一起判（2026-07-12 老闆點名 QC 同日合併）——
      否則合併顯示的其他鍋 qc 還是 null，判完又冒出來。同名+同處理法+同烘焙日、還沒判定的一起蓋 */
   var mates=(DB.roasts||[]).filter(function(x){
-    return String(x.id)!==String(r.id)&&!x.qc
-      &&String(x.bean_name||'').trim().toLowerCase()===String(r.bean_name||'').trim().toLowerCase()
+    if(String(x.id)===String(r.id)||x.qc)return false;
+    /* ID 檢查（2026-07-15）：兩邊都掛了生豆 ID 就必須同一支——ID 不同名字再像也不聯動 */
+    if(r.bean_id&&x.bean_id&&String(x.bean_id)!==String(r.bean_id))return false;
+    return String(x.bean_name||'').trim().toLowerCase()===String(r.bean_name||'').trim().toLowerCase()
       &&String(x.process||'').trim().toLowerCase()===String(r.process||'').trim().toLowerCase()
       &&String(x.roast_date||'')===String(r.roast_date||'');
   });

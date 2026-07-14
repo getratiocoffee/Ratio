@@ -64,6 +64,14 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之十（QC 只認 ID：配對層去名字化 ✅）
+- **老闆定調**：QC edit 只對應 ID 做更改，不看名字 assign。**盤點結果**：QC 主寫入（qcVerdict/lockFlavourSolo/Re-cup/openQcStockSheet/退回 QC）早就全走 `eq('id',…)` ✓；洞在**配對層**三處，已堵：
+  ① `matchRoast`（612，QC 佇列心臟）：ID 優先原樣，**名字退路加雙鍵**——sample 與 roast 都記了 process 就必須 procKey 相等（同名雙處理法不再互配）；roast 沒記 process 的舊資料容忍
+  ② `qcVerdict` 同日 mates 聯動：加 bean_id 檢查——兩邊都掛 ID 且不同＝不聯動（名字再像也不動）；無 ID 舊資料照舊聯動
+  ③ QCQ 建構的 LISTQ/LOCKQ「已上架」判斷：名字級 find syncs → `syncFor(nm,s.process)` process 級
+- **資料面查核**：roasts 單品 25/25 全有 bean_id、samples 單品全有（8 筆無 ID 的全是拼配＝設計如此，拼配名唯一無污染風險）——**不需回填，ID 軌道已通**。
+- **驗證**：jscheck ✓；stub 同名雙處理法三批（bean_a CF／bean_b WH／無 ID legacy WH）——sample 有 ID 只配同 ID 批 ✓、無 ID 的 CF sample 名字退路只配 CF 批 ✓、判 WH pass 時 CF 批不聯動（null）＋legacy WH 批照聯動 ✓、console 零錯誤。
+
 ## 〇、補記 — 2026-07-15 之九（全 app 掛號：所有找豆子的地方都顯示 S#/B# ✅）
 - **老闆下令**：所有找豆子的都要對應 ID。Explore 盤點 18 個內部落點＋7 個對客面（店面/?bean/菜單/標籤/信件卡/社群圖＝**刻意不加**，ID 是內部語彙）。
 - **新 helper（rNos 旁）**：`bNoFor(nm,proc)`＝豆名＋處理法→'B#00013'（拼配名先命中 blends.blend_no；proc undefined＝名字級**同名唯一才回號**，多處理法回空防掛錯）；`bNosForName(nm)`＝同名全部號（'S#00012 S#00013'，Delete 名字級聚合用）。
