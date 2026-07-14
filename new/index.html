@@ -1637,24 +1637,36 @@ async function cardDots(){
     if(v&&typeof v==='object')_dotsMap=v;}catch(e){}
   return _dotsMap;
 }
-function dotColorFor(name,dots){
-  return (dotKeyFor(name,dots)&&RTL_DOTCOL[dotKeyFor(name,dots)])||'';
+function dotColorFor(name,dots,proc){
+  var k=dotKeyFor(name,dots,proc);
+  return (k&&RTL_DOTCOL[k])||'';
 }
-function dotKeyFor(name,dots){
+/* 2026-07-15 雙鍵化（老闆回報改 S#00012 顏色 S#00013 跟著變）：先查「豆名 @ 處理法」，
+   退名字級（舊資料/拼配/沒帶 proc 的呼叫端）——同名多處理法從此各自有色 */
+function dotKeyFor(name,dots,proc){
   var nm=String(name||'').trim();if(!nm||!dots)return '';
-  if(dots[nm])return dots[nm];
-  var lk=nm.toLowerCase(),key='';
-  Object.keys(dots).forEach(function(k){if(!key&&String(k).trim().toLowerCase()===lk)key=dots[k];});
-  return key||'';
+  var tries=[];
+  if(proc!=null&&String(proc).trim()!=='')tries.push(nm+' @ '+String(proc).trim());
+  tries.push(nm);
+  for(var i=0;i<tries.length;i++){
+    var t=tries[i];
+    if(dots[t])return dots[t];
+    var lk=t.toLowerCase(),key='';
+    Object.keys(dots).forEach(function(k){if(!key&&String(k).trim().toLowerCase()===lk)key=dots[k];});
+    if(key)return key;
+  }
+  return '';
 }
-/* 杯測時上色：read-modify-write app_state rtl_dot（值形狀＝扁平 {豆名:'y|b|r|d'}，同 classic appStatePush） */
-async function saveDotFor(name,key){
+/* 杯測時上色：read-modify-write app_state rtl_dot（值形狀＝扁平 {鍵:'y|b|r|d'}，同 classic appStatePush）。
+   proc 有值＝寫雙鍵「豆名 @ 處理法」；名字級舊值不清（同名另一支還靠它 fallback） */
+async function saveDotFor(name,key,proc){
   var nm=String(name||'').trim();if(!nm)return;
+  if(proc!=null&&String(proc).trim()!=='')nm=nm+' @ '+String(proc).trim();
   var r=await sb.from('app_state').select('value').eq('key','rtl_dot').maybeSingle();
   var v=(r&&r.data&&r.data.value)||{};
   if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v={};}}
   if(!v||typeof v!=='object')v={};
-  /* 同名不同大小寫的舊鍵一併清掉，避免雙鍵打架 */
+  /* 同鍵不同大小寫的舊鍵一併清掉，避免雙鍵打架 */
   Object.keys(v).forEach(function(k){if(String(k).trim().toLowerCase()===nm.toLowerCase()&&k!==nm)delete v[k];});
   if(key)v[nm]=key;else delete v[nm];
   var u=await sb.from('app_state').upsert({key:'rtl_dot',value:v,updated_at:new Date().toISOString()},{onConflict:'key'});
@@ -1671,7 +1683,7 @@ async function cardDataFor(s,blendMap,dots){
     (DB.roasts||[]).forEach(function(r){if(!hit&&String(r.bean_name||'')===(s.sample_id||''))hit=r.roast_date;});
     rdate=hit;
   }
-  var data={name:s.sample_id||'',color:dotColorFor(s.sample_id,dots),
+  var data={name:s.sample_id||'',color:dotColorFor(s.sample_id,dots,s.process),
     flavour:(s.features||[]).filter(Boolean).slice(0,3),cupScores:cup,
     comment:(s.comment||'').trim(),roasted:rdate?fmtD(rdate):''};
   var bd=blendMap[String(s.sample_id||'').trim().toLowerCase()];
@@ -2436,7 +2448,7 @@ async function openRetailSheet(){
   toCupList().forEach(function(r){inQCSet[String(r.bean_name||'').trim().toLowerCase()+'|'+procKey(r.process)]=1;});
   function rowHTML(c,zone){
     var nm=c.nm,rep=c.rep;
-    var col=uiDot(dotColorFor(nm,dots));
+    var col=uiDot(dotColorFor(nm,dots,c.isBlend?undefined:((rep&&rep.process)||c.proc)));
     var fr=shelfFreshness(nm,c.isBlend?undefined:c.proc);
     var feats=(rep&&Array.isArray(rep.features)?rep.features.slice(0,3).join(' · '):'');
     var sy=syncFor(nm,c.isBlend?undefined:c.proc);
@@ -2486,7 +2498,7 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
   openDrawerHTML('<div class="t" style="font-size:19px">'+esc(nm)+'</div><div class="empty">Loading…</div>');
   var s=shelfSampleFor(nm,proc)||{sample_id:nm};
   var dots={};try{dots=await cardDots();}catch(e){}
-  var col=uiDot(dotColorFor(nm,dots))||'#C87E8E';
+  var col=uiDot(dotColorFor(nm,dots,proc))||'#C87E8E';
   var info=[];try{info=await beanInfoRows(s);}catch(e){}
   /* 拼配豆在 beans 表沒有同名生豆，beanInfoRows 一律回空——它的身世在 blends（配方）裡。
      判斷方式同 cardDataFor：名字命中 blends 就是拼配 */
@@ -2648,7 +2660,7 @@ async function openPromoSheet(s,m){
     try{var bq=await sb.from('blends').select('name,parts,note');
       (bq.data||[]).forEach(function(b){if(b.name)blendMap[String(b.name).trim().toLowerCase()]={parts:b.parts||[],note:b.note||''};});}catch(e){}
     var info=[];try{info=await beanInfoRows(full,{omit:['Roasted','Harvest']});}catch(e){}
-    var col=dotColorFor(nm,dots)||'#C87E8E';
+    var col=dotColorFor(nm,dots,full.process)||'#C87E8E';
     var b64=await makeSquareCard(await cardDataFor(full,blendMap,dots),{tight:true});
     var feats=(full.features||[]).filter(Boolean).slice(0,3);
     var cap=promoCaptions(nm,info,feats,full.comment||'',m.rtl_price[nm],m.rtl_g[nm]||250,full.process||'');
@@ -3025,7 +3037,7 @@ async function openSocialSplitSheet(){
     if(!list.length)return '<div class="empty">No QC-passed coffees yet</div>';
     return list.map(function(s){
       var nm=String(s.sample_id||'').trim();
-      var c=uiDot(dotColorFor(nm,dots));
+      var c=uiDot(dotColorFor(nm,dots,s.process));
       var has=!!SOC_PHOTOS[beanSlug(nm)];
       return '<div class="dl" style="align-items:center;gap:10px">'
         +'<span data-sc="'+esc(s.id)+'" style="flex:1;min-width:0;cursor:pointer">'
@@ -3136,7 +3148,7 @@ async function socialSplitPick(s){
   try{var fq=await fullSampleQuery(nm,s.process); /* 雙鍵：豆名＋處理法 */
     if(fq.data&&fq.data[0])full=fq.data[0];}catch(e){}
   var dots={};try{dots=await cardDots();}catch(e){}
-  var col=dotColorFor(nm,dots)||'#C87E8E';
+  var col=dotColorFor(nm,dots,s.process)||'#C87E8E';
   var info=[];try{info=await beanInfoRows(full,{omit:['Roasted','Harvest']});}catch(e){}
   var feats=(full.features||[]).filter(Boolean).slice(0,3);
   await exportSocialImages(full,info,feats,nm,col,null,SOC_MODE);
@@ -3443,7 +3455,7 @@ async function openSocialPostBean(nm,m,st,proc){
   }catch(e){}
   var dots={};try{dots=await cardDots();}catch(e){}
   var info=[];try{info=await beanInfoRows(full,{omit:['Roasted','Harvest']});}catch(e){}
-  var col=dotColorFor(nm,dots)||'#C87E8E';
+  var col=dotColorFor(nm,dots,proc)||'#C87E8E';
   var feats=(full.features||[]).filter(Boolean).slice(0,3);
   var cap=promoCaptions(nm,info,feats,full.comment||'',m.rtl_price[nm],m.rtl_g[nm]||250,full.process||'');
   /* 重複發文防呆：activity_log 今天已有這支豆的 posted socials 就提醒 */
@@ -5324,7 +5336,7 @@ async function pushListToSquare(){
         try{
           var info=[];try{info=await beanInfoRows(full,{omit:['Roasted','Harvest']});}catch(e){}
           var feats=(full.features||[]).filter(Boolean).slice(0,3);
-          var col=dotColorFor(nm,dots)||'#C87E8E';
+          var col=dotColorFor(nm,dots,s.process)||'#C87E8E';
           var rmode=LST.imgMode==='photo'?'photo':'white';
           var rbg=LST.imgMode==='colour'?(LST.imgBg||'#FAF8F4'):'#FAF8F4';
           var rscrim=LST.imgMode==='photo'?LST.imgScrim:null;  /* photo 才吃紗濃度 */
@@ -5410,7 +5422,7 @@ async function openCupSheet(i){
   /* 拉霸永遠有值：上次同豆分數帶入（clamp 1–3），沒有全 2＝Medium */
   var sc={};CUP_FIELDS.forEach(function(f){sc[f[0]]=cupClamp(prev?prev[f[0]]:null);});
   var dots={};try{dots=await cardDots();}catch(e){}
-  var dk=dotKeyFor(r.bean_name,dots);
+  var dk=dotKeyFor(r.bean_name,dots,r.process);
   CUP={r:r,editId:null,scores:sc,dot:dk,dot0:dk,
     feats:(prev&&prev.features?prev.features.slice(0,3):[]),comment:'',
     process:(bean&&bean.process)||(prev&&prev.process)||''};
@@ -5421,7 +5433,7 @@ function cupClamp(v){v=Number(v);if(isNaN(v)||v<=0)return 2;return Math.min(3,Ma
 async function openRecupSheet(q){
   var sc={};CUP_FIELDS.forEach(function(f){sc[f[0]]=cupClamp(q.s[f[0]]);});
   var dots={};try{dots=await cardDots();}catch(e){}
-  var dk=dotKeyFor(q.r.bean_name||q.s.sample_id,dots);
+  var dk=dotKeyFor(q.r.bean_name||q.s.sample_id,dots,q.r.process||q.s.process);
   CUP={r:q.r,editId:q.s.id,scores:sc,dot:dk,dot0:dk,
     feats:(q.s.features||[]).slice(0,3),comment:String(q.s.comment||''),
     process:q.s.process||''};
@@ -5544,7 +5556,7 @@ async function saveCupSheet(){
       var uq=await sb.from('samples').update(up).eq('id',CUP.editId);
       if(uq.error){var up2=Object.assign({},up);delete up2.features;delete up2.cupper;uq=await sb.from('samples').update(up2).eq('id',CUP.editId);}
       if(uq.error)throw new Error(uq.error.message);
-      if(CUP.dot!==CUP.dot0){try{await saveDotFor(name,CUP.dot);}catch(e){toast('Saved, but colour failed');}}
+      if(CUP.dot!==CUP.dot0){try{await saveDotFor(name,CUP.dot,CUP.process);}catch(e){toast('Saved, but colour failed');}}
       toast('Cupping updated ✓');
       await reload();openQCSheet(); /* 回 QC 抽屜 */
     }catch(e){
@@ -5577,7 +5589,7 @@ async function saveCupSheet(){
     if(ins.error)throw new Error(ins.error.message);
     var u=await sb.from('roasts').update({status:'cupped'}).eq('id',r.id);
     if(u.error)throw new Error('sample saved but batch status update failed: '+u.error.message);
-    if(CUP.dot!==CUP.dot0){try{await saveDotFor(name,CUP.dot);}catch(e){toast('Saved, but colour failed');}}
+    if(CUP.dot!==CUP.dot0){try{await saveDotFor(name,CUP.dot,CUP.process);}catch(e){toast('Saved, but colour failed');}}
     logAct('cupped',name);
     toast('Cupped ✓ now in the QC queue');
     await reload();openQCSheet(); /* 回 QC 抽屜 */
@@ -6973,7 +6985,7 @@ async function infoCardFaces(s){
     if(fq.data&&fq.data[0])full=fq.data[0];
   }catch(e){}
   var dots={};try{dots=await cardDots();}catch(e){}
-  var col=dotColorFor(full.sample_id,dots)||'#C87E8E';
+  var col=dotColorFor(full.sample_id,dots,full.process)||'#C87E8E';
   var nm=String(full.sample_id||'').trim();
   var info=await beanInfoRows(full,{omit:['Roasted','Harvest']});
   var feats=(full.features||[]).filter(Boolean).slice(0,3);

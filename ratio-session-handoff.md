@@ -64,6 +64,12 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之十一（卡片色點雙鍵化：改 S#00012 顏色 S#00013 不再跟著變 ✅）
+- **老闆回報**：改 S#00012 顏色 S#00013 跟著變。**根因**：色點存 app_state `rtl_dot`，值形狀 `{豆名:'y|b|r|d'}`——**key 只有豆名**（classic 老設計），同名兩支共用一筆。
+- **修法**：`saveDotFor(name,key,proc)` proc 有值寫雙鍵「豆名 @ 處理法」（照 rtl_sold 慣例）；`dotKeyFor/dotColorFor` 加 proc 參數＝先查雙鍵、退名字級（舊資料/拼配/沒 proc 的呼叫端）。**名字級舊值不清**——同名另一支還靠它 fallback，等它自己被改色時才寫自己的雙鍵。
+- **呼叫端**：存 ×2（saveCupSheet 帶 CUP.process）；讀 12 處帶 proc（cardDataFor/Coffee Info 行＋詳情/Promo/SocialSplit ×2/SocialPost/List push/Cup/Recup/infoCardFaces）；Bean rotation 吧台只有名字＝名字級照舊。
+- **驗證**：jscheck ✓；stub 重演——舊資料名字級 'y' 兩支同色（重現 bug）→ 改 CF 為 'r' → 儲存多了雙鍵、CF 讀 r、WH 仍讀名字級 y（不連動）✓；console 零錯誤。⚠ 真機改色後記得：卡片/社群圖等產出物的色是畫圖時讀的，改色後重產才會換色（本來就如此）。
+
 ## 〇、補記 — 2026-07-15 之十（QC 只認 ID：配對層去名字化 ✅）
 - **老闆定調**：QC edit 只對應 ID 做更改，不看名字 assign。**盤點結果**：QC 主寫入（qcVerdict/lockFlavourSolo/Re-cup/openQcStockSheet/退回 QC）早就全走 `eq('id',…)` ✓；洞在**配對層**三處，已堵：
   ① `matchRoast`（612，QC 佇列心臟）：ID 優先原樣，**名字退路加雙鍵**——sample 與 roast 都記了 process 就必須 procKey 相等（同名雙處理法不再互配）；roast 沒記 process 的舊資料容忍
