@@ -7145,10 +7145,10 @@ async function infoCard4Pdf(slotIds){
     /* 雙面短邊翻：整張背面相對正面轉 180°，故背面頁預轉 180° 補償，印出後背面才正立 */
     +'.icroot .flip{position:absolute;inset:0;transform:rotate(180deg)}'
     +'</style>'
-    /* 老闆定位（2026-07-09）：面 2（雷達＋明細）排第一頁正立、面 1（封面＋QR）排第二頁。
-       ⚠ 背面朝向改由印表機雙面設定處理（2026-07-09 老闆改印表機設定），故第二頁不再軟體轉 180°（原 .flip 已移除）；若哪天印出背面顛倒，改印表機雙面短邊/長邊設定即可 */
+    /* 面 2（雷達＋明細）排第一頁正立、面 1（封面＋QR）排第二頁。
+       ⚠ 2026-07-15 老闆定：第二頁整頁 rotate(180°)（雙面短邊翻，背面內容轉正）；裁切線在 page 層不轉（180° 對稱位置不變） */
     +'<div class="page pb"><div class="cutv"></div><div class="cuth4"></div><div class="grid">'+p1+'</div></div>'
-    +'<div class="page"><div class="cutv"></div><div class="cuth4"></div><div class="grid">'+p2+'</div></div>'
+    +'<div class="page"><div class="cutv"></div><div class="cuth4"></div><div class="grid" style="transform:rotate(180deg)">'+p2+'</div></div>'
     +'</div>';
   /* 老闆指定：不開列印框，直接產 PDF 檔下載（html2pdf 首次用時才載，兩頁 297×105mm）
      ⚠ 兩個坑：①離螢幕定位不能寫在交給 html2pdf 的元素上（會被 clone 走→截到空白）——包殼藏、把乾淨的 .icroot 交出去
