@@ -64,6 +64,11 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之八（ID 前綴改版：G→S、R→B ✅）
+- **老闆定案**：生豆 **S#**、熟豆 **B#**（原 G#/R# 棄用）。純顯示層——DB 欄位（green_no/blend_no）與號碼全部不動。
+- **改動（new/index.html）**：gNo→'S#'、rNo→'B#'、ID book 兩段文案與拼配硬編碼、磁貼副標 'all S# & B# numbers'、搜尋 regex（s13/S#00013/純數字＝生豆、b13/B#00013＝批次；g/r 打法停用）、註解同步。⚠ 函式名仍叫 gNo/rNo（green_no/roast 語源），別被名字騙——輸出已是 S#/B#。
+- **驗證**：jscheck ✓；stub——S#00013/B#00013/B#00028、ID book 文案、搜尋六打法（s/b 命中、g/r 空）、console 零錯誤。
+
 ## 〇、補記 — 2026-07-15 之七（ID book 磁貼：一頁看所有 G#/R# ✅）
 - **老闆點名**：Tools 加 icon 顯示所有剛設的 ID。**改動（new/index.html）**：①Production 區磁貼 `['ID book','all G# & R# numbers','idbook','menu']`（Green stock 旁，唯讀不上 mk 色）＋dispatch ②`openIdBookSheet()`（openGreensSheet 前）＝兩段清單：Coffees（beans 按 green_no 排，行＝G# 大字＋名字·處理法＋右側 kg green，**點行→openGreenDetail**）＋Blends（blends 按 blend_no，R# 大字＋配方名）；沒號的豆不列（容錯）。
 - **驗證**：jscheck ✓；stub——磁貼在/點開抽屜、兩段排序對、沒號豆不列、點行跳生豆詳情、截圖乾淨、console 零錯誤。

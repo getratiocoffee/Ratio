@@ -552,7 +552,7 @@ async function loadAll(){
     sb.from('app_state').select('value').eq('key','bean_swap').maybeSingle(),
     sb.from('subscriptions').select('*'),
     sb.from('activity_log').select('action,ts').gte('ts',todayStartISO()).limit(800), /* Home 進度條分子——只能 append 在最後（rs[0..21] 位置索引不能動） */
-    sb.from('blends').select('id,name,blend_no,parts,target_kg,low_stock_kg').order('pos',{ascending:true}) /* 熟豆血條＋低量/超量聚合卡用（rs[22]）；blend_no＝拼配的 R# 號 */
+    sb.from('blends').select('id,name,blend_no,parts,target_kg,low_stock_kg').order('pos',{ascending:true}) /* 熟豆血條＋低量/超量聚合卡用（rs[22]）；blend_no＝拼配的 B# 號 */
   ]);
   DB={orders:rs[0].data||[],customers:rs[1].data||[],tasks:rs[2].data||[],dialins:rs[3].data||[],
       syncs:rs[4].data||[],samples:rs[5].data||[],roasts:rs[6].data||[],beans:rs[7].data||[],
@@ -1110,12 +1110,12 @@ async function acceptOrder(i,btn){
 /* 處理法 key（2026-07-13 處理法分開下半場）：null/undefined/空白全折成 ''——
    全鏈「同名同處理法」比對都用它，別再裸比 process 字串 */
 function procKey(p){return String(p||'').trim().toLowerCase();}
-/* 生豆身分證（2026-07-15 老闆定案）：每支生豆一個 G#00001 人類可讀編號——DB green_no 自動發號
-   （sequence default），這裡只負責顯示。同名多處理法從此一眼分清（Alo Village G#00012/G#00013） */
-function gNo(b){return (b&&b.green_no!=null)?('G#'+String(b.green_no).padStart(5,'0')):'';}
-/* 熟豆編號 R#（2026-07-15 老闆改版）：一豆一號終身不變——號碼跟「豆」走，G/R 只是生熟狀態。
-   單品承生豆同號（G#00013 烘出來＝R#00013）、拼配用 blends.blend_no（同一個號碼池，全域唯一）。
-   批次之分＝R# ＋ 烘焙日（行內本來就顯示日期）；每鍋跳號的 roasts.roast_no 已廢除 */
+/* 生豆身分證（2026-07-15 老闆定案，之八改前綴 G→S）：每支生豆一個 S#00001 人類可讀編號——
+   DB green_no 自動發號（sequence default），這裡只負責顯示。同名多處理法從此一眼分清（Alo Village S#00012/S#00013） */
+function gNo(b){return (b&&b.green_no!=null)?('S#'+String(b.green_no).padStart(5,'0')):'';}
+/* 熟豆編號 B#（2026-07-15 老闆改版，之八改前綴 R→B）：一豆一號終身不變——號碼跟「豆」走，S/B 只是生熟狀態。
+   單品承生豆同號（S#00013 烘出來＝B#00013）、拼配用 blends.blend_no（同一個號碼池，全域唯一）。
+   批次之分＝B# ＋ 烘焙日（行內本來就顯示日期）；每鍋跳號的 roasts.roast_no 已廢除 */
 function rNo(r){
   if(!r)return '';
   var n=null;
@@ -1133,9 +1133,9 @@ function rNo(r){
     }
     n=b?b.green_no:null;
   }
-  return n!=null?('R#'+String(n).padStart(5,'0')):'';
+  return n!=null?('B#'+String(n).padStart(5,'0')):'';
 }
-/* 一組批次的 R# 清單（同組同豆＝同號，去重後通常就一個） */
+/* 一組批次的 B# 清單（同組同豆＝同號，去重後通常就一個） */
 function rNos(batches){
   var seen={},out=[];
   (batches||[]).forEach(function(r){var k=rNo(r);if(k&&!seen[k]){seen[k]=1;out.push(k);}});
@@ -4440,8 +4440,8 @@ async function openNotesSheet(){
   $('d-cl').addEventListener('click',closeDrawer);
 }
 /* ===== 生豆清單（產地分組；點豆看供應商/單價/警戒線＋最近流水帳）===== */
-/* ID book（2026-07-15 老闆點名）：一頁看所有 G#/R# 編號。
-   一豆一號：G#＝生豆面、R#＝熟豆面（同號）；拼配只有 R#。點豆行→生豆詳情 */
+/* ID book（2026-07-15 老闆點名）：一頁看所有 S#/B# 編號。
+   一豆一號：S#＝生豆面、B#＝熟豆面（同號）；拼配只有 B#。點豆行→生豆詳情 */
 function openIdBookSheet(){
   var beans=(DB.beans||[]).filter(function(b){return b.green_no!=null;})
     .sort(function(a,b){return a.green_no-b.green_no;});
@@ -4449,7 +4449,7 @@ function openIdBookSheet(){
     .sort(function(a,b){return a.blend_no-b.blend_no;});
   var rows='';
   if(beans.length){
-    rows+='<div class="dlab">Coffees — G# green · R# roasted (same number)</div>';
+    rows+='<div class="dlab">Coffees — S# green · B# roasted (same number)</div>';
     beans.forEach(function(b,ix){
       rows+='<div class="hit" data-idb="'+ix+'"><span><div class="t" style="font-size:15px">'+gNo(b)+'</div>'
         +'<div class="s">'+esc(b.name)+(b.process?' · '+esc(b.process):'')+'</div></span>'
@@ -4457,9 +4457,9 @@ function openIdBookSheet(){
     });
   }
   if(blends.length){
-    rows+='<div class="dlab">Blends — R# only (no green side)</div>';
+    rows+='<div class="dlab">Blends — B# only (no green side)</div>';
     blends.forEach(function(x){
-      rows+='<div class="hit"><span><div class="t" style="font-size:15px">R#'+String(x.blend_no).padStart(5,'0')+'</div>'
+      rows+='<div class="hit"><span><div class="t" style="font-size:15px">B#'+String(x.blend_no).padStart(5,'0')+'</div>'
         +'<div class="s">'+esc(x.name)+'</div></span><span class="k" style="font-size:13px">blend</span></div>';
     });
   }
@@ -4690,7 +4690,7 @@ function openBatchesSheet(){
       +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
       +'<span style="min-width:0;display:flex;align-items:baseline;gap:7px"><span class="t" style="font-size:14.5px">'+esc(x.name)
       +(x.proc?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(x.proc)+'</span>':'')
-      /* 來源生豆 G#ID（有對到 beans 列才有——批次孤兒沒有） */
+      /* 來源生豆 S#ID（有對到 beans 列才有——批次孤兒沒有） */
       +(x.ref&&gNo(x.ref)?' <span style="color:var(--muted);font-weight:400;font-size:11px">'+gNo(x.ref)+'</span>':'')+'</span>'
       +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':x.locked?'background:var(--accent);color:#fff':'background:#B5791C;color:#fff')+'">'+(x.sync==='paused'?'Off shelf':x.locked?'Live':'No lock')+'</span>':'')
       +(x.noInfo?'<span class="red" style="flex:0 0 auto;font-size:11px;font-weight:600">no info — cup it</span>':'')
@@ -9939,7 +9939,7 @@ function renderTools(){
   function _sec(title,color,inner){return '<div class="gsec" style="color:'+color+'"><span class="gdot"></span>'+title+'</div><div class="tgrid" style="--dept:'+color+'">'+inner+'</div>';}
   var _groups=_sec('Green',DEPT.green,
       (_mk?_mkTile('t-recv','Receive green','delivery in','receive')+_mkTile('t-stk','Stocktake','weigh greens','tasks'):'')
-      +_tiles([['Green stock','full list','greens','stock'],['ID book','all G# &amp; R# numbers','idbook','menu'],['Sample analyse','green cupping','sampleana','qc',1],['Buy log','green purchases','buylog','order',1],['C Market','futures · landed cost','cmarket','statement']]))
+      +_tiles([['Green stock','full list','greens','stock'],['ID book','all S# &amp; B# numbers','idbook','menu'],['Sample analyse','green cupping','sampleana','qc',1],['Buy log','green purchases','buylog','order',1],['C Market','futures · landed cost','cmarket','statement']]))
     +_sec('Roast',DEPT.roast,
       (_mk?_mkTile('t-roast','Log roast','green in','flame'):'')
       +_tiles([['Coffee Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Coffee Info','flavour · dossier','retail','market']].concat(_mk?[['Delete a coffee','remove · careful','delbean','trash',1],['Clean up','orphans · dead links','cleanup','refresh',1]]:[])))
@@ -9983,10 +9983,10 @@ function renderTools(){
     $('tgroups').style.display=q?'none':'';
     if(!q){$('thits').innerHTML='';return;}
     var hits=[];
-    /* G#/R# 編號搜尋：g13 / G#00013 / 純數字 找生豆、r13 / R#00013 找烘焙批次 */
+    /* S#/B# 編號搜尋：s13 / S#00013 / 純數字 找生豆、b13 / B#00013 找烘焙批次 */
     var qc0=q.replace(/\s/g,'');
-    var qG=/^g?#?0*(\d+)$/i.exec(qc0),qR=/^r#?0*(\d+)$/i.exec(qc0);
-    if(/^g/i.test(qc0))qR=null; /* 明打 g 開頭就不找批次 */
+    var qG=/^s?#?0*(\d+)$/i.exec(qc0),qR=/^b#?0*(\d+)$/i.exec(qc0);
+    if(/^s/i.test(qc0))qR=null; /* 明打 s 開頭就不找批次 */
     DB.beans.forEach(function(b){
       var byName=(b.name||'').toLowerCase().indexOf(q)>-1;
       var byNo=qG&&b.green_no!=null&&String(b.green_no)===qG[1];
