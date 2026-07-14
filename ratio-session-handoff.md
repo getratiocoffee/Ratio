@@ -64,6 +64,12 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之十三（烘豆需求卡認 coffee stock 的 B#：同名多處理法分開算該烘多少 ✅）
+- **老闆定調（回應 🔴 第 1 項）**：「這個是看 coffee stock 的 id」——烘豆需求卡該以熟豆庫存的 B# 認豆。**關鍵洞察**：出貨扣豆 deductOrderStock 早就靠「名 — 處理法」後綴把品項對到精確批次，烘豆需求卡只是還停在純名字。**不用改資料結構**（商品名帶後綴＝上架時 listNameFor 加的，處理法資訊已在名字裡）。
+- **改動（new/index.html）**：①新 helper `itemBeanRef(it)`＝訂單品項→{name,proc,isBlend}：process 優先 it.process，否則拆「名 — 處理法」後綴；**拆解 valid 用「beans 生豆主檔 or 熟豆批任一對得到」**（⚠ 要烘的豆沒熟豆批但有生豆，只驗熟豆會漏拆）②buildItems 烘豆需求：dem 按 `name|procKey(proc)` 聚合、shelfG 改 `rstStockKg(name,isBlend,proc)`（process 級貨架，已排除 reroast/downgrade）、卡片 detail/summary 顯示 B#、ref 帶 proc ③RO.pre chip（paintRoastSheet）：找生豆批帶處理法（同名挑對支）＋顯示 S#。
+- **驗證**：jscheck ✓；stub 同名雙處理法（CF 貨架 5kg／WH 0kg，兩單各要 1kg 帶後綴無 process 欄）——WH「B#00013 · 0g on shelf → roast 1000g」、CF「B#00012 · 5000g → covered ✓」**不再互相蓋**、ref 拆對 {Alo Village,White Honey}、Log roast chip 接 S#00013 bean_wh（非 bean_cf）、console 零錯誤。deductOrderStock 未動（自帶後綴拆解、扣的是必存在的熟豆批，OK；未來可統一走 itemBeanRef）。
+- **⏭ 🔴 剩四項**：出貨扣熟豆 deductOrderStock（可改走 itemBeanRef 統一）、Dial in applyDialinBrew、配方 parts 不存 bean_id、product_sync.bean_id 存名字。
+
 ## 〇、補記 — 2026-07-15 之十二（收官掃描第一批：有 bean_id 卻偷看名字的落點改認 ID ✅）
 - **背景**：老闆下令「所有跟豆子相關的都只抓 ID，其他只是 information」。兩個 Explore 代理全 app 審查，分三層（✅已ID／🟡有ID偷看名字·小修／🔴沒記ID需改結構）。本輪做**第一批 🟡**（六處）。
 - **改動（new/index.html）**：①`beanInfoRows` 單品段：有 `full.bean_id` → **記憶體 DB.beans 精準命中**（消滅同名多支 pool[0] 猜測＋省一次 DB 查詢，DB.beans 已載全欄位），沒 ID 退名字＋處理法 ②`cardDataFor` origin 段：同款 s.bean_id 優先 ③`shelfLiveBeans` live 加 `proc`（product_sync 有 process 欄）＋烘焙日帶 proc ④⑤⑥三個挑豆器（IG asset/Post to socials/Announce）去重 key 從 `nm` 改 `nm|procKey(proc)`＝同名多處理法各出一列、data 屬性帶 proc、點擊 `shelfSampleFor(nm,proc)`／`openSocialPostBean(...,proc)`／`announceShelfBean` 拿 process-scoped sample。

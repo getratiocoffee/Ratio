@@ -668,36 +668,35 @@ function buildItems(){
     det:[['Also in','Tools → Timesheet']],roles:['finance'],kind:'paynav'});
   /* 烘豆需求卡：Confirmed/Roasting 品項同名合併，**先看熟豆貨架只提差額**（老闆的生產線：接單→看熟豆庫存→沒貨才烘）；
      貨架＝roasts.remaining_kg 同名加總（QC 打槍的 reroast/downgrade 批不算可賣）；全夠貨＝不出卡 */
+  /* 2026-07-15：需求／貨架都認 coffee stock 的批次身份（豆名＋處理法＝B#），同名多處理法分開算——
+     Alo Village White Honey 缺貨不會被 Cold Fermentation 的庫存蓋掉 */
   var dem={},demOrder=[];
   packQ.forEach(function(o){(Array.isArray(o.items)?o.items:[]).forEach(function(it){
-    var nm=String(it.name||'').trim();if(!nm||isSubName(nm))return; /* 訂閱行不是豆名，不進烘豆需求 */
+    var nm0=String(it.name||'').trim();if(!nm0||isSubName(nm0))return; /* 訂閱行不是豆名，不進烘豆需求 */
     var g=(Number(it.grams)||0)*(Number(it.qty)||1);if(!g)return;
-    var k=nm.toLowerCase();
-    if(!dem[k]){dem[k]={name:nm,g:0};demOrder.push(k);}
+    var ref=itemBeanRef(it);
+    var k=ref.name.toLowerCase()+'|'+(ref.isBlend?'blend':procKey(ref.proc));
+    if(!dem[k]){dem[k]={name:ref.name,proc:ref.proc,isBlend:ref.isBlend,g:0};demOrder.push(k);}
     dem[k].g+=g;});});
   if(demOrder.length){
-    var shelfG=function(name){
-      var k=String(name||'').trim().toLowerCase(),s=0;
-      (DB.roasts||[]).forEach(function(r){
-        if(r.qc==='reroast'||r.qc==='downgrade')return;
-        if(Number(r.remaining_kg)>0&&String(r.bean_name||'').trim().toLowerCase()===k)s+=Number(r.remaining_kg);
-      });
-      return Math.round(s*1000);
-    };
+    /* 貨架＝coffee stock 同批次身份的可賣量（rstStockKg 已排除 reroast/downgrade） */
+    var shelfG=function(d){return Math.round(rstStockKg(d.name,d.isBlend,d.isBlend?undefined:d.proc)*1000);};
     var needs=[],covered=0,detRows=[],totNeed=0;
     demOrder.forEach(function(k){
-      var d=dem[k],have=shelfG(d.name),need=Math.max(0,d.g-have);
-      if(need>0){needs.push({name:d.name,g:need});totNeed+=need;detRows.push([d.name,d.g+'g ordered · '+have+'g on shelf → roast '+need+'g']);}
-      else{covered++;detRows.push([d.name,d.g+'g ordered · '+have+'g on shelf → covered ✓']);}
+      var d=dem[k],have=shelfG(d),need=Math.max(0,d.g-have);
+      var bn=bNoFor(d.name,d.isBlend?undefined:d.proc);
+      var label=d.name+(d.proc?' · '+d.proc:'')+(bn?' '+bn:'');
+      if(need>0){needs.push({name:d.name,proc:d.proc,isBlend:d.isBlend,g:need});totNeed+=need;detRows.push([label,d.g+'g ordered · '+have+'g on shelf → roast '+need+'g']);}
+      else{covered++;detRows.push([label,d.g+'g ordered · '+have+'g on shelf → covered ✓']);}
     });
     if(needs.length){
       needs.sort(function(a,b){return b.g-a.g;});
       out.push({id:'roastdem',st:'Roast',hot:1,t:'Roast for orders — ~'+Math.round(totNeed*1.15)+'g green',
-        s:needs.slice(0,3).map(function(n){return esc(n.name)+' '+n.g+'g';}).join(' · ')+(needs.length>3?' · +'+(needs.length-3)+' more':'')+(covered?' · '+covered+' covered by shelf':''),
+        s:needs.slice(0,3).map(function(n){var bn=bNoFor(n.name,n.isBlend?undefined:n.proc);return esc(n.name)+(bn?' '+bn:'')+' '+n.g+'g';}).join(' · ')+(needs.length>3?' · +'+(needs.length-3)+' more':'')+(covered?' · '+covered+' covered by shelf':''),
         act:'Log roast…',
         det:detRows.concat([['Total','roast '+totNeed+'g · ~'+Math.round(totNeed*1.15)+'g green']]),
         roles:['director','roaster'],kind:'roastlog',
-        ref:needs.map(function(n){return {name:n.name,g:n.g};})});
+        ref:needs.map(function(n){return {name:n.name,proc:n.proc,g:n.g};})});
     }
   }
   /* 訂閱到期聚合卡：active 且 next_ship_date 到了 → 一張卡帶老闆進 run sheet 挑豆批次出貨。
@@ -1363,6 +1362,28 @@ function openDetails(id){
    排除 QC 打退——同 rstBatches）；跳過無 grams 假品項（Delivery fee）與 Subscription 商品行；
    批次不夠照扣到 0 並回報短缺（不擋出貨——出貨是事實，帳目短缺提醒人工調）；
    orders.stock_deducted_at 蓋章防重複扣（再開同單不會扣第二次）。 */
+/* 訂單品項 → coffee stock 的批次身份 {name,proc,isBlend}（2026-07-15 老闆定調：烘豆需求／出貨都看 coffee stock 的 B#）。
+   process 優先 it.process；沒有就從商品名的「名 — 處理法」後綴拆（同名多處理法上架時 listNameFor 加的），
+   拆出的 name+proc 要能在熟豆批次對到才採用（訂閱行呼叫端已擋）。單一處理法豆＝proc undefined 名字級照舊 */
+function itemBeanRef(it){
+  var nm=String(it&&it.name||'').trim();
+  var isBlend=(DB.blends||[]).some(function(b){return String(b.name||'').trim().toLowerCase()===nm.toLowerCase();});
+  var proc=(it&&it.process!=null&&String(it.process).trim()!=='')?String(it.process).trim():undefined;
+  /* 對得到＝生豆主檔（beans）或熟豆批（roasts）任一有這支——要烘的豆沒熟豆批但有生豆，不能只驗熟豆 */
+  var hit=function(n,p){
+    var k=String(n||'').trim().toLowerCase(),pk=procKey(p);
+    return (DB.beans||[]).some(function(b){return String(b.name||'').trim().toLowerCase()===k&&(p==null||procKey(b.process)===pk);})
+      ||rstBatches(n,false,p).length>0;
+  };
+  /* 商品名帶「名 — 處理法」後綴（同名多處理法上架時 listNameFor 加的）：用現有 name＋proc 對不到
+     就把後綴拆進 process——roasts/beans 都不帶後綴，全名會對空。不管 proc 原本有沒有值都試拆 */
+  if(!isBlend&&nm.indexOf(' — ')>-1&&!hit(nm,proc)){
+    var cutAt=nm.lastIndexOf(' — ');
+    var nm2=nm.slice(0,cutAt).trim(),pr2=nm.slice(cutAt+3).trim();
+    if(nm2&&pr2&&hit(nm2,pr2)){nm=nm2;proc=pr2;isBlend=false;}
+  }
+  return {name:nm,proc:proc,isBlend:isBlend};
+}
 async function deductOrderStock(o){
   if(o.stock_deducted_at)return {skipped:true,short:[]};
   var short=[],tookAny=false;
@@ -6083,13 +6104,17 @@ function paintRoastSheet(){
   var chips='';
   if(RO.pre){
     chips='<div class="dlab">Needed for orders · tap to fill</div>'+RO.pre.map(function(d,ix){
-      var lot=beans.find(function(b){return String(b.name||'').trim().toLowerCase()===String(d.name||'').trim().toLowerCase();});
+      /* 生豆批也認處理法（2026-07-15）：同名多支挑對那支，chip 帶 S# 讓老闆一眼確認 */
+      var dnm=String(d.name||'').trim().toLowerCase(),dpk=procKey(d.proc);
+      var lot=beans.find(function(b){return String(b.name||'').trim().toLowerCase()===dnm&&(d.proc==null||procKey(b.process)===dpk);})
+        ||beans.find(function(b){return String(b.name||'').trim().toLowerCase()===dnm;});
       var needKg=Math.round(d.g*1.15/100)/10;
-      if(lot)return '<button class="dclose" data-lot="'+esc(lot.id)+'" data-kg="'+needKg+'">'+esc(d.name)+' · ~'+needKg+' kg green</button>';
+      var lab=esc(d.name)+(d.proc?' · '+esc(d.proc):'');
+      if(lot)return '<button class="dclose" data-lot="'+esc(lot.id)+'" data-kg="'+needKg+'">'+(gNo(lot)?gNo(lot)+' · ':'')+lab+' · ~'+needKg+' kg green</button>';
       /* 配不到生豆批 → 查配方表，是 blend 就切拼配模式帶入（熟豆量不 ×1.15） */
-      var bl=RO.blends.find(function(b){return String(b.name||'').trim().toLowerCase()===String(d.name||'').trim().toLowerCase();});
-      if(bl){var bkg=Math.round(d.g/100)/10;return '<button class="dclose" data-blend="'+esc(bl.name)+'" data-bkg="'+bkg+'">'+esc(d.name)+' · blend · ~'+bkg+' kg roasted</button>';}
-      return '<button class="dclose" disabled style="opacity:.55">'+esc(d.name)+' · no green lot</button>';
+      var bl=RO.blends.find(function(b){return String(b.name||'').trim().toLowerCase()===dnm;});
+      if(bl){var bkg=Math.round(d.g/100)/10;return '<button class="dclose" data-blend="'+esc(bl.name)+'" data-bkg="'+bkg+'">'+(bNoFor(bl.name)?bNoFor(bl.name)+' · ':'')+lab+' · blend · ~'+bkg+' kg roasted</button>';}
+      return '<button class="dclose" disabled style="opacity:.55">'+lab+' · no green lot</button>';
     }).join('');
   }
   var single=RO.mode==='single';
