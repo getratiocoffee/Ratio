@@ -628,7 +628,7 @@ function matchRoast(s){
 function buildItems(){
   var out=[],sn=snoozeMap();
   /* QC 佇列（也給 QC 分頁用） */
-  var seen={};QCQ=[];var LISTQ=[],LOCKQ=[];
+  var seen={};QCQ=[];var LISTQ=[];
   DB.samples.forEach(function(s){
     var k=s.bean_id?('id:'+String(s.bean_id)):((s.sample_id||'')+'·'+(s.process||'')).toLowerCase();
     if(seen[k])return;seen[k]=1;
@@ -640,9 +640,9 @@ function buildItems(){
       var nm=String(s.sample_id||'').trim();if(!nm)return;
       /* process 級（2026-07-15）：同名多處理法各看各的上架列，不再名字級誤判 */
       var sync=syncFor(nm,s.process);
+      /* 沒星不是缺陷（2026-07-14 老闆定調「我沒有 no star 的機制」）：星＝Pass 之上可選的附屬品，
+         系統不催星——原 STARQ/Add ★ 提醒卡整個退役，點星入口留在 Coffee Stock chip 與詳情頁 */
       if(!(sync&&sync.status==='synced'))LISTQ.push(s);
-      /* STARQ 孤兒網：已上架但整個名+處理法池都沒星才提醒（lockedMate 有星＝正常在賣，別誤觸） */
-      else if(!s.flavour_locked&&!lockedMate(s))LOCKQ.push(s);
     }
   });
   /* 晨報 */
@@ -744,13 +744,6 @@ function buildItems(){
       act:'List on Square…',det:[['Flavour',f||'—'],['Process',s.process||'—'],['Starred ★',s.flavour_locked?'yes':'added when pushed']],
       det2:'Later',roles:['director'],kind:'list',ref:s});
   });
-  /* ★ 孤兒聚合卡：已上架但沒星（沒星＝publish 沒資料源；正常路徑 push 會自動星，這是安全網） */
-  if(LOCKQ.length){
-    out.push({id:'locks',st:'Shelf',hot:0,t:'Add ★ — '+LOCKQ.length+' coffee'+(LOCKQ.length>1?'s':'')+' on Square without a star',
-      s:LOCKQ.slice(0,3).map(function(x){return esc(x.sample_id);}).join(' · ')+(LOCKQ.length>3?' · +'+(LOCKQ.length-3)+' more':''),
-      act:'Add ★…',det:LOCKQ.map(function(x){return [x.sample_id,(x.features||[]).slice(0,3).join(', ')||'no flavour notes'];}),
-      det2:'Later',roles:['director'],kind:'locks',ref:LOCKQ});
-  }
   packQ.forEach(function(o){
     var c=custById(o.customer_id);
     out.push({id:'pack:'+o.id,st:whOrd(o,c)?'Wholesale':'Orders',hot:0,t:'Pack #'+String(o.order_no||'—').padStart(4,'0')+' · '+((c&&c.name)||'Walk-in'),
@@ -1089,7 +1082,6 @@ async function runAction(id,btn){
     if(i.kind==='subrun'){openSubRunSheet();return;}
     if(i.kind==='roastlog'){openRoastSheet(Array.isArray(i.ref)?i.ref:null);return;}
     if(i.kind==='list'){await openListSheet(i);return;}
-    if(i.kind==='locks'){openLocksSheet(i);return;}
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent=i.act;}
     alert((i.act||'Action')+' failed: '+(e&&e.message||e));
@@ -2516,7 +2508,6 @@ async function openRetailSheet(){
         +(feats?' · '+esc(feats):'')
         +(zone==='stock'&&sy&&price==null?' · <span class="red">no price</span>':'')
         +(inQC?' · <span class="fr-yellow">re-checking in QC</span>':'')
-        +(zone==='pending'?' · <span style="color:var(--muted)">no ★ yet</span>':'')
         +(zone==='history'?' · <span style="color:var(--muted)">sold through</span>':''))
       :'<span class="red">no info — cup it in QC</span>';
     var sold=sy&&(!!m.rtl_sold[mkey]||!!m.rtl_sold[nm]||sy.status==='paused');
@@ -2531,7 +2522,8 @@ async function openRetailSheet(){
       +'<div class="s">'+sub+'</div></span>'+pill+'</div>';
   }
   function section(title,arr,zone){return arr.length?'<div class="dlab">'+title+'</div>'+arr.map(function(c){return rowHTML(c,zone);}).join(''):'';}
-  var body=section('In stock',inStock,'stock')+section('Pending — ★ when you list it',pending,'pending')+section('History — sold through',history,'history');
+  /* 區名避開豆況 Pending 撞名（老闆定調 Pending＝還沒 QC 的豆；這區＝有貨但還沒選在賣版本） */
+  var body=section('In stock',inStock,'stock')+section('Not listed yet',pending,'pending')+section('History — sold through',history,'history');
   var errs=(DB.syncs||[]).filter(function(x){return x.status&&x.status!=='synced'&&x.status!=='paused';});
   openDrawerHTML('<div class="t" style="font-size:19px">Coffee Info</div>'
     +'<div class="s" style="margin-top:2px">in stock now · waiting to list · sold-through history</div>'
@@ -2583,7 +2575,7 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
     +(bNoFor(nm,proc)?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif;font-weight:400">'+bNoFor(nm,proc)+'</span>':'')+'</div>'
     +'<div class="s" style="margin-top:2px">'+(rdate?'roasted '+fmtD(rdate)+' · ':'')
     +'<span class="'+fr.cls+'"'+(fr.cls?'':' style="color:var(--muted)"')+'>'+esc(fr.days!=null?fr.days+'d — '+fr.txt.split('— ')[1]:fr.txt)+'</span>'
-    +(s.flavour_locked?' · ★':' · ☆ not starred')
+    +(s.flavour_locked?' · ★':'')
     +((QCQ||[]).some(function(q){return String(q.s.sample_id||'').trim().toLowerCase()===nm.toLowerCase();})?' · <span class="fr-yellow">re-checking in QC</span>':'')+'</div>'
     +'<div style="margin-top:10px">'
     +(price!=null?'<div class="dl"><span>'+g+'g</span><span>'+money(price)+'</span></div>':'<div class="dl"><span>Price</span><span class="red">not recorded</span></div>')
@@ -4836,7 +4828,8 @@ function openBatchesSheet(){
       +(x.proc?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(x.proc)+'</span>':'')
       /* 來源生豆 S#ID（有對到 beans 列才有——批次孤兒沒有） */
       +(x.ref&&gNo(x.ref)?' <span style="color:var(--muted);font-weight:400;font-size:11px">'+gNo(x.ref)+'</span>':'')+'</span>'
-      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':x.locked?'background:var(--accent);color:#fff':'background:#B5791C;color:#fff')+'">'+(x.sync==='paused'?'Off shelf':x.locked?'On shelf ★':'No ★')+'</span>':'')
+      /* 膠囊只講貨架兩態（沒星不是狀態，老闆定調）：On shelf（有星帶 ★）／Off shelf */
+      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':'background:var(--accent);color:#fff')+'">'+(x.sync==='paused'?'Off shelf':(x.locked?'On shelf ★':'On shelf'))+'</span>':'')
       +(x.noInfo?'<span class="red" style="flex:0 0 auto;font-size:11px;font-weight:600">no info — cup it</span>':'')
       +'</span>'
       +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto">'
@@ -4874,7 +4867,6 @@ function openBatchesSheet(){
         }).join(''):'';
       h+='<div style="margin-top:6px">'+bl+dgl+pdl
         +(x.batches.length&&ed?'<div class="s" style="margin-top:4px;color:var(--muted)">tap a batch row → deduct that exact roast date</div>':'')
-        +((x.sync==='synced'&&!x.locked)?'<div class="s" style="margin-top:8px;color:#B5791C">On Square but no ★ — star a passed batch so customers can see it.</div>':'')
         +(x.noInfo?'<button class="chip" id="rst-cup" style="margin-top:8px;color:var(--danger);border-color:var(--danger)">Cup it in QC →</button>':'')
         /* ★ chip（三態簡化）：沒星且有 pass 批＝可點星（支線入口；主線是 List push 自動星） */
         +((ed&&!x.noInfo&&!x.locked&&(x.batches||[]).some(function(b){return qcState(b)==='pass';}))?'<button class="chip" id="rst-star" style="margin-top:8px">★ Star · selling version</button>':'')
@@ -5493,33 +5485,6 @@ async function pushListToSquare(){
     if(btn){btn.disabled=false;btn.textContent=LST.upd?'Push update to Square':'Push to Square';}
     alert('Push failed: '+(e&&e.message||e));
   }
-}
-/* ===== 鎖風味（聚合抽屜：逐支 Lock，寫 samples.flavour_locked）===== */
-function openLocksSheet(i){
-  var list=i.ref.slice();
-  function paint(){
-    openDrawerHTML('<div class="t" style="font-size:19px">Add ★ · selling versions</div>'
-      +'<div class="s" style="margin-top:2px">★ records go on info cards, shop page and emails — star when the notes are right</div>'
-      +list.map(function(s,ix){
-        return '<div class="dl" style="align-items:center"><span><b>'+esc(s.sample_id)+'</b><br><span style="color:var(--muted);font-size:13px">'+esc((s.features||[]).slice(0,3).join(', ')||'no flavour notes')+'</span></span>'
-          +(s.flavour_locked?'<span>★</span>':'<button class="dclose" style="margin:0;width:auto;padding:8px 14px" data-lk="'+ix+'">★ Star</button>')+'</div>';
-      }).join('')
-      +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
-    document.querySelectorAll('#drawer [data-lk]').forEach(function(el){el.addEventListener('click',async function(){
-      var s=list[+el.dataset.lk];
-      el.disabled=true;el.textContent='…';
-      /* 走 starSample＝互斥單選把關（原本裸寫 flavour_locked=true 沒解同名其他筆的星——順手修掉） */
-      var rs=await starSample(s,false);
-      if(!rs.ok){el.disabled=false;el.textContent='★ Star';return;}
-      logAct('★ starred',s.sample_id||'');
-      toast('★ starred ✓');paint();
-    });});
-    $('d-cl').addEventListener('click',async function(){
-      closeDrawer();
-      if(list.some(function(s){return s.flavour_locked;}))await reload();
-    });
-  }
-  paint();
 }
 /* ===== 杯測快錄（照 classic submitCupping 規則：samples insert＋批次標 cupped → 進 QC 佇列）===== */
 var CUP=null;
