@@ -2521,7 +2521,7 @@ async function openRetailSheet(){
       :'<span class="red">no info — cup it in QC</span>';
     var sold=sy&&(!!m.rtl_sold[mkey]||!!m.rtl_sold[nm]||sy.status==='paused');
     /* 膠囊：現貨區才有上架狀態——售罄紅、重審熄燈 */
-    var pill=(zone==='stock'&&sy)?'<span class="k pill'+(sold?' sold':(inQC?' off':''))+'">'+(sold?'Off shelf':'Live')+'</span>':'';
+    var pill=(zone==='stock'&&sy)?'<span class="k pill'+(sold?' sold':(inQC?' off':''))+'">'+(sold?'Off shelf':'On shelf')+'</span>':'';
     var procTxt=(rep&&rep.process)||c.proc||'';
     var cbn=bNoFor(nm,c.isBlend?undefined:(procTxt||c.proc));
     return '<div class="hit" data-shelf="'+esc(nm)+'" data-shelfp="'+esc(c.proc)+'" data-shelfb="'+(c.isBlend?'1':'0')+'"><span style="min-width:0"><div class="t" style="font-size:16px">'
@@ -3400,7 +3400,7 @@ function paintPublishSheet(sl,acts){
   var body=rows.length?rows.map(function(x,ix){
     /* 清單全是有星的豆＝膠囊固定 ★ Starred；shop 狀態在 chans 行（synced＋清單必星＝真 Live） */
     var qcPill=pill('★ Starred','var(--accent)');
-    var shop=x.sync==='synced'?'Live':(x.sync==='paused'?'Off shelf':'—');
+    var shop=x.sync==='synced'?'On shelf':(x.sync==='paused'?'Off shelf':'—');
     var chans='Shop (Square + Ratio): <b>'+shop+'</b> · FB/IG: <b>'+ago(x.fb)+'</b> · Email: <b>'+ago(x.em)+'</b>';
     var open=PUB.open===x.key; /* key＝nm|proc——同名兩處理法的卡開合互不干擾 */
     var h='<div style="border:1px solid '+(open?'var(--accent)':'var(--line)')+';border-radius:12px;padding:11px 13px;margin-top:8px">'
@@ -4836,7 +4836,7 @@ function openBatchesSheet(){
       +(x.proc?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(x.proc)+'</span>':'')
       /* 來源生豆 S#ID（有對到 beans 列才有——批次孤兒沒有） */
       +(x.ref&&gNo(x.ref)?' <span style="color:var(--muted);font-weight:400;font-size:11px">'+gNo(x.ref)+'</span>':'')+'</span>'
-      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':x.locked?'background:var(--accent);color:#fff':'background:#B5791C;color:#fff')+'">'+(x.sync==='paused'?'Off shelf':x.locked?'Live ★':'No ★')+'</span>':'')
+      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':x.locked?'background:var(--accent);color:#fff':'background:#B5791C;color:#fff')+'">'+(x.sync==='paused'?'Off shelf':x.locked?'On shelf ★':'No ★')+'</span>':'')
       +(x.noInfo?'<span class="red" style="flex:0 0 auto;font-size:11px;font-weight:600">no info — cup it</span>':'')
       +'</span>'
       +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto">'
@@ -5487,7 +5487,7 @@ async function pushListToSquare(){
     }catch(e){console.error('price memory',e);}
     /* ★：新上架＝必星；更新模式看 toggle；requeue 一律不星（等 QC 重過）。quiet＝push 本身就是宣告 */
     if(!s.flavour_locked&&!LST.requeue&&(!LST.upd||LST.lock)){try{await starSample(s,true);}catch(e){}}
-    closeDrawer();toast(LST.upd?'Updated on Square ✓':'Live on Square ✓');
+    closeDrawer();toast(LST.upd?'Updated on Square ✓':'On the shelf ✓');
     await reload();
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent=LST.upd?'Push update to Square':'Push to Square';}
