@@ -81,6 +81,15 @@
 - **驗證**：jscheck ✓；preview stub（攔 fetch＋假 html2pdf 捕 DOM）——四 select/選項對、同名雙處理法各自成列＋查詢 URL 各帶 process=eq.✓、混排 [Kiama,Danche,空,Kiama] → page1 照排＋page2 [Danche,Kiama,Kiama,空] 鏡像 ✓、空格 BLANK ✓、Same in all four 全填 ✓、全空按 Download 被擋 ✓、console 零錯誤、抽屜截圖乾淨。⚠ 真機雙面列印一張驗正反對位（老闆自測，對不上回報調鏡像）。
 - **同 session 順帶**：診斷 Post to FB+IG 401＝session 已在伺服器端登出（auth log 有 logout 事件、`session doesn't exist`），非 Meta 連線問題——重新登入即復原；建議 callFn 401 人話提示未做（老闆沒回覆）。
 
+## 〇、補記 — 2026-07-15 之二十（Roastery 統一工作台：四抽屜豆子中心一站式 ✅ commit 67d7c4b，待老闆 push）
+- **老闆需求＋拍板**：烘焙生產線查一支豆要跳四個抽屜（Log roast/Coffee Stock/QC/Coffee Info）太複雜——方案 A「豆子中心工作台」；磁貼並存不刪；今日流卡改開新台。
+- **新 `openRoasterySheet()`**（openRoastDateSheet 後、Backfill 註解前，+~250 行）：一支豆一列＝血條＋★/On/Off shelf 膠囊＋**「N QC」徽章**（待杯測+待判定合計）＋to weigh/dg 標；展開四段＝a)QC 段（In hand 同日合併→openCupSheet；To judge 滑卡 attachQcSwipe＋判定泡泡 View/Edit·Stock·Date·Pass/Downgrade，選中態 RWB.selq）b)批次段（可賣/降級/待秤三池，照 Coffee Stock 同款 markup，data-rwb* 前綴）c)資訊摘要（fresh+風味前 3 詞+country＋Details›→openShelfBeanDetail）d)動作列（Send back to QC／★ Star／Take off·Put back（isLead）／Roast this）。頂部 gs-sum 三格（kg/to QC/to weigh）＋常駐 Log roast 鈕＋Blends/Singles 分頁（RWB.seg，獨立於 RST 不互踩）＋Intake（BF.from='roastery' 回流）。
+- **聚合 `roasteryRows(isBlend)`**＝rstRows 加掛 qcq/tocup/qcN/fresh/rep（QCQ 與 toCupList 的豆必然已在 rstRows 名單——兩者都要求 remaining>0 或落待秤池，孤兒兜底接住）；配對 `rwbMatch`＝拼配名字級/單品 bean_id 優先/退名字＋procKey 雙鍵/roast 無 process 容忍（照 matchRoast 慣例）。零新查詢零 schema 改動，寫入全走既有函式。
+- **返回動線 `NAV_SRC`**（closeDrawer 後）：backToStock/backToQC/backToInfo 三 wrapper——統一台進來回統一台、舊抽屜進來照舊回家；openRoasterySheet 設 'roastery'、三舊抽屜開頭清 null。**改接 16 處**：qcVerdict 尾（有 drawer.show 守門，今日流卡路徑不變）、Cup 存檔 ×2、QcStock ×2、RoastDate ×2、WeighIn ×2、Deduct ×5、sb-sold/sb-back、Backfill 加 roastery 分支。
+- **磁貼/分派**：Tools Roast 區首位 `['Roastery','one bench · roast to shelf','roastery','flame']`（舊四磁貼全留）＋dispatch＋DONE_TOOLS；今日流 rstlow→RWB.seg+openRoasterySheet、qcnav→openRoasterySheet。
+- **驗證（serve 複本 stub 攔 fetch＋假 localStorage session，console 零錯誤）**：同名雙處理法各自成列（CF 4kg 1QC／WH 5kg ★synced 1QC+1dg+1 to weigh）、判定 Pass=PATCH 單鍋+回統一台+徽章消、**舊 QC 抽屜判定留在 QC（迴歸 ✓）**、扣豆 0.5kg 選批 PATCH 對、秤重 8.6kg PATCH 對、Take off payload 帶 process+rtl_sold '@' 雙鍵、Cup 開 B# 抽屜、Details↔Back、Intake BF.from、qcnav 卡/磁貼開新台、拼配池。
+- **⏭ 老闆**：GitHub Desktop push → 真機掃一輪（Tools→Roastery：展開豆、滑卡判一鍋、扣一次豆、Details 進出）；用順了下輪再議收舊磁貼。
+
 ## 〇、補記 — 2026-07-15 之十九（Add account 磁貼：開帳號直達入口 ✅）
 - **老闆要「可以申請帳號的 icon」**：`openAddAccountSheet`（缺口 #9 自 classic signUp 移植，走獨立 client persistSession:false）早就做好，只藏在 Team 抽屜的「+ Add account」按鈕。本輪加 Tools 磁貼直達。
 - **改動（new/index.html）**：Team 區磁貼行尾 `.concat(ROLE==='director'?[['Add account','new sign-in','addacc','user',1]]:[])`（**director 專屬**——開帳號權限高於 lead）＋dispatch `if(k==='addacc')openAddAccountSheet()`。openAddAccountSheet 本體零改動（back 仍回 Team，帳號設角色在那）。
