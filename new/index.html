@@ -4145,7 +4145,7 @@ async function confirmDeleteCoffee(e){
 /* 售罄切換：Square availability（照 classic syncSquareAvailability）＋ rtl_sold 記憶 read-modify-write */
 async function setShelfSold(nm,sold,proc){
   /* proc 可選（2026-07-13）：同名多處理法豆帶 process 精準定位那一列；沒帶＝名字級照舊 */
-  await callFn('sync-to-square',{action:'availability',sample_id:nm,sold_out:!!sold,process:(proc!=null&&String(proc).trim()!=='')?String(proc).trim():null});
+  await callFn('sync-to-square',{action:'availability',sample_id:nm,sold_out:!!sold,process:(proc!=null&&String(proc).trim()!=='')?String(proc).trim():null,target_id:beanIdFor(nm,proc)||null});
   var r=await sb.from('app_state').select('value').eq('key','rtl_sold').maybeSingle();
   var v=(r&&r.data&&r.data.value)||{};
   if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v={};}}
@@ -5408,7 +5408,7 @@ async function pushListToSquare(){
     var desc=[s.process||'',(s.features||[]).slice(0,3).join(', ')].filter(Boolean).join(' · ');
     /* 商品名（2026-07-13）：同名多處理法帶後綴「名 — 處理法」；payload 帶 process＝edge 按 name+process 定位列 */
     var listNm=LST.mkey||listNameFor(nm,s);
-    await callFn('sync-to-square',{action:'push',sample_id:nm,name:listNm,process:s.process||null,description:desc,grams:LST.grams,price:price,variations:variations,
+    await callFn('sync-to-square',{action:'push',sample_id:nm,name:listNm,process:s.process||null,target_id:beanIdFor(nm,s.process)||null,description:desc,grams:LST.grams,price:price,variations:variations,
       image_b64:imgs64?null:img64, images_b64:imgs64, image_mime:imgs64?'image/jpeg':'image/png'});
     SHOP_STALE=true; /* 商品圖剛換過——下次看店面別吃 5 分鐘的舊快取 */
     /* 價格＋商品圖模式記憶寫回 app_state（讀回最新再改，避免蓋掉別台改的）——key＝上架顯示名（mkey） */
