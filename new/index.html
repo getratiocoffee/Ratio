@@ -385,7 +385,7 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 /* nav 第五顆（Home）後按鈕變窄：縮字縮距，iPhone SE 也裝得下 */
 body.appview nav button{font-size:13px;padding:10px 2px}
 /* ── Production line 介面（2026-07-15 移植自示意稿；命名空間 #plview，自帶色盤，不污染 app）── */
-#plview{--card:#fff;--ink:#2C2740;--muted:#9691AC;--line:#EFEAF6;--line2:#E6DFF3;--accent:#C87E8E;--tint:#F6EBEE;--green:#84B57C;--roast:#DE9670;--shelf:#8A6FA8;--qc:#7FA1CE;--fin:#CDAC66;--danger:#D8756C;position:fixed;inset:0;z-index:60;background:var(--card);display:none;flex-direction:column;font-family:-apple-system,BlinkMacSystemFont,system-ui,"PingFang TC",sans-serif;-webkit-font-smoothing:antialiased}
+#plview{--card:#fff;--ink:#2C2740;--muted:#9691AC;--line:#EFEAF6;--line2:#E6DFF3;--accent:#C87E8E;--tint:#F6EBEE;--green:#84B57C;--roast:#DE9670;--shelf:#8A6FA8;--qc:#7FA1CE;--fin:#CDAC66;--danger:#D8756C;position:fixed;top:0;left:0;right:0;bottom:calc(max(env(safe-area-inset-bottom,0px) - 16px,12px) + 64px);z-index:29;background:var(--card);display:none;flex-direction:column;font-family:-apple-system,BlinkMacSystemFont,system-ui,"PingFang TC",sans-serif;-webkit-font-smoothing:antialiased}
 #plview.show{display:flex}
 #plview .plhdr{height:54px;flex:0 0 54px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--line)}
 #plview .plhdr b{font-size:15px;font-weight:800;color:var(--ink)}
@@ -11410,10 +11410,10 @@ function maybeAutoRefresh(){
   if(Date.now()-LAST_LOAD>60000)reload();
 }
 document.addEventListener('visibilitychange',maybeAutoRefresh);
-$('nav-home').addEventListener('click',function(){view='home';render();});
-$('nav-feed').addEventListener('click',function(){view='feed';render();});
+$('nav-home').addEventListener('click',function(){PLINE.close();view='home';render();});
+$('nav-feed').addEventListener('click',function(){PLINE.close();view='feed';render();});
 $('nav-line').addEventListener('click',function(){PLINE.open();});
-$('nav-tools').addEventListener('click',function(){view='tools';render();});
+$('nav-tools').addEventListener('click',function(){PLINE.close();view='tools';render();});
 $('nav-refresh').addEventListener('click',async function(){this.textContent='…';await reload();this.textContent='Refresh';toast('Refreshed');});
 /* ===== 客戶介面（老闆定調：進來直接看到豆單）＝沒登入的店面＋客戶登入的門戶共用菜單
    ⚠ 目前只是 UI 隔離——RLS 還是小團隊信任模型，真開放客戶帳號前要先鎖資料庫政策（設定階段） ===== */
