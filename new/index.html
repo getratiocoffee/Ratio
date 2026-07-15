@@ -177,6 +177,11 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 .chip{flex:0 0 auto;border:1px solid var(--line2);background:var(--surface);color:var(--muted);border-radius:999px;padding:8px 14px;min-height:40px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
 .chip.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1.5px solid var(--ink);display:flex;gap:8px;padding:10px 20px max(env(safe-area-inset-bottom,0px) - 16px,12px);z-index:30}
+.footline{position:fixed;left:0;right:0;bottom:calc(max(env(safe-area-inset-bottom,0px) - 16px,12px) + 59px);background:var(--surface);border-top:1px solid var(--line);display:none;align-items:center;justify-content:space-between;gap:2px;padding:7px 14px;z-index:29}
+.footline .fl-seg{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;background:none;border:0;cursor:pointer;padding:3px 0;min-width:0}
+.footline .fl-n{font-size:17px;font-weight:800;color:var(--c);line-height:1.05}
+.footline .fl-l{font-size:9.5px;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.footline .fl-arr{color:var(--line2);font-size:13px;flex:0 0 auto;padding-bottom:2px}
 nav button{flex:1;border:1px solid var(--line2);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px 6px;min-height:44px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer}
 nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .deck{position:fixed;left:0;right:0;bottom:calc(max(env(safe-area-inset-bottom,0px) - 16px,12px) + 64px);background:var(--surface);border-top:1px solid var(--line);padding:12px 22px 10px;z-index:20}
@@ -385,6 +390,7 @@ body.appview nav button{font-size:13px;padding:10px 2px}
 <header><span class="hspace"></span><span class="brand" id="hbrand"><span class="brandlogo" role="img" aria-label="Ratio"></span></span><button id="hbell" aria-label="Daily brief"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 0 1 0 6"/><path d="M10 8v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-5"/><path d="M12 8h0l4.5-3.8a.9.9 0 0 1 1.5.7v12.2a.9.9 0 0 1-1.5.7L12 14H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h8"/></svg><span id="hbdot"></span></button><span class="cnt" id="hcnt">loading…</span></header>
 <div class="wrap" id="main"><div class="empty">Loading your day…</div></div>
 <div class="deck" id="deck" style="display:none"></div>
+<div class="footline" id="footline"></div>
 <nav>
 <button id="nav-home">Home</button>
 <button id="nav-feed" class="on">Today</button>
@@ -11107,12 +11113,37 @@ function renderHome(){
     b.addEventListener('pointercancel',_hend);
   });
 }
+/* ── 生產線流程條橫幅（2026-07-15）：常駐底部導覽上方，四段即時真數字，點各段跳對應功能 ── */
+function renderFootLine(){
+  var fl=$('footline');if(!fl)return;
+  var beans=DB.beans||[],roasts=DB.roasts||[];
+  var green=Math.round(beans.reduce(function(a,b){return a+(Number(b.quantity)||0);},0));
+  var td=new Date(),tISO=td.getFullYear()+'-'+('0'+(td.getMonth()+1)).slice(-2)+'-'+('0'+td.getDate()).slice(-2);
+  var roastN=roasts.filter(function(r){return String(r.roast_date||'').slice(0,10)===tISO;}).length;
+  var qcN=roasts.filter(function(r){return qcState(r)==='pending'&&(Number(r.remaining_kg)||0)>0;}).length;
+  var shelfN=roasts.filter(function(r){return qcState(r)==='pass'&&(Number(r.remaining_kg)||0)>0;}).length;
+  function seg(k,col,label,val){return '<button class="fl-seg" data-fl="'+k+'" style="--c:'+col+'"><span class="fl-n">'+val+'</span><span class="fl-l">'+label+'</span></button>';}
+  fl.innerHTML=seg('green','var(--green)','Green',green)+'<span class="fl-arr">›</span>'
+    +seg('roast','var(--roast)','Roast',roastN)+'<span class="fl-arr">›</span>'
+    +seg('qc','var(--qc)','QC',qcN)+'<span class="fl-arr">›</span>'
+    +seg('shelf','var(--accent)','Shelf',shelfN);
+  fl.querySelectorAll('[data-fl]').forEach(function(b){b.addEventListener('click',function(){
+    var k=b.dataset.fl;
+    if(k==='green')return openGreensSheet();
+    if(k==='roast')return openRoasterySheet();
+    if(k==='qc')return openQCSheet();
+    if(k==='shelf')return openBatchesSheet();
+  });});
+}
 function render(){
   /* 浮水印只給今日流：內容少的頁（QC/Tools）整塊露出來像破圖 */
   var bgl=document.querySelector('.bglogo');if(bgl)bgl.style.display='';
   if(view==='home')renderHome();else if(view==='feed')renderFeed();else renderTools();
-  /* 判定板亮著時底部留白加大，清單最後一列才捲得出來（板＋nav 疊起來近 300px） */
-  document.body.style.paddingBottom=($('deck').style.display==='block')?'330px':'';
+  /* 生產線橫幅：登入 app 時常駐；判定板亮著時讓位（避免兩條疊在 nav 上方） */
+  var deckOn=$('deck').style.display==='block',flShow=(view==='home'||view==='feed'||view==='tools')&&!deckOn;
+  var fl=$('footline');if(fl){fl.style.display=flShow?'flex':'none';if(flShow)renderFootLine();}
+  /* 判定板亮著時底部留白加大，清單最後一列才捲得出來（板＋nav 疊起來近 300px）；橫幅在時多留一條的高度 */
+  document.body.style.paddingBottom=deckOn?'330px':(flShow?'116px':'');
   document.body.classList.add('appview');
   $('nav-home').classList.toggle('on',view==='home');
   $('nav-feed').classList.toggle('on',view==='feed');
