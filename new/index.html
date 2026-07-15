@@ -437,10 +437,10 @@ body.appview nav button{font-size:13px;padding:10px 2px}
 <header><span class="hspace"></span><span class="brand" id="hbrand"><span class="brandlogo" role="img" aria-label="Ratio"></span></span><button id="hbell" aria-label="Daily brief"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 0 1 0 6"/><path d="M10 8v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-5"/><path d="M12 8h0l4.5-3.8a.9.9 0 0 1 1.5.7v12.2a.9.9 0 0 1-1.5.7L12 14H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h8"/></svg><span id="hbdot"></span></button><span class="cnt" id="hcnt">loading…</span></header>
 <div class="wrap" id="main"><div class="empty">Loading your day…</div></div>
 <div class="deck" id="deck" style="display:none"></div>
-<div class="footline" id="footline"></div>
 <nav>
 <button id="nav-home">Home</button>
 <button id="nav-feed" class="on">Today</button>
+<button id="nav-line">Line</button>
 <button id="nav-tools">Tools</button>
 <button id="nav-refresh">Refresh</button>
 </nav>
@@ -11392,11 +11392,8 @@ function render(){
   /* 浮水印只給今日流：內容少的頁（QC/Tools）整塊露出來像破圖 */
   var bgl=document.querySelector('.bglogo');if(bgl)bgl.style.display='';
   if(view==='home')renderHome();else if(view==='feed')renderFeed();else renderTools();
-  /* 生產線橫幅：登入 app 時常駐；判定板亮著時讓位（避免兩條疊在 nav 上方） */
-  var deckOn=$('deck').style.display==='block',flShow=(view==='home'||view==='feed'||view==='tools')&&!deckOn;
-  var fl=$('footline');if(fl){fl.style.display=flShow?'flex':'none';if(flShow)renderFootLine();}
-  /* 判定板亮著時底部留白加大，清單最後一列才捲得出來（板＋nav 疊起來近 300px）；橫幅在時多留一條的高度 */
-  document.body.style.paddingBottom=deckOn?'330px':(flShow?'116px':'');
+  /* 判定板亮著時底部留白加大，清單最後一列才捲得出來（板＋nav 疊起來近 300px） */
+  document.body.style.paddingBottom=($('deck').style.display==='block')?'330px':'';
   document.body.classList.add('appview');
   $('nav-home').classList.toggle('on',view==='home');
   $('nav-feed').classList.toggle('on',view==='feed');
@@ -11415,6 +11412,7 @@ function maybeAutoRefresh(){
 document.addEventListener('visibilitychange',maybeAutoRefresh);
 $('nav-home').addEventListener('click',function(){view='home';render();});
 $('nav-feed').addEventListener('click',function(){view='feed';render();});
+$('nav-line').addEventListener('click',function(){PLINE.open();});
 $('nav-tools').addEventListener('click',function(){view='tools';render();});
 $('nav-refresh').addEventListener('click',async function(){this.textContent='…';await reload();this.textContent='Refresh';toast('Refreshed');});
 /* ===== 客戶介面（老闆定調：進來直接看到豆單）＝沒登入的店面＋客戶登入的門戶共用菜單
