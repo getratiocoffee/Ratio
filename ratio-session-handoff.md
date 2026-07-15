@@ -56,6 +56,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-15（Line 改回彈窗＋分頁標題/favicon，commit a6183f0 待 push）
+- **Line 生產線介面改回彈窗**：老闆要「底部 Line 鍵點下去是彈窗不是頁面」。還原 abfea6e（那次把 popup 改成整頁 view），改回 `PLINE.open/close` 彈窗 overlay（`#plview` top:0/z-index:29＋`plhdr` 標題列×）；**不**把 abfea6e 順手清掉的舊橫幅死碼 `renderFootLine` 加回來。nav-line→`PLINE.open()`、其他 nav 鍵按下先 `PLINE.close()`
+- **分頁標題動態化**：boot() 設 document.title——未登入 renderPublicMenu／登入 customer|wholesale＝`Ratio Coffee - Shopping Cart`；員工 view=feed＝`Ratio Coffee`；HTML `<title>` 預設也改 Ratio Coffee（原 Ratio · Today）。⚠ `?shop` 其實沒程式判斷，購物頁＝未登入/customer，標題綁身分不綁參數
+- **favicon**：新增根目錄 `favicon.png`（#E7EAEE 底＋logo，192pt@2x=384px）；head 加 `<link rel=icon href=/favicon.png>`。⚠ **生成踩雷記**：瀏覽器 canvas toDataURL 那版寫出**全透明空圖**（看不到）＋長 base64 經 shell 搬運會**重複錯段**；最後改用 `osascript -l JavaScript` + AppKit（NSImage lockFocus/drawInRect→NSBitmapImageRep PNG）純命令列合成才穩，腳本 `scratchpad/mkicon.js`（pad=10 邊距＝logo 較大版）
+- **待老闆拍板**：PWA 主畫面圖示（`apple-touch-icon` 仍指舊 `icon-192.png`）要不要一起換新款；commit 已做（老闆授權），**push 待老闆開 GitHub Desktop 按 Push origin**
+
 ## 〇、補記 — 2026-07-14 晚（豆況三態簡化：Pending / Pass / Downgrade ＋ ★ ✅ 全四 commit）
 - **老闆拍板**：豆況簡化成三態＋附屬星標——烘完/手動入庫＝Pending、QC 過＝Pass、沒過＝Downgrade；Pass 可加 ★（＝可 publish 的豆）。**零 schema 改動零搬家**：qc 欄本來就是三值；★＝flavour_locked 重塑（語意不變「在賣的版本」、同名同處理法互斥單選）；legacy 'reroast' 讀取一律視同 downgrade、永不再寫入。roasts.status（pending_cupping/cupped）降為幕後流程欄（只餵 toCupList）。
 - **Commit ①（4ee6c1a，老闆 GitHub Desktop 收的）**：helper `qcState(r)`（null→pending/pass/其餘→downgrade）＋`starSample(s,quiet)`（加星唯一入口：換星 confirm 把關、quiet＝push 用不問、回 {ok,swapped}，寫入走 lockFlavourSolo）；九處散寫 `!=='reroast'&&!=='downgrade'` 全改 qcState（rstBatches/rstDgBatches/rstPendingBatches/批次孤兒/Clean-up C+D/配方降級優先排序/announce 閘門併一條/兩處 send-back confirm）。**reroast 批現身降級池＝刻意（原是幽靈庫存）**。
