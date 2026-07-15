@@ -385,7 +385,7 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 /* nav 第五顆（Home）後按鈕變窄：縮字縮距，iPhone SE 也裝得下 */
 body.appview nav button{font-size:13px;padding:10px 2px}
 /* ── Production line 介面（2026-07-15 移植自示意稿；命名空間 #plview，自帶色盤，不污染 app）── */
-#plview{--card:#fff;--ink:#2C2740;--muted:#9691AC;--line:#EFEAF6;--line2:#E6DFF3;--accent:#C87E8E;--tint:#F6EBEE;--green:#84B57C;--roast:#DE9670;--shelf:#8A6FA8;--qc:#7FA1CE;--fin:#CDAC66;--danger:#D8756C;position:fixed;top:0;left:0;right:0;bottom:calc(max(env(safe-area-inset-bottom,0px) - 16px,12px) + 64px);z-index:29;background:var(--card);display:none;flex-direction:column;font-family:-apple-system,BlinkMacSystemFont,system-ui,"PingFang TC",sans-serif;-webkit-font-smoothing:antialiased}
+#plview{--card:#fff;--ink:#2C2740;--muted:#9691AC;--line:#EFEAF6;--line2:#E6DFF3;--accent:#C87E8E;--tint:#F6EBEE;--green:#84B57C;--roast:#DE9670;--shelf:#8A6FA8;--qc:#7FA1CE;--fin:#CDAC66;--danger:#D8756C;position:fixed;top:calc(env(safe-area-inset-top,0px) + 47px);left:0;right:0;bottom:calc(max(env(safe-area-inset-bottom,0px) - 16px,12px) + 64px);z-index:9;background:var(--card);display:none;flex-direction:column;font-family:-apple-system,BlinkMacSystemFont,system-ui,"PingFang TC",sans-serif;-webkit-font-smoothing:antialiased}
 #plview.show{display:flex}
 #plview .plhdr{height:54px;flex:0 0 54px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--line)}
 #plview .plhdr b{font-size:15px;font-weight:800;color:var(--ink)}
@@ -445,7 +445,7 @@ body.appview nav button{font-size:13px;padding:10px 2px}
 <button id="nav-refresh">Refresh</button>
 </nav>
 <div class="shoptabs" id="shoptabs" style="display:none"></div>
-<div id="plview"><div class="plhdr"><b>Production line</b><button class="plx" id="pl-x" aria-label="Close" onclick="PLINE.close()">×</button></div><div class="scr" id="pl-scr"></div><div class="nav" id="pl-nav"></div></div>
+<div id="plview"><div class="scr" id="pl-scr"></div><div class="nav" id="pl-nav"></div></div>
 <div class="drawer-bg" id="dbg"></div>
 <div class="drawer" id="drawer"></div>
 <div class="toast" id="toast"></div>
@@ -11360,43 +11360,22 @@ var PLINE=(function(){
   function setRecTab(t){recTab=t;render();}
   function openRec(i){var q=qcQueue[i];if(!q.cupped){openCup(i);}else{cupIdx=i;view='manage';render();}}
   function goHome(){view='home';render();}
-  function open(){scr=document.getElementById('pl-scr');nav=document.getElementById('pl-nav');document.getElementById('plview').classList.add('show');view='home';render();}
-  function close(){document.getElementById('plview').classList.remove('show');}
+  function mount(){if(!scr){scr=document.getElementById('pl-scr');nav=document.getElementById('pl-nav');}render();}
   function go(v){view=v;render();}
   function score(v){cupScore=+v;var el=document.getElementById('scv');if(el)el.textContent=cupScore;}
-  return {open:open,close:close,go:go,score:score,start:start,addBatch:addBatch,removeBatch:removeBatch,removeAt:removeAt,dStart:dStart,dOver:dOver,dDrop:dDrop,dEnd:dEnd,setAmt:setAmt,next:next,back:back,submitWiz:submitWiz,openCup:openCup,toggleFlav:toggleFlav,fillRoasted:fillRoasted,fillDate:fillDate,submitCup:submitCup,approve:approve,openManage:openManage,toggleStar:toggleStar,setStatus:setStatus,reQC:reQC,removeHist:removeHist,setRecTab:setRecTab,openRec:openRec,goHome:goHome,toggleG:toggleG,toggleS:toggleS};
+  return {mount:mount,go:go,score:score,start:start,addBatch:addBatch,removeBatch:removeBatch,removeAt:removeAt,dStart:dStart,dOver:dOver,dDrop:dDrop,dEnd:dEnd,setAmt:setAmt,next:next,back:back,submitWiz:submitWiz,openCup:openCup,toggleFlav:toggleFlav,fillRoasted:fillRoasted,fillDate:fillDate,submitCup:submitCup,approve:approve,openManage:openManage,toggleStar:toggleStar,setStatus:setStatus,reQC:reQC,removeHist:removeHist,setRecTab:setRecTab,openRec:openRec,goHome:goHome,toggleG:toggleG,toggleS:toggleS};
 })();
-/* ── 生產線流程條橫幅（2026-07-15）：常駐底部導覽上方，四段即時真數字，點各段跳對應功能 ── */
-function renderFootLine(){
-  var fl=$('footline');if(!fl)return;
-  var beans=DB.beans||[],roasts=DB.roasts||[];
-  var green=Math.round(beans.reduce(function(a,b){return a+(Number(b.quantity)||0);},0));
-  var td=new Date(),tISO=td.getFullYear()+'-'+('0'+(td.getMonth()+1)).slice(-2)+'-'+('0'+td.getDate()).slice(-2);
-  var roastN=roasts.filter(function(r){return String(r.roast_date||'').slice(0,10)===tISO;}).length;
-  var qcN=roasts.filter(function(r){return qcState(r)==='pending'&&(Number(r.remaining_kg)||0)>0;}).length;
-  var shelfN=roasts.filter(function(r){return qcState(r)==='pass'&&(Number(r.remaining_kg)||0)>0;}).length;
-  function seg(k,col,label,val){return '<button class="fl-seg" data-fl="'+k+'" style="--c:'+col+'"><span class="fl-n">'+val+'</span><span class="fl-l">'+label+'</span></button>';}
-  fl.innerHTML=seg('green','var(--green)','Green',green)+'<span class="fl-arr">›</span>'
-    +seg('roast','var(--roast)','Roast',roastN)+'<span class="fl-arr">›</span>'
-    +seg('qc','var(--qc)','QC',qcN)+'<span class="fl-arr">›</span>'
-    +seg('shelf','var(--accent)','Shelf',shelfN);
-  fl.querySelectorAll('[data-fl]').forEach(function(b){b.addEventListener('click',function(){
-    var k=b.dataset.fl;
-    if(k==='green')return openGreensSheet();
-    if(k==='roast')return PLINE.open();
-    if(k==='qc')return openQCSheet();
-    if(k==='shelf')return openBatchesSheet();
-  });});
-}
 function render(){
   /* 浮水印只給今日流：內容少的頁（QC/Tools）整塊露出來像破圖 */
   var bgl=document.querySelector('.bglogo');if(bgl)bgl.style.display='';
-  if(view==='home')renderHome();else if(view==='feed')renderFeed();else renderTools();
+  if(view==='home')renderHome();else if(view==='feed')renderFeed();else if(view==='tools')renderTools();
   /* 判定板亮著時底部留白加大，清單最後一列才捲得出來（板＋nav 疊起來近 300px） */
   document.body.style.paddingBottom=($('deck').style.display==='block')?'330px':'';
   document.body.classList.add('appview');
+  var plOn=(view==='line'),plv=$('plview');if(plv)plv.style.display=plOn?'flex':'none';if(plOn)PLINE.mount();
   $('nav-home').classList.toggle('on',view==='home');
   $('nav-feed').classList.toggle('on',view==='feed');
+  $('nav-line').classList.toggle('on',plOn);
   $('nav-tools').classList.toggle('on',view==='tools');
   updateBell();
 }
@@ -11410,10 +11389,10 @@ function maybeAutoRefresh(){
   if(Date.now()-LAST_LOAD>60000)reload();
 }
 document.addEventListener('visibilitychange',maybeAutoRefresh);
-$('nav-home').addEventListener('click',function(){PLINE.close();view='home';render();});
-$('nav-feed').addEventListener('click',function(){PLINE.close();view='feed';render();});
-$('nav-line').addEventListener('click',function(){PLINE.open();});
-$('nav-tools').addEventListener('click',function(){PLINE.close();view='tools';render();});
+$('nav-home').addEventListener('click',function(){view='home';render();});
+$('nav-feed').addEventListener('click',function(){view='feed';render();});
+$('nav-line').addEventListener('click',function(){view='line';render();});
+$('nav-tools').addEventListener('click',function(){view='tools';render();});
 $('nav-refresh').addEventListener('click',async function(){this.textContent='…';await reload();this.textContent='Refresh';toast('Refreshed');});
 /* ===== 客戶介面（老闆定調：進來直接看到豆單）＝沒登入的店面＋客戶登入的門戶共用菜單
    ⚠ 目前只是 UI 隔離——RLS 還是小團隊信任模型，真開放客戶帳號前要先鎖資料庫政策（設定階段） ===== */
