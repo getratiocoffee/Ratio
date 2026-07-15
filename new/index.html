@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Ratio · Today</title>
+<title>Ratio Coffee</title>
 <link rel="manifest" href="/new/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/new/icon-192.png">
 <meta name="theme-color" content="#1A1A1A">
@@ -11931,6 +11931,7 @@ async function boot(){
   paintCartBar();
   var g=await sb.auth.getSession();
   if(!(g&&g.data&&g.data.session)){
+    document.title='Ratio Coffee - Shopping Cart';
     await renderPublicMenu();
     return;
   }
@@ -11940,8 +11941,8 @@ async function boot(){
     var p=await sb.from('profiles').select('name,role,lead').eq('id',g.data.session.user.id).single();
     if(p&&p.data){ROLE=p.data.role||'customer';WHO=p.data.name||'';LEAD=!!p.data.lead;}
   }catch(e){}
-  if(myRole()==='customer'||myRole()==='wholesale'){await renderCustomerPortal(g.data.session);return;}
-  view='feed';filter='all';
+  if(myRole()==='customer'||myRole()==='wholesale'){document.title='Ratio Coffee - Shopping Cart';await renderCustomerPortal(g.data.session);return;}
+  view='feed';filter='all';document.title='Ratio Coffee';
   await reload();
 }
 (async function init(){await boot();})();
