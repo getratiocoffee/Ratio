@@ -11185,15 +11185,26 @@ var PLINE=(function(){
     nav.style.display='none';nav.innerHTML='';
     scr.innerHTML='<div class="h1">Production line</div><div class="sub">生豆 → 烘 → 熟豆 → 上架 · 選一個動作</div>'
      +'<div class="flow">'
-     +'<div class="st" style="--c:var(--green);cursor:pointer" onclick="PLINE.close();openGreensSheet()"><span class="ic">'+sv('green')+'</span><span class="n">142</span><span class="l">Green</span></div><span class="arr">›</span>'
+     +'<div class="st" style="--c:var(--green);cursor:pointer" onclick="PLINE.go(\'green\')"><span class="ic">'+sv('green')+'</span><span class="n">142</span><span class="l">Green</span></div><span class="arr">›</span>'
      +'<div class="st" style="--c:var(--roast);cursor:pointer" onclick="PLINE.start(\'roast\')"><span class="ic">'+sv('roast')+'</span><span class="n">3</span><span class="l">Roast</span></div><span class="arr">›</span>'
-     +'<div class="st" style="--c:var(--qc);cursor:pointer" onclick="PLINE.close();openQCSheet()"><span class="ic">'+sv('qc')+'</span><span class="n">2</span><span class="l">QC</span></div><span class="arr">›</span>'
-     +'<div class="st" style="--c:var(--shelf);cursor:pointer" onclick="PLINE.close();openBatchesSheet()"><span class="ic">'+sv('shelf')+'</span><span class="n">12</span><span class="l">Shelf</span></div></div>'
+     +'<div class="st" style="--c:var(--qc);cursor:pointer" onclick="PLINE.go(\'qc\')"><span class="ic">'+sv('qc')+'</span><span class="n">2</span><span class="l">QC</span></div><span class="arr">›</span>'
+     +'<div class="st" style="--c:var(--shelf);cursor:pointer" onclick="PLINE.go(\'shelf\')"><span class="ic">'+sv('shelf')+'</span><span class="n">12</span><span class="l">Shelf</span></div></div>'
      +'<button class="entry" style="--c:var(--roast)" onclick="PLINE.start(\'roast\')"><span class="ic">'+sv('roast')+'</span><span class="tx"><b>Roast</b><span>烘豆 · 從生豆倉扣掉生豆</span></span><span class="go">'+sv('chev')+'</span></button>'
      +'<button class="entry" style="--c:var(--shelf)" onclick="PLINE.start(\'intake\')"><span class="ic">'+sv('box')+'</span><span class="tx"><b>Intake</b><span>直接補熟豆 · 不動生豆倉</span></span><span class="go">'+sv('chev')+'</span></button>'
      +recordsHTML();
   }
   function statusOf(q){return q.status==='sold'?'sold out':q.status==='shelf'?'on shelf':q.verdict==='pass'?'passed':q.verdict==='down'?'downgraded':q.cupped?'cupped '+q.score:'to cup';}
+  function greenView(){
+    nav.style.display='flex';nav.innerHTML='<button class="btn go2" style="--c:var(--green)" onclick="PLINE.go(\'home\')">Back to line</button>';
+    scr.innerHTML='<div class="h1">Green stock</div><div class="sub">生豆倉 · '+BEANS.length+' 支單品</div>'
+      +BEANS.map(function(b){return '<div class="bean" style="--c:var(--green)"><span><b>'+b.n+'</b>'+idTag(b.id)+'<small>'+b.p+'</small></span><span class="kg">'+b.s+' kg</span></div>';}).join('');
+  }
+  function shelfView(){
+    var sh=qcQueue.filter(function(q){return q.verdict==='pass';});
+    nav.style.display='flex';nav.innerHTML='<button class="btn go2" style="--c:var(--shelf)" onclick="PLINE.go(\'home\')">Back to line</button>';
+    scr.innerHTML='<div class="h1">Shelf</div><div class="sub">Pass 過的批 · '+sh.length+'</div>'
+      +(sh.length?sh.map(function(q){return '<button class="bean" style="--c:var(--shelf)" onclick="PLINE.openManage('+qcQueue.indexOf(q)+')"><span><b>'+(q.star?'★ ':'')+q.n+'</b>'+idTag(beanId(q.n))+'<small>'+amtStr(q)+' · '+statusOf(q)+(q.date?' · '+q.date:'')+'</small></span><span class="kg">›</span></button>';}).join(''):'<div class="steps" style="text-align:left;margin-top:12px">還沒有 pass 的批 · 從 Roast 烘一批、QC 判 Pass 就會出現</div>');
+  }
   function recordsHTML(){
     if(!qcQueue.length)return '<div class="dlab" style="margin-top:20px">Coffee bean records</div><div class="steps" style="text-align:left;margin-top:8px">還沒有紀錄 · Roast／Intake 一批就會出現（會自動記住）</div>';
     var groups={},order=[];
@@ -11307,7 +11318,7 @@ var PLINE=(function(){
   }
   function actBtn(s,t,sub,on){var col=s==='sold'?'--danger':'--green';
     return '<button class="entry" style="--c:var('+col+')'+(on?';outline:2px solid var('+col+');outline-offset:-1px':'')+'" onclick="PLINE.setStatus(\''+s+'\')"><span class="ic">'+sv(s==='shelf'?'shelf':'box')+'</span><span class="tx"><b>'+t+(on?' ✓':'')+'</b><span>'+sub+'</span></span></button>';}
-  function render(){save();if(view==='home')return home();if(view==='wiz')return wiz();if(view==='qc')return qcList();if(view==='cup')return cupView();if(view==='approval')return approvalView();return manageView();}
+  function render(){save();if(view==='home')return home();if(view==='green')return greenView();if(view==='shelf')return shelfView();if(view==='wiz')return wiz();if(view==='qc')return qcList();if(view==='cup')return cupView();if(view==='approval')return approvalView();return manageView();}
   function cnt(i){return selected.filter(function(x){return x.bean===i;}).length;}
   function addBatch(i){var id=bid++;selected.push({id:id,bean:i});amounts[id]={g:'',o:'',date:(flow==='roast'?todayISO():'')};render();}
   function removeBatch(i){for(var k=selected.length-1;k>=0;k--){if(selected[k].bean===i){delete amounts[selected[k].id];selected.splice(k,1);break;}}render();}
