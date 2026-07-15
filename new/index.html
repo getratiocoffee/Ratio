@@ -384,6 +384,53 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .hm-tile.clear .hm-num{color:var(--muted);font-weight:700}
 /* nav 第五顆（Home）後按鈕變窄：縮字縮距，iPhone SE 也裝得下 */
 body.appview nav button{font-size:13px;padding:10px 2px}
+/* ── Production line 介面（2026-07-15 移植自示意稿；命名空間 #plview，自帶色盤，不污染 app）── */
+#plview{--card:#fff;--ink:#2C2740;--muted:#9691AC;--line:#EFEAF6;--line2:#E6DFF3;--accent:#C87E8E;--tint:#F6EBEE;--green:#84B57C;--roast:#DE9670;--shelf:#8A6FA8;--qc:#7FA1CE;--fin:#CDAC66;--danger:#D8756C;position:fixed;inset:0;z-index:60;background:var(--card);display:none;flex-direction:column;font-family:-apple-system,BlinkMacSystemFont,system-ui,"PingFang TC",sans-serif;-webkit-font-smoothing:antialiased}
+#plview.show{display:flex}
+#plview .plhdr{height:54px;flex:0 0 54px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--line)}
+#plview .plhdr b{font-size:15px;font-weight:800;color:var(--ink)}
+#plview .plx{border:0;background:none;font-size:26px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px}
+#plview .scr{flex:1;overflow-y:auto;padding:12px 18px 120px}
+#plview .h1{font-size:22px;font-weight:800;letter-spacing:-.02em;color:var(--ink);margin:6px 2px 2px}
+#plview .sub{font-size:13px;color:var(--muted);font-weight:600;margin:0 2px 14px}
+#plview .flow{display:flex;align-items:center;justify-content:space-between;background:var(--tint);border-radius:20px;padding:14px 10px;margin-bottom:18px}
+#plview .st{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1}
+#plview .st .ic{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;background:var(--c);box-shadow:0 6px 13px color-mix(in srgb,var(--c) 40%,transparent)}
+#plview .st .ic svg{width:21px;height:21px;fill:#fff}
+#plview .st .n{font-size:15px;font-weight:800;color:var(--ink);line-height:1}
+#plview .st .l{font-size:9px;font-weight:700;text-transform:uppercase;color:var(--muted)}
+#plview .arr{color:var(--muted);font-size:16px;margin-bottom:14px}
+#plview .entry{display:flex;gap:13px;align-items:center;width:100%;text-align:left;border:1px solid var(--line2);background:var(--card);border-radius:22px;padding:17px;margin-bottom:12px;cursor:pointer;box-shadow:0 8px 18px rgba(120,90,160,.09);font-family:inherit}
+#plview .entry:active{transform:scale(.98)}
+#plview .entry .ic{width:54px;height:54px;border-radius:17px;display:grid;place-items:center;background:var(--c);flex:0 0 54px;box-shadow:0 8px 16px color-mix(in srgb,var(--c) 42%,transparent)}
+#plview .entry .ic svg{width:28px;height:28px;fill:#fff}
+#plview .entry .tx b{font-size:17px;font-weight:800;color:var(--ink);display:block}
+#plview .entry .tx span{font-size:12.5px;color:var(--muted);font-weight:600}
+#plview .entry .go{margin-left:auto;color:var(--muted)}#plview .entry .go svg{width:20px;height:20px;fill:currentColor}
+#plview .dots{display:flex;gap:7px;justify-content:center;margin:4px 0 16px}
+#plview .dots i{width:9px;height:9px;border-radius:50%;background:var(--line2)}#plview .dots i.on{width:26px;border-radius:5px;background:var(--c)}
+#plview .stept{font-size:19px;font-weight:800;color:var(--ink);text-align:center;margin-bottom:3px}
+#plview .steps{font-size:12.5px;color:var(--muted);text-align:center;margin-bottom:16px}
+#plview .bean{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;border:1.5px solid var(--line2);background:var(--card);border-radius:16px;padding:13px 15px;margin-bottom:9px;cursor:pointer;font-family:inherit;text-align:left}
+#plview .bean.sel{border-color:var(--c);background:color-mix(in srgb,var(--c) 8%,transparent)}
+#plview .bean b{font-size:15px;font-weight:700;color:var(--ink)}#plview .bean small{display:block;color:var(--muted);font-size:12px;font-weight:600}
+#plview .bean .kg{font-size:13px;font-weight:800;color:var(--muted);white-space:nowrap}
+#plview .amt{border:1px solid var(--line2);border-radius:16px;padding:12px 14px;margin-bottom:10px}
+#plview .amt b{font-size:15px;color:var(--ink)}#plview .amt small{color:var(--muted);font-weight:600}
+#plview .din{width:100%;border:1.5px solid var(--line2);border-radius:14px;padding:13px 14px;font-size:16px;font-family:inherit;background:var(--card);color:var(--ink);outline:none;margin-top:8px;transition:box-shadow .15s,border-color .15s}
+#plview .din:focus{border-color:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 18%,transparent)}
+#plview .dlab{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:16px 2px 0}
+#plview .rtabs{display:flex;gap:6px;background:var(--tint);padding:4px;border-radius:13px;margin:8px 0 10px}
+#plview .rtabs button{flex:1;border:0;background:transparent;color:var(--muted);border-radius:10px;padding:9px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+#plview .rtabs button.on{background:#fff;color:var(--ink);box-shadow:0 2px 6px rgba(0,0,0,.06)}
+#plview .chip{border:1.5px solid var(--line2);background:#fff;color:var(--ink);border-radius:20px;padding:8px 14px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+#plview .chip.on{border-color:var(--qc);background:color-mix(in srgb,var(--qc) 12%,transparent);color:var(--qc)}
+#plview .nav{position:absolute;left:0;right:0;bottom:0;padding:14px 18px 24px;background:color-mix(in srgb,var(--card) 90%,transparent);backdrop-filter:blur(12px);border-top:1px solid var(--line);display:flex;gap:10px}
+#plview .btn{flex:1;border:0;border-radius:16px;padding:15px;font:inherit;font-size:15px;font-weight:800;cursor:pointer}
+#plview .btn.ghost{flex:0 0 auto;background:var(--line);color:var(--ink);padding:15px 22px}
+#plview .btn.go2{background:var(--c);color:#fff;box-shadow:0 8px 18px color-mix(in srgb,var(--c) 40%,transparent)}
+#plview .btn:disabled{opacity:.45}
+#plview .done{text-align:center;color:var(--green);font-weight:800;margin-top:14px}
 </style></head><body class="appview">
 <div class="bglogo"></div>
 <div class="sbar"></div>
@@ -398,6 +445,7 @@ body.appview nav button{font-size:13px;padding:10px 2px}
 <button id="nav-refresh">Refresh</button>
 </nav>
 <div class="shoptabs" id="shoptabs" style="display:none"></div>
+<div id="plview"><div class="plhdr"><b>Production line</b><button class="plx" id="pl-x" aria-label="Close" onclick="PLINE.close()">×</button></div><div class="scr" id="pl-scr"></div><div class="nav" id="pl-nav"></div></div>
 <div class="drawer-bg" id="dbg"></div>
 <div class="drawer" id="drawer"></div>
 <div class="toast" id="toast"></div>
@@ -11113,6 +11161,200 @@ function renderHome(){
     b.addEventListener('pointercancel',_hend);
   });
 }
+/* ── Production line 介面（2026-07-15 移植自示意稿 production-line.html）
+   命名空間 PLINE，只暴露一個全域 PLINE 物件；資料先用本機示範版（localStorage 'pl_q'），
+   確認介面 OK 再接真資料（Roast→roasts＋扣生豆、QC→qc 判定…）── */
+var PLINE=(function(){
+  var IC={
+   green:'<path d="M20 4C11 4 4 11 4 20c0 0 3 .2 6.5-1.2C9 17 8 14 8 14s3 1 5 2.5C15.5 14 20 11 20 4z"/>',
+   roast:'<path d="M12 2c3 4 6 6 6 11a6 6 0 1 1-12 0c0-2 .8-3.7 2-5 .2 1.6 1 2.6 2 3 0-4 0-6 0-9z"/>',
+   box:'<path d="M12 2L3 6.5v11L12 22l9-4.5v-11L12 2zm0 2.3l5.8 2.9L12 10 6.2 7.2 12 4.3zM5 8.7l6 3v7.6l-6-3V8.7z"/>',
+   qc:'<path d="M10 2a8 8 0 1 0 4.9 14.3l4.4 4.4 1.4-1.4-4.4-4.4A8 8 0 0 0 10 2zm0 3a5 5 0 0 1 0 10 5 5 0 0 1 0-10z"/>',
+   shelf:'<path d="M3 3v18h18v-2H5V3zm14 4-4 4-3-3-4 4 1.4 1.4L10 11l3 3 5-5z"/>',
+   chev:'<path d="M9 5l7 7-7 7-1.4-1.4L13 12 7.6 6.4z"/>'};
+  function sv(k){return '<svg viewBox="0 0 24 24">'+IC[k]+'</svg>';}
+  var BEANS=[{id:'ETG',n:'Ethiopia Guji',p:'Washed',s:24},{id:'COH',n:'Colombia Huila',p:'Honey',s:18},{id:'BRC',n:'Brazil Cerrado',p:'Natural',s:40},{id:'KAA',n:'Kenya AA',p:'Washed',s:12},{id:'HBL',n:'House Blend',p:'blend',s:60}];
+  function beanId(name){for(var i=0;i<BEANS.length;i++)if(BEANS[i].n===name)return BEANS[i].id;return '';}
+  function idTag(id){return id?' <span style="font-weight:800;font-size:11px;color:var(--muted);letter-spacing:.5px">'+id+'</span>':'';}
+  var view='home',flow='roast',step=1,selected=[],amounts={},cupIdx=null,cupScore=84,cupFlav=[],recTab='time',openG={},recOrder=[],bid=0,dragK=null,openS={},secOrderCache=[];
+  var qcQueue=[];try{qcQueue=JSON.parse(localStorage.getItem('pl_q')||'[]').filter(function(q){return q&&q.kind;});}catch(e){}
+  function save(){try{localStorage.setItem('pl_q',JSON.stringify(qcQueue));}catch(e){}}
+  var scr,nav;
+  function C(){return view==='qc'||view==='cup'?'--qc':(flow==='roast'?'--roast':'--shelf');}
+  function home(){
+    nav.style.display='none';nav.innerHTML='';
+    scr.innerHTML='<div class="h1">Production line</div><div class="sub">生豆 → 烘 → 熟豆 → 上架 · 選一個動作</div>'
+     +'<div class="flow">'
+     +'<div class="st" style="--c:var(--green)"><span class="ic">'+sv('green')+'</span><span class="n">142</span><span class="l">Green</span></div><span class="arr">›</span>'
+     +'<div class="st" style="--c:var(--roast)"><span class="ic">'+sv('roast')+'</span><span class="n">3</span><span class="l">Roast</span></div><span class="arr">›</span>'
+     +'<div class="st" style="--c:var(--qc)"><span class="ic">'+sv('qc')+'</span><span class="n">2</span><span class="l">QC</span></div><span class="arr">›</span>'
+     +'<div class="st" style="--c:var(--shelf)"><span class="ic">'+sv('shelf')+'</span><span class="n">12</span><span class="l">Shelf</span></div></div>'
+     +'<button class="entry" style="--c:var(--roast)" onclick="PLINE.start(\'roast\')"><span class="ic">'+sv('roast')+'</span><span class="tx"><b>Roast</b><span>烘豆 · 從生豆倉扣掉生豆</span></span><span class="go">'+sv('chev')+'</span></button>'
+     +'<button class="entry" style="--c:var(--shelf)" onclick="PLINE.start(\'intake\')"><span class="ic">'+sv('box')+'</span><span class="tx"><b>Intake</b><span>直接補熟豆 · 不動生豆倉</span></span><span class="go">'+sv('chev')+'</span></button>'
+     +recordsHTML();
+  }
+  function statusOf(q){return q.status==='sold'?'sold out':q.status==='shelf'?'on shelf':q.verdict==='pass'?'passed':q.verdict==='down'?'downgraded':q.cupped?'cupped '+q.score:'to cup';}
+  function recordsHTML(){
+    if(!qcQueue.length)return '<div class="dlab" style="margin-top:20px">Coffee bean records</div><div class="steps" style="text-align:left;margin-top:8px">還沒有紀錄 · Roast／Intake 一批就會出現（會自動記住）</div>';
+    var groups={},order=[];
+    qcQueue.forEach(function(q,i){var k=(q.date||'no-date')+'|'+q.n;if(!groups[k]){groups[k]={date:q.date,name:q.n,items:[]};order.push(k);}groups[k].items.push({q:q,i:i});});
+    var byDate=recTab==='time';
+    order.sort(function(a,b){var ga=groups[a],gb=groups[b];return byDate?((gb.date||'').localeCompare(ga.date||'')||ga.name.localeCompare(gb.name)):(ga.name.localeCompare(gb.name)||(gb.date||'').localeCompare(ga.date||''));});
+    recOrder=order;
+    var secOrder=[],secMap={};
+    order.forEach(function(k){var g=groups[k],s=byDate?(g.date||'no date'):g.name;if(!secMap[s]){secMap[s]=[];secOrder.push(s);}secMap[s].push(k);});
+    secOrderCache=secOrder;
+    var html='<div class="dlab" style="margin-top:20px">Coffee bean records · '+secOrder.length+(byDate?' date':' bean')+(secOrder.length>1?'s':'')+'</div>'
+      +'<div class="rtabs"><button class="'+(byDate?'on':'')+'" onclick="PLINE.setRecTab(\'time\')">By date</button><button class="'+(!byDate?'on':'')+'" onclick="PLINE.setRecTab(\'name\')">By name</button></div>';
+    secOrder.forEach(function(s,si){var leaves=secMap[s],sopen=openS[(byDate?'d|':'n|')+s]!==false,totB=leaves.reduce(function(a,k){return a+groups[k].items.length;},0);
+      html+='<button onclick="PLINE.toggleS('+si+')" style="display:flex;justify-content:space-between;align-items:center;width:100%;border:0;background:none;cursor:pointer;padding:0;margin:16px 2px 7px"><span style="font-size:14px;font-weight:800;color:var(--qc);letter-spacing:.3px">'+(sopen?'▾ ':'▸ ')+s+(byDate?'':idTag(beanId(s)))+'</span><span style="font-size:12px;color:var(--muted);font-weight:700">'+totB+' batch'+(totB>1?'es':'')+'</span></button>';
+      if(!sopen)return;
+      leaves.forEach(function(k){var gi=order.indexOf(k),g=groups[k],open=openG[k],star=g.items.some(function(x){return x.q.star;}),n=g.items.length,title=byDate?g.name:(g.date||'no date');
+        html+='<button class="bean" style="--c:var(--qc)" onclick="PLINE.toggleG('+gi+')"><span><b>'+(star?'★ ':'')+title+'</b>'+(byDate?idTag(beanId(title)):'')+'<small>'+n+' batch'+(n>1?'es':'')+'</small></span><span class="kg">'+(open?'▾':'▸ '+n)+'</span></button>';
+        if(open)html+='<div style="margin:-2px 0 10px 14px;padding-left:8px;border-left:2px solid var(--line2)">'+g.items.map(function(x){var q=x.q;
+          return '<button class="bean" style="--c:var(--qc);margin-bottom:7px" onclick="PLINE.openRec('+x.i+')"><span><b>'+amtStr(q)+'</b><small>'+statusOf(q)+' · '+(q.date||'no date')+'</small></span><span class="kg">›</span></button>';}).join('')+'</div>';
+      });
+    });
+    return html;
+  }
+  function toggleG(gi){var k=recOrder[gi];openG[k]=!openG[k];render();}
+  function toggleS(si){var s=secOrderCache[si],key=(recTab==='time'?'d|':'n|')+s;openS[key]=(openS[key]===false)?true:false;render();}
+  function fmtT(t){if(!t)return '';var d=new Date(t);return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}
+  function todayISO(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+  function start(f){flow=f;step=1;selected=[];amounts={};view='wiz';render();}
+  function wiz(){
+    var isR=flow==='roast',c=C();
+    var dots='<div class="dots">'+[1,2].map(function(i){return '<i class="'+(i<=step?'on':'')+'" style="--c:var('+c+')"></i>';}).join('')+'</div>';
+    var title,stx,body;
+    if(step===1){
+      title=isR?'Pick beans to roast':'Pick coffees';stx='同一支可加多批 · 用 ＋／− 選批數 · 選好按 Submit';
+      var stp='width:34px;height:34px;border-radius:10px;border:1.5px solid var('+c+');background:#fff;color:var('+c+');font-size:18px;font-weight:900;cursor:pointer;flex:0 0 auto;line-height:1';
+      body=BEANS.map(function(b,i){var n=cnt(i);
+        return '<div class="bean'+(n?' sel':'')+'" style="--c:var('+c+')'+(n?';outline:2px solid var('+c+');outline-offset:-1px':'')+'"><span><b>'+b.n+'</b>'+idTag(b.id)+'<small>'+b.p+(isR?' · '+b.s+' kg green':'')+'</small></span>'
+          +'<span style="display:flex;align-items:center;gap:8px">'
+            +(n?'<button onclick="PLINE.removeBatch('+i+')" style="'+stp+'">−</button><b style="min-width:16px;text-align:center;color:var('+c+');font-size:16px">'+n+'</b>':'')
+            +'<button onclick="PLINE.addBatch('+i+')" style="'+stp+'">＋</button></span></div>';}).join('');
+      if(selected.length){body+='<div class="dlab" style="color:var('+c+')">Selected · 拖曳 ≡ 排序（上→下 = Batch 1,2,3…）</div>'
+        +selected.map(function(bt,k){var b=BEANS[bt.bean];
+          return '<div class="bean" draggable="true" ondragstart="PLINE.dStart(event,'+k+')" ondragover="PLINE.dOver(event)" ondrop="PLINE.dDrop(event,'+k+')" ondragend="PLINE.dEnd(event)" style="--c:var('+c+');cursor:grab"><span><b>Batch no.'+(k+1)+' · '+b.n+'</b>'+idTag(b.id)+'<small>'+b.p+'</small></span><span style="display:flex;align-items:center;gap:12px"><span style="color:var('+c+');font-size:20px;font-weight:900">≡</span><button onclick="PLINE.removeAt('+k+')" style="width:30px;height:30px;border-radius:9px;border:1.5px solid var(--line2);background:#fff;color:var(--danger);font-size:16px;font-weight:800;cursor:pointer;flex:0 0 auto;line-height:1">×</button></span></div>';}).join('')
+        +'<div style="text-align:center;font-weight:800;color:var('+c+');margin:12px 2px 2px;font-size:15px">Total batch · '+selected.length+'</div>';}
+    }else{
+      title='Enter amounts';stx=isR?'每支填 生豆量 ＋ 熟豆量':'每支填 熟豆量';
+      body=selected.map(function(bt,mi){var b=BEANS[bt.bean],a=amounts[bt.id]||{},id=bt.id;
+        return '<div class="amt"><div class="dlab" style="font-size:12px;margin:0 0 5px;color:var('+c+');font-weight:800;letter-spacing:.3px">Batch no.'+(mi+1)+'</div><b>'+b.n+'</b>'+idTag(b.id)+' <small>'+b.p+'</small>'
+         +(isR?'<div style="display:flex;gap:8px;margin-top:2px"><input class="din" style="--c:var('+c+')" inputmode="decimal" placeholder="Green kg" value="'+(a.g||'')+'" oninput="PLINE.setAmt('+id+',\'g\',this.value)"><input class="din" style="--c:var('+c+')" inputmode="decimal" placeholder="Roasted kg" value="'+(a.o||'')+'" oninput="PLINE.setAmt('+id+',\'o\',this.value)"></div>'
+               :'<input class="din" style="--c:var('+c+')" inputmode="decimal" placeholder="Roasted kg" value="'+(a.o||'')+'" oninput="PLINE.setAmt('+id+',\'o\',this.value)">')
+         +'<div class="dlab" style="font-size:11px;margin-top:8px">Roast date'+(isR?' · defaults to today':' · 要填')+'</div><input class="din" type="date" style="--c:var('+c+');margin-top:4px" value="'+(a.date||'')+'" oninput="PLINE.setAmt('+id+',\'date\',this.value)">'
+         +'</div>';}).join('');
+    }
+    scr.innerHTML=dots+'<div class="stept">'+title+'</div><div class="steps">Step '+step+' of 2 · '+stx+'</div>'+body;
+    nav.style.display='flex';
+    nav.innerHTML='<button class="btn ghost" onclick="PLINE.back()">'+(step===1?'Cancel':'Back')+'</button>'
+      +(step===1?'<button class="btn go2" style="--c:var('+c+')" onclick="PLINE.next()"'+(selected.length?'':' disabled')+'>Submit ('+selected.length+')</button>'
+                :'<button class="btn go2" style="--c:var('+c+')" onclick="PLINE.submitWiz()">Submit → QC</button>');
+  }
+  function qcList(){
+    var pend=[],pass=[],down=[],hist=[];
+    qcQueue.forEach(function(q,i){var t=[q,i];if(q.status==='sold')hist.push(t);else if(q.verdict==='pass')pass.push(t);else if(q.verdict==='down')down.push(t);else pend.push(t);});
+    function row(t,tone){var q=t[0],i=t[1];var act=tone===''?'openCup':'openManage';
+      var meta=q.cupped?(' · '+q.score+(q.status==='shelf'?' · on shelf':q.status==='sold'?' · sold out':tone==='pass'?' · not listed':'')):' · not cupped yet';
+      return '<button class="bean" style="--c:var(--qc)" onclick="PLINE.'+act+'('+i+')"><span><b>'+(q.star?'★ ':'')+q.n+'</b>'+idTag(beanId(q.n))+'<small>'+amtStr(q)+meta+'</small></span>'
+        +(tone==='pass'?'<span style="color:var(--green);font-weight:900;font-size:18px">✓</span>':tone==='down'?'<span style="color:var(--roast);font-weight:900;font-size:18px">↓</span>':'<span class="kg" style="color:var(--qc)">cup ›</span>')+'</button>';}
+    var h='<div class="h1">QC &amp; Approval</div><div class="sub">剛'+(flow==='roast'?'烘':'進')+'的 '+qcQueue.length+' 批 · 評測後判定 Pass／Downgrade</div>';
+    if(pend.length)h+='<div class="dlab" style="color:var(--qc)">To cup · '+pend.length+'</div>'+pend.map(function(t){return row(t,'');}).join('');
+    if(pass.length)h+='<div class="dlab" style="color:var(--green)">✓ Passed · '+pass.length+' → shelf</div>'+pass.map(function(t){return row(t,'pass');}).join('');
+    if(down.length)h+='<div class="dlab" style="color:var(--roast)">↓ Downgraded · '+down.length+' → 降級池</div>'+down.map(function(t){return row(t,'down');}).join('');
+    if(hist.length)h+='<div class="dlab" style="color:var(--muted)">History · sold out · '+hist.length+' · 勾掉刪除</div>'+hist.map(function(t){var q=t[0],i=t[1];return '<div class="bean" style="opacity:.72"><span><b>'+(q.star?'★ ':'')+q.n+'</b><small>'+amtStr(q)+' · '+q.score+' · sold out</small></span><button onclick="PLINE.removeHist('+i+')" style="border:1.5px solid var(--line2);background:#fff;border-radius:10px;width:36px;height:36px;font-size:16px;font-weight:800;cursor:pointer;color:var(--green);flex:0 0 auto">✓</button></div>';}).join('');
+    if(!pend.length&&qcQueue.length)h+='<div class="done">All judged ✓ · sold out 勾掉即進 History 清掉</div>';
+    scr.innerHTML=h;
+    nav.style.display='flex';
+    nav.innerHTML='<button class="btn go2" style="--c:var(--qc)" onclick="PLINE.goHome()">'+(!pend.length?'Finish · back to line':'Back to line')+'</button>';
+  }
+  function cupView(){
+    var q=qcQueue[cupIdx],flavs=['Floral','Berry','Choc','Nutty','Citrus','Caramel'];
+    scr.innerHTML='<div class="h1">Cup: '+q.n+'</div><div class="sub">'+amtStr(q)+' · 評測這一批</div>'
+      +'<div class="dlab">Flavour notes</div><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'
+      +flavs.map(function(f){return '<button class="chip'+(cupFlav.indexOf(f)>-1?' on':'')+'" onclick="PLINE.toggleFlav(\''+f+'\')">'+f+'</button>';}).join('')+'</div>'
+      +'<div class="dlab">Score</div><div style="font-size:38px;font-weight:800;color:var(--qc);text-align:center;margin:6px 0" id="scv">'+cupScore+'</div>'
+      +'<input type="range" min="70" max="95" value="'+cupScore+'" style="width:100%;accent-color:var(--qc)" oninput="PLINE.score(this.value)">';
+    nav.style.display='flex';
+    nav.innerHTML='<button class="btn ghost" onclick="PLINE.go(\'qc\')">Back</button>'
+      +'<button class="btn go2" style="--c:var(--qc)" onclick="PLINE.submitCup()">Submit → Approval</button>';
+  }
+  function approvalView(){
+    var q=qcQueue[cupIdx];
+    scr.innerHTML='<div class="h1">Approval</div><div class="sub">'+q.n+' · '+amtStr(q)+' · scored '+q.score+(q.flav&&q.flav.length?' · '+q.flav.join(', '):'')+'</div>'
+     +'<div class="steps" style="margin:6px 2px 12px;text-align:left">評測完了，這一批要通過還是降級？</div>'
+     +(q.kind==='roast'?'<div class="dlab" style="margin-top:0">Roasted out'+(q.o?'':' · <span style="color:var(--danger)">補填才能判定</span>')+'</div><input class="din" style="--c:var(--roast)" inputmode="decimal" placeholder="Roasted kg (≤ '+q.g+' green)" value="'+(q.o||'')+'" oninput="PLINE.fillRoasted(this.value)"><div class="steps" id="ow" style="color:var(--danger);text-align:left;margin:4px 2px 14px"></div>':'')
+     +(!q.date?'<div class="dlab" style="margin-top:0">Roast date · <span style="color:var(--danger)">補填日期</span></div><input class="din" type="date" value="" oninput="PLINE.fillDate(this.value)"><div class="steps" style="text-align:left;margin:4px 2px 14px">沒有日期的批次，補上日期才會收進正確的抽屜</div>':'')
+     +'<button class="entry" style="--c:var(--green)" onclick="PLINE.approve(\'pass\')"><span class="ic">'+sv('shelf')+'</span><span class="tx"><b>Pass ✓</b><span>通過 · 可上架販售</span></span><span class="go">'+sv('chev')+'</span></button>'
+     +'<button class="entry" style="--c:var(--roast)" onclick="PLINE.approve(\'down\')"><span class="ic">'+sv('box')+'</span><span class="tx"><b>Downgraded ↓</b><span>降級 · 進降級池（不上架）</span></span><span class="go">'+sv('chev')+'</span></button>';
+    nav.style.display='flex';
+    nav.innerHTML='<button class="btn ghost" onclick="PLINE.go(\'cup\')">Back to cupping</button>';
+  }
+  function manageView(){
+    var q=qcQueue[cupIdx],isPass=q.verdict==='pass';
+    var stTxt=q.status==='shelf'?'On shelf ✓':q.status==='sold'?'Sold out · in History':'Passed · not listed yet';
+    scr.innerHTML='<div class="h1">'+(q.star?'★ ':'')+q.n+'</div><div class="sub">'+amtStr(q)+' · scored '+q.score+' · '+(isPass?stTxt:'Downgraded · in 降級池')+'</div>'
+     +(isPass?'<button class="entry" style="--c:var(--fin)" onclick="PLINE.toggleStar()"><span class="ic">'+sv('qc')+'</span><span class="tx"><b>'+(q.star?'★ Best batch — tap to unmark':'☆ Mark as best')+'</b><span>標記這是最好的一批</span></span></button>'
+       +'<div class="dlab">On the shelf</div>'
+       +actBtn('shelf','List on shelf','上架販售',q.status==='shelf')
+       +actBtn('off','Take off shelf','下架',q.status==='off')
+       +actBtn('sold','Mark sold out','售完 → History',q.status==='sold'):'')
+     +'<div class="dlab">Or</div>'
+     +'<button class="entry" style="--c:var(--roast)" onclick="PLINE.reQC()"><span class="ic">'+sv('qc')+'</span><span class="tx"><b>Re-QC</b><span>重新評測（回 To cup 重新判定）</span></span></button>';
+    nav.style.display='flex';nav.innerHTML='<button class="btn go2" style="--c:var(--qc)" onclick="PLINE.go(\'qc\')">Done</button>';
+  }
+  function actBtn(s,t,sub,on){var col=s==='sold'?'--danger':'--green';
+    return '<button class="entry" style="--c:var('+col+')'+(on?';outline:2px solid var('+col+');outline-offset:-1px':'')+'" onclick="PLINE.setStatus(\''+s+'\')"><span class="ic">'+sv(s==='shelf'?'shelf':'box')+'</span><span class="tx"><b>'+t+(on?' ✓':'')+'</b><span>'+sub+'</span></span></button>';}
+  function render(){save();if(view==='home')return home();if(view==='wiz')return wiz();if(view==='qc')return qcList();if(view==='cup')return cupView();if(view==='approval')return approvalView();return manageView();}
+  function cnt(i){return selected.filter(function(x){return x.bean===i;}).length;}
+  function addBatch(i){var id=bid++;selected.push({id:id,bean:i});amounts[id]={g:'',o:'',date:(flow==='roast'?todayISO():'')};render();}
+  function removeBatch(i){for(var k=selected.length-1;k>=0;k--){if(selected[k].bean===i){delete amounts[selected[k].id];selected.splice(k,1);break;}}render();}
+  function removeAt(k){delete amounts[selected[k].id];selected.splice(k,1);render();}
+  function dStart(e,k){dragK=k;e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text','x');}catch(_){}}
+  function dOver(e){e.preventDefault();e.dataTransfer.dropEffect='move';}
+  function dDrop(e,k){e.preventDefault();if(dragK==null||dragK===k){dragK=null;return;}var it=selected.splice(dragK,1)[0];selected.splice(k,0,it);dragK=null;render();}
+  function dEnd(){dragK=null;}
+  function setAmt(id,f,v){if(!amounts[id])amounts[id]={g:'',o:'',date:''};amounts[id][f]=v;}
+  function next(){if(selected.length){step=2;render();}}
+  function back(){if(step===1){view='home';}else step=1;render();}
+  function amtStr(q){return q.kind==='roast'?((q.g||'?')+' → '+(q.o?q.o+' kg':'roasted pending')):(q.o+' kg');}
+  function submitWiz(){
+    for(var k=0;k<selected.length;k++){var b=BEANS[selected[k].bean],a=amounts[selected[k].id]||{};
+      if(flow==='roast'){
+        if(!a.g||+a.g<=0){alert('Batch no.'+(k+1)+'「'+b.n+'」的生豆量一定要填');return;}
+        if(a.o&&+a.o>+a.g){alert('Batch no.'+(k+1)+'「'+b.n+'」的熟豆量 ('+a.o+') 不能多於生豆量 ('+a.g+')');return;}
+      }else{
+        if(!a.o||+a.o<=0){alert('Batch no.'+(k+1)+'「'+b.n+'」的熟豆量要填');return;}
+        if(!a.date){alert('Batch no.'+(k+1)+'「'+b.n+'」要填烘焙日期（Intake 是補登過往的）');return;}
+      }
+    }
+    var add=selected.map(function(bt,mi){var b=BEANS[bt.bean],a=amounts[bt.id]||{};
+      return {n:b.n,kind:flow,g:a.g||'',o:a.o||'',date:a.date||todayISO(),cupped:false,verdict:null,score:0,flav:[],time:Date.now()+mi};});
+    qcQueue=qcQueue.concat(add);view='qc';render();}
+  function openCup(i){cupIdx=i;var q=qcQueue[i];cupScore=q.cupped?q.score:84;cupFlav=q.cupped?q.flav.slice():[];view='cup';render();}
+  function toggleFlav(f){var k=cupFlav.indexOf(f);if(k>-1)cupFlav.splice(k,1);else cupFlav.push(f);render();}
+  function fillRoasted(v){var q=qcQueue[cupIdx];q.o=v;var el=document.getElementById('ow');if(el)el.textContent=(v&&q.g&&+v>+q.g)?'⚠ 熟豆不能多於生豆 '+q.g+' kg':'';}
+  function fillDate(v){if(!v)return;qcQueue[cupIdx].date=v;render();}
+  function submitCup(){var q=qcQueue[cupIdx];q.cupped=true;q.score=cupScore;q.flav=cupFlav.slice();view='approval';render();}
+  function approve(v){var q=qcQueue[cupIdx];
+    if(q.kind==='roast'){if(!q.o){alert('這批還沒填熟豆量，補一下再判定');return;}if(+q.o>+q.g){alert('熟豆量 ('+q.o+') 不能多於生豆量 ('+q.g+')');return;}}
+    q.verdict=v;if(v==='pass'&&!q.status)q.status='off';view='qc';render();}
+  function openManage(i){cupIdx=i;view='manage';render();}
+  function toggleStar(){qcQueue[cupIdx].star=!qcQueue[cupIdx].star;render();}
+  function setStatus(s){qcQueue[cupIdx].status=s;render();}
+  function reQC(){qcQueue[cupIdx].verdict=null;qcQueue[cupIdx].status='off';view='qc';render();}
+  function removeHist(i){qcQueue.splice(i,1);render();}
+  function setRecTab(t){recTab=t;render();}
+  function openRec(i){var q=qcQueue[i];if(!q.cupped){openCup(i);}else{cupIdx=i;view='manage';render();}}
+  function goHome(){view='home';render();}
+  function open(){scr=document.getElementById('pl-scr');nav=document.getElementById('pl-nav');document.getElementById('plview').classList.add('show');view='home';render();}
+  function close(){document.getElementById('plview').classList.remove('show');}
+  function go(v){view=v;render();}
+  function score(v){cupScore=+v;var el=document.getElementById('scv');if(el)el.textContent=cupScore;}
+  return {open:open,close:close,go:go,score:score,start:start,addBatch:addBatch,removeBatch:removeBatch,removeAt:removeAt,dStart:dStart,dOver:dOver,dDrop:dDrop,dEnd:dEnd,setAmt:setAmt,next:next,back:back,submitWiz:submitWiz,openCup:openCup,toggleFlav:toggleFlav,fillRoasted:fillRoasted,fillDate:fillDate,submitCup:submitCup,approve:approve,openManage:openManage,toggleStar:toggleStar,setStatus:setStatus,reQC:reQC,removeHist:removeHist,setRecTab:setRecTab,openRec:openRec,goHome:goHome,toggleG:toggleG,toggleS:toggleS};
+})();
 /* ── 生產線流程條橫幅（2026-07-15）：常駐底部導覽上方，四段即時真數字，點各段跳對應功能 ── */
 function renderFootLine(){
   var fl=$('footline');if(!fl)return;
@@ -11130,7 +11372,7 @@ function renderFootLine(){
   fl.querySelectorAll('[data-fl]').forEach(function(b){b.addEventListener('click',function(){
     var k=b.dataset.fl;
     if(k==='green')return openGreensSheet();
-    if(k==='roast')return openRoasterySheet();
+    if(k==='roast')return PLINE.open();
     if(k==='qc')return openQCSheet();
     if(k==='shelf')return openBatchesSheet();
   });});
