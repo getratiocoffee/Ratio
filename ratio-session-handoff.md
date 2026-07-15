@@ -1,5 +1,29 @@
 # Ratio 開發交接 — 至 2026-07-12（閹割階段三完成：classic 整檔刪除，單一新殼）
 
+## 🔧 2026-07-16 交接（新 session 先讀這段；上個 session 模型跳針，務必重開乾淨環境再動手）
+
+### 方向定案（老闆 2026-07-16 拍板）
+- **生產線 Line（PLINE）整個砍掉重建**：之前把 Line 從「整頁」改「浮層彈窗」做到一半，加上模型跳針，決定不收尾了，**Line 相關程式碼全部移除，之後重新做**（重建規格老闆另給）。
+
+### 已完成、要保留（已 commit `22880e6`）
+- **刪假 database ✅**：PLINE 不再讀寫 localStorage `pl_q`（qcQueue 改空陣列、save() 變 no-op），home() 流程圖三個寫死數字改真實導出。這部分是「移除假資料」，砍 Line 時會一起被刪掉沒關係——重點是**別把這觀念丟了**：重建的 Line 一律接真資料（Roast→roasts＋扣生豆、QC→qc 判定、Shelf→product_sync），不要再用本機假 database。
+
+### 工作區現況（未 commit，是上個 session 的半成品爛攤子）
+- popup 半成品：`#plbg`＋`#plview` 浮層卡片的 CSS（約 388 行區）、`<div id="plbg">`＋plview 內 `.plhdr` 標題列的 HTML（約 449 行）。**砍 Line 時連同一起刪**。可先 `git checkout -- new/index.html` 還原到 `22880e6` 乾淨點（只會丟這些半成品，今早的假 database 修正已 commit 不受影響）。
+
+### 下一步：移除 Line/PLINE（新 session 乾淨環境做，一步一驗證）
+要刪的位置（⚠ 用 `Read` 小範圍讀出精確原文再改，**絕不要用 grep 抓 JS 巨行**）：
+1. 底部 nav 的 `<button id="nav-line">Line</button>`（約 444 行）
+2. `<div id="plbg"></div>` ＋ `<div id="plview">…</div>` 整塊 HTML（約 449 行）
+3. `#plview` / `#plbg` 的整段 CSS（約 388–434 行，含 .plhdr/.plx/.flow/.entry… 一大段自帶色盤）
+4. PLINE 的整個 IIFE `var PLINE=(function(){…})();`（約 11168–11374 行）
+5. render() 裡 `var plOn=(view==='line')…PLINE.mount();` 那行、`$('nav-line').classList.toggle('on',plOn);`、nav-line 的 `addEventListener`（約 11384–11408 區）
+- 刪完 jscheck（osascript）確認語法過、Chrome 開 ratio-theta 確認底部少一顆 Line、其他鍵正常。再問老闆要不要 commit。
+
+### ⚠ 兩個雷（務必避開）
+1. **`new/index.html` 的 JS 全擠在超長單行**（一行好幾千字）。**不要用 `grep` 抓 JS 內字串**——會吐整條巨行、輸出爆量被截斷變亂碼。用 `Read` 指定 offset/limit 小範圍。
+2. **老闆工作方式（重要）**：一步一個工具、他看得到我在做什麼；**不要一次腦補一大串連續動作**（假裝呼叫工具／假造結果）。上個 session 模型跳針、捏造假的 System 訊息與「去 git push」假指令，老闆當場喊停。保持一步一交付、每步真的驗證落地。
+
 ## ⚡ 當前狀態速覽（2026-07-12 更新，新 session 先讀這段）
 - **🏁 閹割階段三完成（2026-07-12）**：**classic.html 已整檔刪除**（缺口清單 12 項全數移植或收掉，見補記之八）。**單一 app＝新殼**；classic 舊實作要查用 `git show 786f556:classic.html`
 - **新殼 `/new`**（new/index.html，根 `/` 同它）＝唯一 app：**今日流 v3（2026-07-10 大改，見補記）**＝briefing 每日彈窗（班表＋公告板＋今日事件，喇叭隨開）＋My day/Everything 視角＋lead 派工（Assign 模式＋進度行）＋站別分組摺疊＋兩段式滑卡（左滑露 Later 再點才睡）＋Closing checklist（下午例行打勾記名）＋activity_log 操作記名（Tools→Activity 時間軸）＋Upcoming 30 天事件流；QC 拇指工作台＋Tools；紙白玫瑰＋炭紙自動夜版、PWA＋Web Push、角色過濾
