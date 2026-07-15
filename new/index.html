@@ -11163,8 +11163,9 @@ function renderHome(){
   });
 }
 /* ── Production line 介面（2026-07-15 移植自示意稿 production-line.html）
-   命名空間 PLINE，只暴露一個全域 PLINE 物件；資料先用本機示範版（localStorage 'pl_q'），
-   確認介面 OK 再接真資料（Roast→roasts＋扣生豆、QC→qc 判定…）── */
+   命名空間 PLINE，只暴露一個全域 PLINE 物件。
+   假 database 已移除（2026-07-16）：qcQueue 先空著，待接真資料
+   （Roast→roasts＋扣生豆、QC→qc 判定、Shelf→product_sync）── */
 var PLINE=(function(){
   var IC={
    green:'<path d="M20 4C11 4 4 11 4 20c0 0 3 .2 6.5-1.2C9 17 8 14 8 14s3 1 5 2.5C15.5 14 20 11 20 4z"/>',
@@ -11184,18 +11185,24 @@ var PLINE=(function(){
   function beanId(name){for(var i=0;i<BEANS.length;i++)if(BEANS[i].n===name)return BEANS[i].tag;return '';}
   function idTag(id){return id?' <span style="font-weight:800;font-size:11px;color:var(--muted);letter-spacing:.5px">'+id+'</span>':'';}
   var view='home',flow='roast',step=1,selected=[],amounts={},cupIdx=null,cupScore=84,cupFlav=[],recTab='time',openG={},recOrder=[],bid=0,dragK=null,openS={},secOrderCache=[];
-  var qcQueue=[];try{qcQueue=JSON.parse(localStorage.getItem('pl_q')||'[]').filter(function(q){return q&&q.kind;});}catch(e){}
-  function save(){try{localStorage.setItem('pl_q',JSON.stringify(qcQueue));}catch(e){}}
+  /* 接真接口點：之後這裡從 DB.roasts／qc 判定投影出 qcQueue
+     （形狀 {n,kind,g,o,date,cupped,verdict,score,flav,status,star} 不變） */
+  var qcQueue=[];
+  function save(){/* 假 database 已移除；接真後改成寫回 DB，先不做本機持久化 */}
   var scr,nav;
   function C(){return view==='qc'||view==='cup'?'--qc':(flow==='roast'?'--roast':'--shelf');}
   function home(){
     nav.style.display='none';nav.innerHTML='';
+    /* 流程圖數字改成從 qcQueue 真實導出（假數字已移除，接真前皆為 0） */
+    var roastN=qcQueue.length,
+        qcN=qcQueue.filter(function(q){return q.status!=='sold'&&q.verdict!=='pass'&&q.verdict!=='down';}).length,
+        shelfN=qcQueue.filter(function(q){return q.verdict==='pass';}).length;
     scr.innerHTML='<div class="h1">Production line</div><div class="sub">生豆 → 烘 → 熟豆 → 上架 · 選一個動作</div>'
      +'<div class="flow">'
      +'<div class="st" style="--c:var(--green);cursor:pointer" onclick="PLINE.go(\'green\')"><span class="ic">'+sv('green')+'</span><span class="n">'+BEANS.length+'</span><span class="l">Green</span></div><span class="arr">›</span>'
-     +'<div class="st" style="--c:var(--roast);cursor:pointer" onclick="PLINE.start(\'roast\')"><span class="ic">'+sv('roast')+'</span><span class="n">3</span><span class="l">Roast</span></div><span class="arr">›</span>'
-     +'<div class="st" style="--c:var(--qc);cursor:pointer" onclick="PLINE.go(\'qc\')"><span class="ic">'+sv('qc')+'</span><span class="n">2</span><span class="l">QC</span></div><span class="arr">›</span>'
-     +'<div class="st" style="--c:var(--shelf);cursor:pointer" onclick="PLINE.go(\'shelf\')"><span class="ic">'+sv('shelf')+'</span><span class="n">12</span><span class="l">Shelf</span></div></div>'
+     +'<div class="st" style="--c:var(--roast);cursor:pointer" onclick="PLINE.start(\'roast\')"><span class="ic">'+sv('roast')+'</span><span class="n">'+roastN+'</span><span class="l">Roast</span></div><span class="arr">›</span>'
+     +'<div class="st" style="--c:var(--qc);cursor:pointer" onclick="PLINE.go(\'qc\')"><span class="ic">'+sv('qc')+'</span><span class="n">'+qcN+'</span><span class="l">QC</span></div><span class="arr">›</span>'
+     +'<div class="st" style="--c:var(--shelf);cursor:pointer" onclick="PLINE.go(\'shelf\')"><span class="ic">'+sv('shelf')+'</span><span class="n">'+shelfN+'</span><span class="l">Shelf</span></div></div>'
      +'<button class="entry" style="--c:var(--roast)" onclick="PLINE.start(\'roast\')"><span class="ic">'+sv('roast')+'</span><span class="tx"><b>Roast</b><span>烘豆 · 從生豆倉扣掉生豆</span></span><span class="go">'+sv('chev')+'</span></button>'
      +'<button class="entry" style="--c:var(--shelf)" onclick="PLINE.start(\'intake\')"><span class="ic">'+sv('box')+'</span><span class="tx"><b>Intake</b><span>直接補熟豆 · 不動生豆倉</span></span><span class="go">'+sv('chev')+'</span></button>'
      +recordsHTML();
