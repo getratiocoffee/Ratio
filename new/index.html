@@ -5045,7 +5045,7 @@ function openOrderDetail(o){
 var RCV=null;
 function openReceiveSheet(){
   if(!isLead()){roToast();return;} /* Green/敏感操作：staff 不開放（2026-07-14 權限矩陣） */
-  RCV={mode:'existing',beanId:'',name:'',country:'',process:'',kg:'',cost:'',supplier:'',lot:''};
+  RCV={mode:'existing',beanId:'',name:'',country:'',process:'',region:'',station:'',variety:'',harvest:'',altitude:'',kg:'',cost:'',supplier:'',lot:''};
   paintReceiveSheet();
 }
 function paintReceiveSheet(){
@@ -5063,15 +5063,21 @@ function paintReceiveSheet(){
         +(sel?'<div class="s" style="margin-top:4px">book '+(Number(sel.quantity)||0)+' kg'+(sel.supplier?' · '+esc(sel.supplier):'')+'</div>':'')
       :'<div class="dlab">Coffee name</div><input class="din" id="rv-name" placeholder="e.g. Finca Milan" value="'+esc(RCV.name)+'">'
         +'<div class="dlab">Country</div><input class="din" id="rv-country" placeholder="e.g. Colombia" value="'+esc(RCV.country)+'">'
-        +'<div class="dlab">Process</div><input class="din" id="rv-process" placeholder="e.g. Washed" value="'+esc(RCV.process)+'">')
-    +'<div class="dlab">Received (kg)</div><input class="din" id="rv-kg" inputmode="decimal" placeholder="e.g. 30" value="'+esc(RCV.kg)+'">'
+        +'<div class="dlab">Process</div><input class="din" id="rv-process" placeholder="e.g. Washed" value="'+esc(RCV.process)+'">'
+        /* 全欄位開放（2026-07-17 老闆點名）：新豆建檔一次填齊豆子檔案 */
+        +'<div class="dlab">Region · optional</div><input class="din" id="rv-region" placeholder="e.g. Huila" value="'+esc(RCV.region)+'">'
+        +'<div class="dlab">Station / farm · optional</div><input class="din" id="rv-station" placeholder="e.g. El Paraiso" value="'+esc(RCV.station)+'">'
+        +'<div class="dlab">Variety · optional</div><input class="din" id="rv-variety" placeholder="e.g. Caturra" value="'+esc(RCV.variety)+'">'
+        +'<div class="dlab">Harvest · optional</div><input class="din" id="rv-harvest" placeholder="e.g. 2026" value="'+esc(RCV.harvest)+'">'
+        +'<div class="dlab">Altitude · optional</div><input class="din" id="rv-altitude" placeholder="e.g. 1800m" value="'+esc(RCV.altitude)+'">')
+    +'<div class="dlab">Received (kg) · 0 = placeholder</div><input class="din" id="rv-kg" inputmode="decimal" placeholder="e.g. 30 — or 0 to just book it" value="'+esc(RCV.kg)+'">'
     +'<div class="dlab">Cost per kg (AUD) · optional</div><input class="din" id="rv-cost" inputmode="decimal" placeholder="—" value="'+esc(RCV.cost)+'">'
     +'<div class="dlab">Supplier · optional</div><input class="din" id="rv-sup" placeholder="—" value="'+esc(RCV.supplier)+'">'
     +'<div class="dlab">Lot no · optional</div><input class="din" id="rv-lot" placeholder="—" value="'+esc(RCV.lot)+'">'
     +'<button class="act" id="rv-save">Add to stock</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
   function grab(){
-    ['kg','cost','lot','name','country','process'].forEach(function(k){var el=$('rv-'+k);if(el)RCV[k]=el.value;});
+    ['kg','cost','lot','name','country','process','region','station','variety','harvest','altitude'].forEach(function(k){var el=$('rv-'+k);if(el)RCV[k]=el.value;});
     var su=$('rv-sup');if(su)RCV.supplier=su.value;
   }
   $('rv-ex').addEventListener('click',function(){grab();RCV.mode='existing';paintReceiveSheet();});
@@ -5088,8 +5094,9 @@ function paintReceiveSheet(){
   $('d-cl').addEventListener('click',closeDrawer);
 }
 async function saveReceiveSheet(){
-  var kg=parseFloat(String(RCV.kg).trim());
-  if(isNaN(kg)||kg<=0){toast('Enter the received kg');return;}
+  /* kg 可 0（2026-07-17 老闆點名）：豆還沒到先建檔佔位——空白＝0；0 kg 不寫流水帳 */
+  var kg=String(RCV.kg).trim()===''?0:parseFloat(String(RCV.kg).trim());
+  if(isNaN(kg)||kg<0){toast('Received kg must be 0 or more');return;}
   var cost=String(RCV.cost).trim()===''?null:parseFloat(String(RCV.cost).replace(/[^0-9.]/g,''));
   if(cost!=null&&(isNaN(cost)||cost<0)){toast('Cost must be a number');return;}
   var sup=String(RCV.supplier||'').trim(),lot=String(RCV.lot||'').trim();
@@ -5117,15 +5124,20 @@ async function saveReceiveSheet(){
       if(btn){btn.disabled=true;btn.textContent='Saving…';}
       var rec={id:'bean_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8),
         name:nm,process:String(RCV.process||'').trim()||null,country:String(RCV.country||'').trim()||null,
+        region:String(RCV.region||'').trim()||null,station:String(RCV.station||'').trim()||null,
+        variety:String(RCV.variety||'').trim()||null,harvest:String(RCV.harvest||'').trim()||null,
+        altitude:String(RCV.altitude||'').trim()||null,
         quantity:kg,cost_per_kg:cost,supplier:sup||null};
       var ins=await sb.from('beans').insert(rec).select();
       if(ins.error)throw new Error(ins.error.message);
       DB.beans.push((ins.data&&ins.data[0])||rec);
       beanId=rec.id;after=kg;
     }
-    try{await sb.from('stock_moves').insert({bean_id:beanId,kind:'receive',delta_kg:kg,after_kg:after,note:'Received'+(sup?' — '+sup:'')+(lot?' · lot '+lot:'')});}catch(e){}
-    logAct('received green','+'+kg+' kg',sup||null);
-    closeDrawer();toast('Received ✓ +'+kg+' kg');
+    if(kg>0){ /* 0 kg 佔位＝不進流水帳（帳上沒有量的變動） */
+      try{await sb.from('stock_moves').insert({bean_id:beanId,kind:'receive',delta_kg:kg,after_kg:after,note:'Received'+(sup?' — '+sup:'')+(lot?' · lot '+lot:'')});}catch(e){}
+      logAct('received green','+'+kg+' kg',sup||null);
+    }else logAct('booked green placeholder',RCV.mode==='existing'?'existing lot':String(RCV.name||'').trim(),sup||null);
+    closeDrawer();toast(kg>0?('Received ✓ +'+kg+' kg'):'Booked ✓ placeholder — 0 kg');
     await reload();
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent='Add to stock';}

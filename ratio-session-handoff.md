@@ -80,6 +80,10 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-17 之三（Receive green 全欄位開放＋kg 可 0 佔位 ✅ 待 push）
+- **老闆點名**：①New bean 建檔開放**所有豆子檔案欄位**——原本只有 name/country/process，加 region/station/variety/harvest/altitude 五格（全 optional、DB 皆 text 欄已 SQL 確認）②**kg 可 0（空白＝0）＝先佔位子**——豆還沒到先建檔；0 kg 時**不寫 stock_moves**（帳上沒有量的變動）、activity_log 記 `booked green placeholder`、toast 'Booked ✓ placeholder — 0 kg'。kg 欄 label 標 `0 = placeholder`。
+- **驗證**：jscheck ✓；stub——12 欄全在、全欄位＋kg 空白送出 → beans insert quantity:0＋五欄入庫＋零 stock_moves ✓；Existing lot 併批 30kg 照舊（PATCH 20→50＋stock_moves＋流水帳）✓。⚠ 佔位豆到貨後用 Existing lot 併批補量即可。
+
 ## 〇、補記 — 2026-07-17 之二（Coffee Stock 拿掉 Intake 鈕 ✅ 待 push）
 - **老闆點名**：Coffee Stock 的「＋ Intake — add roasted stock」鈕移除（綁定＋openBackfillSheet 的 BF.from='coffee' 回流分支一併清）。**補繳熟豆入口剩**：Log roast 的 Intake·past 分頁（新版主線）＋QC 抽屜的「＋ Add a past batch」（照舊）。
 - **驗證**：jscheck ✓；stub Coffee Stock 無 Intake 字樣、列表照常、QC 的 past batch 入口健在。
