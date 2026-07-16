@@ -80,6 +80,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-17 之六（Beans 頁三燈重定義＋紅燈卡點擊跳修 ✅ 待 push）
+- **老闆定案燈語意**（renderBeans）：左＝Cupping（紅=還沒杯測）、中＝Shelf（紅=還沒上架）、右＝全部完成才綠；**三顆全紅＝downgraded**（點擊行為老闆說晚點再議、先只顯示）。舊燈序 Roast→QC→Shelf 廢（左燈永遠綠沒資訊量、老闆也一直誤讀）。配燈：pending=`now,'',''`／pass 未上架=`ok,now,''`／上架=`ok,ok,ok`／downgrade=`now,now,now`。圖例同步改。
+- **紅燈卡可點＝跳到出問題的地方**：左紅→openQCSheet（QCSEG 帶對 single/blend）、中紅→openPublishSheet；全綠與全紅不可點。
+- **⚠ 誤解回退**：老闆最初說「紅色可以點到出問題的地方」我誤做成 Green stock 低量豆點擊直達 Receive——老闆打斷澄清是 Beans 三燈，該改動已 git checkout 回退未 commit。
+- **驗證**：jscheck ✓；stub 四態（pending/pass 未上架/synced/downgrade）燈色與可點性全對、點左紅開 QC、點中紅開 Publish、截圖乾淨。
+
 ## 〇、補記 — 2026-07-17 之五（資料清理：14 筆 not-weighed 幽靈批＋重複批刪除 ✅ 老闆授權 SQL）
 - **老闆問 Beans 頁一堆 not weighed yet 是不是 bug**：查證非程式 bug——`remaining_kg is null`＝這些批從沒秤熟豆入庫。其中 **Kiama AA 07-06 兩筆＝同鍋記兩次**（07-06 當天 Log roast 記一次＋07-08 又用 Add a past batch 補登一次，建檔時間戳為證）；Gatitu AA 07-03 同款。**根因：backfill 沒有同豆同日 dup 提醒**（拼配有、補登沒有）——老闆拍板「下次再出現我們再討論」＝防呆這輪不做，先只清資料。
 - **老闆授權 SQL 刪除全部 14 筆** remaining null 批（5/19–7/6：April Project、Danche v2、Dark Knight、Dreamer、Dancer、Kii AB、June Project、Danche v1、Mwendi Wega AB、Alo Bona Village、Gatitu AA 空殼、Hakuna Matata 07-06、Kiama AA 07-06 ×2）。**生豆帳不動**（有 green_kg 的批豆確實烘掉了、扣帳正確；熟豆從未入庫故熟豆帳不變）。刪後驗證 remaining null 歸零。samples 杯測紀錄獨立表未動。

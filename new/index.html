@@ -10793,27 +10793,35 @@ function renderBeans(){
   var live=roasts.filter(function(r){return r.remaining_kg==null||+r.remaining_kg>0;});
   live.sort(function(a,b){return String(b.roast_date||'').localeCompare(String(a.roast_date||''));});
   var onShelf=function(r){var nm=String(r.bean_name||'').trim().toLowerCase(),pk=procKey(r.process);return syncs.some(function(s){return s.status==='synced'&&String(s.bean_id||'').trim().toLowerCase()===nm&&procKey(s.process)===pk;});};
-  var row=function(r,l1,l2,l3){
+  /* 燈重定義（2026-07-16 老闆定案）：左＝Cupping（紅＝還沒杯測）、中＝Shelf（紅＝還沒上架）、
+     右＝全部完成才綠；三顆全紅＝downgraded（點擊行為晚點再議）。
+     紅燈可點＝點卡跳到出問題的地方：左紅→QC、中紅→Publish。 */
+  var row=function(r,l1,l2,l3,act){
     var kg=(r.remaining_kg==null)?'not weighed yet':((Math.round(+r.remaining_kg*100)/100)+' kg left');
     var sub=[(r.kind==='blend'?'blend':''),r.process,r.roast_date,kg].filter(Boolean).join(' · ');
-    return '<div class="beans-row"><div class="beans-nm"><b>'+esc(r.bean_name||'?')+'</b><span>'+esc(sub)+'</span></div><div class="beans-lamps"><span class="lamp '+l1+'"></span><span class="lamp '+l2+'"></span><span class="lamp '+l3+'"></span></div></div>';
+    return '<div class="beans-row"'+(act?' data-bact="'+act+'" data-bkind="'+(r.kind==='blend'?'1':'0')+'" style="cursor:pointer"':'')+'><div class="beans-nm"><b>'+esc(r.bean_name||'?')+'</b><span>'+esc(sub)+'</span></div><div class="beans-lamps"><span class="lamp '+l1+'"></span><span class="lamp '+l2+'"></span><span class="lamp '+l3+'"></span></div></div>';
   };
   var gQC=[], gReady=[], gShelf=[], gBlend=[];
   live.forEach(function(r){
     var st=qcState(r);
-    if(st==='pending')gQC.push(row(r,'ok','now',''));
-    else if(st==='downgrade')gBlend.push(row(r,'ok','dg',''));
-    else if(onShelf(r))gShelf.push(row(r,'ok','ok','ok'));
-    else gReady.push(row(r,'ok','ok','now'));
+    if(st==='pending')gQC.push(row(r,'now','','','qc'));
+    else if(st==='downgrade')gBlend.push(row(r,'now','now','now',''));
+    else if(onShelf(r))gShelf.push(row(r,'ok','ok','ok',''));
+    else gReady.push(row(r,'ok','now','','pub'));
   });
   var sec=function(t,arr){return '<div class="beans-sec">'+t+'<span class="n">'+arr.length+'</span></div>'+(arr.length?arr.join(''):'<div class="beans-none">Nothing here right now.</div>');};
   var canRoast=(ROLE==='director'||ROLE==='roaster'||ROLE==='staff');
   var lhead='<div class="beans-lhead"><span class="beans-lt">Production line</span>'+(canRoast?'<button class="beans-add" id="beans-roast">＋ Log roast</button>':'')+'</div>'
-    +'<div class="beans-legend">Lights: Roast → QC → Shelf · green = done, red = waiting, amber = downgraded</div>';
+    +'<div class="beans-legend">Lights: Cupping → Shelf → Done · all green = nothing to do · red = tap to fix · all red = downgraded</div>';
   $('main').innerHTML='<div class="beans-wrap">'+cards+lhead
     +sec('In QC',gQC)+sec('Ready to shelf',gReady)+sec('On shelf',gShelf)+sec('Blend pool',gBlend)+'</div>';
   var rb=$('beans-roast');
   if(rb)rb.addEventListener('click',function(){openRoastSheet(null);});
+  /* 紅燈卡點擊：左紅（沒杯測）→ QC 抽屜（帶對 single/blend 分頁）；中紅（沒上架）→ Publish */
+  document.querySelectorAll('#main [data-bact]').forEach(function(el){el.addEventListener('click',function(){
+    if(el.dataset.bact==='qc'){QCSEG=el.dataset.bkind==='1'?'blend':'single';selQC=null;openQCSheet();return;}
+    if(el.dataset.bact==='pub'){openPublishSheet();return;}
+  });});
 }
 var LAST_LOAD=0;
 async function reload(){await loadAll();LAST_LOAD=Date.now();render();}
