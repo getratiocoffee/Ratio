@@ -4913,14 +4913,14 @@ function openBatchesSheet(){
         /* 三態 tag：全 pass＝Pass ✓、還有未判＝Pending（可賣池只有這兩種；降級批在下面紅標區） */
         if(g.batches.length&&g.batches.every(function(r){return qcState(r)==='pass';}))tags.push('Pass ✓');
         else if(g.batches.some(function(r){return qcState(r)==='pending';}))tags.push('Pending');
-        if(g.batches.length>1)tags.push(g.batches.length+' roasts');
+        /* 「N roasts」多鍋標籤已移除（2026-07-16 老闆點名：同日合併就合併，不用再講幾鍋） */
         return '<div class="dl"'+(ed?' data-bat="'+gi+'" style="cursor:pointer"':'')+'><span><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(g.date)+';margin-right:6px;vertical-align:0"></span>'+(g.date?fmtD(g.date)+' · '+age+'d':'no date')+(tags.length?' · '+tags.join(' · '):'')+'</span><span>'+g.kg+' kg</span></div>';
       }).join(''):'<div class="sempty">No batches in stock</div>';
       /* 降級批次區（2026-07-13）：可賣池下另列、紅標、配方優先用；行可點＝扣那一天的降級豆 */
       var dgl=x.dg.length?'<div class="s" style="margin-top:8px;display:flex;align-items:center;gap:7px"><span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;background:var(--danger);color:#fff">downgraded</span><span style="color:var(--muted)">use in blends first · '+x.dgKg+' kg</span></div>'
         +rstGroupByDate(x.dg).map(function(g,gi){
           var age=daysSince(g.date);
-          return '<div class="dl"'+(ed?' data-dgbat="'+gi+'" style="cursor:pointer"':'')+'><span><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:var(--danger);margin-right:6px;vertical-align:0"></span>'+(g.date?fmtD(g.date)+' · '+age+'d':'no date')+(g.batches.length>1?' · '+g.batches.length+' roasts':'')+'</span><span>'+g.kg+' kg</span></div>';
+          return '<div class="dl"'+(ed?' data-dgbat="'+gi+'" style="cursor:pointer"':'')+'><span><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:var(--danger);margin-right:6px;vertical-align:0"></span>'+(g.date?fmtD(g.date)+' · '+age+'d':'no date')+'</span><span>'+g.kg+' kg</span></div>';
         }).join(''):'';
       /* 待入庫區（2026-07-13）：烘了沒秤熟豆的批次，每筆一行（各鍋熟豆各異、不按日組）＝點行補熟豆入庫 */
       var pdl=x.pending.length?'<div class="s" style="margin-top:8px;display:flex;align-items:center;gap:7px"><span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;background:#B5791C;color:#fff">to weigh</span><span style="color:var(--muted)">roasted, not weighed yet — tap to weigh in</span></div>'

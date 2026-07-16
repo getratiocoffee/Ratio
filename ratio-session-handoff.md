@@ -80,6 +80,10 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-16 之八（Coffee Stock 合併列拿掉「N roasts」標籤 ✅ 待 push）
+- **老闆點名**：同日多鍋合併後顯示的「2 roasts」多鍋提示刪掉——openBatchesSheet 可賣批次列與降級區兩處移除；合併行為照舊（同日加總一列）、Pass ✓/Pending/>30d 標籤照舊。QC 待杯測卡的「N roasts」**保留**（杯測場景知道幾鍋有用，老闆沒點名那邊）。
+- **驗證**：jscheck ✓；stub 同日兩鍋（可賣＋降級各一組）→ 合併列無 roasts 字樣、kg 加總對、QC 標籤照舊。
+
 ## 〇、補記 — 2026-07-16 之七（Roastery 統一工作台整台移除 ✅ 待 push）
 - **老闆點名刪掉**（2026-07-15 才上的方案 A「豆子中心工作台」壽命一天）：本體 ~317 行整段刪（RWB/rwbMatch/roasteryRows/openRoasterySheet，git 歷史可撈，原地留墓碑註解）。
 - **入口全改**：Tools 磁貼移除＋dispatch 刪；今日流卡 `rstlow`→Coffee Stock（RST.seg 帶 blend/single）、`qcnav`→QC 抽屜（=2026-07-15 前的行為）；DONE_TOOLS 拿掉 'Roastery'。
