@@ -4889,7 +4889,7 @@ function openBatchesSheet(){
     var danger=x.hp.state!=='ok';
     h+='<div style="border:1px solid '+(openRow?'var(--accent)':'var(--line2)')+';border-radius:16px;padding:12px 14px;margin-top:9px;box-shadow:0 4px 11px rgba(120,90,160,.05)">'
       +'<div data-rst="'+xi+'" style="cursor:pointer">'
-      +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
+      +'<div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 8px">'
       +'<span style="min-width:0;display:flex;align-items:baseline;gap:7px"><span class="t" style="font-size:14.5px">'+esc(x.name)
       +(x.proc?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(x.proc)+'</span>':'')+'</span>'
       /* 來源生豆 ID 已移除（2026-07-16 老闆點名 Coffee Stock 不顯示 ID） */
@@ -4929,23 +4929,9 @@ function openBatchesSheet(){
           var age=daysSince(r.roast_date);
           return '<div class="dl"'+(ed?' data-pdbat="'+pi+'" style="cursor:pointer"':'')+'><span><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:#B5791C;margin-right:6px;vertical-align:0"></span>'+(r.roast_date?fmtD(r.roast_date)+' · '+age+'d':'no date')+' · green '+(Number(r.green_kg)||0)+' kg</span><span style="color:#B5791C">weigh in ›</span></div>';
         }).join(''):'';
-      h+='<div style="margin-top:6px">'+bl+dgl+pdl
-        +(x.batches.length&&ed?'<div class="s" style="margin-top:4px;color:var(--muted)">tap a batch row → deduct that exact roast date</div>':'')
-        +(x.noInfo?'<button class="chip" id="rst-cup" style="margin-top:8px;color:var(--danger);border-color:var(--danger)">Cup it in QC →</button>':'')
-        /* ★ chip（三態簡化）：沒星且有 pass 批＝可點星（支線入口；主線是 List push 自動星） */
-        +((isLead()&&!x.noInfo&&!x.locked&&(x.batches||[]).some(function(b){return qcState(b)==='pass';}))?'<button class="chip" id="rst-star" style="margin-top:8px">★ Star · selling version</button>':'')
-        /* Send back to QC（2026-07-13 老闆點名）：同 Coffee Info 詳情那顆——清判定＋解鎖重審；
-           有杯測且有已判定批次（含 downgrade 池）才出 */
-        +((ed&&!x.noInfo&&((x.batches||[]).some(function(b){return b.qc;})||(x.dg||[]).length))?'<button class="chip" id="rst-sbqc" style="margin-top:8px">Send back to QC</button>':'');
-      if(ed&&x.ref){
-        h+='<div style="display:flex;gap:8px;margin-top:10px">'
-          +'<input class="din" id="rst-tg" inputmode="decimal" placeholder="Target kg" value="'+esc(x.target==null?'':String(x.target))+'" style="flex:1;margin:0">'
-          +'<input class="din" id="rst-lo" inputmode="decimal" placeholder="Low alert kg" value="'+esc(x.low==null?'':String(x.low))+'" style="flex:1;margin:0">'
-          +'<button class="chip" id="rst-sv" style="margin:0">Set</button></div>'
-          +'<div class="s" style="margin-top:4px;color:var(--muted)">target = how much you keep prepared · low = time to make more · blank = off</div>';
-      }
-      if(ed)h+='<button class="act" id="rst-go" style="margin-top:10px">'+(x.isBlend?'Blend this →':'Roast this →')+'</button>';
-      h+='</div>';
+      /* 展開列只剩批次列表（2026-07-16 老闆點名：提示行以下全清——Cup it/★ Star/Send back to QC/
+         target-low 設定/Roast this 鈕都拿掉；點批次行扣量、點待秤行補秤的行為照舊） */
+      h+='<div style="margin-top:6px">'+bl+dgl+pdl+'</div>';
     }
     h+='</div>';
   });
@@ -4961,73 +4947,12 @@ function openBatchesSheet(){
     ev.stopPropagation(); /* 「−」在行內，別觸發展開 */
     openRstDeduct(rows[+el.dataset.ded]);
   });});
-  var sv=$('rst-sv');
-  if(sv)sv.addEventListener('click',async function(){
-    var x=rows.find(function(r){return r.key===RST.open;});if(!x||!x.ref)return;
-    var tg=($('rst-tg').value||'').trim(),lo=($('rst-lo').value||'').trim();
-    var tgv=tg===''?null:parseFloat(tg),lov=lo===''?null:parseFloat(lo);
-    if((tgv!=null&&isNaN(tgv))||(lov!=null&&isNaN(lov))){toast('Numbers only');return;}
-    sv.disabled=true;sv.textContent='…';
-    var u=x.isBlend
-      ?await sb.from('blends').update({target_kg:tgv,low_stock_kg:lov}).eq('id',x.ref.id)
-      :await sb.from('beans').update({roast_target_kg:tgv,roast_low_kg:lov}).eq('id',x.ref.id);
-    if(u.error){sv.disabled=false;sv.textContent='Set';alert('Save failed: '+u.error.message);return;}
-    if(x.isBlend){x.ref.target_kg=tgv;x.ref.low_stock_kg=lov;}else{x.ref.roast_target_kg=tgv;x.ref.roast_low_kg=lov;}
-    logAct('set stock levels',x.name,(tgv!=null?('target '+tgv):'target off')+' · '+(lov!=null?('low '+lov):'low off'));
-    toast('Levels set ✓');buildItems();openBatchesSheet();
-  });
-  var go=$('rst-go');
-  if(go)go.addEventListener('click',function(){
-    var x=rows.find(function(r){return r.key===RST.open;});if(!x)return;
-    if(x.isBlend)openRoastPreset('blend',x.name);
-    else{
-      /* 同名多處理法：優先用該行自己的 bean（ref）；孤兒行才退名字找 */
-      var b=x.ref||(DB.beans||[]).find(function(bb){return String(bb.name||'').trim().toLowerCase()===x.name.toLowerCase();});
-      openRoastPreset('single',b?b.id:'');
-    }
-  });
+  /* rst-cup / rst-star / rst-sbqc / rst-sv / rst-go 綁定已隨 UI 一起清（2026-07-16）——舊實作 git 歷史可撈 */
   var ik=$('rst-intake');
   if(ik)ik.addEventListener('click',function(){
     /* 入庫＝Add a past batch 同表單；from='coffee' 存完回這裡、tab 跟當前分頁 */
     BF.from='coffee';BF.mode=isBlend?'blend':'single';
     openBackfillSheet();
-  });
-  var cup=$('rst-cup');
-  if(cup)cup.addEventListener('click',function(){QCSEG=isBlend?'blend':'single';selQC=null;openQCSheet();});
-  var sbq=$('rst-sbqc');
-  if(sbq)sbq.addEventListener('click',async function(){
-    var x=rows.find(function(r){return r.key===RST.open;});if(!x)return;
-    /* 找已判定批（可賣池優先、再看降級池）——照 Coffee Info sb-requeue 邏輯，清一筆即回 QC 佇列 */
-    var r=(x.batches||[]).concat(x.dg||[]).find(function(b){return b.qc;});
-    if(!r){toast('No judged batch here');return;}
-    if(!confirm('Send "'+x.name+'" back to the QC queue?\n\nThe batch verdict ('+qcState(r)+') is cleared and the ★ comes off — it drops off the shop menu until you Pass it again.'))return;
-    var btn=this;btn.disabled=true;btn.textContent='Sending…';
-    try{
-      var u=await sb.from('roasts').update({qc:null}).eq('id',r.id);
-      if(u.error)throw new Error(u.error.message);
-      var s=shelfSampleFor(x.name,x.isBlend?undefined:(x.proc||'')); /* 只解自己處理法的鎖 */
-      if(s&&s.id&&s.flavour_locked){try{await sb.from('samples').update({flavour_locked:false}).eq('id',s.id);}catch(e){}}
-      logAct('sent back to QC',x.name,'verdict '+qcState(r)+' cleared · ★ removed');
-      toast('"'+x.name+'" is back in the QC queue ✓');
-      await reload();openBatchesSheet();
-    }catch(e){
-      btn.disabled=false;btn.textContent='Send back to QC';
-      alert('Failed: '+(e&&e.message||e));
-    }
-  });
-  var rstStar=$('rst-star');
-  if(rstStar)rstStar.addEventListener('click',async function(){
-    var x=rows.find(function(r){return r.key===RST.open;});if(!x)return;
-    var s=shelfSampleFor(x.name,x.isBlend?undefined:(x.proc||''));
-    if(!s||!s.id){toast('No cupping record — cup it in QC first');return;}
-    var btn=this;btn.disabled=true;btn.textContent='Working…';
-    var rs=await starSample(s,false);
-    if(!rs.ok){btn.disabled=false;btn.textContent='★ Star · selling version';return;}
-    logAct('★ added',x.name);
-    toast('★ on shelf ✓');buildItems();
-    /* 從已上架批接星＝架上資訊過期 → 直開 Update 抽屜 push 新資訊 */
-    if(rs.swapped){openListSheet({ref:s});return;}
-    openBatchesSheet();
   });
   document.querySelectorAll('#drawer [data-bat]').forEach(function(el){el.addEventListener('click',function(){
     var x=rows.find(function(r){return r.key===RST.open;});if(!x)return;

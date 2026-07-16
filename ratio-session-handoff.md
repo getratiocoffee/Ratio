@@ -80,7 +80,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
-## 〇、補記 — 2026-07-16 之四（Coffee Stock 拿掉上架狀態膠囊＋ID ✅ 待 push）
+## 〇、補記 — 2026-07-16 之五（Coffee Stock 展開列大掃除：提示行以下全清 ✅ 待 push）
+- **老闆點名**：「tap a batch row → deduct that exact roast date」提示行以下全部清掉——openBatchesSheet 展開列的 Cup it in QC chip、★ Star chip、Send back to QC chip、Target/Low 設定列、Roast this →／Blend this → 主鈕全移除，**展開列只剩批次列表**（可賣/降級/待秤三區）。對應死綁定（rst-cup/rst-star/rst-sbqc/rst-sv/rst-go 五段）一併刪，舊實作 git 歷史可撈。
+- **行為保留**：點批次行扣量（data-bat/data-dgbat → openRstDeduct）、點待秤行補秤（data-pdbat → openWeighIn）、收合列「−」快速扣、頂部 Intake 鈕照舊。**功能入口轉移**：點星/送回 QC → Coffee Info 詳情或 Roastery 統一台；target/low 設定 → Roastery 統一台（openRoasterySheet 那份同款 UI 未動）；Roast this → 血條行動鈕。
+- **順手修**：豆名列 dg/no info/to weigh 多標籤同現時互相重疊（既有 bug）——外層 row 加 flex-wrap:wrap，標籤多時換行。
+- **驗證**：jscheck ✓；stub 全提示齊發 → 五個元素全不出現、批次三區照常、點批次行扣量抽屜照開、標籤換行不疊、截圖乾淨。
 - **老闆點名**：Coffee Stock 每支咖啡的 status 膠囊（On shelf / ★ On shelf / Off shelf）拿掉——上架狀態去 Coffee Info 看（那邊的膠囊不動）。openBatchesSheet 列 render 刪膠囊一行；rstRows 的 x.sync/x.locked 計算保留（Roastery 統一台等共用）。「no info — cup it」警示與 dg/to weigh/低量提示照舊（庫存資訊非上架狀態）。頂部「kg on shelf」總量字樣照舊。
 - **老闆再點名 ID 也拿掉**：豆名旁來源生豆 gNo（S#/G#）＋展開批次列（可賣/降級/待秤）的 rNos/rNo（R#）全部不顯示——批次列剩「日期 · 天數 · QC tag · kg」。只拿顯示，rNo/rNos/gNo helper 與 roast_no 資料照舊（QC/Roastery/扣豆對帳還在用）。
 - **驗證**：jscheck ✓；stub 有 synced＋locked＋roast_no 資料 → 膠囊與 R#/G# 全不出現、批次/降級/待秤列照常、截圖乾淨。
