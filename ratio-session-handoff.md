@@ -80,6 +80,14 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-17（debug＋瘦身：斷頭功能/死碼/孤兒 CSS 大掃除 ✅ 待 push）
+- **老闆下令 debug＋刪沒用的＋瘦身**。python 掃描（scratchpad/audit.py：孤兒函式＝定義後全檔零呼叫、呼叫未定義、CSS class 零引用）＋逐一人工確認後刪 130 行：
+  - **Bean rotation 整段刪（64 行）**：`openBeanRotSheet` 呼叫的 `beanSwapCalc`/`beanSwapSave` **根本不存在**（不知哪輪重構斷線）而且它自己也沒有任何入口（只自我遞迴）＝雙重死亡。連帶 `BEAN_SWAP` 變數與 **loadAll 的 bean_swap 查詢**一併刪——⚠ loadAll rs[] 是位置索引，刪查詢後 subs/actToday/blends 索引全體 -1（rs[19]/[20]/[21]，行內註解已更新），**已用探針假資料驗證三槽對位正確**。
+  - **saveRoastSheet 刪（36 行）**：Log roast 改版後的 dead code，之前註明保留、這輪老闆授權清掉。
+  - **孤兒 CSS 19 條**：.footline＋.fl-*（PLINE 舊橫幅殘留）、.qrow 系＋.qtoggle＋.qacts＋.qlink（QC 舊版滑動輪前的樣式）、.deck-btns、.pb-sub、.ro-loss-card（Log roast 卡片化後沒人用）。.qact/.deck/.qc-new 有人用、保留。
+  - 誤報排除：`_sbFrom`（bind 形式定義，掃描 regex 沒抓到）、其餘「呼叫未定義」全是字串/註解/CSS 函式誤中。
+- **驗證**：jscheck ✓；探針對位 subs/actToday/blends ✓；冒煙——feed/tools/Log roast/Coffee Stock/QC/Coffee Info 六畫面全開零錯誤、console 乾淨。檔案 835KB。
+
 ## 〇、補記 — 2026-07-16 之十一（Records 磁貼刪掉 ✅ 待 push）
 - **老闆點名刪 icon**：Tools 的 Records（roast log · date / name）磁貼＋dispatch 移除。**順帶發現**：這磁貼本來就是壞的——`openRecordsSheet` 只有呼叫沒有定義（不知哪輪重構斷線），點了會 ReferenceError；刪掉正好。同排剩 Coffee Stock / Coffee Info（＋lead 的 Delete a coffee / Clean up）。
 - **驗證**：jscheck ✓；stub Tools 頁 roastrec 磁貼消失、其餘磁貼照常。

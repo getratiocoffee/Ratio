@@ -66,7 +66,6 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 .pb-card{width:100%;max-width:460px}
 .pb-brand{font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--accent);margin-bottom:14px}
 .pb-name{font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--ink);line-height:1.2}
-.pb-sub{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.55}
 /* 評語升格：豆名正下方的 serif 斜體引言——整頁最人話的一句要第一眼看到 */
 .pb-quote{font-family:'Fraunces',serif;font-style:italic;font-size:16.5px;color:var(--ink);margin-top:10px;line-height:1.55}
 .pb-sec{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px}
@@ -106,7 +105,6 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 .actsm{border:none;border-radius:999px;padding:10px 20px;min-height:44px;font-size:15px;font-weight:700;font-family:'Inter',sans-serif;background:var(--accent);color:#fff;cursor:pointer}
 .cfoot{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
 .moresm{background:none;border:none;font-size:13.5px;color:var(--muted);padding:8px 0;font-family:inherit;cursor:pointer}
-.qlink{background:none;border:none;color:var(--accent);font-size:inherit;font-family:inherit;font-weight:600;cursor:pointer;padding:0;text-decoration:underline}
 .s1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card.brief{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .card.brief .t{color:var(--inv-t)}
@@ -178,22 +176,13 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 .chip{flex:0 0 auto;border:1px solid var(--line2);background:var(--surface);color:var(--muted);border-radius:999px;padding:8px 14px;min-height:40px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
 .chip.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1.5px solid var(--ink);display:flex;gap:8px;padding:10px 20px max(env(safe-area-inset-bottom,0px) - 16px,12px);z-index:30}
-.footline{position:fixed;left:0;right:0;bottom:calc(max(env(safe-area-inset-bottom,0px) - 16px,12px) + 59px);background:var(--surface);border-top:1px solid var(--line);display:none;align-items:center;justify-content:space-between;gap:2px;padding:7px 14px;z-index:29}
-.footline .fl-seg{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;background:none;border:0;cursor:pointer;padding:3px 0;min-width:0}
-.footline .fl-n{font-size:17px;font-weight:800;color:var(--c);line-height:1.05}
-.footline .fl-l{font-size:9.5px;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
-.footline .fl-arr{color:var(--line2);font-size:13px;flex:0 0 auto;padding-bottom:2px}
 nav button{flex:1;border:1px solid var(--line2);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px 6px;min-height:44px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer}
 nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .deck{position:fixed;left:0;right:0;bottom:calc(max(env(safe-area-inset-bottom,0px) - 16px,12px) + 64px);background:var(--surface);border-top:1px solid var(--line);padding:12px 22px 10px;z-index:20}
 .deck .who{font-size:13px;color:var(--muted);text-align:center;margin-bottom:8px}
 .deck .who b{color:var(--ink)}
 /* judging → decision 區重排（老闆點名）：底線連結改四顆等寬小鍵，觸控目標大、不換行擠壓 */
-.qacts{display:flex;gap:8px;max-width:520px;margin:0 auto 8px}
 .qact{flex:1;border:1px solid var(--line2);background:var(--surface);color:var(--ink);border-radius:13px;padding:10px 4px;min-height:42px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
-.qtoggle{display:block;margin:2px auto 8px;background:none;border:1px solid var(--line2);color:var(--muted);border-radius:999px;padding:8px 16px;min-height:36px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
-.qtoggle.on{border-color:var(--accent);color:var(--accent)}
-.deck-btns{display:grid;gap:8px;max-width:520px;margin:0 auto}
 .big{border:none;border-radius:12px;padding:13px 16px;min-height:48px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;background:var(--accent);color:#fff}
 .pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .pair button{border-radius:12px;padding:13px;min-height:48px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;background:var(--surface)}
@@ -202,12 +191,7 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
    綠沿用新鮮度的 .fr-green；紅沿用淺色主題的 --danger */
 .pair .big{border:none;background:#3F9A66;color:#fff}
 .pair .dn{border:none;background:#C0392B;color:#fff}
-.qrow{background:var(--surface);border:1px solid var(--line2);border-radius:16px;padding:15px 16px;margin-bottom:10px;cursor:pointer;box-shadow:0 4px 11px rgba(120,90,160,.05);transition:transform .13s ease}
-.qrow:active{transform:scale(.985)}
-.qrow.sel{border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent);box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 18%,transparent)}
-.qrow.qrow-new{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .qc-new{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:var(--accent);padding:2px 9px;border-radius:999px;margin-left:5px;vertical-align:2px}
-.qrow .t{font-size:18px}
 .drawer-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40;display:none;touch-action:none}
 .drawer-bg.show{display:block}
 .drawer{position:fixed;left:22px;right:22px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);max-width:476px;margin:0 auto;background:var(--surface);border:1px solid var(--line2);border-radius:24px;padding:6px 20px 20px;z-index:50;visibility:hidden;transform:translateY(calc(100% + 120px));transition:transform .28s ease,visibility 0s linear .3s;max-height:78vh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;box-shadow:0 18px 50px rgba(60,40,80,.28)}
@@ -234,9 +218,6 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .pm-seg button.on{border-color:var(--ink);color:var(--ink)}
 .din{width:100%;border:1.5px solid var(--line2);border-radius:14px;padding:14px 15px;font-size:17px;font-family:inherit;background:var(--surface);color:var(--ink);outline:none;margin-top:8px;transition:border-color .15s,box-shadow .15s}
 .din:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
-.ro-loss-card{display:flex;justify-content:space-between;align-items:center;background:color-mix(in srgb,var(--accent) 10%,transparent);border-radius:13px;padding:11px 15px;margin-top:10px}
-.ro-loss-card span{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
-.ro-loss-card b{font-size:20px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
 /* Log roast 2026-07-16 改版：一鍋一卡（粉底對比分鍋）＋頂部三格總計＋綠/琥珀色數字框 */
 .ro-sum{display:flex;gap:8px;margin-top:10px}
 .ro-sum>div{flex:1;background:var(--tint);border-radius:12px;padding:8px 6px;text-align:center}
@@ -550,8 +531,6 @@ function todayKey(){var d=new Date();return d.getFullYear()+'-'+String(d.getMont
 /* 貪睡與晨報收起：存 localStorage，到明天自動失效 */
 /* 貪睡改存 app_state（key: new_snooze）＝跨裝置同步：手機睡掉的卡，電腦也不再冒出來；到明天自動失效（只認今天的 key）。全店共用——誰睡掉就是大家都先不看 */
 var SNOOZE_ALL={};
-/* Bean rotation：吧台目前這支濃縮豆＋換上日期＋預計用幾天（app_state key bean_swap，單一當前一筆） */
-var BEAN_SWAP=null;
 var NUDGE_LOG={}; /* 回購提醒紀錄（app_state 'nudge_log'，扁平 {customer_id:'YYYY-MM-DD'}）——送過就記，這輪不再出卡 */
 function snoozeMap(){return SNOOZE_ALL[todayKey()]||{};}
 var SNOOZED_SESSION=0;
@@ -605,10 +584,9 @@ async function loadAll(){
     sb.from('app_state').select('value').eq('key','new_closing').maybeSingle(),
     sb.from('app_state').select('value').eq('key','new_assign').maybeSingle(),
     sb.from('app_state').select('value').eq('key','soc_bg').maybeSingle(),
-    sb.from('app_state').select('value').eq('key','bean_swap').maybeSingle(),
     sb.from('subscriptions').select('*'),
-    sb.from('activity_log').select('action,ts').gte('ts',todayStartISO()).limit(800), /* Home 進度條分子——只能 append 在最後（rs[0..21] 位置索引不能動） */
-    sb.from('blends').select('id,name,blend_no,parts,target_kg,low_stock_kg').order('pos',{ascending:true}) /* 熟豆血條＋低量/超量聚合卡用（rs[22]）；blend_no＝拼配的 B# 號 */
+    sb.from('activity_log').select('action,ts').gte('ts',todayStartISO()).limit(800), /* Home 進度條分子——只能 append 在最後（rs[0..20] 位置索引不能動；2026-07-17 bean_swap 查詢移除後全體 -1） */
+    sb.from('blends').select('id,name,blend_no,parts,target_kg,low_stock_kg').order('pos',{ascending:true}) /* 熟豆血條＋低量/超量聚合卡用（rs[21]）；blend_no＝拼配的 B# 號 */
   ]);
   DB={orders:rs[0].data||[],customers:rs[1].data||[],tasks:rs[2].data||[],dialins:rs[3].data||[],
       syncs:rs[4].data||[],samples:rs[5].data||[],roasts:rs[6].data||[],beans:rs[7].data||[],
@@ -639,12 +617,9 @@ async function loadAll(){
     SOC_SAVED=(Array.isArray(sbg.saved)?sbg.saved:[]).map(socHexNorm).filter(Boolean).slice(0,8);
     if(sbg.last&&/^#[0-9a-f]{6}$/i.test(sbg.last))SOC_BG=sbg.last;  /* B 記住上次底色 */
   }
-  var bsw=rs[19]&&rs[19].data&&rs[19].data.value;
-  if(typeof bsw==='string'){try{bsw=JSON.parse(bsw);}catch(e){bsw=null;}}
-  BEAN_SWAP=(bsw&&bsw.bean)?bsw:null;
-  DB.subs=(rs[20]&&rs[20].data)||[];
-  DB.actToday=(rs[21]&&rs[21].data)||null; /* null＝讀不到（RLS/斷線）→ Home 進度條降級只顯示 N to go */
-  DB.blends=(rs[22]&&rs[22].data)||[];
+  DB.subs=(rs[19]&&rs[19].data)||[];
+  DB.actToday=(rs[20]&&rs[20].data)||null; /* null＝讀不到（RLS/斷線）→ Home 進度條降級只顯示 N to go */
+  DB.blends=(rs[21]&&rs[21].data)||[];
   buildItems();
 }
 function dPlus(n){var t=new Date();t.setDate(t.getDate()+n);return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
@@ -6440,42 +6415,6 @@ async function consumeBlendParts(parts,totalKg){
   }
   return short;
 }
-async function saveRoastSheet(){
-  var b=(DB.beans||[]).find(function(x){return String(x.id)===String(RO.beanId);});
-  if(!b){toast('Pick a bean first');return;}
-  var kg=parseFloat(RO.kg);
-  if(isNaN(kg)||kg<=0){toast('Enter the green kg');return;}
-  var out=String(RO.out).trim()===''?null:parseFloat(RO.out);
-  if(out!=null&&(isNaN(out)||out<0)){toast('Roasted out must be a number');return;}
-  if(out!=null&&out>kg&&!confirm('Roasted out ('+out+' kg) is more than green in ('+kg+' kg). Save anyway?'))return;
-  var stock=Number(b.quantity)||0;
-  if(kg>stock+0.0001&&!confirm('Stock check:\n'+b.name+': '+kg+' kg entered, '+stock+' kg in stock\n\nLog anyway? Stock will stop at 0 — fix the numbers later with Stocktake.'))return;
-  var btn=$('ro-save');if(btn){btn.disabled=true;btn.textContent='Logging…';}
-  try{
-    var rec={bean_id:b.id,bean_name:b.name,country:b.country||null,process:b.process||null,green_kg:kg,status:'pending_cupping'};
-    if(out!=null&&out>0){rec.roasted_kg=out;rec.remaining_kg=out;}
-    if(RO.date)rec.roast_date=RO.date;
-    var num=function(v){var n=parseFloat(v);return (String(v).trim()===''||isNaN(n))?null:n;};
-    if(num(RO.charge)!=null)rec.charge_temp=num(RO.charge);
-    if(String(RO.fc).trim())rec.first_crack=String(RO.fc).trim();
-    if(num(RO.drop)!=null)rec.drop_temp=num(RO.drop);
-    if(String(RO.dur).trim())rec.duration=String(RO.dur).trim();
-    var ins=await sb.from('roasts').insert(rec).select();
-    if(ins.error)throw new Error(ins.error.message);
-    var newQty=Math.max(0,Math.round((stock-kg)*1000)/1000);
-    var u=await sb.from('beans').update({quantity:newQty}).eq('id',b.id);
-    if(u.error)throw new Error('batch saved but stock update failed: '+u.error.message);
-    b.quantity=newQty;
-    try{await sb.from('stock_moves').insert({bean_id:b.id,kind:'roast',delta_kg:-kg,after_kg:newQty,note:'Roast'+(RO.date?' '+RO.date:'')});}catch(e){}
-    if(ins.data&&ins.data[0])DB.roasts.unshift(ins.data[0]);
-    logAct('roasted',rec.bean_name||b.name,kg+' kg green');
-    closeDrawer();toast('Roast logged ✓ stock −'+kg+' kg');
-    await reload();
-  }catch(e){
-    if(btn){btn.disabled=false;btn.textContent='Log roast';}
-    alert('Log failed: '+(e&&e.message||e));
-  }
-}
 /* ===== 單品多鍋 session（2026-07-16 改版：一鍋一卡就地編輯；roast＝今天烘＋扣生豆、intake＝補繳過去不碰生豆）=====
    卡片值由 input 事件即時寫回 RO.batches（暫存 app_state roast_draft 防手機鎖屏丟），全部填完一次 Submit。
    拼配也卡片化（同日 2026-07-16 老闆點名同格式）＝submitBlendSession 多鍋迴圈。 */
@@ -6962,70 +6901,6 @@ function passedBeans(){
     if(r&&qcState(r)==='pass')out.push(s);
   });
   return out;
-}
-/* ===== Bean rotation：吧台目前這支濃縮豆＋何時換下一支 =====
-   唯讀者能看 On the bar，改（Swap）要 canWrite；資料存 app_state bean_swap（單一當前一筆） */
-async function openBeanRotSheet(showForm){
-  var dots={};try{dots=await cardDots();}catch(e){}
-  var bsc=beanSwapCalc();
-  var barHTML;
-  if(BEAN_SWAP&&BEAN_SWAP.bean&&bsc){
-    var col=uiDot(dotColorFor(BEAN_SWAP.bean,dots))||'var(--accent)';
-    var pct=bsc.total>0?Math.max(0,Math.min(100,Math.round(bsc.elapsed/bsc.total*100))):0;
-    var leftLabel=bsc.daysLeft<0?('overdue '+(-bsc.daysLeft)+'d'):bsc.daysLeft===0?'due today':(bsc.daysLeft+' days left');
-    var leftCol=bsc.daysLeft<=0?'var(--danger)':'var(--muted)';
-    var barCol=bsc.daysLeft<=0?'var(--danger)':'var(--accent)';
-    barHTML='<div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px">'
-      +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
-      +'<span class="t" style="font-size:16px"><span style="color:'+col+'">●</span> '+esc(BEAN_SWAP.bean)+(bNoFor(BEAN_SWAP.bean)?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+bNoFor(BEAN_SWAP.bean)+'</span>':'')+'</span>'
-      +'<span class="s" style="color:var(--muted);white-space:nowrap">swap '+fmtD(bsc.swapKey)+'</span></div>'
-      +'<div class="s" style="margin-top:3px;color:var(--muted)">changed '+fmtD(BEAN_SWAP.changed)+' · lasts '+bsc.total+' days</div>'
-      +'<div style="height:6px;border-radius:6px;background:var(--line);margin-top:9px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+barCol+'"></div></div>'
-      +'<div class="s" style="margin-top:5px;color:'+leftCol+';font-weight:600">'+leftLabel+'</div></div>';
-  }else{
-    barHTML='<div class="empty" style="margin-top:12px">Nothing set yet — tap below to record the bean on the bar</div>';
-  }
-  var formHTML='';
-  if(showForm){
-    var beans=passedBeans();
-    var curBean=(BEAN_SWAP&&BEAN_SWAP.bean)||'';
-    var opts=beans.map(function(s){var v=esc(s.sample_id||''),bn=bNoFor(s.sample_id,s.process);return '<option value="'+v+'"'+(s.sample_id===curBean?' selected':'')+'>'+v+(s.process?' · '+esc(s.process):'')+(bn?' · '+bn:'')+'</option>';});
-    if(curBean&&!beans.some(function(s){return s.sample_id===curBean;}))opts.unshift('<option value="'+esc(curBean)+'" selected>'+esc(curBean)+' · current</option>');
-    if(!opts.length)opts.push('<option value="">no QC-passed coffees yet</option>');
-    var defDays=(BEAN_SWAP&&BEAN_SWAP.days)||7;
-    formHTML='<div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:12px">'
-      +'<div class="dlab" style="margin-top:0">Which bean</div>'
-      +'<select class="din" id="br-bean" style="padding:12px">'+opts.join('')+'</select>'
-      +'<div class="dlab">Lasts how long</div>'
-      +'<div style="display:flex;align-items:center;gap:8px"><input class="din" id="br-days" type="number" min="1" inputmode="numeric" value="'+defDays+'" style="flex:0 0 100px"><span class="s" style="color:var(--muted)">days</span></div>'
-      +'<div class="s" id="br-prev" style="margin-top:8px;color:var(--muted)">→ swap '+fmtD(dPlus(Number(defDays)||7))+'</div>'
-      +'<button class="act" id="br-save" style="margin-top:12px">Save</button></div>';
-  }
-  openDrawerHTML('<div class="t" style="font-size:19px">Bean rotation</div>'
-    +'<div class="s" style="margin-top:2px">what is on the bar and when to swap</div>'
-    +'<div class="dlab">On the bar now</div>'+barHTML
-    +(showForm?formHTML:'<button class="act" id="br-swap" style="margin-top:12px">Swap in a new bean</button>')
-    +'<button class="dclose" id="br-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
-  var swb=$('br-swap');if(swb)swb.addEventListener('click',function(){
-    if(!canWrite()){roToast();return;}
-    openBeanRotSheet(true);
-  });
-  var days=$('br-days'),prev=$('br-prev');
-  if(days&&prev)days.addEventListener('input',function(){
-    var n=Math.max(1,parseInt(days.value,10)||0);
-    prev.textContent='→ swap '+fmtD(dPlus(n));
-  });
-  var sv=$('br-save');if(sv)sv.addEventListener('click',function(){
-    if(!canWrite()){roToast();return;}
-    var bean=$('br-bean')?$('br-bean').value:'';
-    if(!bean){toast('Pick a bean first');return;}
-    var d=Math.max(1,parseInt($('br-days').value,10)||7);
-    BEAN_SWAP={bean:bean,changed:todayKey(),days:d};
-    beanSwapSave();
-    toast('Bean rotation saved ✓');
-    openBeanRotSheet();
-  });
-  $('br-cl').addEventListener('click',closeDrawer);
 }
 /* 四槽位挑豆（老闆 2026-07-14：一張 A4 的左上/右上/左下/右下各自選豆，背面跟著對位）
    槽位空＝該格留白；Same in all four＝舊「單豆 ×4」行為 */
