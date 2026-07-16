@@ -80,6 +80,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-16 之二（Log roast Blend 分頁也卡片化＋Add/Submit 並排 ✅ 待 push）
+- **並排（老闆點名）**：兩分頁底部統一「＋ Add」（虛線）＋「Submit N batches」（act 主鈕，短版 label——單行放得下 375px）並排；`ro-save`/`saveBlendBatch` 廢，submit 鈕依 mode 分流 `submitRoastSession`/`submitBlendSession`。
+- **Blend 卡片化（老闆點名同格式）**：`RO.bb=[{name,out,amt}]` 一鍋一卡（`roBlendCard`）＝blend select＋成分比例列（聯動/short 提示照舊、per-card scope `data-bc+data-bp`、hint id `ro-bps-卡-成分`）＋琥珀 Roasted total（小數 1 位）；兩格總計（Batches/Roasted）；▲▼✕ 換序刪卡；日期照舊整個 session 一欄（`ro-date` 只在 blend）。`submitBlendSession` 多鍋迴圈＝每卡 insert kind='blend'+recipe 快照→`consumeBlendParts` FIFO 扣成分（含舊庫無 kind 欄 fallback、dup 日期 confirm 一次列全部、short 匯總一個 alert）。blend 不進 roast_draft（照舊）。
+- **驗證**：jscheck ✓；stub——60/40 聯動（1.2→0.72/0.48、成分 1.8 反推 total 3）✓、short 提示 ✓、兩卡 submit payload（各 insert＋跨卡連續扣同一成分批 4→3.52→1.52）✓、single 回歸（共用按鈕分流後 add/del/submit 全鏈）✓、手機截圖乾淨。⚠ stub 踩雷：submit 後 `reload()` 會把 DB.blends 清空——重測記得重塞假資料。
+
 ## 〇、補記 — 2026-07-16（Log roast 輸入改版：Roast today / Intake 雙模式＋一鍋一卡 ✅ 待 push）
 - **老闆點名畫面亂，重做 Log roast 單品輸入**（Blend 分頁不動）：pm-seg 下加 Roast today / Intake·past 第二層切換；下方三格總計（Batches / Green / Roasted，數字小數 1 位、不帶 kg）；一鍋一張粉底卡（`.ro-batch`）就地編輯＝Batch 1..N 由上往下，卡頭 ▲▼✕ 換序/刪、卡內豆 select＋Green（綠框）/Roasted（琥珀框，`--green`/`--roast` color-mix）＋每列即時 loss；`＋ Add batch` 加卡；全部填完 Submit 才亮。
 - **硬性驗證（不再 confirm 放行）**：熟豆必填>0、生豆不能 0（roast 必填；intake 選填、有填須>0）、roasted 必須 < green（intake 生豆空免驗）、intake 每鍋必填日期——違規卡上紅字＋Submit 灰。原「待秤/no roasted-out」confirm 移除（熟豆改必填，`rstPendingBatches` 待秤池只剩歷史批會進）。
