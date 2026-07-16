@@ -80,6 +80,10 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-16 之十一（Records 磁貼刪掉 ✅ 待 push）
+- **老闆點名刪 icon**：Tools 的 Records（roast log · date / name）磁貼＋dispatch 移除。**順帶發現**：這磁貼本來就是壞的——`openRecordsSheet` 只有呼叫沒有定義（不知哪輪重構斷線），點了會 ReferenceError；刪掉正好。同排剩 Coffee Stock / Coffee Info（＋lead 的 Delete a coffee / Clean up）。
+- **驗證**：jscheck ✓；stub Tools 頁 roastrec 磁貼消失、其餘磁貼照常。
+
 ## 〇、補記 — 2026-07-16 之十（Coffee Info 詳情頁改純唯讀 ✅ 待 push）
 - **老闆點名**：Coffee Info 只讀咖啡資訊、不做任何 action——openShelfBeanDetail 的 ★ Star/Remove ★、Take off shelf/Put back on sale（setShelfSold 售罄切換）、Send back to QC 三顆鈕連 UI 帶綁定全刪（~70 行，git 歷史可撈），只剩 ‹ Back 與 Close。**入口轉移**：點星/售罄走 Publish 主線、退回 QC 重審在 QC 抽屜處理（賣光豆不在 Publish 清單——需要售罄切換時去 Square 後台或喊一聲再開入口）。
 - **順手補**：詳情頁頂部「● Shelf · off shelf」紅字與豆名旁 B#（bNoFor）一併拿掉（上輪列表清過、詳情頁漏網）；sold/syncRow 變數清掉。烘焙日期＋天數熟成字樣**保留**（詳情頁結構是老闆定的、屬咖啡資訊本體）。
