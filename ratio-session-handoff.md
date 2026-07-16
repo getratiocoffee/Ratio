@@ -80,6 +80,14 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-16（Log roast 輸入改版：Roast today / Intake 雙模式＋一鍋一卡 ✅ 待 push）
+- **老闆點名畫面亂，重做 Log roast 單品輸入**（Blend 分頁不動）：pm-seg 下加 Roast today / Intake·past 第二層切換；下方三格總計（Batches / Green / Roasted，數字小數 1 位、不帶 kg）；一鍋一張粉底卡（`.ro-batch`）就地編輯＝Batch 1..N 由上往下，卡頭 ▲▼✕ 換序/刪、卡內豆 select＋Green（綠框）/Roasted（琥珀框，`--green`/`--roast` color-mix）＋每列即時 loss；`＋ Add batch` 加卡；全部填完 Submit 才亮。
+- **硬性驗證（不再 confirm 放行）**：熟豆必填>0、生豆不能 0（roast 必填；intake 選填、有填須>0）、roasted 必須 < green（intake 生豆空免驗）、intake 每鍋必填日期——違規卡上紅字＋Submit 灰。原「待秤/no roasted-out」confirm 移除（熟豆改必填，`rstPendingBatches` 待秤池只剩歷史批會進）。
+- **寫入分流（submitRoastSession）**：roast＝照舊 insert roasts×N＋同豆聚合一次扣 beans＋每鍋 stock_moves，roast_date 一律今天（單品日期欄拿掉，`ro-date` 只剩 blend 用）；**intake＝只 insert roasts**（每鍋自帶 roast_date、green_kg 有填才寫、不碰 beans/stock_moves——同 backfill 語意，老闆 07-16 拍板）。insert 依卡序＝R# 跟 Batch 1..N。
+- **周邊**：曲線四格（charge/fc/drop/dur）整段移除（老闆拍板；`saveRoastSheet` dead code 照舊保留）；`roastAddBatch/roastEditBatch` 刪、新 helpers `roEmptyBatch/roFillBatch/roBatchWrong/roBatchDone/roSummary/roSubmitLabel/roRefresh/roBatchCard/roFmt1`；訂單 chip 與 `openRoastPreset` 改 `roFillBatch`（填第一張沒豆的卡）；草稿 `roast_draft` 改存 `{entry,batches}`（load 相容舊格式、舊 session date 給沒日期的列）。
+- **⚠ 測試踩雷（重要，覆蓋舊認知）**：`sb` 是 **const**——載入後蓋 window.sb / window.fetch **都攔不到**（supabase client 建構時已綁原生 fetch）。正解＝**serve 測試複本在 supabase-js `<script>` 之前插 fetch hook**（載入前注入；本輪 python 對複本 replace 注入）。曾誤以為攔到而點 submit 直打線上，幸 RLS 擋未登入寫入（SQL 查證 roasts/app_state 零污染）。另 app 寫入層有 Read-only 護欄，stub 測試要先設 `ROLE='director'`。
+- **驗證**：jscheck ✓；stub 全過——roast 兩豆三鍋 payload（聚合扣豆/每鍋 stock_moves/日期今天）✓、intake 兩鍋（各自日期/生豆留空不寫/零 beans/零 stock_moves）✓、驗證規則紅字＋灰鈕 ✓、▲▼✕/Add/總計即時/blur 格式 6→6.0 ✓、模式切換保值 ✓、blend 回歸（日期欄仍在、成分列照舊）✓、手機 375px 截圖乾淨。**push 待老闆 GitHub Desktop**，之後 curl 比對 deploy。
+
 ## 〇、補記 — 2026-07-15（Line 改回彈窗＋分頁標題/favicon，commit a6183f0 待 push）
 - **Line 生產線介面改回彈窗**：老闆要「底部 Line 鍵點下去是彈窗不是頁面」。還原 abfea6e（那次把 popup 改成整頁 view），改回 `PLINE.open/close` 彈窗 overlay（`#plview` top:0/z-index:29＋`plhdr` 標題列×）；**不**把 abfea6e 順手清掉的舊橫幅死碼 `renderFootLine` 加回來。nav-line→`PLINE.open()`、其他 nav 鍵按下先 `PLINE.close()`
 - **分頁標題動態化**：boot() 設 document.title——未登入 renderPublicMenu／登入 customer|wholesale＝`Ratio Coffee - Shopping Cart`；員工 view=feed＝`Ratio Coffee`；HTML `<title>` 預設也改 Ratio Coffee（原 Ratio · Today）。⚠ `?shop` 其實沒程式判斷，購物頁＝未登入/customer，標題綁身分不綁參數
