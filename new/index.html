@@ -394,6 +394,7 @@ body.appview nav button{font-size:13px;padding:10px 2px}
 <nav>
 <button id="nav-home">Home</button>
 <button id="nav-feed" class="on">Today</button>
+<button id="nav-beans">Beans</button>
 <button id="nav-tools">Tools</button>
 <button id="nav-refresh">Refresh</button>
 </nav>
@@ -11116,12 +11117,13 @@ function renderHome(){
 function render(){
   /* 浮水印只給今日流：內容少的頁（QC/Tools）整塊露出來像破圖 */
   var bgl=document.querySelector('.bglogo');if(bgl)bgl.style.display='';
-  if(view==='home')renderHome();else if(view==='feed')renderFeed();else if(view==='tools')renderTools();
+  if(view==='home')renderHome();else if(view==='feed')renderFeed();else if(view==='beans')renderBeans();else if(view==='tools')renderTools();
   /* 判定板亮著時底部留白加大，清單最後一列才捲得出來（板＋nav 疊起來近 300px） */
   document.body.style.paddingBottom=($('deck').style.display==='block')?'330px':'';
   document.body.classList.add('appview');
   $('nav-home').classList.toggle('on',view==='home');
   $('nav-feed').classList.toggle('on',view==='feed');
+  $('nav-beans').classList.toggle('on',view==='beans');
   $('nav-tools').classList.toggle('on',view==='tools');
   updateBell();
 }
@@ -11137,6 +11139,7 @@ function maybeAutoRefresh(){
 document.addEventListener('visibilitychange',maybeAutoRefresh);
 $('nav-home').addEventListener('click',function(){view='home';render();});
 $('nav-feed').addEventListener('click',function(){view='feed';render();});
+$('nav-beans').addEventListener('click',function(){view='beans';render();});
 $('nav-tools').addEventListener('click',function(){view='tools';render();});
 $('nav-refresh').addEventListener('click',async function(){this.textContent='…';await reload();this.textContent='Refresh';toast('Refreshed');});
 /* ===== 客戶介面（老闆定調：進來直接看到豆單）＝沒登入的店面＋客戶登入的門戶共用菜單
