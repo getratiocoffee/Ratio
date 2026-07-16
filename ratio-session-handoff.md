@@ -80,6 +80,10 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-17 之二（Coffee Stock 拿掉 Intake 鈕 ✅ 待 push）
+- **老闆點名**：Coffee Stock 的「＋ Intake — add roasted stock」鈕移除（綁定＋openBackfillSheet 的 BF.from='coffee' 回流分支一併清）。**補繳熟豆入口剩**：Log roast 的 Intake·past 分頁（新版主線）＋QC 抽屜的「＋ Add a past batch」（照舊）。
+- **驗證**：jscheck ✓；stub Coffee Stock 無 Intake 字樣、列表照常、QC 的 past batch 入口健在。
+
 ## 〇、補記 — 2026-07-17（debug＋瘦身：斷頭功能/死碼/孤兒 CSS 大掃除 ✅ 待 push）
 - **老闆下令 debug＋刪沒用的＋瘦身**。python 掃描（scratchpad/audit.py：孤兒函式＝定義後全檔零呼叫、呼叫未定義、CSS class 零引用）＋逐一人工確認後刪 130 行：
   - **Bean rotation 整段刪（64 行）**：`openBeanRotSheet` 呼叫的 `beanSwapCalc`/`beanSwapSave` **根本不存在**（不知哪輪重構斷線）而且它自己也沒有任何入口（只自我遞迴）＝雙重死亡。連帶 `BEAN_SWAP` 變數與 **loadAll 的 bean_swap 查詢**一併刪——⚠ loadAll rs[] 是位置索引，刪查詢後 subs/actToday/blends 索引全體 -1（rs[19]/[20]/[21]，行內註解已更新），**已用探針假資料驗證三槽對位正確**。

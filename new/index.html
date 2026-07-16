@@ -4777,7 +4777,7 @@ function openBatchesSheet(){
     +'<div class="box"><div class="n">'+rows.length+'</div><div class="l">Coffee'+(rows.length===1?'':'s')+'</div></div></div>'
     +(dgTot>0?'<div class="s" style="margin-top:6px;text-align:center;color:var(--danger)">+'+dgTot+' kg downgraded (not counted in shelf total)</div>':'')
     +'<div class="pm-seg" style="margin-top:10px"><button id="rst-b" class="'+(isBlend?'on':'')+'">Blends</button><button id="rst-s" class="'+(isBlend?'':'on')+'">Single origins</button></div>'
-    +(ed?'<button class="act" id="rst-intake" style="margin-top:10px">＋ Intake — add roasted stock</button>':'')
+    /* Intake 鈕已移除（2026-07-17 老闆點名）：補繳熟豆走 Log roast 的 Intake 分頁、QC 的 Add a past batch 也還在 */
     /* 圖例＝血條新鮮度色（v3 定稿）：黃 aging · 綠 ready · 紅 fading · 灰 no date */
     +'<div class="s" style="margin-top:14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center">'
     +'<span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#C29036;vertical-align:-1px"></span> aging</span>'
@@ -4849,12 +4849,6 @@ function openBatchesSheet(){
     openRstDeduct(rows[+el.dataset.ded]);
   });});
   /* rst-cup / rst-star / rst-sbqc / rst-sv / rst-go 綁定已隨 UI 一起清（2026-07-16）——舊實作 git 歷史可撈 */
-  var ik=$('rst-intake');
-  if(ik)ik.addEventListener('click',function(){
-    /* 入庫＝Add a past batch 同表單；from='coffee' 存完回這裡、tab 跟當前分頁 */
-    BF.from='coffee';BF.mode=isBlend?'blend':'single';
-    openBackfillSheet();
-  });
   document.querySelectorAll('#drawer [data-bat]').forEach(function(el){el.addEventListener('click',function(){
     var x=rows.find(function(r){return r.key===RST.open;});if(!x)return;
     openRstDeduct(x,rstGroupByDate(x.batches)[+el.dataset.bat]);
@@ -6858,7 +6852,6 @@ async function saveBackfill(){
     /* v3：缺咖啡資訊講明白（批次照樣進 QC 佇列等杯測） */
     toast(hasCup?'In stock ✓ — in the QC queue':'In stock ✓ — no coffee info yet, cup it in QC');
     buildItems();render();
-    if(BF.from==='coffee'){BF.from='';openBatchesSheet();} /* 從 Coffee Stock 進來的回原地 */
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent='Add to QC pipeline';}
     alert('Add failed: '+(e&&e.message||e));
