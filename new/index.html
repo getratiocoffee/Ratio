@@ -258,6 +258,8 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .ro-bloss b{font-size:14.5px;font-weight:800;font-variant-numeric:tabular-nums}
 .ro-berr{font-size:12.5px;color:var(--danger);font-weight:600;margin-top:7px}
 .ro-addrow{width:100%;border:1.5px dashed var(--line2);background:none;border-radius:13px;padding:12px;margin-top:10px;font-size:15px;font-weight:700;color:var(--muted);font-family:inherit;cursor:pointer}
+.ro-wx{display:none;justify-content:space-between;align-items:center;gap:8px;background:var(--tint);border-radius:12px;padding:9px 13px;margin-top:10px;font-size:13px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.ro-wx .s1{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-right:3px}
 /* Labels（袋標／罐標）表單樣式 */
 .lbl-seg{display:flex;gap:8px;margin-bottom:12px}
 .lbl-tab{flex:1;border:1.5px solid var(--line2);background:var(--surface);color:var(--muted);border-radius:10px;padding:11px 6px;min-height:44px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}
@@ -6286,6 +6288,44 @@ function roBatchCard(bt,ix,beans){
   +'<div class="ro-berr" id="ro-err-'+ix+'"'+(err?'':' style="display:none"')+'>'+(err||'')+'</div>'
   +'</div>';
 }
+/* ===== 烘豆環境窗口（2026-07-16 老闆點名）：抽屜頂顯示目前位置天氣/氣壓/濕度 =====
+   Open-Meteo 免金鑰；geolocation 拒絕/逾時退雪梨座標；15 分鐘快取；抓不到就整條隱藏不佔位 */
+var ROWX={t:0,data:null};
+async function roWeather(){
+  if(ROWX.data&&Date.now()-ROWX.t<15*60*1000)return ROWX.data;
+  var pos=null;
+  try{pos=await new Promise(function(res){
+    if(!navigator.geolocation)return res(null);
+    navigator.geolocation.getCurrentPosition(function(p){res(p);},function(){res(null);},{timeout:3000,maximumAge:600000});
+  });}catch(e){}
+  var lat=(pos&&pos.coords)?pos.coords.latitude:-33.87,lon=(pos&&pos.coords)?pos.coords.longitude:151.21;
+  var r=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&current=temperature_2m,relative_humidity_2m,surface_pressure,weather_code');
+  var j=await r.json();
+  if(!j||!j.current)return null;
+  ROWX={t:Date.now(),data:j.current};
+  return j.current;
+}
+function roWxIcon(code){
+  var c=Number(code)||0;
+  if(c>=95)return '⛈';
+  if(c>=80)return '🌦';
+  if(c>=71)return '🌨';
+  if(c>=51)return '🌧';
+  if(c>=45)return '🌫';
+  if(c>=1)return '⛅';
+  return '☀️';
+}
+async function roWxFill(){
+  if(!$('ro-wx'))return;
+  try{
+    var c=await roWeather();
+    var el=$('ro-wx');if(!el||!c)return; /* await 後重查——期間可能重繪或關抽屜 */
+    el.innerHTML='<span>'+roWxIcon(c.weather_code)+' '+Math.round(Number(c.temperature_2m))+'°C</span>'
+      +'<span>'+Math.round(Number(c.relative_humidity_2m))+'% RH</span>'
+      +'<span>'+Math.round(Number(c.surface_pressure))+' hPa</span>';
+    el.style.display='flex';
+  }catch(e){}
+}
 /* ===== Blend 分頁卡片化（2026-07-16 老闆點名跟 single 同格式）：一鍋一卡＋總計＋並排 Add/Submit =====
    資料行為照舊：insert kind='blend'＋recipe 快照＋consumeBlendParts FIFO 扣成分（降級豆優先）；日期整個 session 一個 */
 function roBlendDone(bb){
@@ -6373,6 +6413,7 @@ function paintRoastSheet(){
     +'<div class="s" style="margin-top:2px">'+(single
       ?(RO.entry==='roast'?'one card per kettle · one submit deducts green and logs all':'backfill past roasts · green stock untouched')
       :'one card per blend batch · consumes component batches (oldest first)')+'</div>'
+    +'<div class="ro-wx" id="ro-wx"></div>'
     +chips
     +'<div class="pm-seg"><button id="ro-m-s" class="'+(single?'on':'')+'">Single origin</button><button id="ro-m-b" class="'+(single?'':'on')+'">Blend</button></div>'
     +body
@@ -6483,6 +6524,7 @@ function paintRoastSheet(){
   });
   document.querySelectorAll('#drawer [data-delbatch]').forEach(function(el){el.addEventListener('click',function(){roastDelBatch(+el.dataset.delbatch);});});
   $('d-cl').addEventListener('click',closeDrawer);
+  roWxFill(); /* 環境窗口非同步填（快取 15 分鐘，抓不到整條隱藏） */
 }
 /* 拼配多鍋 Submit（2026-07-16 卡片化；單鍋寫入邏輯承 classic addCoffeeSubmit blend 路徑：快照配方→insert→FIFO 扣成分）*/
 async function submitBlendSession(){

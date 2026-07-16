@@ -80,6 +80,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-16 之三（Log roast 環境窗口：天氣/濕度/氣壓 ✅ 待 push）
+- **老闆點名**：Log roast 上面顯示目前位置天氣、氣壓、濕氣（烘豆環境條件）。抽屜副標下一條 tint 橫條（`#ro-wx`）：「天氣 icon＋°C · % RH · hPa」，兩分頁都看得到。
+- **實作**：Open-Meteo（免費免金鑰，`api.open-meteo.com/v1/forecast?current=temperature_2m,relative_humidity_2m,surface_pressure,weather_code`）；位置走 `navigator.geolocation`（timeout 3s、拒絕/失敗退**雪梨座標** -33.87,151.21）；**15 分鐘快取**（`ROWX` 模組變數）開關抽屜不重打；抓不到整條隱藏不佔位（stub 環境即此路徑）。`roWeather/roWxIcon/roWxFill`，paintRoastSheet 尾端非同步填。只顯示不寫入 roasts。
+- **驗證**：jscheck ✓；stub 餵 ROWX 渲染 ✓、失敗隱藏 ✓、快取只打一次 ✓；真 API curl 雪梨實測回傳格式吻合（13.8°C/92%/1025.2hPa/code53）。⚠ 真機第一次會跳定位權限——拒絕也能用（退雪梨）。
+
 ## 〇、補記 — 2026-07-16 之二（Log roast Blend 分頁也卡片化＋Add/Submit 並排 ✅ 待 push）
 - **並排（老闆點名）**：兩分頁底部統一「＋ Add」（虛線）＋「Submit N batches」（act 主鈕，短版 label——單行放得下 375px）並排；`ro-save`/`saveBlendBatch` 廢，submit 鈕依 mode 分流 `submitRoastSession`/`submitBlendSession`。
 - **Blend 卡片化（老闆點名同格式）**：`RO.bb=[{name,out,amt}]` 一鍋一卡（`roBlendCard`）＝blend select＋成分比例列（聯動/short 提示照舊、per-card scope `data-bc+data-bp`、hint id `ro-bps-卡-成分`）＋琥珀 Roasted total（小數 1 位）；兩格總計（Batches/Roasted）；▲▼✕ 換序刪卡；日期照舊整個 session 一欄（`ro-date` 只在 blend）。`submitBlendSession` 多鍋迴圈＝每卡 insert kind='blend'+recipe 快照→`consumeBlendParts` FIFO 扣成分（含舊庫無 kind 欄 fallback、dup 日期 confirm 一次列全部、short 匯總一個 alert）。blend 不進 roast_draft（照舊）。
