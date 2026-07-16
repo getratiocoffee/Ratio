@@ -80,9 +80,10 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
-## 〇、補記 — 2026-07-16 之四（Coffee Stock 拿掉上架狀態膠囊 ✅ 待 push）
+## 〇、補記 — 2026-07-16 之四（Coffee Stock 拿掉上架狀態膠囊＋ID ✅ 待 push）
 - **老闆點名**：Coffee Stock 每支咖啡的 status 膠囊（On shelf / ★ On shelf / Off shelf）拿掉——上架狀態去 Coffee Info 看（那邊的膠囊不動）。openBatchesSheet 列 render 刪膠囊一行；rstRows 的 x.sync/x.locked 計算保留（Roastery 統一台等共用）。「no info — cup it」警示與 dg/to weigh/低量提示照舊（庫存資訊非上架狀態）。頂部「kg on shelf」總量字樣照舊。
-- **驗證**：jscheck ✓；stub 有 synced＋locked 上架列 → 膠囊不再出現、列表照常、截圖乾淨。
+- **老闆再點名 ID 也拿掉**：豆名旁來源生豆 gNo（S#/G#）＋展開批次列（可賣/降級/待秤）的 rNos/rNo（R#）全部不顯示——批次列剩「日期 · 天數 · QC tag · kg」。只拿顯示，rNo/rNos/gNo helper 與 roast_no 資料照舊（QC/Roastery/扣豆對帳還在用）。
+- **驗證**：jscheck ✓；stub 有 synced＋locked＋roast_no 資料 → 膠囊與 R#/G# 全不出現、批次/降級/待秤列照常、截圖乾淨。
 
 ## 〇、補記 — 2026-07-16 之三（Log roast 環境窗口：天氣/濕度/氣壓 ✅ 待 push）
 - **老闆點名**：Log roast 上面顯示目前位置天氣、氣壓、濕氣（烘豆環境條件）。抽屜副標下一條 tint 橫條（`#ro-wx`）：「天氣 icon＋°C · % RH · hPa」，兩分頁都看得到。
