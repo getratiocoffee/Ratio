@@ -84,6 +84,7 @@
 - **第一段（老闆點名）**：扣咖啡不問原因——Why 區塊（Defect/Transfer/Other chips＋Transfer to 去向欄）整塊拿掉。RSTD 拿掉 why 欄。
 - **第二段（老闆再點名）**：**kg 也不用填——選批＝整批全部刪除**。deduct 模式 kg 欄隱藏（`rd-kgwrap` 只給 Fix kg 用）、按鈕 label 帶量 `Deduct — remove whole batch · N kg`、按下 confirm 一次（防誤觸）→ 該日期組**所有鍋 remaining_kg 歸零**。烘焙紀錄/QC 歷史保留＝**不刪 roasts 列**（confirm 文案也講明 Fix kg 可救回——歸零後批次從 Coffee Stock 消失，要救去 Coffee Info History 或 Fix kg 前先想清楚）。activity_log 記 `deducted roasted · whole batch · N kg · 日期`。Fix kg 分頁照舊（typo 修正仍可填精確數字）。
 - **驗證**：jscheck ✓；stub——kg 欄 deduct 模式隱藏/fix 模式出現 ✓、confirm 文案 ✓、10/07 組兩鍋(3+2)全歸零且 12/07 批不動 ✓、流水帳 whole batch ✓。
+- **第三段（老闆再點名）**：「‹ Back」與「Deduct · N kg」**並排一列**（同 Log roast Add/Submit 排法，Back flex:1 / Deduct flex:1.6、短版 label 帶批量）；Close 照舊在下。stub 驗同列同高 48px ✓。
 
 ## 〇、補記 — 2026-07-16 之五（Coffee Stock 展開列大掃除：提示行以下全清 ✅ 待 push）
 - **老闆點名**：「tap a batch row → deduct that exact roast date」提示行以下全部清掉——openBatchesSheet 展開列的 Cup it in QC chip、★ Star chip、Send back to QC chip、Target/Low 設定列、Roast this →／Blend this → 主鈕全移除，**展開列只剩批次列表**（可賣/降級/待秤三區）。對應死綁定（rst-cup/rst-star/rst-sbqc/rst-sv/rst-go 五段）一併刪，舊實作 git 歷史可撈。
