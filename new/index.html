@@ -2620,16 +2620,14 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
   var hasScores=['fragrance','acidity','sweetness','body','aftertaste'].some(function(k){return s[k]!=null;});
   var sc={fragrance:s.fragrance,acidity:s.acidity,sweetness:s.sweetness,body:s.body,aftertaste:s.aftertaste};
   var fr=shelfFreshness(nm,proc);
-  var syncRow=syncFor(nm,proc); /* 2026-07-13 process 級：同名多處理法取自己的上架列 */
   var mkey=listNameFor(nm,s); /* 價格記憶 key＝上架顯示名（同名多處理法帶後綴），退回名字級相容舊記憶 */
-  var price=m.rtl_price[mkey]!=null?m.rtl_price[mkey]:m.rtl_price[nm],g=m.rtl_g[mkey]||m.rtl_g[nm]||250,szc=m.rtl_sizes[mkey]||m.rtl_sizes[nm]||{},
-      sold=!!m.rtl_sold[mkey]||!!m.rtl_sold[nm]||(syncRow&&syncRow.status==='paused');
+  var price=m.rtl_price[mkey]!=null?m.rtl_price[mkey]:m.rtl_price[nm],g=m.rtl_g[mkey]||m.rtl_g[nm]||250,szc=m.rtl_sizes[mkey]||m.rtl_sizes[nm]||{};
   var rdate=null;try{rdate=shelfLatestRoast(nm,proc);}catch(e){}
-  /* 順序照老闆定：名字 → 烘豆日＋天數/熟成 → 規格價格 → 雷達 → 風味 → 履歷 */
-  openDrawerHTML('<span class="tag" style="color:'+col+'">● Shelf'+(sold?' · <span class="red">off shelf</span>':'')+'</span>'
+  /* 順序照老闆定：名字 → 烘豆日＋天數/熟成 → 規格價格 → 雷達 → 風味 → 履歷。
+     off shelf 紅字與 B# ID 已拿掉（2026-07-16 老闆點名 Coffee Info 只讀資訊、不顯示 ID/上架狀態） */
+  openDrawerHTML('<span class="tag" style="color:'+col+'">● Shelf</span>'
     +'<div class="t" style="font-size:19px">'+esc(nm)
-    +(s.process?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif;font-weight:400">'+esc(s.process)+'</span>':'')
-    +(bNoFor(nm,proc)?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif;font-weight:400">'+bNoFor(nm,proc)+'</span>':'')+'</div>'
+    +(s.process?' <span style="font-size:13px;color:var(--muted);font-family:Inter,sans-serif;font-weight:400">'+esc(s.process)+'</span>':'')+'</div>'
     +'<div class="s" style="margin-top:2px">'+(rdate?'roasted '+fmtD(rdate)+' · ':'')
     +'<span class="'+fr.cls+'"'+(fr.cls?'':' style="color:var(--muted)"')+'>'+esc(fr.days!=null?fr.days+'d — '+fr.txt.split('— ')[1]:fr.txt)+'</span>'
     +(s.flavour_locked?' · ★':'')
@@ -2662,76 +2660,10 @@ async function openShelfBeanDetail(nm,m,proc){ /* v3 定稿：純資訊詳情（
     /* 拼配不畫 The coffee：它在 beans 表沒有列，那區只會剩一個 Roasted，而烘焙日抽屜頂端已經有了 */
     +(!recipe.length&&info.length?'<div class="dlab" style="color:'+col+'">The coffee</div>'
       +info.map(function(r){return '<div class="dl"><span>'+esc(r[0])+'</span><span style="text-align:right">'+esc(String(r[1]))+'</span></div>';}).join(''):'')
-    /* 詳情頁動作：Send back to QC ＋（已上架豆才有）售罄切換。上架/更新/Email/發文在 Publish，
-       但 Publish 現在只列 Coffee Stock 有庫存的豆（2026-07-12 老闆定調）——賣光的已上架豆從 Publish 消失，
-       故售罄/回架入口收在這裡（Coffee Info 母體含賣光的上架豆） */
-    /* ★ 鈕（三態簡化）：有星→可移除（警告失去 publish 資格）；沒星且最新批 pass→可手動點星
-       （換批接手貨架的支線入口；主線是 List push 自動星） */
-    +((isLead()&&s.id)?(s.flavour_locked
-      ?'<button class="dclose" id="sb-star">Remove ★ · not the selling version</button>'
-      :((function(){var qr=null;try{qr=matchRoast(s);}catch(e){}return qr&&qcState(qr)==='pass';})()
-        ?'<button class="dclose" id="sb-star">★ Star · set as selling version</button>':'')):'')
-    +((syncRow&&isLead())?'<button class="dclose" id="sb-sold">'+(sold?'Put back on sale':'Take off shelf')+'</button>':'')
-    +'<button class="dclose" id="sb-requeue">Send back to QC</button>'
+    /* 詳情頁動作全移除（2026-07-16 老闆點名：Coffee Info 只讀不動手——★ Star/售罄切換/Send back to QC 都拿掉；
+       點星與售罄走 Publish/QC 主線，舊實作 git 歷史可撈） */
     +'<button class="dclose" id="sb-back">‹ Back to Coffee Info</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
-  var sbStar=$('sb-star');
-  if(sbStar)sbStar.addEventListener('click',async function(){
-    var btn=this;
-    if(s.flavour_locked){
-      if(!confirm('Remove the ★ from "'+nm+'"?\n\nWithout a ★ it cannot be published — info cards, shop page and announcements lose their source.'))return;
-      btn.disabled=true;btn.textContent='Working…';
-      try{
-        var u=await sb.from('samples').update({flavour_locked:false}).eq('id',s.id);
-        if(u.error)throw new Error(u.error.message);
-        s.flavour_locked=false;logAct('★ removed',nm);
-        toast('★ removed');buildItems();
-        await reload();openShelfBeanDetail(nm,m,proc);
-      }catch(e){btn.disabled=false;btn.textContent='Remove ★ · not the selling version';alert('Failed: '+(e&&e.message||e));}
-      return;
-    }
-    btn.disabled=true;btn.textContent='Working…';
-    var rs=await starSample(s,false);
-    if(!rs.ok){btn.disabled=false;btn.textContent='★ Star · set as selling version';return;}
-    logAct('★ added',nm);
-    toast('★ on shelf — the selling version now');buildItems();
-    /* 從已上架批手上接星＝架上的風味/烘焙日資訊過期了 → 直開 Update 抽屜一鍵 push（原 qcSwap 體驗搬家） */
-    if(rs.swapped){openListSheet({ref:s});return;}
-    await reload();openShelfBeanDetail(nm,m,proc);
-  });
-  var sbSold=$('sb-sold');
-  if(sbSold)sbSold.addEventListener('click',async function(){
-    var btn=this;btn.disabled=true;btn.textContent='Working…';
-    try{
-      await setShelfSold(nm,!sold,proc); /* sold＝現在售罄中→回架；否則→標售罄；proc＝同名多處理法定位那一列（漏傳會 400 not synced yet） */
-      toast(!sold?'Off shelf ✓':'Back on sale ✓');
-      await reload();backToInfo();
-    }catch(e){
-      btn.disabled=false;btn.textContent=sold?'Put back on sale':'Take off shelf';
-      alert('Update failed: '+(e&&e.message||e));
-    }
-  });
-  /* 放錯資訊退回 QC 重審（老闆點名）：清最近判定＋解鎖風味 → 重杯修正 → Pass 重鎖；Square 上架不動 */
-  $('sb-requeue').addEventListener('click',async function(){
-    var r=(DB.roasts||[]).find(function(x){
-      if(!x.qc)return false;
-      if(s.bean_id&&x.bean_id)return String(x.bean_id)===String(s.bean_id);
-      return String(x.bean_name||'').trim().toLowerCase()===nm.toLowerCase();
-    });
-    if(!r){alert('No judged batch found for "'+nm+'".');return;}
-    if(!confirm('Send "'+nm+'" back to the QC queue?\n\nThe batch verdict ('+qcState(r)+') is cleared and the ★ comes off — re-cup to fix the notes, then Pass it again.\nIt drops off the shop menu until you Pass it again.'))return;
-    var btn=this;btn.disabled=true;btn.textContent='Sending…';
-    try{
-      var u=await sb.from('roasts').update({qc:null}).eq('id',r.id);
-      if(u.error)throw new Error(u.error.message);
-      if(s.id){try{await sb.from('samples').update({flavour_locked:false}).eq('id',s.id);}catch(e){}}
-      closeDrawer();toast('"'+nm+'" is back in the QC queue ✓');
-      await reload();
-    }catch(e){
-      btn.disabled=false;btn.textContent='Send back to QC';
-      alert('Failed: '+(e&&e.message||e));
-    }
-  });
   $('sb-back').addEventListener('click',backToInfo);
   $('d-cl').addEventListener('click',closeDrawer);
 }

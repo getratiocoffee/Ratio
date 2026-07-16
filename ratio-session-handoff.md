@@ -80,6 +80,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-16 之十（Coffee Info 詳情頁改純唯讀 ✅ 待 push）
+- **老闆點名**：Coffee Info 只讀咖啡資訊、不做任何 action——openShelfBeanDetail 的 ★ Star/Remove ★、Take off shelf/Put back on sale（setShelfSold 售罄切換）、Send back to QC 三顆鈕連 UI 帶綁定全刪（~70 行，git 歷史可撈），只剩 ‹ Back 與 Close。**入口轉移**：點星/售罄走 Publish 主線、退回 QC 重審在 QC 抽屜處理（賣光豆不在 Publish 清單——需要售罄切換時去 Square 後台或喊一聲再開入口）。
+- **順手補**：詳情頁頂部「● Shelf · off shelf」紅字與豆名旁 B#（bNoFor）一併拿掉（上輪列表清過、詳情頁漏網）；sold/syncRow 變數清掉。烘焙日期＋天數熟成字樣**保留**（詳情頁結構是老闆定的、屬咖啡資訊本體）。
+- **驗證**：jscheck ✓；stub locked＋paused＋sold 全開 → 三鈕/off shelf/B# 全不出現、名字/roasted 日期/雷達/風味照常、Back/Close 正常。（B# regex 誤中雷達圖 base64——假警報，UI 乾淨。）
+
 ## 〇、補記 — 2026-07-16 之九（Coffee Info 列表精簡：ID／On shelf 膠囊／roasted Nd 全拿掉 ✅ 待 push）
 - **老闆點名**：openRetailSheet 的 rowHTML 三樣不顯示——①B#（bNoFor）豆名旁編號 ②On shelf / Off shelf 膠囊（sold/pill 邏輯一併刪，rtl_sold 記憶資料照舊給詳情頁用）③「roasted Nd — ready/aging/fading」新鮮度字樣（shelfFreshness 仍在，Coffee Stock 血條/詳情頁照用；四象限分區與烘豆日排序不變、只是不顯示天數）。副標剩：風味 features＋警示（no price / re-checking in QC / sold through / no info）。
 - **驗證**：jscheck ✓；stub synced＋locked＋有批次 → 膠囊/roasted Nd/B# 全不出現、風味與 In stock 分區照常、截圖乾淨。
