@@ -6245,10 +6245,9 @@ function roSummary(){
   RO.batches.forEach(function(bt){var gv=parseFloat(bt.green),ov=parseFloat(bt.out);if(gv>0)g+=gv;if(ov>0)o+=ov;});
   return {n:RO.batches.length,g:g>0?roFmt1(g):'—',o:o>0?roFmt1(o):'—'};
 }
-function roSubmitLabel(ok){
+function roSubmitLabel(ok){ /* 並排空間有限用短版（2026-07-16 老闆點名 Add batch/Submit 並排）；模式語意在抽屜副標 */
   var n=RO.batches.length;
-  if(!ok)return 'Submit — fill every batch first';
-  return RO.entry==='roast'?('Submit — log '+n+' roast'+(n>1?'s':'')+' to stock'):('Submit — add '+n+' past roast'+(n>1?'s':''));
+  return 'Submit '+n+' batch'+(n===1?'':'es');
 }
 /* 輸入後即時刷新（不重繪、免掉鍵盤焦點）：每列 loss/紅字＋頂部總計＋submit 鈕狀態 */
 function roRefresh(){
@@ -6313,8 +6312,7 @@ function paintRoastSheet(){
     +'<div class="ro-sum"><div><div class="s1">Batches</div><b id="ro-sum-n">'+sum.n+'</b></div>'
     +'<div><div class="s1">Green</div><b id="ro-sum-g">'+sum.g+'</b></div>'
     +'<div><div class="s1">Roasted</div><b id="ro-sum-o">'+sum.o+'</b></div></div>'
-    +RO.batches.map(function(bt,ix){return roBatchCard(bt,ix,beans);}).join('')
-    +'<button class="ro-addrow" id="ro-addrow">＋ Add batch</button>';
+    +RO.batches.map(function(bt,ix){return roBatchCard(bt,ix,beans);}).join('');
   }else{
     var bl=RO.blends.find(function(b){return b.name===RO.blendName;})||null;
     var parts=bl?(bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}):[];
@@ -6343,7 +6341,10 @@ function paintRoastSheet(){
     +body
     +(single?'':'<div class="dlab" style="margin-top:14px">Roast date</div><input class="din" id="ro-date" type="date" value="'+esc(RO.date)+'">')
     +(single
-      ?'<button class="act" id="ro-submit"'+(allDone?'':' disabled style="opacity:.5"')+'>'+roSubmitLabel(allDone)+'</button>'
+      ?'<div style="display:flex;gap:8px;align-items:stretch;margin-top:12px">'
+        +'<button class="ro-addrow" id="ro-addrow" style="flex:1;margin-top:0;white-space:nowrap">＋ Add</button>'
+        +'<button class="act" id="ro-submit" style="flex:1.8;margin-top:0;white-space:nowrap'+(allDone?'':';opacity:.5')+'"'+(allDone?'':' disabled')+'>'+roSubmitLabel(allDone)+'</button>'
+      +'</div>'
       :'<button class="act" id="ro-save">Log blend batch</button>')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">'+(single?'Close':'Cancel')+'</button>');
   /* 重畫前先把已打的值收回 RO（batch 卡的值由 input 事件即時寫回，這裡只收 blend 分頁欄位） */
