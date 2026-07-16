@@ -11127,6 +11127,21 @@ function render(){
   $('nav-tools').classList.toggle('on',view==='tools');
   updateBell();
 }
+/* ── Beans 產線總覽站：唯讀看板。各站數字執行時即時從 DB 算（不預存、不硬寫），沿用現成判定 helper。階段1只做流程圖＋真實數字 ── */
+function renderBeans(){
+  $('deck').style.display='none';
+  $('hcnt').textContent='production line';
+  var beans=DB.beans||[], roasts=DB.roasts||[], syncs=DB.syncs||[];
+  var greenN=beans.filter(function(b){return (+b.quantity||0)>0;}).length;
+  var roastN=(typeof toCupList==='function')?toCupList().length:0;
+  var qcN=(QCQ||[]).length;
+  var shelfN=syncs.filter(function(s){return s.status==='synced'||s.status==='paused';}).length;
+  var blendN=roasts.filter(function(r){return qcState(r)==='downgrade'&&(r.remaining_kg==null||+r.remaining_kg>0);}).length;
+  var st=function(c,ic,n,l){return '<div class="beans-st" style="--c:var('+c+')"><div class="beans-ic">'+ic+'</div><div class="beans-n">'+n+'</div><div class="beans-l">'+l+'</div></div>';};
+  var arr='<div class="beans-arr">›</div>';
+  var flow='<div class="beans-flow">'+st('--green','☕',greenN,'Green')+arr+st('--roast','🔥',roastN,'Roasting')+arr+st('--qc','◎',qcN,'QC')+arr+st('--shelf','▣',shelfN,'Shelf')+arr+st('--fin','✦',blendN,'Blend')+'</div>';
+  $('main').innerHTML='<div class="beans-wrap"><div class="beans-h1">Production line</div><div class="beans-sub">Green → Roast → QC → Shelf · live counts</div>'+flow+'<div class="beans-note">Tap a station to see which batches are there — coming in the next step.</div></div>';
+}
 var LAST_LOAD=0;
 async function reload(){await loadAll();LAST_LOAD=Date.now();render();}
 /* 切回前景自動刷新：超過 60 秒才刷、抽屜開著不打斷、未登入不動 */
