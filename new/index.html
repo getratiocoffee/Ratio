@@ -4894,8 +4894,7 @@ function openBatchesSheet(){
       +(x.proc?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(x.proc)+'</span>':'')
       /* 來源生豆 S#ID（有對到 beans 列才有——批次孤兒沒有） */
       +(x.ref&&gNo(x.ref)?' <span style="color:var(--muted);font-weight:400;font-size:11px">'+gNo(x.ref)+'</span>':'')+'</span>'
-      /* 膠囊只講貨架兩態（沒星不是狀態，老闆定調）：On shelf（有星帶 ★）／Off shelf */
-      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':'background:var(--accent);color:#fff')+'">'+(x.sync==='paused'?'Off shelf':(x.locked?'★ On shelf':'On shelf'))+'</span>':'')
+      /* 上架狀態膠囊已移除（2026-07-16 老闆點名 Coffee Stock 不顯示 On/Off shelf——上架狀態去 Coffee Info 看） */
       +(x.noInfo?'<span class="red" style="flex:0 0 auto;font-size:11px;font-weight:600">no info — cup it</span>':'')
       +'</span>'
       +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto">'

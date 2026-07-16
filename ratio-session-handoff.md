@@ -80,6 +80,10 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-16 之四（Coffee Stock 拿掉上架狀態膠囊 ✅ 待 push）
+- **老闆點名**：Coffee Stock 每支咖啡的 status 膠囊（On shelf / ★ On shelf / Off shelf）拿掉——上架狀態去 Coffee Info 看（那邊的膠囊不動）。openBatchesSheet 列 render 刪膠囊一行；rstRows 的 x.sync/x.locked 計算保留（Roastery 統一台等共用）。「no info — cup it」警示與 dg/to weigh/低量提示照舊（庫存資訊非上架狀態）。頂部「kg on shelf」總量字樣照舊。
+- **驗證**：jscheck ✓；stub 有 synced＋locked 上架列 → 膠囊不再出現、列表照常、截圖乾淨。
+
 ## 〇、補記 — 2026-07-16 之三（Log roast 環境窗口：天氣/濕度/氣壓 ✅ 待 push）
 - **老闆點名**：Log roast 上面顯示目前位置天氣、氣壓、濕氣（烘豆環境條件）。抽屜副標下一條 tint 橫條（`#ro-wx`）：「天氣 icon＋°C · % RH · hPa」，兩分頁都看得到。
 - **實作**：Open-Meteo（免費免金鑰，`api.open-meteo.com/v1/forecast?current=temperature_2m,relative_humidity_2m,surface_pressure,weather_code`）；位置走 `navigator.geolocation`（timeout 3s、拒絕/失敗退**雪梨座標** -33.87,151.21）；**15 分鐘快取**（`ROWX` 模組變數）開關抽屜不重打；抓不到整條隱藏不佔位（stub 環境即此路徑）。`roWeather/roWxIcon/roWxFill`，paintRoastSheet 尾端非同步填。只顯示不寫入 roasts。
