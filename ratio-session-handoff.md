@@ -80,6 +80,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-17 之四（Green stock 血條列表改版＋0 kg 折底部 ✅ 待 push）
+- **老闆嫌生豆列表看不懂，出三方案 mockup（A 血條列表／B 大字卡片／C 同比例橫條圖）老闆選 A**。openGreensSheet 重寫：每豆列（國家分組照舊）加一條血條——**同一把尺＝全豆最大量當滿格**（零設定、順便兼具 C 的誰多誰少比較）、正常 `--green`／低量 `--danger` 紅條＋`· low` 紅字、極小量最少畫 2% 看得到一絲；沿用 .hm-bar 容器。副標改 `bars share one scale · red = at or below the low line`。
+- **0 kg 豆折底部**（老闆曾誤認同名多處理法＋0kg 是重複 bug——實為不同商品＋用完歸零，SQL 查證過）：`quantity<=0` 收進底部「Out of stock / on the way」區，灰字、無血條、**不算 low**（gs-sum 的 Low stock 計數排除 0kg）；點列照開 openGreenDetail。
+- **驗證**：jscheck ✓；stub 仿線上真況（Finca Milan 多處理法＋低量＋0kg）→ 血條比例 29/3/100/30% 對全豆最大 ✓、Low stock=1（0kg 不算）✓、Out 區在底 ✓、0kg 列明細照開 ✓、全 0kg 極端不炸 ✓、手機截圖乾淨。
+
 ## 〇、補記 — 2026-07-17 之三（Receive green 全欄位開放＋kg 可 0 佔位 ✅ 待 push）
 - **老闆點名**：①New bean 建檔開放**所有豆子檔案欄位**——原本只有 name/country/process，加 region/station/variety/harvest/altitude 五格（全 optional、DB 皆 text 欄已 SQL 確認）②**kg 可 0（空白＝0）＝先佔位子**——豆還沒到先建檔；0 kg 時**不寫 stock_moves**（帳上沒有量的變動）、activity_log 記 `booked green placeholder`、toast 'Booked ✓ placeholder — 0 kg'。kg 欄 label 標 `0 = placeholder`。
 - **驗證**：jscheck ✓；stub——12 欄全在、全欄位＋kg 空白送出 → beans insert quantity:0＋五欄入庫＋零 stock_moves ✓；Existing lot 併批 30kg 照舊（PATCH 20→50＋stock_moves＋流水帳）✓。⚠ 佔位豆到貨後用 Existing lot 併批補量即可。

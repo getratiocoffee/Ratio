@@ -4573,27 +4573,44 @@ function openIdBookSheet(){
   $('d-cl').addEventListener('click',closeDrawer);
 }
 function openGreensSheet(){
+  /* 2026-07-17 血條列表改版（老闆選方案 A）：每豆一條血條（同一把尺＝全豆最大量當滿格，
+     零設定、兼具誰多誰少的比較）；0 kg 豆折到底部 Out of stock 區（用完/佔位混在有貨列曾被誤認重複 bug） */
   var beans=(DB.beans||[]).slice().sort(function(a,b){
     var c=String(a.country||'').localeCompare(String(b.country||''));
     return c!==0?c:String(a.name||'').localeCompare(String(b.name||''));
   });
-  var totKg=0,lowCount=0;beans.forEach(function(b){totKg+=Number(b.quantity)||0;var _t=(b.low_stock_kg==null?GREEN_LOW_KG:Number(b.low_stock_kg));if(b.quantity!=null&&_t>0&&Number(b.quantity)<=_t)lowCount++;});
-  var lastC=null,rows='';
+  var maxKg=0,totKg=0,lowCount=0;
+  beans.forEach(function(b){
+    var q=Number(b.quantity)||0;totKg+=q;if(q>maxKg)maxKg=q;
+    var _t=(b.low_stock_kg==null?GREEN_LOW_KG:Number(b.low_stock_kg));
+    if(q>0&&_t>0&&q<=_t)lowCount++; /* 0 kg 不算 low——是沒了不是快沒了 */
+  });
+  var lastC=null,rows='',outRows='';
   beans.forEach(function(b,ix){
+    var q=Number(b.quantity)||0;
+    if(q<=0){ /* 底部 Out of stock 區：無血條、灰字、不觸發低量紅 */
+      outRows+='<div class="hit" data-g="'+ix+'"><span><div class="t" style="color:var(--muted)">'+esc(b.name)+(b.process?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(b.process)+'</span>':'')+'</div>'
+        +'<div class="s">'+(gNo(b)?gNo(b)+(b.supplier?' · ':''):'')+(b.supplier?esc(b.supplier):'')+'</div></span>'
+        +'<span class="k" style="font-size:15px;color:var(--muted)">0 kg</span></div>';
+      return;
+    }
     var c=b.country||'—';
     if(c!==lastC){rows+='<div class="dlab">'+esc(c)+'</div>';lastC=c;}
     var t=(b.low_stock_kg==null?GREEN_LOW_KG:Number(b.low_stock_kg));
-    var low=b.quantity!=null&&t>0&&Number(b.quantity)<=t;
-    rows+='<div class="hit" data-g="'+ix+'"><span><div class="t">'+esc(b.name)+(b.process?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(b.process)+'</span>':'')+'</div>'
-      +'<div class="s">'+(gNo(b)?gNo(b)+(b.supplier?' · ':''):'')+(b.supplier?esc(b.supplier):'')+'</div></span>'
-      +'<span class="k'+(low?' red':'')+'" style="font-size:15px">'+(Number(b.quantity)||0)+' kg</span></div>';
+    var low=t>0&&q<=t;
+    var pct=maxKg>0?Math.max(2,Math.round(q/maxKg*100)):0; /* 最少 2% 讓極小量仍看得到一絲 */
+    rows+='<div class="hit" data-g="'+ix+'" style="align-items:stretch"><span style="min-width:0;flex:1"><div class="t">'+esc(b.name)+(b.process?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(b.process)+'</span>':'')+'</div>'
+      +'<div class="s">'+(gNo(b)?gNo(b)+(b.supplier?' · ':''):'')+(b.supplier?esc(b.supplier):'')+'</div>'
+      +(maxKg>0?'<div class="hm-bar" style="margin-top:7px"><div style="height:100%;width:'+pct+'%;background:'+(low?'var(--danger)':'var(--green)')+';border-radius:inherit"></div></div>':'')+'</span>'
+      +'<span class="k'+(low?' red':'')+'" style="font-size:15px;flex:0 0 auto;margin-left:10px">'+q+' kg'+(low?' · low':'')+'</span></div>';
   });
+  if(outRows)outRows='<div class="dlab">Out of stock / on the way</div>'+outRows;
   openDrawerHTML('<div class="t" style="font-size:19px">Green stock</div>'
-    +'<div class="s" style="margin-top:2px">red = at or below the low line</div>'
+    +'<div class="s" style="margin-top:2px">bars share one scale · red = at or below the low line</div>'
     +'<div class="gs-sum"><div class="box"><div class="n">'+(Math.round(totKg*100)/100)+'</div><div class="l">kg on books</div></div>'
     +'<div class="box"><div class="n">'+beans.length+'</div><div class="l">Beans</div></div>'
     +'<div class="box'+(lowCount?' warn':'')+'"><div class="n">'+lowCount+'</div><div class="l">Low stock</div></div></div>'
-    +(rows||'<div class="empty">No green beans on the books</div>')
+    +((rows||outRows)?rows+outRows:'<div class="empty">No green beans on the books</div>')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   document.querySelectorAll('#drawer [data-g]').forEach(function(el){el.addEventListener('click',function(){openGreenDetail(beans[+el.dataset.g]);});});
   $('d-cl').addEventListener('click',closeDrawer);
