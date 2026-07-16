@@ -80,9 +80,10 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
-## 〇、補記 — 2026-07-16 之六（Deduct 不問 reason ✅ 待 push）
-- **老闆點名**：扣咖啡（openRstDeduct）不用問原因——Why 區塊（Defect/Transfer/Other chips＋Transfer to 去向欄）整塊拿掉，流程剩「選批 → 填 kg → Deduct」。Fix kg（打錯修正）分頁照舊。RSTD 拿掉 why 欄；activity_log 統一記 `deducted roasted · N kg · 日期`（不再分 transferred/原因字尾）。
-- **驗證**：jscheck ✓；stub——Why/Defect/Transfer 全不出現、選批/Fix kg 照舊、扣 1.5kg PATCH remaining 5→3.5＋流水帳無原因字 ✓。
+## 〇、補記 — 2026-07-16 之六（Deduct 兩段簡化：不問 reason → 選批整批全清 ✅ 待 push）
+- **第一段（老闆點名）**：扣咖啡不問原因——Why 區塊（Defect/Transfer/Other chips＋Transfer to 去向欄）整塊拿掉。RSTD 拿掉 why 欄。
+- **第二段（老闆再點名）**：**kg 也不用填——選批＝整批全部刪除**。deduct 模式 kg 欄隱藏（`rd-kgwrap` 只給 Fix kg 用）、按鈕 label 帶量 `Deduct — remove whole batch · N kg`、按下 confirm 一次（防誤觸）→ 該日期組**所有鍋 remaining_kg 歸零**。烘焙紀錄/QC 歷史保留＝**不刪 roasts 列**（confirm 文案也講明 Fix kg 可救回——歸零後批次從 Coffee Stock 消失，要救去 Coffee Info History 或 Fix kg 前先想清楚）。activity_log 記 `deducted roasted · whole batch · N kg · 日期`。Fix kg 分頁照舊（typo 修正仍可填精確數字）。
+- **驗證**：jscheck ✓；stub——kg 欄 deduct 模式隱藏/fix 模式出現 ✓、confirm 文案 ✓、10/07 組兩鍋(3+2)全歸零且 12/07 批不動 ✓、流水帳 whole batch ✓。
 
 ## 〇、補記 — 2026-07-16 之五（Coffee Stock 展開列大掃除：提示行以下全清 ✅ 待 push）
 - **老闆點名**：「tap a batch row → deduct that exact roast date」提示行以下全部清掉——openBatchesSheet 展開列的 Cup it in QC chip、★ Star chip、Send back to QC chip、Target/Low 設定列、Roast this →／Blend this → 主鈕全移除，**展開列只剩批次列表**（可賣/降級/待秤三區）。對應死綁定（rst-cup/rst-star/rst-sbqc/rst-sv/rst-go 五段）一併刪，舊實作 git 歷史可撈。
