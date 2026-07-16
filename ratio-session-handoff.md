@@ -80,6 +80,10 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-16 之六（Deduct 不問 reason ✅ 待 push）
+- **老闆點名**：扣咖啡（openRstDeduct）不用問原因——Why 區塊（Defect/Transfer/Other chips＋Transfer to 去向欄）整塊拿掉，流程剩「選批 → 填 kg → Deduct」。Fix kg（打錯修正）分頁照舊。RSTD 拿掉 why 欄；activity_log 統一記 `deducted roasted · N kg · 日期`（不再分 transferred/原因字尾）。
+- **驗證**：jscheck ✓；stub——Why/Defect/Transfer 全不出現、選批/Fix kg 照舊、扣 1.5kg PATCH remaining 5→3.5＋流水帳無原因字 ✓。
+
 ## 〇、補記 — 2026-07-16 之五（Coffee Stock 展開列大掃除：提示行以下全清 ✅ 待 push）
 - **老闆點名**：「tap a batch row → deduct that exact roast date」提示行以下全部清掉——openBatchesSheet 展開列的 Cup it in QC chip、★ Star chip、Send back to QC chip、Target/Low 設定列、Roast this →／Blend this → 主鈕全移除，**展開列只剩批次列表**（可賣/降級/待秤三區）。對應死綁定（rst-cup/rst-star/rst-sbqc/rst-sv/rst-go 五段）一併刪，舊實作 git 歷史可撈。
 - **行為保留**：點批次行扣量（data-bat/data-dgbat → openRstDeduct）、點待秤行補秤（data-pdbat → openWeighIn）、收合列「−」快速扣、頂部 Intake 鈕照舊。**功能入口轉移**：點星/送回 QC → Coffee Info 詳情或 Roastery 統一台；target/low 設定 → Roastery 統一台（openRoasterySheet 那份同款 UI 未動）；Roast this → 血條行動鈕。
