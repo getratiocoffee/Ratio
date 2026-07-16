@@ -80,6 +80,10 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-16 之九（Coffee Info 列表精簡：ID／On shelf 膠囊／roasted Nd 全拿掉 ✅ 待 push）
+- **老闆點名**：openRetailSheet 的 rowHTML 三樣不顯示——①B#（bNoFor）豆名旁編號 ②On shelf / Off shelf 膠囊（sold/pill 邏輯一併刪，rtl_sold 記憶資料照舊給詳情頁用）③「roasted Nd — ready/aging/fading」新鮮度字樣（shelfFreshness 仍在，Coffee Stock 血條/詳情頁照用；四象限分區與烘豆日排序不變、只是不顯示天數）。副標剩：風味 features＋警示（no price / re-checking in QC / sold through / no info）。
+- **驗證**：jscheck ✓；stub synced＋locked＋有批次 → 膠囊/roasted Nd/B# 全不出現、風味與 In stock 分區照常、截圖乾淨。
+
 ## 〇、補記 — 2026-07-16 之八（Coffee Stock 合併列拿掉「N roasts」標籤 ✅ 待 push）
 - **老闆點名**：同日多鍋合併後顯示的「2 roasts」多鍋提示刪掉——openBatchesSheet 可賣批次列與降級區兩處移除；合併行為照舊（同日加總一列）、Pass ✓/Pending/>30d 標籤照舊。QC 待杯測卡的「N roasts」**保留**（杯測場景知道幾鍋有用，老闆沒點名那邊）。
 - **驗證**：jscheck ✓；stub 同日兩鍋（可賣＋降級各一組）→ 合併列無 roasts 字樣、kg 加總對、QC 標籤照舊。

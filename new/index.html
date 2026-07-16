@@ -2557,31 +2557,26 @@ async function openRetailSheet(){
   (QCQ||[]).forEach(function(q){inQCSet[String(q.s.sample_id||'').trim().toLowerCase()+'|'+procKey(q.s.process)]=1;});
   toCupList().forEach(function(r){inQCSet[String(r.bean_name||'').trim().toLowerCase()+'|'+procKey(r.process)]=1;});
   function rowHTML(c,zone){
+    /* 2026-07-16 老闆點名精簡：B# ID、On/Off shelf 膠囊、roasted Nd 新鮮度字樣都不顯示——
+       列上剩 色點＋豆名＋處理法＋風味/警示；新鮮度仍在 Coffee Stock 血條與詳情頁看 */
     var nm=c.nm,rep=c.rep;
     var col=uiDot(dotColorFor(nm,dots,c.isBlend?undefined:((rep&&rep.process)||c.proc)));
-    var fr=shelfFreshness(nm,c.isBlend?undefined:c.proc);
     var feats=(rep&&Array.isArray(rep.features)?rep.features.slice(0,3).join(' · '):'');
     var sy=syncFor(nm,c.isBlend?undefined:c.proc);
     var mkey=listNameFor(nm,rep||{process:c.proc});
     var price=m.rtl_price[mkey]!=null?m.rtl_price[mkey]:m.rtl_price[nm];
     var inQC=!!inQCSet[nm.toLowerCase()+'|'+procKey(c.proc)];
-    var sub=rep
-      ?('<span class="'+fr.cls+'"'+(fr.cls?'':' style="color:var(--muted)"')+'>'+esc(fr.txt)+'</span>'
-        +(feats?' · '+esc(feats):'')
-        +(zone==='stock'&&sy&&price==null?' · <span class="red">no price</span>':'')
-        +(inQC?' · <span class="fr-yellow">re-checking in QC</span>':'')
-        +(zone==='history'?' · <span style="color:var(--muted)">sold through</span>':''))
-      :'<span class="red">no info — cup it in QC</span>';
-    var sold=sy&&(!!m.rtl_sold[mkey]||!!m.rtl_sold[nm]||sy.status==='paused');
-    /* 膠囊：現貨區才有上架狀態——售罄紅、重審熄燈 */
-    var pill=(zone==='stock'&&sy)?'<span class="k pill'+(sold?' sold':'')+'">'+(sold?'Off shelf':'On shelf')+'</span>':'';
+    var bits=[];
+    if(feats)bits.push(esc(feats));
+    if(zone==='stock'&&sy&&price==null)bits.push('<span class="red">no price</span>');
+    if(inQC)bits.push('<span class="fr-yellow">re-checking in QC</span>');
+    if(zone==='history')bits.push('<span style="color:var(--muted)">sold through</span>');
+    var sub=rep?bits.join(' · '):'<span class="red">no info — cup it in QC</span>';
     var procTxt=(rep&&rep.process)||c.proc||'';
-    var cbn=bNoFor(nm,c.isBlend?undefined:(procTxt||c.proc));
     return '<div class="hit" data-shelf="'+esc(nm)+'" data-shelfp="'+esc(c.proc)+'" data-shelfb="'+(c.isBlend?'1':'0')+'"><span style="min-width:0"><div class="t" style="font-size:16px">'
       +(col?'<span style="color:'+col+';font-size:12px">●</span> ':'')+esc(nm)
-      +(procTxt?' <span style="color:var(--muted);font-weight:400;font-size:12.5px;font-family:Inter,sans-serif">'+esc(procTxt)+'</span>':'')
-      +(cbn?' <span style="color:var(--muted);font-weight:400;font-size:12px;font-family:Inter,sans-serif">'+cbn+'</span>':'')+'</div>'
-      +'<div class="s">'+sub+'</div></span>'+pill+'</div>';
+      +(procTxt?' <span style="color:var(--muted);font-weight:400;font-size:12.5px;font-family:Inter,sans-serif">'+esc(procTxt)+'</span>':'')+'</div>'
+      +(sub?'<div class="s">'+sub+'</div>':'')+'</span></div>';
   }
   function section(title,arr,zone){return arr.length?'<div class="dlab">'+title+'</div>'+arr.map(function(c){return rowHTML(c,zone);}).join(''):'';}
   /* 區名避開豆況 Pending 撞名（老闆定調 Pending＝還沒 QC 的豆；這區＝有貨但還沒選在賣版本） */
