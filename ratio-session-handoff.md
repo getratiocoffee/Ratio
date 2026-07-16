@@ -80,6 +80,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-16 之七（Roastery 統一工作台整台移除 ✅ 待 push）
+- **老闆點名刪掉**（2026-07-15 才上的方案 A「豆子中心工作台」壽命一天）：本體 ~317 行整段刪（RWB/rwbMatch/roasteryRows/openRoasterySheet，git 歷史可撈，原地留墓碑註解）。
+- **入口全改**：Tools 磁貼移除＋dispatch 刪；今日流卡 `rstlow`→Coffee Stock（RST.seg 帶 blend/single）、`qcnav`→QC 抽屜（=2026-07-15 前的行為）；DONE_TOOLS 拿掉 'Roastery'。
+- **返回動線簡化**：backToStock/backToQC/backToInfo 不再分流，一律回舊三抽屜（NAV_SRC 旗標保留備用）；openBackfillSheet 的 `BF.from='roastery'` 回流分支刪。
+- **驗證**：jscheck ✓；grep 零殘留；stub——Tools 頁無 Roastery 磁貼、Coffee Stock 磁貼照常、rstlow/qcnav 卡分派開對抽屜、backTo* 全對。
+
 ## 〇、補記 — 2026-07-16 之六（Deduct 兩段簡化：不問 reason → 選批整批全清 ✅ 待 push）
 - **第一段（老闆點名）**：扣咖啡不問原因——Why 區塊（Defect/Transfer/Other chips＋Transfer to 去向欄）整塊拿掉。RSTD 拿掉 why 欄。
 - **第二段（老闆再點名）**：**kg 也不用填——選批＝整批全部刪除**。deduct 模式 kg 欄隱藏（`rd-kgwrap` 只給 Fix kg 用）、按鈕 label 帶量 `Deduct — remove whole batch · N kg`、按下 confirm 一次（防誤觸）→ 該日期組**所有鍋 remaining_kg 歸零**。烘焙紀錄/QC 歷史保留＝**不刪 roasts 列**（confirm 文案也講明 Fix kg 可救回——歸零後批次從 Coffee Stock 消失，要救去 Coffee Info History 或 Fix kg 前先想清楚）。activity_log 記 `deducted roasted · whole batch · N kg · 日期`。Fix kg 分頁照舊（typo 修正仍可填精確數字）。

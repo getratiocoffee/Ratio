@@ -1108,8 +1108,8 @@ async function runAction(id,btn){
       logAct('task done',i.t);
       dropCard(id);toast('Task done ✓');return;
     }
-    if(i.kind==='rstlow'){RWB.seg=(i.ref||[]).some(function(x){return x.isBlend;})?'blend':'single';RWB.open=null;openRoasterySheet();return;} /* 2026-07-15 改開 Roastery 統一台 */
-    if(i.kind==='qcnav'){openRoasterySheet();return;} /* 2026-07-15 改開 Roastery 統一台 */
+    if(i.kind==='rstlow'){RST.seg=(i.ref||[]).some(function(x){return x.isBlend;})?'blend':'single';RST.open=null;openBatchesSheet();return;} /* 2026-07-16 Roastery 移除，改回 Coffee Stock */
+    if(i.kind==='qcnav'){openQCSheet();return;} /* 2026-07-16 Roastery 移除，改回 QC 抽屜 */
     if(i.kind==='closing'){if(CLOSING_ITEMS.length)openClosingSheet();else openClosingEdit();return;}
     if(i.kind==='paynav'){openPayrollSheet();return;}
     if(i.kind==='pack'){openPackSheet(i);return;}
@@ -1394,13 +1394,12 @@ function attachDrawerDrag(){
 }
 function closeDrawer(){$('drawer').classList.remove('show');$('dbg').classList.remove('show');unlockBg();}
 $('dbg').addEventListener('click',closeDrawer);
-/* Roastery 統一台返回動線（2026-07-15）：子抽屜（扣豆/秤重/杯測/判定配套/詳情）存檔或返回時，
-   從統一台進來的回統一台、從舊抽屜進來的照舊回家——NAV_SRC 旗標由入口設定，
-   openRoasterySheet 設 'roastery'、三個舊抽屜開頭清 null（親自進舊抽屜＝以舊抽屜為家） */
+/* 子抽屜返回動線（Roastery 統一台 2026-07-16 移除，回家一律回舊三抽屜；
+   NAV_SRC 旗標保留＝以後再有多入口可重用，抽屜開頭仍清 null） */
 var NAV_SRC=null;
-function backToStock(){if(NAV_SRC==='roastery')openRoasterySheet();else openBatchesSheet();}
-function backToQC(){if(NAV_SRC==='roastery')openRoasterySheet();else openQCSheet();}
-function backToInfo(){if(NAV_SRC==='roastery')openRoasterySheet();else openRetailSheet();}
+function backToStock(){openBatchesSheet();}
+function backToQC(){openQCSheet();}
+function backToInfo(){openRetailSheet();}
 function openDetails(id){
   var i=item(id);if(!i)return;
   openDrawerHTML('<span class="tag" style="color:'+(STCOLOR[i.st]||'var(--muted)')+'">● '+esc(i.st)+(i.hot?' <span style="color:var(--accent)">· now</span>':'')+'</span><div class="t" style="font-size:19px">'+i.t+'</div>'
@@ -6895,323 +6894,7 @@ function openRoastDateSheet(q){
   });
   $('d-cl').addEventListener('click',backToQC);
 }
-/* ===== Roastery 統一工作台（2026-07-15 老闆拍板方案 A）＝烘豆生產線一站式：
-   Log roast＋Coffee Stock＋QC＋Coffee Info 的豆子中心整合視圖——一支豆一列
-   （庫存血條＋QC 待辦徽章＋貨架膠囊），展開就地判 QC/杯測/扣豆/秤重/看資訊。
-   純 UI 重組：聚合＝rstRows 加掛 QC 欄位（QCQ/toCupList 的豆必然已在 rstRows 名單，
-   兩者都要求 remaining_kg>0 或落在待秤池），寫入全走既有函式（qcVerdict/openRstDeduct/
-   openWeighIn/starSample/setShelfSold），零新查詢零 schema 改動。舊四抽屜並存不動。 */
-var RWB={seg:'blend',open:null,selq:null};
-/* roast 批 → 豆列配對（照 matchRoast 慣例）：拼配名字級；單品 bean_id 優先、
-   退名字＋procKey 雙鍵（同名多處理法鐵律）、roast 沒記 process 的舊資料容忍放行 */
-function rwbMatch(x,r){
-  if(x.isBlend)return r.kind==='blend'&&String(r.bean_name||'').trim().toLowerCase()===x.name.toLowerCase();
-  if(r.kind==='blend')return false;
-  if(x.ref&&x.ref.id!=null&&r.bean_id!=null)return String(r.bean_id)===String(x.ref.id);
-  if(String(r.bean_name||'').trim().toLowerCase()!==x.name.toLowerCase())return false;
-  var rp=String(r.process||'').trim();
-  return !rp||procKey(rp)===procKey(x.proc||'');
-}
-function roasteryRows(isBlend){
-  var rows=rstRows(isBlend),tocup=toCupList();
-  rows.forEach(function(x){
-    x.qcq=QCQ.filter(function(q){return rwbMatch(x,q.r);});
-    x.tocup=tocup.filter(function(r){return rwbMatch(x,r);});
-    x.qcN=x.qcq.length+x.tocup.length;
-    x.fresh=shelfFreshness(x.name,x.isBlend?undefined:(x.proc||''));
-    x.rep=shelfSampleFor(x.name,x.isBlend?undefined:(x.proc||''));
-  });
-  return rows;
-}
-/* ── Roast records（2026-07-15）：唯讀回顧清單，只讀 DB.roasts，不寫任何資料
-   兩層抽屜＝By date（日期為大類）／By name（豆名為大類）；同日＋同豆＋同處理法收一組 ── */
-var REC={tab:'date',openS:{},openG:{}};
-function openRecordsSheet(){
-  var byDate=REC.tab==='date';
-  var rs=(DB.roasts||[]),groups={},order=[];
-  rs.forEach(function(r){
-    var nm=r.bean_name||'(unnamed)',pk=procKey(r.process),dk=String(r.roast_date||'').slice(0,10);
-    var k=dk+'|'+nm+'|'+pk;
-    if(!groups[k]){groups[k]={date:dk,name:nm,proc:r.process||'',ref:r,rows:[]};order.push(k);}
-    groups[k].rows.push(r);
-  });
-  order.sort(function(a,b){var ga=groups[a],gb=groups[b];
-    return byDate?((gb.date||'').localeCompare(ga.date||'')||ga.name.localeCompare(gb.name))
-                 :(ga.name.localeCompare(gb.name)||(gb.date||'').localeCompare(ga.date||''));});
-  var secOrder=[],secMap={};
-  order.forEach(function(k){var g=groups[k],s=byDate?(g.date||''):g.name;if(!secMap[s]){secMap[s]=[];secOrder.push(s);}secMap[s].push(k);});
-  var h='<div class="t" style="font-size:19px">Roast records</div>'
-    +'<div class="s" style="margin-top:2px">every roast · by date or by name</div>'
-    +'<div class="pm-seg" style="margin-top:10px"><button id="rec-d" class="'+(byDate?'on':'')+'">By date</button><button id="rec-n" class="'+(byDate?'':'on')+'">By name</button></div>';
-  if(!order.length)h+='<div class="empty">No roasts logged yet</div>';
-  secOrder.forEach(function(s,si){
-    var leaves=secMap[s],sopen=REC.openS[(byDate?'d|':'n|')+s]!==false;
-    var totB=leaves.reduce(function(a,k){return a+groups[k].rows.length;},0);
-    var slabel=byDate?(s?fmtD(s):'no date'):s,sid=byDate?'':rNo(groups[leaves[0]].ref);
-    h+='<div data-recs="'+si+'" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-top:15px;padding-bottom:5px;border-bottom:1px solid var(--line2)">'
-      +'<span class="t" style="font-size:14px;color:var(--accent)">'+(sopen?'▾ ':'▸ ')+esc(slabel)
-      +(sid?' <span style="color:var(--muted);font-weight:400;font-size:11px">'+sid+'</span>':'')+'</span>'
-      +'<span class="s" style="color:var(--muted)">'+totB+' batch'+(totB>1?'es':'')+'</span></div>';
-    if(!sopen)return;
-    leaves.forEach(function(k){
-      var gi=order.indexOf(k),g=groups[k],gopen=!!REC.openG[k],n=g.rows.length;
-      var star=g.rows.some(function(r){return r.flavour_locked;});
-      var title=byDate?(g.name+(g.proc?' '+g.proc:'')):(g.date?fmtD(g.date):'no date'),idt=byDate?rNo(g.ref):'';
-      h+='<div class="hit" data-recg="'+gi+'" style="cursor:pointer;margin-top:8px">'
-        +'<span style="min-width:0"><div class="t" style="font-size:13.5px">'+(star?'★ ':'')+esc(title)
-        +(idt?' <span style="color:var(--muted);font-weight:400;font-size:11px">'+idt+'</span>':'')+'</div>'
-        +'<div class="s">'+n+' batch'+(n>1?'es':'')+'</div></span>'
-        +'<span class="k">'+(gopen?'▾':'▸ '+n)+'</span></div>';
-      if(gopen)h+=g.rows.map(function(r){
-        var q=qcState(r),qt=q==='pass'?'passed':q==='downgrade'?'downgraded':'pending';
-        var gk=Number(r.green_kg)||0,ok=Number(r.roasted_kg)||0,rem=Number(r.remaining_kg)||0;
-        var amt=r.kind==='blend'?(ok?ok+' kg roasted':'blend'):((gk?gk:'?')+(ok?' → '+ok:'')+' kg');
-        return '<div class="dl" style="margin-left:12px"><span>'+esc(amt)+' · '+qt+'</span><span>'+(rem?rem+' kg':'')+'</span></div>';
-      }).join('');
-    });
-  });
-  h+='<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
-  openDrawerHTML(h);
-  var d=$('drawer');
-  $('d-cl').addEventListener('click',closeDrawer);
-  var bd=$('rec-d'),bn=$('rec-n');
-  if(bd)bd.addEventListener('click',function(){if(REC.tab!=='date'){REC.tab='date';REC.openS={};REC.openG={};openRecordsSheet();}});
-  if(bn)bn.addEventListener('click',function(){if(REC.tab!=='name'){REC.tab='name';REC.openS={};REC.openG={};openRecordsSheet();}});
-  d.querySelectorAll('[data-recs]').forEach(function(el){el.addEventListener('click',function(){
-    var s=secOrder[+el.dataset.recs],key=(byDate?'d|':'n|')+s;REC.openS[key]=(REC.openS[key]===false)?true:false;openRecordsSheet();
-  });});
-  d.querySelectorAll('[data-recg]').forEach(function(el){el.addEventListener('click',function(){
-    var key=order[+el.dataset.recg];REC.openG[key]=!REC.openG[key];openRecordsSheet();
-  });});
-}
-function openRoasterySheet(){
-  NAV_SRC='roastery';
-  var isBlend=RWB.seg==='blend';
-  var rows=roasteryRows(isBlend),ed=canWrite();
-  var totKg=0,qcTot=0,pdTot=0;
-  rows.forEach(function(x){
-    x.batches.forEach(function(r){totKg+=Number(r.remaining_kg)||0;});
-    qcTot+=x.qcN;pdTot+=x.pending.length;
-  });
-  totKg=Math.round(totKg*100)/100;
-  /* 展開/判定狀態失效清理：該豆判完賣光消失＝自然收合（照 openBatchesSheet 慣例） */
-  if(RWB.selq!=null&&!rows.some(function(x){return x.qcq.some(function(q){return String(q.r.id)===String(RWB.selq);});}))RWB.selq=null;
-  var h='<div class="t" style="font-size:19px">Roastery</div>'
-    +'<div class="s" style="margin-top:2px">roast · weigh · QC · shelf — one bench</div>'
-    +'<div class="gs-sum"><div class="box"><div class="n">'+totKg+'</div><div class="l">kg on shelf</div></div>'
-    +'<div class="box"><div class="n">'+qcTot+'</div><div class="l">to QC</div></div>'
-    +'<div class="box"><div class="n">'+pdTot+'</div><div class="l">to weigh</div></div></div>'
-    +(ed?'<button class="act" id="rwb-roast" style="margin-top:10px">Log roast</button>':'')
-    +'<div class="pm-seg" style="margin-top:10px"><button id="rwb-b" class="'+(isBlend?'on':'')+'">Blends</button><button id="rwb-s" class="'+(isBlend?'':'on')+'">Single origins</button></div>';
-  if(!rows.length)h+='<div class="empty">Nothing here yet<br>Log a roast above or add stock with Intake below</div>';
-  rows.forEach(function(x,xi){
-    var openRow=RWB.open===x.key;
-    var danger=x.hp.state!=='ok';
-    h+='<div style="border:1px solid '+(openRow?'var(--accent)':'var(--line2)')+';border-radius:16px;padding:12px 14px;margin-top:9px;box-shadow:0 4px 11px rgba(120,90,160,.05)">'
-      +'<div data-rwb="'+xi+'" style="cursor:pointer">'
-      +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
-      +'<span style="min-width:0;display:flex;align-items:baseline;gap:7px;flex-wrap:wrap"><span class="t" style="font-size:14.5px">'+esc(x.name)
-      +(x.proc?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(x.proc)+'</span>':'')
-      +(x.ref&&gNo(x.ref)?' <span style="color:var(--muted);font-weight:400;font-size:11px">'+gNo(x.ref)+'</span>':'')+'</span>'
-      +(x.sync?'<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;'+(x.sync==='paused'?'background:var(--danger);color:#fff':'background:var(--accent);color:#fff')+'">'+(x.sync==='paused'?'Off shelf':(x.locked?'★ On shelf':'On shelf'))+'</span>':'')
-      /* QC 待辦徽章（統一台核心）：待杯測＋待判定合計，一眼看到這支豆 QC 卡在哪 */
-      +(x.qcN?'<span style="flex:0 0 auto;font-size:11px;font-weight:600;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:1px 8px">'+x.qcN+' QC</span>':'')
-      +(x.noInfo?'<span class="red" style="flex:0 0 auto;font-size:11px;font-weight:600">no info — cup it</span>':'')
-      +'</span>'
-      +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto">'
-      +(x.dgKg>0?'<span style="flex:0 0 auto;font-size:11px;color:var(--danger)">+'+x.dgKg+' kg dg</span>':'')
-      +(x.pending&&x.pending.length?'<span style="flex:0 0 auto;font-size:11px;color:#B5791C">'+x.pending.length+' to weigh</span>':'')
-      +'<span class="s" style="'+(danger?'color:var(--danger);font-weight:700':'color:var(--muted)')+'">'+esc(x.hp.label)+'</span>'
-      +(ed?'<button data-rwbded="'+xi+'" class="chip" style="margin:0;padding:2px 10px;font-size:15px" aria-label="deduct">−</button>':'')+'</span></div>'
-      +'<div style="margin-top:7px">'+x.hp.bar+'</div>'
-      +'</div>';
-    if(openRow){
-      /* ── a) QC 段：待杯測（同日合併）＋待判定（滑卡＋就地判定泡泡）── */
-      var qch='';
-      if(x.tocup.length){
-        var cg=[],cgi={};
-        x.tocup.forEach(function(r){
-          var k=String(r.roast_date||'');
-          if(cgi[k]==null){cgi[k]=cg.length;cg.push({first:r,date:r.roast_date,green:0,n:0,rows:[]});}
-          var g=cg[cgi[k]];g.n++;g.green+=Number(r.green_kg)||0;g.rows.push(r);
-        });
-        qch+='<div class="dlab">In hand — tap to cup</div>'
-          +cg.map(function(g){
-            return '<div class="hit" data-rwbcup="'+esc(g.first.id)+'" style="cursor:pointer;border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,transparent)"><span style="min-width:0"><div class="t" style="font-size:13.5px">'+(g.date?'roasted '+fmtD(g.date):'roast batch')+' <span class="qc-new">New</span></div><div class="s">'+(rNos(g.rows)?rNos(g.rows)+' · ':'')+(g.n>1?g.n+' roasts · ':'')+(g.green>0?(Math.round(g.green*10)/10)+' kg green':'')+'</div></span><span class="k">cup</span></div>';
-          }).join('');
-      }
-      if(x.qcq.length){
-        qch+='<div class="dlab">To judge — tap to open'+(ed?' · swipe → pass · ← downgrade':'')+'</div>'
-          +x.qcq.map(function(q){
-            var f=(q.s.features||[]).slice(0,3).join(', ');
-            var op=String(q.r.id)===String(RWB.selq);
-            var head='<div class="hit" data-rwbq="'+esc(q.r.id)+'" style="cursor:pointer'+(op?';border-color:var(--accent);border-bottom-left-radius:0;border-bottom-right-radius:0':'')+'"><span style="min-width:0"><div class="s">'+(rNo(q.r)?rNo(q.r)+' · ':'')+(q.r.roast_date?'roasted '+fmtD(q.r.roast_date)+' · ':'')+esc(f||'')+'</div></span><span class="k">'+(op?'▾':'judge ›')+'</span></div>';
-            if(!op)return head;
-            var body='<div style="border:1px solid var(--accent);border-top:none;border-radius:0 0 12px 12px;padding:11px 13px;margin:-8px 0 8px">'
-              +'<div style="display:flex;gap:7px">'
-              +'<button class="chip" data-rwbact="recup" style="flex:1;margin:0">View/Edit</button>'
-              +'<button class="chip" data-rwbact="stock" style="flex:1;margin:0">Edit/Add Stock</button>'
-              +'<button class="chip" data-rwbact="date" style="flex:1;margin:0">Roast Date</button></div>'
-              +(q.s.flavour_locked
-                ?'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:9px 0 4px">★ this batch is the selling version</div>'
-                :'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:9px 0 4px">pass = OK to sell · ★ is added when you list it on Square</div>')
-              +'<div style="display:flex;gap:8px;margin-top:6px"><button class="act" data-rwbact="pass" style="flex:1;margin:0">Pass</button><button class="act" data-rwbact="down" style="flex:1;margin:0;background:var(--danger)">Downgrade</button></div>'
-              +'</div>';
-            return head+body;
-          }).join('');
-      }
-      /* ── b) 批次段：可賣（同日合併，點行扣那天）＋降級池＋待秤池（照 Coffee Stock 同款）── */
-      var xg=rstGroupByDate(x.batches);
-      var bl=xg.length?xg.map(function(g,gi){
-        var age=daysSince(g.date),tags=[];
-        if(g.date&&age>30)tags.push('<span class="red">&gt;30d</span>');
-        if(g.batches.length&&g.batches.every(function(r){return qcState(r)==='pass';}))tags.push('Pass ✓');
-        else if(g.batches.some(function(r){return qcState(r)==='pending';}))tags.push('Pending');
-        if(g.batches.length>1)tags.push(g.batches.length+' roasts');
-        return '<div class="dl"'+(ed?' data-rwbbat="'+gi+'" style="cursor:pointer"':'')+'><span><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(g.date)+';margin-right:6px;vertical-align:0"></span>'+(rNos(g.batches)?rNos(g.batches)+' · ':'')+(g.date?fmtD(g.date)+' · '+age+'d':'no date')+(tags.length?' · '+tags.join(' · '):'')+'</span><span>'+g.kg+' kg</span></div>';
-      }).join(''):'<div class="sempty">No batches in stock</div>';
-      var dgl=x.dg.length?'<div class="s" style="margin-top:8px;display:flex;align-items:center;gap:7px"><span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;background:var(--danger);color:#fff">downgraded</span><span style="color:var(--muted)">use in blends first · '+x.dgKg+' kg</span></div>'
-        +rstGroupByDate(x.dg).map(function(g,gi){
-          var age=daysSince(g.date);
-          return '<div class="dl"'+(ed?' data-rwbdg="'+gi+'" style="cursor:pointer"':'')+'><span><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:var(--danger);margin-right:6px;vertical-align:0"></span>'+(rNos(g.batches)?rNos(g.batches)+' · ':'')+(g.date?fmtD(g.date)+' · '+age+'d':'no date')+(g.batches.length>1?' · '+g.batches.length+' roasts':'')+'</span><span>'+g.kg+' kg</span></div>';
-        }).join(''):'';
-      var pdl=x.pending.length?'<div class="s" style="margin-top:8px;display:flex;align-items:center;gap:7px"><span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;background:#B5791C;color:#fff">to weigh</span><span style="color:var(--muted)">roasted, not weighed yet — tap to weigh in</span></div>'
-        +x.pending.map(function(r,pi){
-          var age=daysSince(r.roast_date);
-          return '<div class="dl"'+(ed?' data-rwbpd="'+pi+'" style="cursor:pointer"':'')+'><span><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:#B5791C;margin-right:6px;vertical-align:0"></span>'+(rNo(r)?rNo(r)+' · ':'')+(r.roast_date?fmtD(r.roast_date)+' · '+age+'d':'no date')+' · green '+(Number(r.green_kg)||0)+' kg</span><span style="color:#B5791C">weigh in ›</span></div>';
-        }).join(''):'';
-      /* ── c) 資訊摘要：新鮮度＋鎖定風味前三詞＋產地＋Details 進完整詳情 ── */
-      var inf='<div class="s" style="margin-top:8px">'
-        +'<span class="'+(x.fresh.cls||'')+'"'+(x.fresh.cls?'':' style="color:var(--muted)"')+'>'+esc(x.fresh.txt)+'</span>'
-        +(x.rep&&(x.rep.features||[]).filter(Boolean).length?' · '+esc(x.rep.features.filter(Boolean).slice(0,3).join(', ')):'')
-        +(x.ref&&x.ref.country?' · '+esc(x.ref.country):'')
-        +'</div>';
-      h+='<div style="margin-top:6px">'+qch+bl+dgl+pdl+inf
-        +(x.batches.length&&ed?'<div class="s" style="margin-top:4px;color:var(--muted)">tap a batch row → deduct that exact roast date</div>':'')
-        /* ── d) 動作列 ── */
-        +'<button class="chip" id="rwb-det" style="margin-top:8px">Details ›</button>'
-        +((isLead()&&!x.noInfo&&!x.locked&&(x.batches||[]).some(function(b){return qcState(b)==='pass';}))?'<button class="chip" id="rwb-star" style="margin-top:8px">★ Star · selling version</button>':'')
-        +((isLead()&&x.sync)?'<button class="chip" id="rwb-sold" style="margin-top:8px">'+(x.sync==='paused'?'Put back on sale':'Take off shelf')+'</button>':'')
-        +((ed&&!x.noInfo&&((x.batches||[]).some(function(b){return b.qc;})||(x.dg||[]).length))?'<button class="chip" id="rwb-sbqc" style="margin-top:8px">Send back to QC</button>':'');
-      if(ed)h+='<button class="act" id="rwb-go" style="margin-top:10px">'+(x.isBlend?'Blend this →':'Roast this →')+'</button>';
-      h+='</div>';
-    }
-    h+='</div>';
-  });
-  if(ed)h+='<button class="chip" id="rwb-intake" style="margin-top:12px">＋ Intake — add roasted stock</button>';
-  h+='<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
-  openDrawerHTML(h);
-  var d=$('drawer');
-  var lr=$('rwb-roast');
-  if(lr)lr.addEventListener('click',function(){openRoastSheet(null);});
-  $('rwb-b').addEventListener('click',function(){if(RWB.seg!=='blend'){RWB.seg='blend';RWB.open=null;RWB.selq=null;openRoasterySheet();}});
-  $('rwb-s').addEventListener('click',function(){if(RWB.seg!=='single'){RWB.seg='single';RWB.open=null;RWB.selq=null;openRoasterySheet();}});
-  $('d-cl').addEventListener('click',closeDrawer);
-  d.querySelectorAll('[data-rwb]').forEach(function(el){el.addEventListener('click',function(){
-    var x=rows[+el.dataset.rwb];RWB.open=(RWB.open===x.key)?null:x.key;RWB.selq=null;openRoasterySheet();
-  });});
-  d.querySelectorAll('[data-rwbded]').forEach(function(el){el.addEventListener('click',function(ev){
-    ev.stopPropagation(); /* 「−」在行內，別觸發展開 */
-    openRstDeduct(rows[+el.dataset.rwbded]);
-  });});
-  var cx=rows.find(function(r){return r.key===RWB.open;});
-  d.querySelectorAll('[data-rwbcup]').forEach(function(el){el.addEventListener('click',function(){
-    var r=(DB.roasts||[]).find(function(x){return String(x.id)===String(el.dataset.rwbcup);});
-    if(r)openCupSheet({ref:r});
-  });});
-  d.querySelectorAll('[data-rwbq]').forEach(function(el){
-    var qq=cx&&cx.qcq.find(function(q){return String(q.r.id)===el.dataset.rwbq;});
-    if(qq)attachQcSwipe(el,qq); /* 右滑＝快速 pass，判完 backToQC 回統一台 */
-    el.addEventListener('click',function(){
-      if(Date.now()-_drag<300)return; /* 剛滑完別誤觸展開 */
-      RWB.selq=(String(RWB.selq)===el.dataset.rwbq)?null:el.dataset.rwbq;openRoasterySheet();
-    });
-  });
-  var cq=cx&&cx.qcq.find(function(q){return String(q.r.id)===String(RWB.selq);});
-  if(cq)d.querySelectorAll('[data-rwbact]').forEach(function(el){el.addEventListener('click',function(){
-    var a=el.dataset.rwbact;
-    if(a==='recup')return openRecupSheet(cq);
-    if(a==='stock')return openQcStockSheet(cq);
-    if(a==='date')return openRoastDateSheet(cq);
-    if(a==='pass')return qcVerdict(cq.r,'pass',null,'qc:'+cq.r.id,cq.s);
-    if(a==='down')return qcVerdict(cq.r,'downgrade',null,'qc:'+cq.r.id,cq.s);
-  });});
-  d.querySelectorAll('[data-rwbbat]').forEach(function(el){el.addEventListener('click',function(){
-    if(!cx)return;openRstDeduct(cx,rstGroupByDate(cx.batches)[+el.dataset.rwbbat]);
-  });});
-  d.querySelectorAll('[data-rwbdg]').forEach(function(el){el.addEventListener('click',function(){
-    if(!cx)return;openRstDeduct(cx,rstGroupByDate(cx.dg)[+el.dataset.rwbdg],cx.dg);
-  });});
-  d.querySelectorAll('[data-rwbpd]').forEach(function(el){el.addEventListener('click',function(){
-    if(!cx)return;openWeighIn(cx.pending[+el.dataset.rwbpd]);
-  });});
-  var det=$('rwb-det');
-  if(det)det.addEventListener('click',function(){
-    if(!cx)return;openShelfBeanDetail(cx.name,null,cx.isBlend?undefined:(cx.proc||''));
-  });
-  var st=$('rwb-star');
-  if(st)st.addEventListener('click',async function(){
-    if(!cx)return;
-    var s=shelfSampleFor(cx.name,cx.isBlend?undefined:(cx.proc||''));
-    if(!s||!s.id){toast('No cupping record — cup it in QC first');return;}
-    var btn=this;btn.disabled=true;btn.textContent='Working…';
-    var rs=await starSample(s,false);
-    if(!rs.ok){btn.disabled=false;btn.textContent='★ Star · selling version';return;}
-    logAct('★ added',cx.name);
-    toast('★ on shelf ✓');buildItems();
-    if(rs.swapped){openListSheet({ref:s});return;} /* 從已上架批接星＝直開 Update 抽屜 push 新資訊 */
-    openRoasterySheet();
-  });
-  var so=$('rwb-sold');
-  if(so)so.addEventListener('click',async function(){
-    if(!cx)return;
-    var sold=cx.sync==='paused'; /* 現在售罄中→回架；否則→標售罄 */
-    var btn=this;btn.disabled=true;btn.textContent='Working…';
-    try{
-      await setShelfSold(cx.name,!sold,cx.isBlend?undefined:(cx.proc||''));
-      toast(!sold?'Off shelf ✓':'Back on sale ✓');
-      await reload();openRoasterySheet();
-    }catch(e){
-      btn.disabled=false;btn.textContent=sold?'Put back on sale':'Take off shelf';
-      alert('Update failed: '+(e&&e.message||e));
-    }
-  });
-  var sbq=$('rwb-sbqc');
-  if(sbq)sbq.addEventListener('click',async function(){
-    if(!cx)return;
-    /* 照 Coffee Stock rst-sbqc 同邏輯：清一筆已判批＋解自己處理法的鎖 → 回 QC 佇列 */
-    var r=(cx.batches||[]).concat(cx.dg||[]).find(function(b){return b.qc;});
-    if(!r){toast('No judged batch here');return;}
-    if(!confirm('Send "'+cx.name+'" back to the QC queue?\n\nThe batch verdict ('+qcState(r)+') is cleared and the ★ comes off — it drops off the shop menu until you Pass it again.'))return;
-    var btn=this;btn.disabled=true;btn.textContent='Sending…';
-    try{
-      var u=await sb.from('roasts').update({qc:null}).eq('id',r.id);
-      if(u.error)throw new Error(u.error.message);
-      var s2=shelfSampleFor(cx.name,cx.isBlend?undefined:(cx.proc||''));
-      if(s2&&s2.id&&s2.flavour_locked){try{await sb.from('samples').update({flavour_locked:false}).eq('id',s2.id);}catch(e){}}
-      logAct('sent back to QC',cx.name,'verdict '+qcState(r)+' cleared · ★ removed');
-      toast('"'+cx.name+'" is back in the QC queue ✓');
-      await reload();openRoasterySheet();
-    }catch(e){
-      btn.disabled=false;btn.textContent='Send back to QC';
-      alert('Failed: '+(e&&e.message||e));
-    }
-  });
-  var go=$('rwb-go');
-  if(go)go.addEventListener('click',function(){
-    if(!cx)return;
-    if(cx.isBlend)openRoastPreset('blend',cx.name);
-    else{
-      var b=cx.ref||(DB.beans||[]).find(function(bb){return String(bb.name||'').trim().toLowerCase()===cx.name.toLowerCase();});
-      openRoastPreset('single',b?b.id:'');
-    }
-  });
-  var ik=$('rwb-intake');
-  if(ik)ik.addEventListener('click',function(){
-    BF.from='roastery';BF.mode=isBlend?'blend':'single';
-    openBackfillSheet();
-  });
-}
+/* Roastery 統一工作台已整台移除（2026-07-16 老闆點名刪掉；舊實作 git 歷史可撈——RWB/rwbMatch/roasteryRows/openRoasterySheet）*/
 /* QC 補豆：舊烘豆補登（roasts 補一筆）——有杯測紀錄直接進 QC 佇列，沒有就長 Cup 卡。
    2026-07-12：加 Single origin / Blend tab，一個入口補所有漏網之魚。關鍵差異——
    Blend 分頁純補一筆拼配熟豆（kind='blend' 進拼配貨架），**不像 Log roast Blend 扣成分**，
@@ -7310,7 +6993,6 @@ async function saveBackfill(){
     toast(hasCup?'In stock ✓ — in the QC queue':'In stock ✓ — no coffee info yet, cup it in QC');
     buildItems();render();
     if(BF.from==='coffee'){BF.from='';openBatchesSheet();} /* 從 Coffee Stock 進來的回原地 */
-    else if(BF.from==='roastery'){BF.from='';openRoasterySheet();} /* 從統一台進來的回統一台 */
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent='Add to QC pipeline';}
     alert('Add failed: '+(e&&e.message||e));
@@ -10551,7 +10233,7 @@ var TOOL_ICONS={
 };
 function tsvg(k){return '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'+(TOOL_ICONS[k]||TOOL_ICONS.dot)+'</svg>';}
 /* 開發期進度標記：改過的工具在 Tools 字變紅——完工後把整組（DONE_TOOLS＋.tool-done＋tool-done class）拿掉 */
-var DONE_TOOLS=['Timesheet','C Market','Green stock','Roasted Stock','QC','Log roast','Roastery'];
+var DONE_TOOLS=['Timesheet','C Market','Green stock','Roasted Stock','QC','Log roast'];
 function _isDone(label){return DONE_TOOLS.indexOf(label)>-1;}
 function renderTools(){
   $('deck').style.display='none';
@@ -10576,7 +10258,7 @@ function renderTools(){
       +_tiles([['Green stock','full list','greens','stock'],['ID book','all S# &amp; B# numbers','idbook','menu'],['Sample analyse','green cupping','sampleana','qc',1],['Buy log','green purchases','buylog','order',1],['C Market','futures · landed cost','cmarket','statement']])):'')
     +_sec('Roast',DEPT.roast,
       (_mk?_mkTile('t-roast','Log roast','green in','flame'):'')
-      +_tiles([['Roastery','one bench · roast to shelf','roastery','flame',_mk?1:0],['Coffee Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Records','roast log · date / name','roastrec','today'],['Coffee Info','flavour · dossier','retail','market']].concat(isLead()?[['Delete a coffee','remove · careful','delbean','trash',1],['Clean up','orphans · dead links','cleanup','refresh',1]]:[])))
+      +_tiles([['Coffee Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Records','roast log · date / name','roastrec','today'],['Coffee Info','flavour · dossier','retail','market']].concat(isLead()?[['Delete a coffee','remove · careful','delbean','trash',1],['Clean up','orphans · dead links','cleanup','refresh',1]]:[])))
     +_sec('QC &amp; Recipe',DEPT.qc,
       _tiles([['QC','cup and judge','qcgo','qc'],['Live cupping','blind · together','livecup','qc'],['Recipe','blends · dial-in','recipe','recipe'],['Dial in','espresso shots','dialin','espresso',1]]))
     /* 2026-07-12 統整：Coffee Info/Post to socials/IG asset/Announce 四顆收進 Publish 一鍵上架面板 */
@@ -10683,7 +10365,6 @@ function renderTools(){
     if(k==='orders'){openOrdersSheet();return;}
     if(k==='greens'){openGreensSheet();return;}
     if(k==='idbook'){openIdBookSheet();return;}
-    if(k==='roastery'){openRoasterySheet();return;}
     if(k==='roastrec'){openRecordsSheet();return;}
     if(k==='batches'){openBatchesSheet();return;}
     if(k==='sampleana'){openSampleSheet();return;}
