@@ -10798,9 +10798,15 @@ function renderBeans(){
     +sec('In QC',gQC)+sec('Ready to shelf',gReady)+sec('On shelf',gShelf)+sec('Blend pool',gBlend)+'</div>';
   var rb=$('beans-roast');
   if(rb)rb.addEventListener('click',function(){openRoastSheet(null);});
-  /* 紅燈卡點擊：左紅（沒杯測）→ QC 抽屜（帶對 single/blend 分頁＋直接展開該批判定）；中紅（沒上架）→ Publish（直接展開該豆卡） */
+  /* 紅燈卡點擊（2026-07-17 老闆三調）：左紅＝已杯測待判定→直接進該批 View/Edit（openRecupSheet，back 回 QC 時 selQC 已預選）；
+     還沒杯測（不在 QCQ、沒東西可 view）→ 退 QC 抽屜按 cup。中紅（沒上架）→ Publish（直接展開該豆卡） */
   document.querySelectorAll('#main [data-bact]').forEach(function(el){el.addEventListener('click',function(){
-    if(el.dataset.bact==='qc'){QCSEG=el.dataset.bkind==='1'?'blend':'single';selQC=el.dataset.brid||null;openQCSheet();return;}
+    if(el.dataset.bact==='qc'){
+      QCSEG=el.dataset.bkind==='1'?'blend':'single';selQC=el.dataset.brid||null;
+      var cq=QCQ.find(function(q){return String(q.r.id)===String(el.dataset.brid||'');});
+      if(cq){openRecupSheet(cq);return;}
+      openQCSheet();return;
+    }
     if(el.dataset.bact==='pub'){PUB.open=el.dataset.bkey||null;openPublishSheet();return;}
   });});
 }
