@@ -2313,44 +2313,24 @@ function openDialinForm(i){
   $('dl-cl').addEventListener('click',closeDrawer);
 }
 /* ===== Dial-in 工具（Tools 磁貼版，自 classic openDialin 移植）=====
-   任何豆/配方隨時記（不等卡片提醒）＋Tasting note＋每豆最新一筆可 Apply 進 brew guide。
-   寫入規則照 classic saveDialin；Apply 照 classic applyDialin，但配方路改直接 update blends（新殼慣例）。 */
+   2026-07-17 老闆二次簡化：只剩四格＋拼配下拉＋儲存——Tasting note／Latest per coffee／Recent／Apply to brew guide 全收掉；
+   下拉只列拼配（DB.blends）——吧台濃縮跑的是配方豆。寫入規則照 classic saveDialin（note 恆存 null）。 */
 var DLS={coffee:'',targetId:''};
 function dlRatio(d){var ds=Number(d.dose),y=Number(d.yield);if(!(ds>0&&y>0))return '';var r=Math.round(y/ds*10)/10;return '1:'+(r%1===0?Math.round(r):r);}
 function dlMeta(d){return [d.grind?('grind '+d.grind):'',d.dose!=null?(d.dose+'g'):'',d.yield!=null?('→ '+d.yield+'g'):'',d.time_s!=null?(d.time_s+'s'):'',dlRatio(d)].filter(Boolean).join(' · ');}
 function openDialinSheet(){
-  /* 豆單＝單品（每支帶 process，同名多處理法各一項）∪ 配方；value＝id，存 dialins.target_id＝認 ID 不認名字 */
+  /* 豆單＝拼配 only（2026-07-17 老闆定案）；value＝id，存 dialins.target_id＝認 ID 不認名字 */
   var opts=[];
-  (DB.beans||[]).forEach(function(b){var n=(b.name||'').trim();if(!n)return;opts.push({id:String(b.id),name:n,proc:b.process||'',isBlend:false,lab:(gNo(b)?gNo(b)+' · ':'')+n+(b.process?' · '+b.process:'')});});
-  (DB.blends||[]).forEach(function(b){var n=(b.name||'').trim();if(!n)return;opts.push({id:String(b.id),name:n,proc:'',isBlend:true,lab:(bNoFor(n)?bNoFor(n)+' · ':'')+n});});
-  opts.sort(function(a,b){return a.name.localeCompare(b.name)||String(a.proc).localeCompare(String(b.proc));});
-  /* 每支豆最新一筆：分組 key＝target_id（有）或名字（舊紀錄）——同名多處理法各自一組 */
-  var latest={},order=[];
-  (DB.dialins||[]).forEach(function(d){var k=d.target_id?('id:'+d.target_id):('nm:'+String(d.coffee||'').trim().toLowerCase());if(latest[k])return;latest[k]=d;order.push(k);});
-  var latestHTML=order.length?order.map(function(k){
-    var d=latest[k];
-    return '<div style="border:1px solid var(--line);border-radius:12px;padding:10px 13px;margin-top:8px">'
-      +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
-      +'<span class="t" style="font-size:14px">'+esc(d.coffee)+(bNoFor(d.coffee)?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+bNoFor(d.coffee)+'</span>':'')+'</span>'
-      +'<span class="s" style="color:var(--muted)">'+esc(String(d.created_at||'').slice(5,10))+(d.barista?' · '+esc(d.barista):'')+'</span></div>'
-      +'<div class="s" style="margin-top:3px">'+esc(dlMeta(d)||'—')+(d.note?' · '+esc(d.note):'')+'</div>'
-      +(canWrite()&&d.id?'<button class="chip" data-dlap="'+esc(d.id)+'" style="margin-top:7px">Apply to brew guide</button>':'')
-      +'</div>';
-  }).join(''):'<div class="sempty">No dial-ins yet — log the first shot below</div>';
-  var recentHTML=(DB.dialins||[]).slice(0,15).map(function(d){
-    return '<div class="dl"><span>'+esc(String(d.created_at||'').slice(5,10))+' · '+esc(d.coffee||'—')+(d.note?' <span style="color:var(--muted)">· '+esc(d.note)+'</span>':'')+'</span><span style="color:var(--muted)">'+esc(dlMeta(d)||'—')+'</span></div>';
-  }).join('');
+  (DB.blends||[]).forEach(function(b){var n=(b.name||'').trim();if(!n)return;opts.push({id:String(b.id),name:n,proc:'',isBlend:true,lab:n});});
+  opts.sort(function(a,b){return a.name.localeCompare(b.name);});
   openDrawerHTML('<div class="t" style="font-size:19px">Dial in</div>'
-    +'<div class="s" style="margin-top:2px">log espresso shots — pick a coffee below and the last numbers load</div>'
+    +'<div class="s" style="margin-top:2px">log espresso shots — pick a blend below and the last numbers load</div>'
     +dlgFieldsHTML('dls',null)
     +'<div class="dlab">Coffee</div>'
-    +'<select class="din" id="dls-coffee" style="padding:12px"><option value="">— pick a coffee —</option>'
+    +'<select class="din" id="dls-coffee" style="padding:12px"><option value="">— pick a blend —</option>'
     +opts.map(function(o){return '<option value="'+esc(o.id)+'"'+(DLS.targetId===o.id?' selected':'')+'>'+esc(o.lab)+'</option>';}).join('')+'</select>'
     +'<div class="s" id="dls-last" style="margin-top:4px;color:var(--muted)"></div>'
-    +'<div class="dlab">Tasting note · optional</div><input class="din" id="dls-n" placeholder="e.g. balanced, slightly sharp finish">'
     +'<button class="act" id="dls-save">Log dial-in</button>'
-    +'<div class="dlab">Latest per coffee</div>'+latestHTML
-    +'<div class="dlab">Recent</div>'+(recentHTML||'<div class="sempty">Nothing logged yet</div>')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   function loadLast(){
     /* 認 target_id：同支豆（同名多處理法各自）的上一筆；舊紀錄無 target_id 才退名字級 */
@@ -2360,7 +2340,7 @@ function openDialinSheet(){
     })||null):null;
     var v=function(x){return x==null?'':String(x);};
     $('dls-g').value=last?v(last.grind):'';$('dls-d').value=last?v(last.dose):'';
-    $('dls-y').value=last?v(last.yield):'';$('dls-t').value=last?v(last.time_s):'';$('dls-n').value='';
+    $('dls-y').value=last?v(last.yield):'';$('dls-t').value=last?v(last.time_s):'';
     $('dls-last').textContent=last?('last: '+(dlMeta(last)||'—')+' · '+daysSince(last.created_at)+'d ago'+(last.barista?' · '+last.barista:'')):'';
   }
   dlgBindSteppers('dls');
@@ -2372,8 +2352,8 @@ function openDialinSheet(){
     var coffee=o.name; /* coffee 欄存顯示名（相容顯示/舊碼）；認豆靠 target_id */
     var num=function(id){var v=($(id).value||'').trim();var n=parseFloat(v);return (v===''||isNaN(n))?null:n;};
     var b=$('dls-save');b.disabled=true;b.textContent='Saving…';
-    var ins=await sb.from('dialins').insert({coffee:coffee,target_id:tid,grind:($('dls-g').value||'').trim()||null,dose:num('dls-d'),yield:num('dls-y'),time_s:num('dls-t'),note:($('dls-n').value||'').trim()||null,barista:WHO||null}).select();
-    if(ins.error){var r2={coffee:coffee,grind:($('dls-g').value||'').trim()||null,dose:num('dls-d'),yield:num('dls-y'),time_s:num('dls-t'),note:($('dls-n').value||'').trim()||null,barista:WHO||null};ins=await sb.from('dialins').insert(r2).select();} /* target_id 欄不存在的容錯 */
+    var ins=await sb.from('dialins').insert({coffee:coffee,target_id:tid,grind:($('dls-g').value||'').trim()||null,dose:num('dls-d'),yield:num('dls-y'),time_s:num('dls-t'),barista:WHO||null}).select();
+    if(ins.error){var r2={coffee:coffee,grind:($('dls-g').value||'').trim()||null,dose:num('dls-d'),yield:num('dls-y'),time_s:num('dls-t'),barista:WHO||null};ins=await sb.from('dialins').insert(r2).select();} /* target_id 欄不存在的容錯 */
     if(ins.error){b.disabled=false;b.textContent='Log dial-in';alert('Save failed: '+ins.error.message);return;}
     if(ins.data&&ins.data[0])DB.dialins.unshift(ins.data[0]);
     logAct('dial-in logged',coffee);
@@ -2381,49 +2361,9 @@ function openDialinSheet(){
     toast('Dial-in logged ✓');
     openDialinSheet();
   });
-  document.querySelectorAll('#drawer [data-dlap]').forEach(function(el){el.addEventListener('click',function(){applyDialinBrew(el.dataset.dlap);});});
   $('d-cl').addEventListener('click',closeDrawer);
 }
-/* Apply to brew guide（照 classic applyDialin）：只寫有填的欄位進 brew.espresso、其他 method 不動。
-   ⚠ brew 內全存字串、time_s→key 'time' 且加 's' 後綴（公開豆頁 How to brew 吃這格式）。
-   配方→update blends.brew（直接寫，不走 classic 的 localStorage sync）；單品→update beans.brew。 */
-async function applyDialinBrew(id){
-  var d=(DB.dialins||[]).find(function(x){return String(x.id)===String(id);});
-  if(!d)return;
-  if(!confirm('Write these numbers into the espresso brew guide for "'+d.coffee+'"?'))return;
-  var esp={};
-  if(d.grind)esp.grind=String(d.grind);
-  if(d.dose!=null)esp.dose=String(d.dose);
-  if(d.yield!=null)esp.yield=String(d.yield);
-  if(d.time_s!=null)esp.time=String(d.time_s)+'s';
-  if(!Object.keys(esp).length){toast('This dial-in has no numbers to apply');return;}
-  /* 認 target_id（2026-07-15）：直接命中那支豆/配方；舊紀錄無 target_id 才退名字級（同名取第一支） */
-  var key=String(d.coffee||'').trim().toLowerCase(),tid=d.target_id?String(d.target_id):'';
-  var bl=tid?((DB.blends||[]).find(function(b){return String(b.id)===tid;})||null):(DB.blends||[]).find(function(b){return String(b.name||'').trim().toLowerCase()===key;});
-  var beanHit=(tid&&!bl)?((DB.beans||[]).find(function(b){return String(b.id)===tid;})||null):null;
-  try{
-    if(bl){
-      var q=await sb.from('blends').select('brew').eq('id',bl.id).maybeSingle();
-      if(q.error)throw new Error(q.error.message);
-      var br=(q.data&&q.data.brew&&typeof q.data.brew==='object')?q.data.brew:{};
-      br.espresso=Object.assign({},br.espresso||{},esp);
-      var u=await sb.from('blends').update({brew:br,updated_at:new Date().toISOString()}).eq('id',bl.id);
-      if(u.error)throw new Error(u.error.message);
-    }else{
-      /* target_id 命中的 bean 優先；沒有（舊紀錄）才名字級取第一支 */
-      var bean=beanHit||(DB.beans||[]).find(function(b){return String(b.name||'').trim().toLowerCase()===key;});
-      if(!bean){toast('No matching bean for "'+d.coffee+'"');return;}
-      var q2=await sb.from('beans').select('brew').eq('id',bean.id).maybeSingle();
-      if(q2.error)throw new Error(q2.error.message);
-      var br2=(q2.data&&q2.data.brew&&typeof q2.data.brew==='object')?q2.data.brew:{};
-      br2.espresso=Object.assign({},br2.espresso||{},esp);
-      var u2=await sb.from('beans').update({brew:br2}).eq('id',bean.id);
-      if(u2.error)throw new Error(u2.error.message);
-    }
-    logAct('brew guide updated',d.coffee,dlMeta(d));
-    toast('Brew guide updated ✓');
-  }catch(e){alert('Update failed: '+(e&&e.message||e));}
-}
+/* Apply to brew guide（applyDialinBrew）已於 2026-07-17 隨 Dial in 二次簡化收掉——要復活從 git 撈這天之前的版本 */
 /* ===== 使用說明（新員工上手頁；內容跟著功能演進要記得更新）===== */
 /* ===== Files 文件抽屜（缺口 #7 收薄殼：classic openFile 的三份文件，本體＝repo 根靜態檔，
    刪 classic 後補這個入口；classic 列的 Agreement PDF 版檔案根本不在 repo（死鈕）——只列存在的三份 ===== */
