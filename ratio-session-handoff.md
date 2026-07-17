@@ -80,6 +80,13 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-17 之七（Dial in 抽屜改版：Grind 大格帶步進 ✅ 待 push）
+- **老闆用 demo 選版**（三選一選了「Grind 帶加減鈕」）：Grind setting 獨大置頂（48px 大字、兩側 −/＋ 方鈕 ±0.1、`Math.round((v±0.1)*10)/10` 防浮點尾巴、空值起跳 0）＋下排 Dose/Time/Yield 三格並排大字＋Coffee 下拉移到數字下方。
+- **共用版型函式 `dlgFieldsHTML(prefix,last)`＋`dlgBindSteppers(prefix)`**：卡片版 openDialinForm（prefix 'dl'、豆固定無下拉）與 Tools 版 openDialinSheet（prefix 'dls'）同一款。新 CSS class `.dlg-hero/.dlg-lab/.dlg-row/.dlg-step/.dlg-big/.dlg-grid/.dlg-cell/.dlg-num`（tint 格子語言仿 .ro-sum）。
+- **沒動**：寫入邏輯（coffee 名＋target_id 認豆＋刪欄容錯）、loadLast 帶上次數字、tasting note、Latest per coffee/Recent/Apply to brew guide、下拉母體照舊 DB.beans+DB.blends（收斂成上架豆老闆未拍板）。
+- **驗證**：jscheck ✓；本機假資料（攔 fetch）DOM 測試：步進 2.4→2.5→2.3、空值→0.1、選豆帶上次數字、卡片版預填＋無下拉，截圖乾淨。
+- **同 session 順手查案**：①Beans 中紅誤報——Alo Bona Village 已上架但 product_sync 舊列 process=null，renderBeans 的 onShelf 嚴格雙鍵認不出（Publish 的 syncFor 容忍 null 所以顯示 On shelf）；修法＝onShelf 改用 syncFor，**未動工**。②staff 登入進不了 dashboard——Aaron 帳號（needmorecoffeebeans@gmail.com，7/14 建）role 還是 customer，開帳後沒去 Team→Accounts 指派角色；老闆自己在 app 改即可。
+
 ## 〇、補記 — 2026-07-17 之六（Beans 頁三燈重定義＋紅燈卡點擊跳修 ✅ 待 push）
 - **老闆定案燈語意**（renderBeans）：左＝Cupping（紅=還沒杯測）、中＝Shelf（紅=還沒上架）、右＝全部完成才綠；**三顆全紅＝downgraded**（點擊行為老闆說晚點再議、先只顯示）。舊燈序 Roast→QC→Shelf 廢（左燈永遠綠沒資訊量、老闆也一直誤讀）。配燈：pending=`now,'',''`／pass 未上架=`ok,now,''`／上架=`ok,ok,ok`／downgrade=`now,now,now`。圖例同步改。
 - **紅燈卡可點＝跳到出問題的地方**：左紅→openQCSheet（QCSEG 帶對 single/blend）、中紅→openPublishSheet；全綠與全紅不可點。
