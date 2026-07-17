@@ -218,6 +218,15 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .pm-seg button.on{border-color:var(--ink);color:var(--ink)}
 .din{width:100%;border:1.5px solid var(--line2);border-radius:14px;padding:14px 15px;font-size:17px;font-family:inherit;background:var(--surface);color:var(--ink);outline:none;margin-top:8px;transition:border-color .15s,box-shadow .15s}
 .din:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+/* Dial in 2026-07-17 改版：Grind 大格帶 −/＋ 步進（±0.1 免鍵盤）＋ Dose/Time/Yield 三格並排大字（吧台一眼看全）；tint 格子語言與 .ro-sum 同款 */
+.dlg-hero{background:var(--tint);border-radius:14px;padding:12px 10px 10px;margin-top:8px}
+.dlg-lab{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;text-align:center}
+.dlg-row{display:flex;align-items:center;gap:8px;margin-top:2px}
+.dlg-step{flex:0 0 auto;width:52px;height:52px;border:1.5px solid var(--line2);background:var(--surface);color:var(--ink);border-radius:12px;font-size:24px;font-weight:700;font-family:inherit;cursor:pointer;line-height:1}
+.dlg-big{flex:1;min-width:0;border:none;background:none;font-size:48px;font-weight:800;font-family:inherit;color:var(--ink);text-align:center;outline:none;font-variant-numeric:tabular-nums;padding:0}
+.dlg-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
+.dlg-cell{background:var(--tint);border-radius:12px;padding:9px 4px;text-align:center}
+.dlg-num{width:100%;border:none;background:none;font-size:24px;font-weight:800;font-family:inherit;color:var(--ink);text-align:center;outline:none;font-variant-numeric:tabular-nums;padding:2px 0}
 /* Log roast 2026-07-16 改版：一鍋一卡（粉底對比分鍋）＋頂部三格總計＋綠/琥珀色數字框 */
 .ro-sum{display:flex;gap:8px;margin-top:10px}
 .ro-sum>div{flex:1;background:var(--tint);border-radius:12px;padding:8px 6px;text-align:center}
@@ -2235,6 +2244,30 @@ async function saveNewOrder(){
     await reload();view='feed';render();
   }catch(e){b.disabled=false;b.textContent='Create order';alert('Create failed: '+(e&&e.message||e));}
 }
+/* Dial in 四格共用版型（2026-07-17 老闆定版）：Grind 獨大置頂帶 −/＋（±0.1）、下排 Dose/Time/Yield 並排。
+   prefix＝'dl'（今日流卡片版）或 'dls'（Tools 版）；last＝上次紀錄（null＝空表單）。id 沿用舊制 prefix-g/d/t/y。 */
+function dlgFieldsHTML(prefix,last){
+  var v=function(x){return x==null?'':esc(String(x));};
+  return '<div class="dlg-hero"><div class="dlg-lab">Grind setting</div>'
+    +'<div class="dlg-row"><button type="button" class="dlg-step" id="'+prefix+'-gm">−</button>'
+    +'<input class="dlg-big" id="'+prefix+'-g" inputmode="decimal" placeholder="2.4" value="'+(last?v(last.grind):'')+'">'
+    +'<button type="button" class="dlg-step" id="'+prefix+'-gp">＋</button></div></div>'
+    +'<div class="dlg-grid">'
+    +'<div class="dlg-cell"><div class="dlg-lab">Dose g</div><input class="dlg-num" id="'+prefix+'-d" inputmode="decimal" placeholder="20" value="'+(last?v(last.dose):'')+'"></div>'
+    +'<div class="dlg-cell"><div class="dlg-lab">Time s</div><input class="dlg-num" id="'+prefix+'-t" inputmode="decimal" placeholder="28" value="'+(last?v(last.time_s):'')+'"></div>'
+    +'<div class="dlg-cell"><div class="dlg-lab">Yield g</div><input class="dlg-num" id="'+prefix+'-y" inputmode="decimal" placeholder="45" value="'+(last?v(last.yield):'')+'"></div>'
+    +'</div>';
+}
+function dlgBindSteppers(prefix){
+  var step=function(dir){
+    var el=$(prefix+'-g'),n=parseFloat(el.value);
+    if(isNaN(n))n=0;
+    n=Math.max(0,Math.round((n+dir*0.1)*10)/10); /* 防浮點尾巴（2.7000000004） */
+    el.value=(n%1===0)?n.toFixed(1):String(n);
+  };
+  $(prefix+'-gm').addEventListener('click',function(){step(-1);});
+  $(prefix+'-gp').addEventListener('click',function(){step(1);});
+}
 function openDialinForm(i){
   /* 帶上次的數字（同支豆、DB.dialins 已照新→舊排）——微調幾格就能存；沒調過才是空表單 */
   var key=String(i.ref.name||'').trim().toLowerCase();
@@ -2248,15 +2281,12 @@ function openDialinForm(i){
     if(last.time_s!=null)bits.push(last.time_s+'s');
     lastLine='<div class="s" style="margin-top:2px">last: '+esc(bits.join(' · ')||'—')+' · '+daysSince(last.created_at)+'d ago'+(last.barista?' · '+esc(last.barista):'')+'</div>';
   }
-  var v=function(x){return x==null?'':esc(String(x));};
   openDrawerHTML('<div class="t" style="font-size:19px">Dial in · '+esc(i.ref.name)+'</div>'
     +lastLine
-    +'<div class="dlab">Grind setting</div><input class="din" id="dl-g" inputmode="decimal" placeholder="e.g. 2.4" value="'+(last?v(last.grind):'')+'">'
-    +'<div class="dlab">Dose g</div><input class="din" id="dl-d" inputmode="decimal" placeholder="20" value="'+(last?v(last.dose):'')+'">'
-    +'<div class="dlab">Yield g</div><input class="din" id="dl-y" inputmode="decimal" placeholder="45" value="'+(last?v(last.yield):'')+'">'
-    +'<div class="dlab">Time s</div><input class="din" id="dl-t" inputmode="decimal" placeholder="28" value="'+(last?v(last.time_s):'')+'">'
+    +dlgFieldsHTML('dl',last)
     +'<button class="act" id="dl-save">Log dial-in</button>'
     +'<button class="dclose" id="dl-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  dlgBindSteppers('dl');
   $('dl-save').addEventListener('click',async function(){
     var num=function(id){var v=($(id).value||'').trim();var n=parseFloat(v);return (v===''||isNaN(n))?null:n;};
     var b=$('dl-save');b.disabled=true;b.textContent='Saving…';
@@ -2303,15 +2333,12 @@ function openDialinSheet(){
     return '<div class="dl"><span>'+esc(String(d.created_at||'').slice(5,10))+' · '+esc(d.coffee||'—')+(d.note?' <span style="color:var(--muted)">· '+esc(d.note)+'</span>':'')+'</span><span style="color:var(--muted)">'+esc(dlMeta(d)||'—')+'</span></div>';
   }).join('');
   openDrawerHTML('<div class="t" style="font-size:19px">Dial in</div>'
-    +'<div class="s" style="margin-top:2px">log espresso shots for any coffee or blend — pick one and the last numbers load</div>'
+    +'<div class="s" style="margin-top:2px">log espresso shots — pick a coffee below and the last numbers load</div>'
+    +dlgFieldsHTML('dls',null)
     +'<div class="dlab">Coffee</div>'
     +'<select class="din" id="dls-coffee" style="padding:12px"><option value="">— pick a coffee —</option>'
     +opts.map(function(o){return '<option value="'+esc(o.id)+'"'+(DLS.targetId===o.id?' selected':'')+'>'+esc(o.lab)+'</option>';}).join('')+'</select>'
     +'<div class="s" id="dls-last" style="margin-top:4px;color:var(--muted)"></div>'
-    +'<div class="dlab">Grind setting</div><input class="din" id="dls-g" inputmode="decimal" placeholder="e.g. 2.4">'
-    +'<div class="dlab">Dose g</div><input class="din" id="dls-d" inputmode="decimal" placeholder="20">'
-    +'<div class="dlab">Yield g</div><input class="din" id="dls-y" inputmode="decimal" placeholder="45">'
-    +'<div class="dlab">Time s</div><input class="din" id="dls-t" inputmode="decimal" placeholder="28">'
     +'<div class="dlab">Tasting note · optional</div><input class="din" id="dls-n" placeholder="e.g. balanced, slightly sharp finish">'
     +'<button class="act" id="dls-save">Log dial-in</button>'
     +'<div class="dlab">Latest per coffee</div>'+latestHTML
@@ -2328,6 +2355,7 @@ function openDialinSheet(){
     $('dls-y').value=last?v(last.yield):'';$('dls-t').value=last?v(last.time_s):'';$('dls-n').value='';
     $('dls-last').textContent=last?('last: '+(dlMeta(last)||'—')+' · '+daysSince(last.created_at)+'d ago'+(last.barista?' · '+last.barista:'')):'';
   }
+  dlgBindSteppers('dls');
   if(DLS.targetId)loadLast();
   $('dls-coffee').addEventListener('change',function(){DLS.targetId=this.value;var o=opts.find(function(x){return x.id===DLS.targetId;});DLS.coffee=o?o.name:'';loadLast();});
   $('dls-save').addEventListener('click',async function(){
