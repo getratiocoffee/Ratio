@@ -26,9 +26,9 @@ header{background:var(--bg);color:var(--ink);border-bottom:1.5px solid var(--ink
 /* logo 置中：左右兩欄各 flex:1 平分，中間 logo 恆在正中（右邊不管是購物車或員工狀態字都不影響） */
 header .hspace{flex:1}
 /* header logo 改文字（2026-07-17 老闆指示）：Ratio. 品牌字＋tagline 兩行置中；.bglogo 浮水印不動 */
-.brandtag{display:block;font-size:11px;font-weight:400;color:var(--muted);letter-spacing:.02em;margin-top:1px}
+.brandtag{display:block;font-size:14px;font-weight:400;color:var(--muted);letter-spacing:.02em;margin-top:2px}
 .sbar{position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#1A1A1A;z-index:100;pointer-events:none}
-header .brand{font-family:'Fraunces',serif;font-size:21px;font-weight:700;text-align:center;line-height:1.1;padding:10px 0}
+header .brand{font-family:'Fraunces',serif;font-size:28px;font-weight:700;text-align:center;line-height:1.1;padding:14px 0}
 header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 /* 晨報喇叭入口已刪（2026-07-17 老闆指示）：updateBell/click 綁定都有 if(!$('hbell')) 防護，留著沒事；晨報照樣每天自動彈 */
 /* 手機橫擺遮罩（2026-07-17 老闆指示）：pointer:coarse 限觸控機、max-height 600 排除 iPad/桌機；
