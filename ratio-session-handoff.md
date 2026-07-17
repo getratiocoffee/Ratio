@@ -80,6 +80,15 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-17 之十一（批發申請 portal 第一輪 ✅ 待 push）
+- **老闆要的**：申請帳號的 portal（拍板選項 1＝批發客戶申請）。第一輪＝收申請的能力；**第二輪（未做）**＝Approve 一鍵開帳號＋寄設密碼邀請信（要動 edge＋app 加 PASSWORD_RECOVERY 處理——現在 app 完全沒有 recovery 流程，搜過 onAuthStateChange=0 處）。
+- **DB**：新表 `wholesale_applications`（migration 同名；business/contact/email/phone/address/note/status new|approved|dismissed/created_at）。RLS 照 feedback 信任模型：anon+authenticated 只准 insert（欄位長度上限＋status 鎖死 'new'）、is_staff() 讀改刪。滲透測試過：anon 投遞 ✓、anon 讀回 0 ✓、anon 自標 approved 被拒 ✓。
+- **前端六處**（new/index.html）：①loadAll append 申請查詢（**rs[22]**，只抓 status=new）→ `DB.wsapps` ②buildItems：director 彙總卡 `ws-apps`（pin、st:'Brief'、kind:'wsapp'、標題帶件數、s=前三家店名）③runAction wsapp→openWholesaleSheet ④openWholesaleSheet 頂部 Applications 區（每筆全欄位＋「Approved — account made」/「Dismiss」兩鈕＝只標 status 收單，資料留表；Dismiss 有 confirm；按完本地同步 DB.wsapps＋重畫抽屜）⑤`showApplyOverlay()`＋?apply IIFE（重用 fb-card 全套 CSS 零新增；防呆＝店名必填＋email 格式）⑥店面 renderPublicMenu 加「Run a cafe? Apply for a wholesale account →」連 /?apply（在 fb 連結上方）。
+- **這輪的人工流**：老闆看到申請 → 照現行方式開帳號（Supabase Auth 建人 → Wholesale 抽屜 Make wholesale）→ 回抽屜按 Approved 收單。
+- **驗證**：jscheck ✓；本機 serve 假資料（蓋 sb.from，⚠ 蓋 window.fetch 會讓 supabase-js 炸「Read-only」假錯、insert 攔不到——**以後攔 sb.from 別攔 fetch**）：表單渲染/防呆兩關/insert payload 六欄/感謝畫面/director 卡出 staff 卡不出/抽屜 Applications·2/Approve→update {status:approved} eq id＋重畫剩 1/店面連結——全過。線上表確認 0 列（測試無殘留）。
+- ⚠ 本機 serve 複本瀏覽器有殘留 test@test.local session，boot 會走客戶門戶——測店面要手動呼叫 renderPublicMenu()。
+- **buildItems 備忘**：結果存全域 `ITEMS` 不回傳（呼叫慣例 `buildItems();render();`）。
+
 ## 〇、補記 — 2026-07-17 之十（Beans 紅燈卡直達豆 ✅ 待 push）
 - **老闆加碼**：紅燈卡點擊不只開抽屜、還要直達那支豆。左紅卡帶 `data-brid`（roast uuid）→ `selQC` 預選＝QC 抽屜開起來該批判定直接攤開；中紅卡帶 `data-bkey`（`名字|procKey`，拼配尾巴空，公式照 paintPublishSheet 的 lk）→ `PUB.open` 預設＝Publish 該豆卡直接攤開。
 - 注意：Publish 卡展開內容只給 lead（`open&&_mk`），staff 點中紅只會看到卡在最上、不攤開——原有權限規則，沒動。

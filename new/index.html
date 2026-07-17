@@ -596,11 +596,13 @@ async function loadAll(){
     sb.from('app_state').select('value').eq('key','soc_bg').maybeSingle(),
     sb.from('subscriptions').select('*'),
     sb.from('activity_log').select('action,ts').gte('ts',todayStartISO()).limit(800), /* Home 進度條分子——只能 append 在最後（rs[0..20] 位置索引不能動；2026-07-17 bean_swap 查詢移除後全體 -1） */
-    sb.from('blends').select('id,name,blend_no,parts,target_kg,low_stock_kg').order('pos',{ascending:true}) /* 熟豆血條＋低量/超量聚合卡用（rs[21]）；blend_no＝拼配的 B# 號 */
+    sb.from('blends').select('id,name,blend_no,parts,target_kg,low_stock_kg').order('pos',{ascending:true}), /* 熟豆血條＋低量/超量聚合卡用（rs[21]）；blend_no＝拼配的 B# 號 */
+    sb.from('wholesale_applications').select('*').eq('status','new').order('created_at',{ascending:true}) /* 批發申請 pending（rs[22]）：今日流提醒卡＋Wholesale 抽屜 Applications 區 */
   ]);
   DB={orders:rs[0].data||[],customers:rs[1].data||[],tasks:rs[2].data||[],dialins:rs[3].data||[],
       syncs:rs[4].data||[],samples:rs[5].data||[],roasts:rs[6].data||[],beans:rs[7].data||[],
-      feedback:rs[8].data||[],roster:((rs[9].data||[]).filter(function(r){return !r.deleted;})[0]||null)};
+      feedback:rs[8].data||[],roster:((rs[9].data||[]).filter(function(r){return !r.deleted;})[0]||null),
+      wsapps:rs[22].data||[]};
   var sv=rs[10]&&rs[10].data&&rs[10].data.value;
   if(typeof sv==='string'){try{sv=JSON.parse(sv);}catch(e){sv=null;}}
   SNOOZE_ALL=(sv&&typeof sv==='object')?sv:{};
@@ -720,6 +722,11 @@ function buildItems(){
   if(myRole()==='finance')out.push({id:'fin-pay',st:'Brief',pin:1,t:'Timesheet & payroll',
     s:'hours, wages and weekly payroll email',act:'Open payroll',
     det:[['Also in','Tools → Timesheet']],roles:['finance'],kind:'paynav'});
+  /* 批發申請提醒卡（director）：?apply 進來的 pending 彙總一張，點開 Wholesale 抽屜審 */
+  if(myRole()==='director'&&(DB.wsapps||[]).length)out.push({id:'ws-apps',st:'Brief',pin:1,
+    t:'Wholesale applications · '+DB.wsapps.length,
+    s:DB.wsapps.map(function(a){return a.business;}).slice(0,3).join(' · ')+(DB.wsapps.length>3?' …':''),
+    act:'Review',det:[['Also in','Tools → Wholesale']],roles:['director'],kind:'wsapp'});
   /* 烘豆需求卡：Confirmed/Roasting 品項同名合併，**先看熟豆貨架只提差額**（老闆的生產線：接單→看熟豆庫存→沒貨才烘）；
      貨架＝roasts.remaining_kg 同名加總（QC 打槍的 reroast/downgrade 批不算可賣）；全夠貨＝不出卡 */
   /* 2026-07-15：需求／貨架都認 coffee stock 的批次身份（豆名＋處理法＝B#），同名多處理法分開算——
@@ -1097,6 +1104,7 @@ async function runAction(id,btn){
     if(i.kind==='qcnav'){openQCSheet();return;} /* 2026-07-16 Roastery 移除，改回 QC 抽屜 */
     if(i.kind==='closing'){if(CLOSING_ITEMS.length)openClosingSheet();else openClosingEdit();return;}
     if(i.kind==='paynav'){openPayrollSheet();return;}
+    if(i.kind==='wsapp'){openWholesaleSheet();return;}
     if(i.kind==='pack'){openPackSheet(i);return;}
     if(i.kind==='fb'){
       if(i.ref.email){openReplySheet(i);}
@@ -10358,15 +10366,31 @@ async function recipeSave(){
    批發價一律 server 端（wholesale edge）用零售價 ×(1−pct/100) 現算，前端只是顯示 */
 async function openWholesaleSheet(){
   openDrawerHTML('<div class="t" style="font-size:19px">Wholesale</div><div class="s" style="margin-top:6px">loading…</div>');
-  var pct=0,bank=null,profs=[];
+  var pct=0,bank=null,profs=[],apps=[];
   try{
     var r=await sb.from('app_state').select('key,value').in('key',['ws_discount','bank_details']);
     (r.data||[]).forEach(function(x){if(x.key==='ws_discount')pct=Number((x.value||{}).pct)||0;if(x.key==='bank_details')bank=x.value||null;});
     var p=await sb.from('profiles').select('id,name,role').in('role',['customer','wholesale']).order('name');
     if(!p.error)profs=p.data||[];
+    var aq=await sb.from('wholesale_applications').select('*').eq('status','new').order('created_at',{ascending:true});
+    if(!aq.error)apps=aq.data||[];
   }catch(e){}
   openDrawerHTML('<div class="t" style="font-size:19px">Wholesale</div>'
     +'<div class="s" style="margin-top:2px">one discount for every wholesale account — retail price changes flow through automatically</div>'
+    /* 申請區（?apply 進來的 pending）：這輪先人工流——老闆照現行方式開好帳號後按 Approved 收單 */
+    +(apps.length?'<div class="dlab" style="margin-top:14px">Applications · '+apps.length+'</div>'
+      +apps.map(function(a){
+        return '<div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px">'
+          +'<div style="font-weight:600">'+esc(a.business||'—')+'<span class="s" style="font-weight:400;margin-left:8px">'+esc(String(a.created_at||'').slice(0,10))+'</span></div>'
+          +((a.contact||a.phone)?'<div class="s" style="margin-top:2px">'+esc([a.contact,a.phone].filter(Boolean).join(' · '))+'</div>':'')
+          +'<div class="s">'+esc(a.email||'')+'</div>'
+          +(a.address?'<div class="s">'+esc(a.address)+'</div>':'')
+          +(a.note?'<div class="s" style="margin-top:4px">&ldquo;'+esc(a.note)+'&rdquo;</div>':'')
+          +'<div style="display:flex;gap:8px;margin-top:10px">'
+          +'<button class="qact" style="flex:1" data-wsapp="'+esc(String(a.id))+'|approved">Approved — account made</button>'
+          +'<button class="qact" style="flex:0 0 auto;padding:9px 12px" data-wsapp="'+esc(String(a.id))+'|dismissed">Dismiss</button>'
+          +'</div></div>';
+      }).join(''):'')
     +'<div class="dlab">Discount off retail (%)</div><input class="din" id="ws-pct" inputmode="decimal" value="'+esc(pct?String(pct):'')+'" placeholder="e.g. 20">'
     +'<button class="act" id="ws-save">Save discount</button>'
     +'<div class="dlab" style="margin-top:16px">Terms shown to buyers</div>'
@@ -10383,6 +10407,17 @@ async function openWholesaleSheet(){
         +'<button class="qact" style="flex:0 0 auto;padding:9px 12px" data-wsp="'+esc(p.id)+'" data-wsr="'+(p.role==='wholesale'?'customer':'wholesale')+'">'+(p.role==='wholesale'?'Back to customer':'Make wholesale')+'</button></div>';
     }).join(''):'<div class="empty" style="padding:20px">No customer accounts yet — add the user in Supabase Auth first, then flip it here</div>')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  /* 申請兩鈕：Approved（帳號已手動開好，收單）／Dismiss（婉拒）——都只標狀態，資料留表可查 */
+  document.querySelectorAll('#drawer [data-wsapp]').forEach(function(b){b.addEventListener('click',async function(){
+    var parts=String(b.dataset.wsapp).split('|'),aid=parts[0],st2=parts[1];
+    if(st2==='dismissed'&&!confirm('Dismiss this application?'))return;
+    b.disabled=true;
+    var u=await sb.from('wholesale_applications').update({status:st2}).eq('id',aid);
+    if(u.error){b.disabled=false;alert('Update failed: '+u.error.message);return;}
+    DB.wsapps=(DB.wsapps||[]).filter(function(a){return String(a.id)!==String(aid);});
+    toast(st2==='approved'?'Marked approved ✓':'Dismissed');
+    openWholesaleSheet();
+  });});
   $('ws-save').addEventListener('click',async function(){
     var v=parseFloat($('ws-pct').value);
     if(!(v>=0&&v<=90)){toast('Enter 0 to 90');return;}
@@ -10495,6 +10530,43 @@ function showFbOverlay(ref){
 (function(){
   var ref='';try{ref=new URLSearchParams(location.search).get('fb')||'';}catch(e){}
   if(ref)showFbOverlay(ref);
+})();
+/* 批發帳號申請：?apply（訪客寫 wholesale_applications，RLS 只准投遞；版型重用 fb-card 全套） */
+function showApplyOverlay(){
+  var old=document.getElementById('fb-ov');if(old)old.remove();
+  var ov=document.createElement('div');ov.id='fb-ov';
+  ov.innerHTML='<div class="fb-card">'
+    +'<div class="fb-title">Ratio Coffee</div>'
+    +'<div class="fb-sub">Wholesale account application — tell us about your business and we will be in touch within a day or two.</div>'
+    +'<input id="ap-biz" type="text" maxlength="160" placeholder="Business name *" />'
+    +'<input id="ap-name" type="text" maxlength="120" placeholder="Contact person" />'
+    +'<input id="ap-email" type="email" maxlength="200" placeholder="Email *" />'
+    +'<input id="ap-phone" type="tel" maxlength="60" placeholder="Phone" />'
+    +'<input id="ap-addr" type="text" maxlength="300" placeholder="Delivery address" />'
+    +'<textarea id="ap-note" maxlength="2000" placeholder="Anything else? Weekly volume, grinder setup, opening date..."></textarea>'
+    +'<div class="fb-msg" id="ap-msg"></div>'
+    +'<button class="fb-send" id="ap-send">Apply for an account</button>'
+    +'</div>';
+  ov.querySelector('#ap-send').addEventListener('click',async function(){
+    var send=ov.querySelector('#ap-send'),msg=ov.querySelector('#ap-msg');
+    var biz=ov.querySelector('#ap-biz').value.trim(),email=ov.querySelector('#ap-email').value.trim();
+    if(!biz){msg.textContent='Business name first';msg.className='fb-msg err';return;}
+    if(!/^\S+@\S+\.\S+$/.test(email)){msg.textContent='A valid email so we can get back to you';msg.className='fb-msg err';return;}
+    send.disabled=true;msg.textContent='Sending…';msg.className='fb-msg';
+    var rec={business:biz,email:email,
+      contact:ov.querySelector('#ap-name').value.trim()||null,
+      phone:ov.querySelector('#ap-phone').value.trim()||null,
+      address:ov.querySelector('#ap-addr').value.trim()||null,
+      note:ov.querySelector('#ap-note').value.trim()||null};
+    var r=await sb.from('wholesale_applications').insert(rec);
+    if(r.error){send.disabled=false;msg.textContent='Could not send: '+r.error.message;msg.className='fb-msg err';return;}
+    ov.innerHTML='<div class="fb-card"><div class="fb-title">Ratio Coffee</div><div class="fb-thanks">Application received ☕<br>We will be in touch shortly.</div></div>';
+  });
+  document.body.appendChild(ov);
+}
+(function(){
+  var q=false;try{q=new URLSearchParams(location.search).has('apply');}catch(e){}
+  if(q)showApplyOverlay();
 })();
 /* 公開豆頁：?bean=<slug>（只給風味已鎖定的豆；public-bean edge 免登入） */
 (function(){
@@ -11291,7 +11363,8 @@ async function renderPublicMenu(){
   m.innerHTML='<div class="empty">Loading the shelf…</div>';
   SHOP_BEANS=await loadShopMenu();
   m.innerHTML='<div id="shopbody"></div>'
-    +'<div class="note" style="margin-top:16px"><a href="/?fb=store" style="color:var(--accent)">Tried it? Tell us what you think →</a></div>'
+    +'<div class="note" style="margin-top:16px"><a href="/?apply" style="color:var(--accent)">Run a cafe? Apply for a wholesale account →</a></div>'
+    +'<div class="note" style="margin-top:6px"><a href="/?fb=store" style="color:var(--accent)">Tried it? Tell us what you think →</a></div>'
     +'<button class="more" id="pm-staff">Wholesale &amp; staff sign in</button>';
   renderShopTabs();
   paintShopBody();
