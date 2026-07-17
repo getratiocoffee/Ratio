@@ -751,21 +751,8 @@ function buildItems(){
       act:'Accept',det:[['Items',itemsLine(o)||'—'],['Total',money(o.total)],['Payment',o.payment_method==='bank_transfer'?'Bank transfer':'Platform'],['Placed',fmtD(o.created_at)]],
       det2:'Decline order',roles:['director','retail','staff'],kind:'accept',ref:o});
   });
-  /* 杯測作業全住 QC 分頁（老闆定調：杯測師只在 QC 裡工作）——Today 只留一張導航卡看產能 */
-  var tocup=toCupList();
-  if(tocup.length||QCQ.length){
-    var qcNames=tocup.map(function(r){return r.bean_name||'—';}).concat(QCQ.map(function(x){return x.s.sample_id||'—';}));
-    var qcHot=tocup.some(function(r){return daysSince(r.roast_date)>2;})||QCQ.some(function(x){return daysSince(x.r.roast_date)>2;});
-    var bits=[];
-    if(tocup.length)bits.push(tocup.length+' in hand');
-    if(QCQ.length)bits.push(QCQ.length+' waiting');
-    out.push({id:'qcnav',st:'QC',hot:qcHot?1:0,t:'Cupping & QC — '+bits.join(' · '),
-      s:qcNames.slice(0,3).map(esc).join(' · ')+(qcNames.length>3?' · +'+(qcNames.length-3)+' more':''),
-      act:'Open QC →',
-      det:tocup.map(function(r){return [r.bean_name||'—','to cup · roasted '+(fmtD(r.roast_date)||'—')];})
-        .concat(QCQ.map(function(x){return [x.s.sample_id||'—','awaiting verdict · roasted '+(fmtD(x.r.roast_date)||'—')];})),
-      det2:'Later',roles:['director','roaster','staff'],kind:'qcnav'});
-  }
+  /* QC 導航卡（qcnav「Cupping & QC — N waiting」）已移除（2026-07-17 老闆指示）——
+     杯測作業全在 QC 分頁（nav 的 Beans→QC 磁貼照常）；toCupList/QCQ 是 QC 分頁共用沒動 */
   /* 上架卡：QC pass、Square 還沒上 → 抽屜定價推上架 */
   LISTQ.forEach(function(s){
     var f=(s.features||[]).slice(0,3).join(', ');
