@@ -80,6 +80,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-17 之十四（今日流 Dial in 提醒卡整段移除 ✅ 待 push）
+- **老闆指示**：dashboard（Today）的 Dial in 告知卡移除。刪兩段：①buildItems 的 stale 計算（latest/DB.dialins 掃描＋ESP_STALE_DAYS 判過期）②stale.forEach 的 Recipe 卡 push（id 'di:'、kind 'dialin'）。grep 確認 stale 零殘留（只剩註解字樣）。
+- **殘留死碼（無害留置）**：runAction 的 kind==='dialin' 分派＋卡片版 `openDialinForm` 沒了呼叫端——dlgFieldsHTML/dlgBindSteppers 仍被 Tools 版共用不能動；下輪大掃除再收。**Tools→Dial in 磁貼照常**（手動記 dial-in 唯一入口）。
+- **驗證**：jscheck ✓；假資料（2 synced 商品＋0 dialins，舊版必長 2 卡）→ dial 卡 0、其他卡照常 ✓。
+
 ## 〇、補記 — 2026-07-17 之十三（🐛 批發帳號看不到菜單——Read-only 護欄誤傷，已修待 push）
 - **老闆回報**：getratiocoffee@gmail.com（wholesale）登入後看不到 inventory/price。查證：帳號 role 正常、edge v4 正常（director 呼 menu 14 支）、edge log **完全沒有** wholesale 帳號的呼叫紀錄＝前端根本沒發出請求。Chrome 模擬 wholesale 視角重現：菜單空＋跳「Read-only — ask a manager」toast。
 - **根因**：2026-07-14 的 Read-only 護欄——`callFn` 開頭 `if(!roOk&&!canWrite())throw 'Read-only'`，canWrite()=isLead()||staff，**wholesale 角色不在名單**→ 批發客呼 menu/checkout 被自己前端擋掉、loadWholesaleMenu catch 吞錯回 []＝空菜單。07-08 批發全鏈驗證在護欄之前，之後沒用批發帳號測過才沒發現。

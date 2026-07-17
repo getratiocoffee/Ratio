@@ -711,13 +711,8 @@ function buildItems(){
   var packQ=DB.orders.filter(function(o){return o.status==='Confirmed'||o.status==='Roasting';});
   var shipQ=DB.orders.filter(function(o){return o.status==='Ready';});
   var payQ=DB.orders.filter(function(o){return (o.status||'New')!=='New'&&(o.payment_status==='pending_payment'||o.payment_status==='overdue');});
-  /* 濃縮提醒認 target_id（2026-07-15）：dialins/product_sync 都有 target_id，同名多處理法各自的 dial-in 各算 */
-  var latest={};DB.dialins.forEach(function(d){var dk=d.target_id?('id:'+d.target_id):('nm:'+String(d.coffee||'').trim().toLowerCase());if(!latest[dk])latest[dk]=d;});
-  var stale=[];DB.syncs.forEach(function(x){
-    if(x.status!=='synced'||isSubName(x.bean_id))return; /* 訂閱商品不是豆，永遠沒 dial-in */
-    var dk=x.target_id?('id:'+x.target_id):('nm:'+String(x.bean_id||'').trim().toLowerCase());
-    var d=latest[dk];
-    if(!d||daysSince(d.created_at)>ESP_STALE_DAYS)stale.push({name:x.bean_id,last:d?daysSince(d.created_at):null});});
+  /* 濃縮 dial-in 過期提醒卡已整段移除（2026-07-17 老闆指示；stale 計算＋Recipe 卡都刪）——
+     手動記 dial-in 走 Tools→Dial in；要復活從 git 撈這天之前的版本 */
   var low=DB.beans.filter(function(b){var t=(b.low_stock_kg==null?GREEN_LOW_KG:Number(b.low_stock_kg));return b.quantity!=null&&t>0&&Number(b.quantity)<=t;});
   /* 晨報卡退役（2026-07）：改為每日自動彈出的 briefing 抽屜（openBriefSheet）——班表摘要收進 BRIEF 全域；
      統計數字不再重複播報（分組組頭已有計數） */
@@ -830,12 +825,6 @@ function buildItems(){
       s:'#'+String(o.order_no||'—').padStart(4,'0')+' · '+(od?'<span class=red>'+daysSince(o.created_at)+'d overdue</span>':daysSince(o.created_at)+'d waiting'),
       act:'Mark paid',det:[['Order','#'+String(o.order_no||'—').padStart(4,'0')],['Total',money(o.total)],['Age',daysSince(o.created_at)+' days'],['Status',o.payment_status]],
       det2:'Send reminder email',roles:['director'],kind:'paid',ref:o});
-  });
-  stale.forEach(function(x){
-    out.push({id:'di:'+x.name,st:'Recipe',hot:0,t:'Dial in · '+esc(x.name),
-      s:(bNoFor(x.name)?bNoFor(x.name)+' · ':'')+(x.last==null?'<span class=red>never dialled in</span>':'<span class=red>'+x.last+'d since last dial-in</span>'),
-      act:'Dial in…',det:[['Coffee',x.name],['Last dial-in',x.last==null?'never':x.last+' days ago']],
-      det2:'Not today',roles:['director','retail','staff'],kind:'dialin',ref:x});
   });
   low.forEach(function(b){
     out.push({id:'low:'+b.id,st:'Green',hot:0,t:'Low · '+esc(b.name),
