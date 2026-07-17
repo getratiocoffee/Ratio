@@ -30,10 +30,7 @@ header .hspace{flex:1}
 .sbar{position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#1A1A1A;z-index:100;pointer-events:none}
 header .brand{font-family:'Fraunces',serif;font-size:21px;font-weight:700}
 header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
-/* 晨報入口：喇叭＝隨時重開 briefing 抽屜；紅點＝有還沒看過的新公告 */
-#hbell{position:relative;background:none;border:none;color:var(--muted);padding:6px 4px;margin-left:2px;cursor:pointer;line-height:0;display:none}
-#hbell svg{width:19px;height:19px}
-#hbdot{position:absolute;top:3px;right:0;width:7px;height:7px;border-radius:50%;background:var(--accent);display:none}
+/* 晨報喇叭入口已刪（2026-07-17 老闆指示）：updateBell/click 綁定都有 if(!$('hbell')) 防護，留著沒事；晨報照樣每天自動彈 */
 .wrap{padding:14px 22px 0;max-width:520px;margin:0 auto}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px;transition:transform .25s,opacity .25s;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 /* Today 流卡片 v2（老闆 manager 視角評審）：類別色條＋右上角分類＋小膠囊鈕；.feed 限定不波及商店卡 */
@@ -429,7 +426,7 @@ body.appview nav button{font-size:13px;padding:10px 2px}
 </style></head><body class="appview">
 <div class="bglogo"></div>
 <div class="sbar"></div>
-<header><span class="hspace"></span><span class="brand" id="hbrand"><span class="brandlogo" role="img" aria-label="Ratio"></span></span><button id="hbell" aria-label="Daily brief"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 0 1 0 6"/><path d="M10 8v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-5"/><path d="M12 8h0l4.5-3.8a.9.9 0 0 1 1.5.7v12.2a.9.9 0 0 1-1.5.7L12 14H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h8"/></svg><span id="hbdot"></span></button><span class="cnt" id="hcnt">loading…</span></header>
+<header><span class="hspace"></span><span class="brand" id="hbrand"><span class="brandlogo" role="img" aria-label="Ratio"></span></span><span class="cnt" id="hcnt">loading…</span></header>
 <div class="wrap" id="main"><div class="empty">Loading your day…</div></div>
 <div class="deck" id="deck" style="display:none"></div>
 <nav>

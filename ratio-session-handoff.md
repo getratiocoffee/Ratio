@@ -88,6 +88,7 @@
 - **驗證**：jscheck ✓；本機 serve 假資料（蓋 sb.from，⚠ 蓋 window.fetch 會讓 supabase-js 炸「Read-only」假錯、insert 攔不到——**以後攔 sb.from 別攔 fetch**）：表單渲染/防呆兩關/insert payload 六欄/感謝畫面/director 卡出 staff 卡不出/抽屜 Applications·2/Approve→update {status:approved} eq id＋重畫剩 1/店面連結——全過。線上表確認 0 列（測試無殘留）。
 - ⚠ 本機 serve 複本瀏覽器有殘留 test@test.local session，boot 會走客戶門戶——測店面要手動呼叫 renderPublicMenu()。
 - **buildItems 備忘**：結果存全域 `ITEMS` 不回傳（呼叫慣例 `buildItems();render();`）。
+- **同日追加**：header 喇叭（#hbell 晨報重開鈕＋#hbdot 紅點）整顆刪除（老闆指示）。JS 的 updateBell/click 綁定原本就有 if(!el) 防護故只刪 HTML＋CSS；晨報每日自動彈不受影響，只是沒了手動重開入口（要復活從 git 撈這顆 button＋CSS 三行）。
 
 ## 〇、補記 — 2026-07-17 之十（Beans 紅燈卡直達豆 ✅ 待 push）
 - **老闆加碼**：紅燈卡點擊不只開抽屜、還要直達那支豆。左紅卡帶 `data-brid`（roast uuid）→ `selQC` 預選＝QC 抽屜開起來該批判定直接攤開；中紅卡帶 `data-bkey`（`名字|procKey`，拼配尾巴空，公式照 paintPublishSheet 的 lk）→ `PUB.open` 預設＝Publish 該豆卡直接攤開。
