@@ -84,6 +84,7 @@
 - **老闆加碼**：紅燈卡點擊不只開抽屜、還要直達那支豆。左紅卡帶 `data-brid`（roast uuid）→ `selQC` 預選＝QC 抽屜開起來該批判定直接攤開；中紅卡帶 `data-bkey`（`名字|procKey`，拼配尾巴空，公式照 paintPublishSheet 的 lk）→ `PUB.open` 預設＝Publish 該豆卡直接攤開。
 - 注意：Publish 卡展開內容只給 lead（`open&&_mk`），staff 點中紅只會看到卡在最上、不攤開——原有權限規則，沒動。
 - **驗證**：jscheck ✓；假資料 DOM：左紅點擊→selQC 對、判定區 Pass/Downgrade 就位；中紅點擊→PUB.open 對、Publish 抽屜開。
+- **三調（同日追加）**：左紅再深一層——已杯測待判定（在 QCQ）直接進該批 **View/Edit**（openRecupSheet；back 回 QC 時 selQC 已預選、判定區攤開）；還沒杯測的（不在 QCQ、沒東西可 view）退 QC 抽屜按 cup。驗證：兩態假資料 DOM 各走對路（View/Edit · La Molienda ✓／QC 清單 ✓）。
 - Dial in 同日連環調整（併入之九）：去 title/description、Grind 格放大（clamp 44-64px/步進鈕 60px）、標籤改「A68 Grind setting」＋升級 Fraunces title 字體、A68 整數刻度（步進 ±1、inputmode=numeric）。
 
 ## 〇、補記 — 2026-07-17 之九（Dial in 二次簡化：只剩四格＋拼配下拉 ✅ 待 push）
