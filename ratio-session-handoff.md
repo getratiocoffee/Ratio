@@ -80,6 +80,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-17 之十（Beans 紅燈卡直達豆 ✅ 待 push）
+- **老闆加碼**：紅燈卡點擊不只開抽屜、還要直達那支豆。左紅卡帶 `data-brid`（roast uuid）→ `selQC` 預選＝QC 抽屜開起來該批判定直接攤開；中紅卡帶 `data-bkey`（`名字|procKey`，拼配尾巴空，公式照 paintPublishSheet 的 lk）→ `PUB.open` 預設＝Publish 該豆卡直接攤開。
+- 注意：Publish 卡展開內容只給 lead（`open&&_mk`），staff 點中紅只會看到卡在最上、不攤開——原有權限規則，沒動。
+- **驗證**：jscheck ✓；假資料 DOM：左紅點擊→selQC 對、判定區 Pass/Downgrade 就位；中紅點擊→PUB.open 對、Publish 抽屜開。
+- Dial in 同日連環調整（併入之九）：去 title/description、Grind 格放大（clamp 44-64px/步進鈕 60px）、標籤改「A68 Grind setting」＋升級 Fraunces title 字體、A68 整數刻度（步進 ±1、inputmode=numeric）。
+
 ## 〇、補記 — 2026-07-17 之九（Dial in 二次簡化：只剩四格＋拼配下拉 ✅ 待 push）
 - **老闆指示**：Tools 版 Dial in 抽屜 tasting note 以後全收掉＋下拉只列拼配。現貌＝Grind 大格（−/＋）＋Dose/Time/Yield＋Coffee 下拉（`DB.blends` only）＋last 摘要＋Log dial-in。
 - **收掉的**：Tasting note 欄（insert 不再帶 note，DB 欄位還在恆存 null）、Latest per coffee、Recent、Apply to brew guide（`applyDialinBrew` 整段刪除——要復活 `git show 35d3214^` 之前版本）。
