@@ -1161,11 +1161,16 @@ async function acceptOrder(i,btn){
 function procKey(p){return String(p||'').trim().toLowerCase();}
 /* 生豆身分證（2026-07-15 老闆定案，之八改前綴 G→S）：每支生豆一個 S#00001 人類可讀編號——
    DB green_no 自動發號（sequence default），這裡只負責顯示。同名多處理法從此一眼分清（Alo Village S#00012/S#00013） */
-function gNo(b){return (b&&b.green_no!=null)?('S#'+String(b.green_no).padStart(5,'0')):'';}
+/* ⚠ 2026-07-17 老闆定案：全 app 顯示豆子不再帶 S#/B# 編號——編號只留 ID book（用 *Raw 版）。
+   gNo/bNoFor/rNo 一律回空＝所有「(編號?編號+'·':'')」條件顯示自動消失；
+   比對與編號搜尋走原始欄位（green_no/blend_no）不經這裡，功能不受影響 */
+function gNoRaw(b){return (b&&b.green_no!=null)?('S#'+String(b.green_no).padStart(5,'0')):'';}
+function gNo(b){return '';}
 /* 熟豆編號 B#（2026-07-15 老闆改版，之八改前綴 R→B）：一豆一號終身不變——號碼跟「豆」走，S/B 只是生熟狀態。
    單品承生豆同號（S#00013 烘出來＝B#00013）、拼配用 blends.blend_no（同一個號碼池，全域唯一）。
    批次之分＝B# ＋ 烘焙日（行內本來就顯示日期）；每鍋跳號的 roasts.roast_no 已廢除 */
-function rNo(r){
+function rNo(r){return '';} /* 顯示靜音（2026-07-17）——批次行不再帶 B#，rNos 連帶回空 */
+function rNoRaw(r){
   if(!r)return '';
   var n=null;
   if(r.kind==='blend'){
@@ -1206,14 +1211,17 @@ function resolveCoffee(nm,proc){
 }
 /* 名字＋處理法 → 底層 id（beans.id 或 blends.id）；回空＝認不出（走名字級退路） */
 function beanIdFor(nm,proc){var r=resolveCoffee(nm,proc);return r?String(r.obj.id):'';}
-/* 統一取號口（2026-07-15 全 app 掛號）：豆名＋處理法 → 'B#00013'（拼配用 blend_no、單品用 green_no） */
-function bNoFor(nm,proc){
+/* 統一取號口（2026-07-15 全 app 掛號→2026-07-17 顯示靜音，只剩 Raw 版給 ID book）：豆名＋處理法 → 'B#00013'（拼配用 blend_no、單品用 green_no） */
+function bNoFor(nm,proc){return '';}
+function bNoRaw(nm,proc){
   var r=resolveCoffee(nm,proc);if(!r)return '';
   var no=r.kind==='blend'?r.obj.blend_no:r.obj.green_no;
   return no!=null?('B#'+String(no).padStart(5,'0')):'';
 }
-/* 同名下所有號（Delete a coffee 名字級聚合用；同名多處理法列全部＝提醒這名字下有幾支） */
-function bNosForName(nm){
+/* 同名下所有號（Delete a coffee 名字級聚合用；同名多處理法列全部＝提醒這名字下有幾支）
+   2026-07-17 顯示靜音（同 gNo/bNoFor/rNo）——同名消歧靠處理法字樣就夠 */
+function bNosForName(nm){return '';}
+function bNosForNameRaw(nm){
   var k=String(nm||'').trim().toLowerCase();
   if(!k)return '';
   var bl=(DB.blends||[]).find(function(x){return String(x.name||'').trim().toLowerCase()===k;});
@@ -4581,7 +4589,7 @@ function openIdBookSheet(){
   if(beans.length){
     rows+='<div class="dlab">Coffees — S# green · B# roasted (same number)</div>';
     beans.forEach(function(b,ix){
-      rows+='<div class="hit" data-idb="'+ix+'"><span><div class="t" style="font-size:15px">'+gNo(b)+'</div>'
+      rows+='<div class="hit" data-idb="'+ix+'"><span><div class="t" style="font-size:15px">'+gNoRaw(b)+'</div>'
         +'<div class="s">'+esc(b.name)+(b.process?' · '+esc(b.process):'')+'</div></span>'
         +'<span class="k" style="font-size:13px">'+(Number(b.quantity)||0)+' kg green</span></div>';
     });
@@ -10158,7 +10166,7 @@ function renderTools(){
     DB.beans.forEach(function(b){
       var byName=(b.name||'').toLowerCase().indexOf(q)>-1;
       var byNo=qG&&b.green_no!=null&&String(b.green_no)===qG[1];
-      if(byName||byNo)hits.push({k:'Green',t:(gNo(b)?gNo(b)+' · ':'')+b.name,s:(b.process?b.process+' · ':'')+(Number(b.quantity)||0)+' kg',det:[['ID',gNo(b)||'—'],['Process',b.process||'—'],['Green stock',(Number(b.quantity)||0)+' kg']]});
+      if(byName||byNo)hits.push({k:'Green',t:b.name,s:(b.process?b.process+' · ':'')+(Number(b.quantity)||0)+' kg',det:[['Process',b.process||'—'],['Green stock',(Number(b.quantity)||0)+' kg']]});
     });
     /* r13＝13 號豆的所有烘焙批次（一豆一號，批次靠烘焙日分）；r28＝拼配（blend_no 同池） */
     if(qR){
@@ -10171,7 +10179,7 @@ function renderTools(){
           return r.kind==='blend'&&String(r.bean_name||'').trim().toLowerCase()===pnm;
         }).sort(function(a,b){return String(b.roast_date||'').localeCompare(String(a.roast_date||''));})
         .forEach(function(r){
-          hits.push({k:'Roast',t:rNo(r)+' · '+(r.bean_name||'—')+(r.roast_date?' · '+fmtD(r.roast_date):''),s:(r.process?r.process+' · ':'')+(r.qc||'not judged')+' · '+(Number(r.remaining_kg)||0)+' kg left',det:[['ID',rNo(r)],['Coffee',r.bean_name||'—'],['Process',r.process||'—'],['Roasted',r.roast_date?fmtD(r.roast_date):'—'],['QC',r.qc||'not judged'],['Stock left',(Number(r.remaining_kg)||0)+' kg']]});
+          hits.push({k:'Roast',t:(r.bean_name||'—')+(r.roast_date?' · '+fmtD(r.roast_date):''),s:(r.process?r.process+' · ':'')+(r.qc||'not judged')+' · '+(Number(r.remaining_kg)||0)+' kg left',det:[['Coffee',r.bean_name||'—'],['Process',r.process||'—'],['Roasted',r.roast_date?fmtD(r.roast_date):'—'],['QC',r.qc||'not judged'],['Stock left',(Number(r.remaining_kg)||0)+' kg']]});
         });
       }
     }
