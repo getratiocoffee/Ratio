@@ -3212,6 +3212,56 @@ async function shelfLiveBeans(){
    可上架/更新/售罄切換 → Email 群發/FB+IG 發文/IG asset 素材全在每支豆的展開列。
    薄殼：按鈕全接現有函式（openListSheet/setShelfSold/announceShelfBean/openSocialPostBean/openPromoSheet）。
    FB/IG/Email 的「發過沒」看 activity_log（posted socials／announced coffee）最新一筆。 */
+/* Edit Notes（2026-07-17 老闆需求）：改已 Pass（flavour_locked）豆的風味詞＋comment。
+   母體同 Publish 口徑＝samples flavour_locked=true 去重（sample_id|process 最新一筆；DB.samples 已新→舊排）。
+   只改 app 端 samples——店面菜單約 5 分快取後自動跟；Square 商品描述要同步得再走 Publish 的 Update listing */
+var EDN=null;
+function openEditNotesSheet(){
+  var seen={},list=[];
+  (DB.samples||[]).forEach(function(s){
+    if(!s.flavour_locked)return;
+    var k=String(s.sample_id||'').trim().toLowerCase()+'|'+procKey(s.process);
+    if(seen[k])return;seen[k]=1;list.push(s);
+  });
+  openDrawerHTML('<div class="t" style="font-size:19px">Edit Notes</div>'
+    +'<div class="s" style="margin-top:2px">flavour on passed beans — shop menu follows in ~5 min · Square listing needs a Publish push</div>'
+    +(list.length?list.map(function(s){
+      return '<div class="dl" data-edn="'+esc(String(s.id))+'" style="cursor:pointer"><span>'+esc(s.sample_id||'—')
+        +(s.process?' <span class="s">'+esc(s.process)+'</span>':'')+'</span>'
+        +'<span class="s">'+esc((s.features||[]).filter(Boolean).slice(0,3).join(', ')||'—')+'</span></div>';
+    }).join(''):'<div class="empty" style="padding:20px">No passed beans yet</div>')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  document.querySelectorAll('#drawer [data-edn]').forEach(function(el){el.addEventListener('click',function(){
+    var s=(DB.samples||[]).find(function(x){return String(x.id)===String(el.dataset.edn);});
+    if(s)openEditNotesForm(s);
+  });});
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+function openEditNotesForm(s){
+  EDN=s;
+  var f=(s.features||[]).filter(Boolean);
+  openDrawerHTML('<div class="t" style="font-size:19px">'+esc(s.sample_id||'—')+(s.process?' · '+esc(s.process):'')+'</div>'
+    +'<div class="s" style="margin-top:2px">these words show on the menu card and bean page</div>'
+    +'<div class="dlab">Flavours</div>'
+    +[0,1,2].map(function(ix){return '<input class="din" id="edn-f'+ix+'" maxlength="22" placeholder="e.g. Blueberry" value="'+esc(f[ix]||'')+'">';}).join('')
+    +'<div class="dlab">Comment · 30 chars</div>'
+    +'<input class="din" id="edn-c" maxlength="30" placeholder="—" value="'+esc(String(s.comment||''))+'">'
+    +'<button class="act" id="edn-save">Save notes</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Back</button>');
+  $('edn-save').addEventListener('click',async function(){
+    var feats=[0,1,2].map(function(ix){return ($('edn-f'+ix).value||'').trim();}).filter(Boolean);
+    if(!feats.length){toast('At least one flavour word');return;}
+    var cmt=($('edn-c').value||'').trim();
+    var btn=this;btn.disabled=true;btn.textContent='Saving…';
+    var u=await sb.from('samples').update({features:feats,comment:cmt||null}).eq('id',EDN.id);
+    if(u.error){btn.disabled=false;btn.textContent='Save notes';alert('Save failed: '+u.error.message);return;}
+    EDN.features=feats;EDN.comment=cmt||null; /* DB.samples 同物件參照，本地即同步 */
+    logAct('edited notes',EDN.sample_id||'');
+    toast('Notes updated ✓');
+    openEditNotesSheet();
+  });
+  $('d-cl').addEventListener('click',openEditNotesSheet);
+}
 var PUB={open:null};
 async function openPublishSheet(){
   openDrawerHTML('<div class="t" style="font-size:19px">Publish</div><div class="empty" style="margin-top:16px">Loading…</div>');
@@ -9991,7 +10041,7 @@ function renderTools(){
       _tiles([['QC','cup and judge','qcgo','qc'],['Live cupping','blind · together','livecup','qc'],['Recipe','blends · dial-in','recipe','recipe'],['Dial in','espresso shots','dialin','espresso',1]]))
     /* 2026-07-12 統整：Coffee Info/Post to socials/IG asset/Announce 四顆收進 Publish 一鍵上架面板 */
     +(isLead()?_sec('Marketing',DEPT.mkt,
-      _tiles([['Publish','QC → every channel','publish','mega',1]])):'')
+      _tiles([['Publish','QC → every channel','publish','mega',1],['Edit Notes','flavour on passed beans','editnotes','book',1]])):'')
     +_sec('Orders',DEPT.ord,
       (_mk?_mkTile('t-neworder','New order','right here','plus'):'')
       +_tiles([['Orders','recent list','orders','order']].concat(ROLE==='director'?[['Subscriptions','fortnightly beans · plans','subs','reorder',1],['Wholesale','discount % · accounts','wholesale','statement',1]]:[])))
@@ -10101,6 +10151,7 @@ function renderTools(){
     if(k==='help'){openHelpSheet();return;}
     if(k==='retail'){openRetailSheet();return;}
     if(k==='publish'){openPublishSheet();return;}
+    if(k==='editnotes'){openEditNotesSheet();return;}
     if(k==='qcgo'){openQCSheet();return;}
     if(k==='recipe'){openRecipeSheet();return;}
     if(k==='dialin'){openDialinSheet();return;}

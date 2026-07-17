@@ -80,6 +80,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-17 之十五（Marketing 新磁貼 Edit Notes：改已 Pass 豆風味 ✅ 待 push）
+- **老闆需求**：Marketing 區加「Edit Notes」鈕改已 Pass 豆的風味。磁貼（lead only 同 Publish、icon 'book'、data-t 'editnotes'）→ `openEditNotesSheet`：母體＝samples flavour_locked=true 去重（sample_id|procKey 最新一筆，同 Publish 口徑）、每列豆名＋處理法＋現風味詞；點列 → `openEditNotesForm`：三格風味（maxlength 22）＋comment（30）預填現值、Save→update samples {features(濾空),comment||null} eq id→本地同物件參照即時同步＋logAct 'edited notes'→回列表。至少一個風味詞防呆。
+- **傳播鏈**：只改 app 端 samples——店面菜單/?bean 公開頁約 5 分快取後自動跟；**Square 商品描述不自動同步**（要走 Publish→Update listing），抽屜副標有註明。
+- **驗證**：jscheck ✓；假資料——列表只列已鎖＋同豆去重 ✓、表單預填 ✓、Save payload {features:['Cherry','Black currant'],comment} eq s1（空格自動剔）✓、回列表即時顯示新詞 ✓、磁貼存在 ✓。
+
 ## 〇、補記 — 2026-07-17 之十四（今日流 Dial in 提醒卡整段移除 ✅ 待 push）
 - **老闆指示**：dashboard（Today）的 Dial in 告知卡移除。刪兩段：①buildItems 的 stale 計算（latest/DB.dialins 掃描＋ESP_STALE_DAYS 判過期）②stale.forEach 的 Recipe 卡 push（id 'di:'、kind 'dialin'）。grep 確認 stale 零殘留（只剩註解字樣）。
 - **殘留死碼（無害留置）**：runAction 的 kind==='dialin' 分派＋卡片版 `openDialinForm` 沒了呼叫端——dlgFieldsHTML/dlgBindSteppers 仍被 Tools 版共用不能動；下輪大掃除再收。**Tools→Dial in 磁貼照常**（手動記 dial-in 唯一入口）。
