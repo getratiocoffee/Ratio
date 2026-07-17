@@ -2256,7 +2256,7 @@ async function saveNewOrder(){
    prefix＝'dl'（今日流卡片版）或 'dls'（Tools 版）；last＝上次紀錄（null＝空表單）。id 沿用舊制 prefix-g/d/t/y。 */
 function dlgFieldsHTML(prefix,last){
   var v=function(x){return x==null?'':esc(String(x));};
-  return '<div class="dlg-hero"><div class="dlg-lab">Grind setting</div>'
+  return '<div class="dlg-hero"><div class="dlg-lab">A68 Grind setting</div>'
     +'<div class="dlg-row"><button type="button" class="dlg-step" id="'+prefix+'-gm">−</button>'
     +'<input class="dlg-big" id="'+prefix+'-g" inputmode="decimal" placeholder="2.4" value="'+(last?v(last.grind):'')+'">'
     +'<button type="button" class="dlg-step" id="'+prefix+'-gp">＋</button></div></div>'
