@@ -11026,7 +11026,9 @@ function openCartSheet(){
    價格永遠 server 端重算——checkout payload 只帶 {id,qty}，不帶價 */
 async function loadWholesaleMenu(){
   try{
-    var d=await callFn('wholesale',{action:'menu'});
+    /* roOk=true：Read-only 護欄是管員工的，批發「客人」不在 canWrite 名單卻要走這條道——
+       2026-07-14 護欄上線後把批發門戶整個擋成空菜單（2026-07-17 修）；權限真正的閘在 wholesale edge（JWT＋role） */
+    var d=await callFn('wholesale',{action:'menu'},true);
     if(d&&d.ok){WS_INFO={pct:d.discount_pct||0,moq:d.moq||null,bank:d.bank||null};return d.beans||[];}
   }catch(e){}
   WS_INFO=null;return [];
@@ -11093,7 +11095,7 @@ function openWsCartSheet(){
   $('wcart-go').addEventListener('click',async function(){
     var b=$('wcart-go');b.disabled=true;b.textContent='Placing order…';
     try{
-      var res=await callFn('wholesale',{action:'checkout',items:cartGet().map(function(x){return {id:x.vid,qty:x.qty};})});
+      var res=await callFn('wholesale',{action:'checkout',items:cartGet().map(function(x){return {id:x.vid,qty:x.qty};})},true); /* roOk 同 menu：批發客下單被 Read-only 護欄誤擋的修正 */
       if(!(res&&res.ok))throw new Error((res&&res.error)||'order failed');
       cartSet([]); /* 單已成立才清車；失敗保車 */
       openWsOrderDoneSheet(res);

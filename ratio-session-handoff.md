@@ -80,6 +80,13 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-17 之十三（🐛 批發帳號看不到菜單——Read-only 護欄誤傷，已修待 push）
+- **老闆回報**：getratiocoffee@gmail.com（wholesale）登入後看不到 inventory/price。查證：帳號 role 正常、edge v4 正常（director 呼 menu 14 支）、edge log **完全沒有** wholesale 帳號的呼叫紀錄＝前端根本沒發出請求。Chrome 模擬 wholesale 視角重現：菜單空＋跳「Read-only — ask a manager」toast。
+- **根因**：2026-07-14 的 Read-only 護欄——`callFn` 開頭 `if(!roOk&&!canWrite())throw 'Read-only'`，canWrite()=isLead()||staff，**wholesale 角色不在名單**→ 批發客呼 menu/checkout 被自己前端擋掉、loadWholesaleMenu catch 吞錯回 []＝空菜單。07-08 批發全鏈驗證在護欄之前，之後沒用批發帳號測過才沒發現。
+- **修法**：loadWholesaleMenu 的 menu 呼叫＋wcart-go 的 checkout 呼叫都傳 `roOk=true`（批發通道的權限真閘在 wholesale edge：JWT＋role wholesale/director；前端護欄本來就是管員工的）。
+- **驗證**：jscheck ✓；本機無 session 模擬——修正後呼叫錯誤從 'Read-only' 變 'Invalid JWT'（＝穿過護欄真的打到 edge）✓、舊式呼叫仍 'Read-only'（重現原 bug）✓。**真機驗證等 push**：老闆用 getratiocoffee 重新登入應見 14 支豆＋批發價。
+- **教訓**：改全域護欄（canWrite/callFn 這種總閘）要把**非員工角色**（wholesale/customer 門戶）的通道全數過一遍——它們不寫 DB 但會呼 edge。
+
 ## 〇、補記 — 2026-07-17 之十二（批發個別豆折扣 方案 B ✅ edge 已上線、前端待 push）
 - **老闆拍板方案 B**：全店預設 % 照舊＋個別豆例外 %（空白＝用預設）。不同客戶不同折扣暫不做（老闆沒點頭）。
 - **資料**：app_state `ws_discount` value 擴充 `{pct, overrides:{"<豆名小寫>":pct}}`——key＝豆名 trim+lowercase（同 edge flav map 慣例）。沒 overrides key＝行為完全同舊版。
