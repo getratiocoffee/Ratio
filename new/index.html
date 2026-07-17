@@ -10775,7 +10775,12 @@ function renderBeans(){
   var row=function(r,l1,l2,l3,act){
     var kg=(r.remaining_kg==null)?'not weighed yet':((Math.round(+r.remaining_kg*100)/100)+' kg left');
     var sub=[(r.kind==='blend'?'blend':''),r.process,r.roast_date,kg].filter(Boolean).join(' · ');
-    return '<div class="beans-row"'+(act?' data-bact="'+act+'" data-bkind="'+(r.kind==='blend'?'1':'0')+'" style="cursor:pointer"':'')+'><div class="beans-nm"><b>'+esc(r.bean_name||'?')+'</b><span>'+esc(sub)+'</span></div><div class="beans-lamps"><span class="lamp '+l1+'"></span><span class="lamp '+l2+'"></span><span class="lamp '+l3+'"></span></div></div>';
+    /* 2026-07-17 老闆加碼：紅燈卡不只開抽屜、還要直達那支豆——
+       qc 帶批次 id（selQC 預選展開判定）、pub 帶 Publish 卡 key（PUB.open 預先展開；key 組法照 paintPublishSheet：名字|procKey，拼配尾巴空） */
+    var extra='';
+    if(act==='qc')extra=' data-brid="'+esc(String(r.id))+'"';
+    if(act==='pub')extra=' data-bkey="'+esc(String(r.bean_name||'').trim().toLowerCase()+'|'+(r.kind==='blend'?'':procKey(r.process)))+'"';
+    return '<div class="beans-row"'+(act?' data-bact="'+act+'" data-bkind="'+(r.kind==='blend'?'1':'0')+'"'+extra+' style="cursor:pointer"':'')+'><div class="beans-nm"><b>'+esc(r.bean_name||'?')+'</b><span>'+esc(sub)+'</span></div><div class="beans-lamps"><span class="lamp '+l1+'"></span><span class="lamp '+l2+'"></span><span class="lamp '+l3+'"></span></div></div>';
   };
   var gQC=[], gReady=[], gShelf=[], gBlend=[];
   live.forEach(function(r){
@@ -10793,10 +10798,10 @@ function renderBeans(){
     +sec('In QC',gQC)+sec('Ready to shelf',gReady)+sec('On shelf',gShelf)+sec('Blend pool',gBlend)+'</div>';
   var rb=$('beans-roast');
   if(rb)rb.addEventListener('click',function(){openRoastSheet(null);});
-  /* 紅燈卡點擊：左紅（沒杯測）→ QC 抽屜（帶對 single/blend 分頁）；中紅（沒上架）→ Publish */
+  /* 紅燈卡點擊：左紅（沒杯測）→ QC 抽屜（帶對 single/blend 分頁＋直接展開該批判定）；中紅（沒上架）→ Publish（直接展開該豆卡） */
   document.querySelectorAll('#main [data-bact]').forEach(function(el){el.addEventListener('click',function(){
-    if(el.dataset.bact==='qc'){QCSEG=el.dataset.bkind==='1'?'blend':'single';selQC=null;openQCSheet();return;}
-    if(el.dataset.bact==='pub'){openPublishSheet();return;}
+    if(el.dataset.bact==='qc'){QCSEG=el.dataset.bkind==='1'?'blend':'single';selQC=el.dataset.brid||null;openQCSheet();return;}
+    if(el.dataset.bact==='pub'){PUB.open=el.dataset.bkey||null;openPublishSheet();return;}
   });});
 }
 var LAST_LOAD=0;
