@@ -86,6 +86,7 @@
 - **修法**：loadWholesaleMenu 的 menu 呼叫＋wcart-go 的 checkout 呼叫都傳 `roOk=true`（批發通道的權限真閘在 wholesale edge：JWT＋role wholesale/director；前端護欄本來就是管員工的）。
 - **驗證**：jscheck ✓；本機無 session 模擬——修正後呼叫錯誤從 'Read-only' 變 'Invalid JWT'（＝穿過護欄真的打到 edge）✓、舊式呼叫仍 'Read-only'（重現原 bug）✓。**真機驗證等 push**：老闆用 getratiocoffee 重新登入應見 14 支豆＋批發價。
 - **教訓**：改全域護欄（canWrite/callFn 這種總閘）要把**非員工角色**（wholesale/customer 門戶）的通道全數過一遍——它們不寫 DB 但會呼 edge。
+- **同日追查（老闆問 customer 看不看得到豆）**：customer **沒事**——零售菜單 loadShopMenu＋零售結帳 cart-go 都是裸 fetch 直打 public-shop（不經 callFn 護欄）；訪客（未登入）寫 feedback/申請也沒事（ROLE 初始值 'director'，canWrite 放行、真閘 RLS）。但**登入中的 customer/wholesale 按 Leave feedback 或填 ?apply 會被 sb.from Proxy 擋**（送出顯示 Could not send: Read-only）→ 兩處 insert 改走 `sbRaw()`（護欄後門，真閘在兩表的 RLS insert 政策）。驗證：ROLE='customer' 模擬——sb.from 寫入照擋 ✓、sbRaw 原生 ✓、loadShopMenu 14 豆 ✓。
 
 ## 〇、補記 — 2026-07-17 之十二（批發個別豆折扣 方案 B ✅ edge 已上線、前端待 push）
 - **老闆拍板方案 B**：全店預設 % 照舊＋個別豆例外 %（空白＝用預設）。不同客戶不同折扣暫不做（老闆沒點頭）。

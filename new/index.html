@@ -10550,7 +10550,8 @@ function showFbOverlay(ref){
     var rec={order_ref:ref,rating:rating||null,comment:cmt||null,
       name:ov.querySelector('#fb-name').value.trim()||null,
       email:ov.querySelector('#fb-email').value.trim()||null};
-    var r=await sb.from('feedback').insert(rec);
+    /* sbRaw：登入中的 customer/wholesale 也要能留回饋——Read-only 護欄是管員工的，這表真閘在 RLS（anon+authenticated insert 政策） */
+    var r=await sbRaw('feedback').insert(rec);
     if(r.error){send.disabled=false;msg.textContent='Could not send: '+r.error.message;msg.className='fb-msg err';return;}
     ov.innerHTML='<div class="fb-card"><div class="fb-title">Ratio Coffee</div><div class="fb-thanks">Thank you! ☕<br>Your feedback is on its way to the roaster.</div></div>';
   });
@@ -10587,7 +10588,8 @@ function showApplyOverlay(){
       phone:ov.querySelector('#ap-phone').value.trim()||null,
       address:ov.querySelector('#ap-addr').value.trim()||null,
       note:ov.querySelector('#ap-note').value.trim()||null};
-    var r=await sb.from('wholesale_applications').insert(rec);
+    /* sbRaw 同 feedback：登入帳號（customer/wholesale）填申請也放行，真閘在 RLS */
+    var r=await sbRaw('wholesale_applications').insert(rec);
     if(r.error){send.disabled=false;msg.textContent='Could not send: '+r.error.message;msg.className='fb-msg err';return;}
     ov.innerHTML='<div class="fb-card"><div class="fb-title">Ratio Coffee</div><div class="fb-thanks">Application received ☕<br>We will be in touch shortly.</div></div>';
   });
