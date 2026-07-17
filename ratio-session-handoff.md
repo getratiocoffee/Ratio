@@ -89,6 +89,7 @@
 - ⚠ 本機 serve 複本瀏覽器有殘留 test@test.local session，boot 會走客戶門戶——測店面要手動呼叫 renderPublicMenu()。
 - **buildItems 備忘**：結果存全域 `ITEMS` 不回傳（呼叫慣例 `buildItems();render();`）。
 - **同日追加**：header 喇叭（#hbell 晨報重開鈕＋#hbdot 紅點）整顆刪除（老闆指示）。JS 的 updateBell/click 綁定原本就有 if(!el) 防護故只刪 HTML＋CSS；晨報每日自動彈不受影響，只是沒了手動重開入口（要復活從 git 撈這顆 button＋CSS 三行）。
+- **同日追加②（手機禁橫擺）**：①manifest.webmanifest 加 `"orientation":"portrait"`（Android 安裝版 PWA 真鎖；**iOS 不理這個設定**）②`#rot-ov` 全屏遮罩「Please rotate your phone」——media query `(orientation:landscape) and (pointer:coarse) and (max-height:600px)`：pointer:coarse 限觸控機（桌機橫視窗不誤傷）、max-height 600 排除 iPad 橫擺。驗證：桌機隱藏 ✓、模擬橫擺（注入去 pointer 條件的同款 query）遮罩全屏＋排版乾淨 ✓、轉回直向消失 ✓。⚠ 真 iPhone 橫擺實測等老闆部署後轉一下手機。
 
 ## 〇、補記 — 2026-07-17 之十（Beans 紅燈卡直達豆 ✅ 待 push）
 - **老闆加碼**：紅燈卡點擊不只開抽屜、還要直達那支豆。左紅卡帶 `data-brid`（roast uuid）→ `selQC` 預選＝QC 抽屜開起來該批判定直接攤開；中紅卡帶 `data-bkey`（`名字|procKey`，拼配尾巴空，公式照 paintPublishSheet 的 lk）→ `PUB.open` 預設＝Publish 該豆卡直接攤開。

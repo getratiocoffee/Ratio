@@ -31,6 +31,16 @@ header .hspace{flex:1}
 header .brand{font-family:'Fraunces',serif;font-size:21px;font-weight:700}
 header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 /* 晨報喇叭入口已刪（2026-07-17 老闆指示）：updateBell/click 綁定都有 if(!$('hbell')) 防護，留著沒事；晨報照樣每天自動彈 */
+/* 手機橫擺遮罩（2026-07-17 老闆指示）：pointer:coarse 限觸控機、max-height 600 排除 iPad/桌機；
+   manifest 另加 orientation:portrait（Android PWA 真鎖、iOS 不理只能靠這層遮罩） */
+#rot-ov{display:none}
+@media (orientation:landscape) and (pointer:coarse) and (max-height:600px){
+  #rot-ov{display:flex;position:fixed;inset:0;z-index:10000;background:var(--bg);align-items:center;justify-content:center;text-align:center}
+}
+.rot-card{padding:24px}
+.rot-ic{font-size:40px;transform:rotate(90deg);margin-bottom:14px}
+.rot-t{font-family:'Fraunces',serif;font-size:20px;font-weight:700}
+.rot-s{font-size:13px;color:var(--muted);margin-top:6px}
 .wrap{padding:14px 22px 0;max-width:520px;margin:0 auto}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px;transition:transform .25s,opacity .25s;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 /* Today 流卡片 v2（老闆 manager 視角評審）：類別色條＋右上角分類＋小膠囊鈕；.feed 限定不波及商店卡 */
@@ -440,6 +450,7 @@ body.appview nav button{font-size:13px;padding:10px 2px}
 <div class="drawer-bg" id="dbg"></div>
 <div class="drawer" id="drawer"></div>
 <div class="toast" id="toast"></div>
+<div id="rot-ov"><div class="rot-card"><div class="rot-ic">📱</div><div class="rot-t">Please rotate your phone</div><div class="rot-s">Ratio works in portrait only</div></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ===== Ratio 新殼 v1（/new）：真資料版今日流＋QC 工作台＋Tools =====
