@@ -80,6 +80,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-17 之八（豆子編號顯示靜音：只留 ID book ✅ 待 push）
+- **老闆定案**：全 app 顯示豆子時不再帶 S#/B# 編號，只有 ID book 保留。作法＝四個編號函式顯示靜音（`gNo`/`bNoFor`/`rNo`/`bNosForName` 一律回 ''），真編號改名 `gNoRaw`/`bNoRaw`/`rNoRaw`/`bNosForNameRaw`（目前只有 openIdBookSheet 用 gNoRaw；其餘 Raw 版備用）。35+ 處「(編號?編號+'·':'')」條件顯示自動消失，零逐處手改。
+- **搜尋不受影響**：S#/B# 編號搜尋（Tools 搜尋 s13/b13）比對走原始欄位 `green_no`/`blend_no` 不經函式；搜尋結果兩處非條件式拼接（Green/Roast hits 的 t 與 det ID 行）已改掉。ID book 拼配區直接排 `blend_no` 也不經函式。
+- **要恢復顯示**：把四個靜音殼刪掉、Raw 版改回原名即可（一豆一號制度沒廢，只是不上牆）。
+- **驗證**：jscheck ✓；假資料 DOM：Dial in 下拉/Latest、Green stock 皆無編號，ID book S#00003/S#00013/B#00014 完好。
+
 ## 〇、補記 — 2026-07-17 之七（Dial in 抽屜改版：Grind 大格帶步進 ✅ 待 push）
 - **老闆用 demo 選版**（三選一選了「Grind 帶加減鈕」）：Grind setting 獨大置頂（48px 大字、兩側 −/＋ 方鈕 ±0.1、`Math.round((v±0.1)*10)/10` 防浮點尾巴、空值起跳 0）＋下排 Dose/Time/Yield 三格並排大字＋Coffee 下拉移到數字下方。
 - **共用版型函式 `dlgFieldsHTML(prefix,last)`＋`dlgBindSteppers(prefix)`**：卡片版 openDialinForm（prefix 'dl'、豆固定無下拉）與 Tools 版 openDialinSheet（prefix 'dls'）同一款。新 CSS class `.dlg-hero/.dlg-lab/.dlg-row/.dlg-step/.dlg-big/.dlg-grid/.dlg-cell/.dlg-num`（tint 格子語言仿 .ro-sum）。
