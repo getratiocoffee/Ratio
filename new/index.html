@@ -730,39 +730,8 @@ function buildItems(){
     t:'Wholesale applications · '+DB.wsapps.length,
     s:DB.wsapps.map(function(a){return a.business;}).slice(0,3).join(' · ')+(DB.wsapps.length>3?' …':''),
     act:'Review',det:[['Also in','Tools → Wholesale']],roles:['director'],kind:'wsapp'});
-  /* 烘豆需求卡：Confirmed/Roasting 品項同名合併，**先看熟豆貨架只提差額**（老闆的生產線：接單→看熟豆庫存→沒貨才烘）；
-     貨架＝roasts.remaining_kg 同名加總（QC 打槍的 reroast/downgrade 批不算可賣）；全夠貨＝不出卡 */
-  /* 2026-07-15：需求／貨架都認 coffee stock 的批次身份（豆名＋處理法＝B#），同名多處理法分開算——
-     Alo Village White Honey 缺貨不會被 Cold Fermentation 的庫存蓋掉 */
-  var dem={},demOrder=[];
-  packQ.forEach(function(o){(Array.isArray(o.items)?o.items:[]).forEach(function(it){
-    var nm0=String(it.name||'').trim();if(!nm0||isSubName(nm0))return; /* 訂閱行不是豆名，不進烘豆需求 */
-    var g=(Number(it.grams)||0)*(Number(it.qty)||1);if(!g)return;
-    var ref=itemBeanRef(it);
-    var k=ref.name.toLowerCase()+'|'+(ref.isBlend?'blend':procKey(ref.proc));
-    if(!dem[k]){dem[k]={name:ref.name,proc:ref.proc,isBlend:ref.isBlend,g:0};demOrder.push(k);}
-    dem[k].g+=g;});});
-  if(demOrder.length){
-    /* 貨架＝coffee stock 同批次身份的可賣量（rstStockKg 已排除 reroast/downgrade） */
-    var shelfG=function(d){return Math.round(rstStockKg(d.name,d.isBlend,d.isBlend?undefined:d.proc)*1000);};
-    var needs=[],covered=0,detRows=[],totNeed=0;
-    demOrder.forEach(function(k){
-      var d=dem[k],have=shelfG(d),need=Math.max(0,d.g-have);
-      var bn=bNoFor(d.name,d.isBlend?undefined:d.proc);
-      var label=d.name+(d.proc?' · '+d.proc:'')+(bn?' '+bn:'');
-      if(need>0){needs.push({name:d.name,proc:d.proc,isBlend:d.isBlend,g:need});totNeed+=need;detRows.push([label,d.g+'g ordered · '+have+'g on shelf → roast '+need+'g']);}
-      else{covered++;detRows.push([label,d.g+'g ordered · '+have+'g on shelf → covered ✓']);}
-    });
-    if(needs.length){
-      needs.sort(function(a,b){return b.g-a.g;});
-      out.push({id:'roastdem',st:'Roast',hot:1,t:'Roast for orders — ~'+Math.round(totNeed*1.15)+'g green',
-        s:needs.slice(0,3).map(function(n){var bn=bNoFor(n.name,n.isBlend?undefined:n.proc);return esc(n.name)+(bn?' '+bn:'')+' '+n.g+'g';}).join(' · ')+(needs.length>3?' · +'+(needs.length-3)+' more':'')+(covered?' · '+covered+' covered by shelf':''),
-        act:'Log roast…',
-        det:detRows.concat([['Total','roast '+totNeed+'g · ~'+Math.round(totNeed*1.15)+'g green']]),
-        roles:['director','roaster','staff'],kind:'roastlog',
-        ref:needs.map(function(n){return {name:n.name,proc:n.proc,g:n.g};})});
-    }
-  }
+  /* Roast 站三張提醒卡全移除（2026-07-17 老闆指示）：烘豆需求 roastdem、熟豆低血 rstlow、超標 rstover——
+     含 dem/rstLow/rstOver 計算整段；要復活從 git 撈這天之前的版本 */
   /* 訂閱到期聚合卡：active 且 next_ship_date 到了 → 一張卡帶老闆進 run sheet 挑豆批次出貨。
      生成後的訂單（channel subscription）自動流進下面的 pack/ship/paid 卡，這裡不重複列 */
   var subDue=(DB.subs||[]).filter(function(s){return s.status==='active'&&String(s.next_ship_date||'').slice(0,10)<=todayKey();});
@@ -826,33 +795,6 @@ function buildItems(){
       act:'Mark paid',det:[['Order','#'+String(o.order_no||'—').padStart(4,'0')],['Total',money(o.total)],['Age',daysSince(o.created_at)+' days'],['Status',o.payment_status]],
       det2:'Send reminder email',roles:['director'],kind:'paid',ref:o});
   });
-  /* 熟豆血條警訊（聚合一張卡不洗版——豆/配方會很多）：低血=該做了、超標=做太多。
-     拼配看 blends.target/low、單品看 beans.roast_target/roast_low；null/0＝該警訊關 */
-  var rstLow=[],rstOver=[];
-  (DB.blends||[]).forEach(function(b){
-    if(!b.name)return;var s=rstStockKg(b.name,true);
-    if(Number(b.low_stock_kg)>0&&s<=Number(b.low_stock_kg))rstLow.push({name:b.name,kg:s,isBlend:true});
-    else if(Number(b.target_kg)>0&&s>Number(b.target_kg))rstOver.push({name:b.name,kg:s,target:Number(b.target_kg)});
-  });
-  (DB.beans||[]).forEach(function(b){
-    var nm=String(b.name||'').trim();if(!nm)return;
-    var hasTh=Number(b.roast_low_kg)>0||Number(b.roast_target_kg)>0;if(!hasTh)return;
-    var s=rstStockKg(nm,false);
-    if(Number(b.roast_low_kg)>0&&s<=Number(b.roast_low_kg))rstLow.push({name:nm,kg:s,isBlend:false});
-    else if(Number(b.roast_target_kg)>0&&s>Number(b.roast_target_kg))rstOver.push({name:nm,kg:s,target:Number(b.roast_target_kg)});
-  });
-  if(rstLow.length){
-    out.push({id:'rstlow',st:'Roast',hot:0,t:'Roasted stock low · '+rstLow.length,
-      s:rstLow.map(function(x){return esc(x.name)+' '+x.kg+' kg';}).join(' · '),
-      act:'Open stock',det:rstLow.map(function(x){return [x.name,x.kg+' kg left'+(x.isBlend?' · blend':'')];}),
-      det2:'Not today',roles:['director','roaster','staff'],kind:'rstlow',ref:rstLow});
-  }
-  if(rstOver.length){
-    out.push({id:'rstover',st:'Roast',hot:0,t:'Overstocked · '+rstOver.length,
-      s:rstOver.map(function(x){return esc(x.name)+' '+x.kg+' / '+x.target+' kg';}).join(' · '),
-      act:'Got it',det:rstOver.map(function(x){return [x.name,x.kg+' kg vs target '+x.target];}),
-      det2:'Open stock',roles:['director','roaster','staff'],kind:'dismiss',ref:rstOver});
-  }
   DB.tasks.forEach(function(t){
     /* 派工層：assigned_to＝派給誰（null＝共用）；自己的任務 mine 置頂（晨報後第一批）＋紅邊；全隊透明都看得到 */
     var mine=!!(t.assigned_to&&WHO&&t.assigned_to===WHO);
