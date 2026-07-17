@@ -11132,6 +11132,8 @@ function shopSubCardHTML(){
   return '<div id="subcard" style="margin:16px 2px 8px;padding:18px;border:1px solid var(--line);border-radius:16px;background:var(--surface)">'
     +'<div style="font-weight:700;font-size:18px">Subscription</div>'
     +'<div class="s" style="margin-top:2px">a bag of coffee every fortnight · free shipping · we pick the best of the roastery for you</div>'
+    /* Blend 方案形象圖（2026-07-17 老闆給圖）：只掛 blend；single 之後有圖再加一行同款 */
+    +(cur.plan==='blend'?'<img src="/new/sub-blend.jpg" alt="" loading="lazy" style="width:100%;border-radius:12px;margin-top:12px;display:block">':'')
     +'<div class="pm-seg" style="margin-top:12px">'
     +SHOP_SUBS.map(function(s){return '<button data-subplan="'+esc(s.plan)+'"'+(s.plan===cur.plan?' class="on"':'')+'>'+(s.plan==='blend'?'Blend':'Single origin')+'</button>';}).join('')
     +'</div>'
