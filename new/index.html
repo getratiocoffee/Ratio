@@ -2258,7 +2258,7 @@ function dlgFieldsHTML(prefix,last){
   var v=function(x){return x==null?'':esc(String(x));};
   return '<div class="dlg-hero"><div class="dlg-lab">A68 Grind setting</div>'
     +'<div class="dlg-row"><button type="button" class="dlg-step" id="'+prefix+'-gm">−</button>'
-    +'<input class="dlg-big" id="'+prefix+'-g" inputmode="decimal" placeholder="2.4" value="'+(last?v(last.grind):'')+'">'
+    +'<input class="dlg-big" id="'+prefix+'-g" inputmode="numeric" placeholder="24" value="'+(last?v(last.grind):'')+'">'
     +'<button type="button" class="dlg-step" id="'+prefix+'-gp">＋</button></div></div>'
     +'<div class="dlg-grid">'
     +'<div class="dlg-cell"><div class="dlg-lab">Dose g</div><input class="dlg-num" id="'+prefix+'-d" inputmode="decimal" placeholder="20" value="'+(last?v(last.dose):'')+'"></div>'
@@ -2267,11 +2267,11 @@ function dlgFieldsHTML(prefix,last){
     +'</div>';
 }
 function dlgBindSteppers(prefix){
+  /* A68 刻度＝整數（2026-07-17 老闆指正）：步進 ±1、無小數點 */
   var step=function(dir){
     var el=$(prefix+'-g'),n=parseFloat(el.value);
     if(isNaN(n))n=0;
-    n=Math.max(0,Math.round((n+dir*0.1)*10)/10); /* 防浮點尾巴（2.7000000004） */
-    el.value=(n%1===0)?n.toFixed(1):String(n);
+    el.value=String(Math.max(0,Math.round(n+dir)));
   };
   $(prefix+'-gm').addEventListener('click',function(){step(-1);});
   $(prefix+'-gp').addEventListener('click',function(){step(1);});
