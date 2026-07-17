@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#1A1A1A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,wght@0,600;0,700;1,600&family=Comfortaa:wght@700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#FFFFFF;--surface:#FFFFFF;--ink:#1A1A1A;--muted:#8A8A8A;--accent:#C87E8E;--tint:#F6EBEE;--danger:#D8756C;--line:#ECECEC;--line2:#DADADA;--inv:#1A1A1A;--inv-t:#FFFFFF;--green:#84B57C;--roast:#DE9670;--qc:#7FA1CE;--mkt:#AB92CE;--orders:#DD8CA4;--cust:#63AFAA;--fin:#CDAC66;--day:#9299AE;--team:#8B90CC;--set:#9BA0B0;--ws:#6E8FB8;--print:#8290A4}
 @media(prefers-color-scheme:dark){:root:not(.light){--bg:#1C1C1C;--surface:#1C1C1C;--ink:#F2F0EB;--muted:#8F8D87;--accent:#D69AA6;--tint:#33272A;--danger:#DE8579;--line:#333333;--line2:#4A4A4A;--inv:#F2F0EB;--inv-t:#1C1C1C;--green:#92C489;--roast:#E2A57F;--qc:#93ABD4;--mkt:#B7A2D8;--orders:#DE9CB1;--cust:#72BEB8;--fin:#D8B679;--day:#A6AEC8;--team:#9CA1D6;--set:#AAB0C8;--ws:#8CA9D2;--print:#A2AEC4}}
@@ -28,7 +28,7 @@ header .hspace{flex:1}
 /* header logo 改文字（2026-07-17 老闆指示）：Ratio. 品牌字＋tagline 兩行置中；.bglogo 浮水印不動 */
 .brandtag{display:block;font-size:14px;font-weight:400;color:var(--muted);letter-spacing:.02em;margin-top:2px}
 .sbar{position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#1A1A1A;z-index:100;pointer-events:none}
-header .brand{font-family:'Fraunces',serif;font-size:28px;font-weight:700;text-align:center;line-height:1.1;padding:14px 0}
+header .brand{font-family:'Comfortaa',sans-serif;font-size:28px;font-weight:700;text-align:center;line-height:1.1;padding:14px 0} /* 2026-07-17 老闆選 Comfortaa（圓滑）；只換 header，其他 Fraunces 不動 */
 header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 /* 晨報喇叭入口已刪（2026-07-17 老闆指示）：updateBell/click 綁定都有 if(!$('hbell')) 防護，留著沒事；晨報照樣每天自動彈 */
 /* 手機橫擺遮罩（2026-07-17 老闆指示）：pointer:coarse 限觸控機、max-height 600 排除 iPad/桌機；
