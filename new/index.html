@@ -713,7 +713,7 @@ function buildItems(){
   var payQ=DB.orders.filter(function(o){return (o.status||'New')!=='New'&&(o.payment_status==='pending_payment'||o.payment_status==='overdue');});
   /* 濃縮 dial-in 過期提醒卡已整段移除（2026-07-17 老闆指示；stale 計算＋Recipe 卡都刪）——
      手動記 dial-in 走 Tools→Dial in；要復活從 git 撈這天之前的版本 */
-  var low=DB.beans.filter(function(b){var t=(b.low_stock_kg==null?GREEN_LOW_KG:Number(b.low_stock_kg));return b.quantity!=null&&t>0&&Number(b.quantity)<=t;});
+  /* 生豆低量提醒卡已移除（2026-07-17 老闆指示；low 計算＋Green 卡都刪）——低量紅字仍在 Tools→Green stock 血條列表 */
   /* 晨報卡退役（2026-07）：改為每日自動彈出的 briefing 抽屜（openBriefSheet）——班表摘要收進 BRIEF 全域；
      統計數字不再重複播報（分組組頭已有計數） */
   var shifts=todayShifts();
@@ -825,12 +825,6 @@ function buildItems(){
       s:'#'+String(o.order_no||'—').padStart(4,'0')+' · '+(od?'<span class=red>'+daysSince(o.created_at)+'d overdue</span>':daysSince(o.created_at)+'d waiting'),
       act:'Mark paid',det:[['Order','#'+String(o.order_no||'—').padStart(4,'0')],['Total',money(o.total)],['Age',daysSince(o.created_at)+' days'],['Status',o.payment_status]],
       det2:'Send reminder email',roles:['director'],kind:'paid',ref:o});
-  });
-  low.forEach(function(b){
-    out.push({id:'low:'+b.id,st:'Green',hot:0,t:'Low · '+esc(b.name),
-      s:(gNo(b)?gNo(b)+' · ':'')+(b.process?esc(b.process)+' · ':'')+(Number(b.quantity)||0)+' kg left',
-      act:'Got it',det:[['Stock',(Number(b.quantity)||0)+' kg'],['Rotation','sold out = cup a new sample (Tools → Sample analyse)']],
-      roles:['director','roaster'],kind:'dismiss',ref:b});
   });
   /* 熟豆血條警訊（聚合一張卡不洗版——豆/配方會很多）：低血=該做了、超標=做太多。
      拼配看 blends.target/low、單品看 beans.roast_target/roast_low；null/0＝該警訊關 */

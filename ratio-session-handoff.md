@@ -84,6 +84,7 @@
 - **老闆指示**：dashboard（Today）的 Dial in 告知卡移除。刪兩段：①buildItems 的 stale 計算（latest/DB.dialins 掃描＋ESP_STALE_DAYS 判過期）②stale.forEach 的 Recipe 卡 push（id 'di:'、kind 'dialin'）。grep 確認 stale 零殘留（只剩註解字樣）。
 - **殘留死碼（無害留置）**：runAction 的 kind==='dialin' 分派＋卡片版 `openDialinForm` 沒了呼叫端——dlgFieldsHTML/dlgBindSteppers 仍被 Tools 版共用不能動；下輪大掃除再收。**Tools→Dial in 磁貼照常**（手動記 dial-in 唯一入口）。
 - **驗證**：jscheck ✓；假資料（2 synced 商品＋0 dialins，舊版必長 2 卡）→ dial 卡 0、其他卡照常 ✓。
+- **同日追加（green stock 通知也刪）**：buildItems 的 `var low=DB.beans.filter(低量門檻)` 計算＋`low.forEach` 的 Green 站「Low · 豆名」卡 push 兩段整刪（grep low.forEach/'low:' 歸零）。**低量資訊仍在**：Tools→Green stock 血條列表紅條＋· low 紅字、晨報。驗證：低量豆假資料（2kg≤門檻5，舊版必長卡）→ Low 卡 0 ✓。
 
 ## 〇、補記 — 2026-07-17 之十三（🐛 批發帳號看不到菜單——Read-only 護欄誤傷，已修待 push）
 - **老闆回報**：getratiocoffee@gmail.com（wholesale）登入後看不到 inventory/price。查證：帳號 role 正常、edge v4 正常（director 呼 menu 14 支）、edge log **完全沒有** wholesale 帳號的呼叫紀錄＝前端根本沒發出請求。Chrome 模擬 wholesale 視角重現：菜單空＋跳「Read-only — ask a manager」toast。
