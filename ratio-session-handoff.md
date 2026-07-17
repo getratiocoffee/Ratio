@@ -85,6 +85,7 @@
 - **收掉的**：Tasting note 欄（insert 不再帶 note，DB 欄位還在恆存 null）、Latest per coffee、Recent、Apply to brew guide（`applyDialinBrew` 整段刪除——要復活 `git show 35d3214^` 之前版本）。
 - **沒動**：今日流卡片版 openDialinForm（單品 stale 卡照舊可調）、dialins 表、dlMeta/dlRatio（Recipe 抽屜近 12 筆 dial-in 顯示還在用）。
 - **驗證**：jscheck ✓；假資料 DOM：下拉只剩拼配、四區消失、選豆帶上次數字、儲存後重開保持選豆。
+- **三改（同日追加）**：Tools 版 title「Dial in」＋description 也拿掉（開抽屜直接 Grind 大格）；Grind 格再放大——字級 `clamp(44px,15vw,64px)`（64px 定值在窄屏會被 −/＋ 鈕裁字，clamp 後 375px 屏約 48px 不裁）、步進鈕 52→60px、hero padding 加大。卡片版 openDialinForm 標題（帶豆名）保留。
 
 ## 〇、補記 — 2026-07-17 之八（豆子編號顯示靜音：只留 ID book ✅ 待 push）
 - **老闆定案**：全 app 顯示豆子時不再帶 S#/B# 編號，只有 ID book 保留。作法＝四個編號函式顯示靜音（`gNo`/`bNoFor`/`rNo`/`bNosForName` 一律回 ''），真編號改名 `gNoRaw`/`bNoRaw`/`rNoRaw`/`bNosForNameRaw`（目前只有 openIdBookSheet 用 gNoRaw；其餘 Raw 版備用）。35+ 處「(編號?編號+'·':'')」條件顯示自動消失，零逐處手改。
