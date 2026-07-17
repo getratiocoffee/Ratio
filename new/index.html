@@ -25,10 +25,10 @@ body.appview{min-height:calc(100vh + 1px);min-height:calc(100lvh + 1px)}
 header{background:var(--bg);color:var(--ink);border-bottom:1.5px solid var(--ink);padding:calc(env(safe-area-inset-top,0px) + 10px) 18px 8px;display:flex;align-items:center;position:sticky;top:0;z-index:10}
 /* logo 置中：左右兩欄各 flex:1 平分，中間 logo 恆在正中（右邊不管是購物車或員工狀態字都不影響） */
 header .hspace{flex:1}
-/* logo mask 上色（跟 .bglogo 同招），夜版自動跟 --ink 變色 */
-.brandlogo{width:61px;height:61px;display:block;background:var(--ink);-webkit-mask:url(/logo.png) no-repeat center/contain;mask:url(/logo.png) no-repeat center/contain}
+/* header logo 改文字（2026-07-17 老闆指示）：Ratio. 品牌字＋tagline 兩行置中；.bglogo 浮水印不動 */
+.brandtag{display:block;font-size:11px;font-weight:400;color:var(--muted);letter-spacing:.02em;margin-top:1px}
 .sbar{position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#1A1A1A;z-index:100;pointer-events:none}
-header .brand{font-family:'Fraunces',serif;font-size:21px;font-weight:700}
+header .brand{font-family:'Fraunces',serif;font-size:21px;font-weight:700;text-align:center;line-height:1.1;padding:10px 0}
 header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 /* 晨報喇叭入口已刪（2026-07-17 老闆指示）：updateBell/click 綁定都有 if(!$('hbell')) 防護，留著沒事；晨報照樣每天自動彈 */
 /* 手機橫擺遮罩（2026-07-17 老闆指示）：pointer:coarse 限觸控機、max-height 600 排除 iPad/桌機；
@@ -436,7 +436,7 @@ body.appview nav button{font-size:13px;padding:10px 2px}
 </style></head><body class="appview">
 <div class="bglogo"></div>
 <div class="sbar"></div>
-<header><span class="hspace"></span><span class="brand" id="hbrand"><span class="brandlogo" role="img" aria-label="Ratio"></span></span><span class="cnt" id="hcnt">loading…</span></header>
+<header><span class="hspace"></span><span class="brand" id="hbrand">Ratio.<span class="brandtag">Coffee is all we do.</span></span><span class="cnt" id="hcnt">loading…</span></header>
 <div class="wrap" id="main"><div class="empty">Loading your day…</div></div>
 <div class="deck" id="deck" style="display:none"></div>
 <nav>
