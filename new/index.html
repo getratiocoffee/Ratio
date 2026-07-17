@@ -10374,10 +10374,10 @@ async function recipeSave(){
    批發價一律 server 端（wholesale edge）用零售價 ×(1−pct/100) 現算，前端只是顯示 */
 async function openWholesaleSheet(){
   openDrawerHTML('<div class="t" style="font-size:19px">Wholesale</div><div class="s" style="margin-top:6px">loading…</div>');
-  var pct=0,bank=null,profs=[],apps=[];
+  var pct=0,bank=null,profs=[],apps=[],wsOv={};
   try{
     var r=await sb.from('app_state').select('key,value').in('key',['ws_discount','bank_details']);
-    (r.data||[]).forEach(function(x){if(x.key==='ws_discount')pct=Number((x.value||{}).pct)||0;if(x.key==='bank_details')bank=x.value||null;});
+    (r.data||[]).forEach(function(x){if(x.key==='ws_discount'){pct=Number((x.value||{}).pct)||0;wsOv=(x.value||{}).overrides||{};}if(x.key==='bank_details')bank=x.value||null;});
     var p=await sb.from('profiles').select('id,name,role').in('role',['customer','wholesale']).order('name');
     if(!p.error)profs=p.data||[];
     var aq=await sb.from('wholesale_applications').select('*').eq('status','new').order('created_at',{ascending:true});
@@ -10400,6 +10400,18 @@ async function openWholesaleSheet(){
           +'</div></div>';
       }).join(''):'')
     +'<div class="dlab">Discount off retail (%)</div><input class="din" id="ws-pct" inputmode="decimal" value="'+esc(pct?String(pct):'')+'" placeholder="e.g. 20">'
+    /* 方案 B（2026-07-17 老闆拍板）：個別豆例外 %——空白＝用上面預設；上架商品名單來自 product_sync（濾訂閱） */
+    +(function(){
+      var seen={},names=[];
+      (DB.syncs||[]).forEach(function(x){var n=String(x.bean_id||'').trim();if(!n||isSubName(n)||seen[n.toLowerCase()])return;seen[n.toLowerCase()]=1;names.push(n);});
+      names.sort(function(a,b){return a.localeCompare(b);});
+      if(!names.length)return '';
+      return '<div class="dlab" style="margin-top:14px">Per-coffee override (%) — blank = default</div>'
+        +names.map(function(n){
+          var k=n.toLowerCase(),v=wsOv[k];
+          return '<div class="dl"><span>'+esc(n)+'</span><input class="din" style="width:76px;flex:0 0 auto;margin-bottom:0;text-align:right" inputmode="decimal" data-wsov="'+esc(k)+'" value="'+(v!=null?esc(String(v)):'')+'" placeholder="'+esc(String(pct||0))+'"></div>';
+        }).join('');
+    })()
     +'<button class="act" id="ws-save">Save discount</button>'
     +'<div class="dlab" style="margin-top:16px">Terms shown to buyers</div>'
     +'<div class="dl"><span>Minimum order</span><span>$150 — free delivery</span></div>'
@@ -10430,9 +10442,18 @@ async function openWholesaleSheet(){
     var v=parseFloat($('ws-pct').value);
     if(!(v>=0&&v<=90)){toast('Enter 0 to 90');return;}
     v=Math.round(v*10)/10;
+    /* 個別豆例外一起收：空白＝不存（用預設）；超界擋下整筆不存 */
+    var ov={},bad='';
+    document.querySelectorAll('#drawer [data-wsov]').forEach(function(inp){
+      var t=String(inp.value||'').trim();if(!t)return;
+      var n=parseFloat(t);
+      if(!(n>=0&&n<=90)){bad=inp.dataset.wsov;return;}
+      ov[inp.dataset.wsov]=Math.round(n*10)/10;
+    });
+    if(bad){toast('Override for '+bad+' — enter 0 to 90');return;}
     var btn=this;btn.disabled=true;btn.textContent='Saving…';
     try{
-      var u=await sb.from('app_state').upsert({key:'ws_discount',value:{pct:v},updated_at:new Date().toISOString()},{onConflict:'key'});
+      var u=await sb.from('app_state').upsert({key:'ws_discount',value:{pct:v,overrides:ov},updated_at:new Date().toISOString()},{onConflict:'key'});
       if(u.error)throw new Error(u.error.message);
       toast('Wholesale discount '+v+'% ✓');btn.disabled=false;btn.textContent='Save discount';
     }catch(e){btn.disabled=false;btn.textContent='Save discount';alert('Save failed: '+(e&&e.message||e));}

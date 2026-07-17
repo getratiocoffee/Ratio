@@ -80,6 +80,14 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-17 之十二（批發個別豆折扣 方案 B ✅ edge 已上線、前端待 push）
+- **老闆拍板方案 B**：全店預設 % 照舊＋個別豆例外 %（空白＝用預設）。不同客戶不同折扣暫不做（老闆沒點頭）。
+- **資料**：app_state `ws_discount` value 擴充 `{pct, overrides:{"<豆名小寫>":pct}}`——key＝豆名 trim+lowercase（同 edge flav map 慣例）。沒 overrides key＝行為完全同舊版。
+- **wholesale edge v4 已 deploy（version 6）**：pct 讀取後解析 overrides（0-90 界內才收）＋`pctFor(bean)`＝override ?? 預設；menu 每豆（sizes+主價）與 checkout 每行重算都套 pctFor；beans[] 新帶 `discount_pct`＝該豆實際用的 %。歡迎彈窗的全域 % 字樣沒動（override 豆的實價在豆卡上是對的）。
+- **前端（new/index.html Wholesale 抽屜）**：①讀 ws_discount 連 overrides ②Discount 格下加「Per-coffee override (%) — blank = default」列表（名單＝DB.syncs bean_id 去重＋濾 isSubName＋字母排序；每豆右側小 input，placeholder＝預設 %）③ws-save 收集：空白不存、超界（>90/負）toast 點名擋下整筆不存、value 存 {pct, overrides}。
+- **驗證**：jscheck ✓；本機 stub——列表去重/濾訂閱/帶既有值 ✓、超界 99.5 擋下零寫入 ✓、存檔 payload {pct:20,overrides:{dancer:15,'dark knight':10}} 合併正確 ✓；**線上 edge v4 迴歸**（Chrome director 登入態呼 menu）：14 豆、現行 50% 照算、每豆帶 discount_pct ✓＝零破壞。
+- **等老闆**：push 部署後在 Tools→Wholesale 給某支豆設個 override → 我再用 Chrome 呼 menu 驗證該豆 % 生效（其他豆仍預設）。⚠ 改折扣後批發客戶下一單就用新價（menu 5 分內可能有前端快取殘影，checkout 一律即時重算）。
+
 ## 〇、補記 — 2026-07-17 之十一（批發申請 portal 第一輪 ✅ 待 push）
 - **老闆要的**：申請帳號的 portal（拍板選項 1＝批發客戶申請）。第一輪＝收申請的能力；**第二輪（未做）**＝Approve 一鍵開帳號＋寄設密碼邀請信（要動 edge＋app 加 PASSWORD_RECOVERY 處理——現在 app 完全沒有 recovery 流程，搜過 onAuthStateChange=0 處）。
 - **DB**：新表 `wholesale_applications`（migration 同名；business/contact/email/phone/address/note/status new|approved|dismissed/created_at）。RLS 照 feedback 信任模型：anon+authenticated 只准 insert（欄位長度上限＋status 鎖死 'new'）、is_staff() 讀改刪。滲透測試過：anon 投遞 ✓、anon 讀回 0 ✓、anon 自標 approved 被拒 ✓。
