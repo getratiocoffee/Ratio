@@ -89,7 +89,7 @@
 - ⚠ 本機 serve 複本瀏覽器有殘留 test@test.local session，boot 會走客戶門戶——測店面要手動呼叫 renderPublicMenu()。
 - **buildItems 備忘**：結果存全域 `ITEMS` 不回傳（呼叫慣例 `buildItems();render();`）。
 - **同日追加**：header 喇叭（#hbell 晨報重開鈕＋#hbdot 紅點）整顆刪除（老闆指示）。JS 的 updateBell/click 綁定原本就有 if(!el) 防護故只刪 HTML＋CSS；晨報每日自動彈不受影響，只是沒了手動重開入口（要復活從 git 撈這顆 button＋CSS 三行）。
-- **同日追加③（訂閱卡兩方案形象圖）**：老闆給圖 ×2 → `new/sub-blend.jpg`（咖啡店插畫；原檔 ~/Downloads/ratio-cafe-960x960.jpg 1.5M，sips 品質 65 壓 390K）＋`new/sub-single.jpg`（手沖黑白照；ratio-pourover-960x960.jpg 269K 壓 93K）；shopSubCardHTML 說明文字後按 `cur.plan` 切圖（width:100% 圓角 12、lazy）。驗證：blend→sub-blend.jpg、single→sub-single.jpg 切換正確＋排版截圖 ✓。
+- **同日追加③（訂閱卡兩方案形象圖）**：老闆給圖 ×2 → `new/sub-blend.jpg`（咖啡店插畫；原檔 ~/Downloads/ratio-cafe-960x960.jpg 1.5M，sips 品質 65 壓 390K）＋`new/sub-single.jpg`（手沖黑白照；ratio-pourover-960x960.jpg 269K 壓 93K）；shopSubCardHTML 按 `cur.plan` 切圖（width:100% 圓角 12、lazy）。**卡片排序老闆定版**：圖置頂 → pm-seg 方案切換 → Subscription title＋description → 價格行 → Add to cart。驗證：blend/single 圖切換正確、DOM 順序 img→seg→title→desc→dl→act ✓＋排版截圖 ✓。
 - **同日追加②（手機禁橫擺）**：①manifest.webmanifest 加 `"orientation":"portrait"`（Android 安裝版 PWA 真鎖；**iOS 不理這個設定**）②`#rot-ov` 全屏遮罩「Please rotate your phone」——media query `(orientation:landscape) and (pointer:coarse) and (max-height:600px)`：pointer:coarse 限觸控機（桌機橫視窗不誤傷）、max-height 600 排除 iPad 橫擺。驗證：桌機隱藏 ✓、模擬橫擺（注入去 pointer 條件的同款 query）遮罩全屏＋排版乾淨 ✓、轉回直向消失 ✓。⚠ 真 iPhone 橫擺實測等老闆部署後轉一下手機。
 
 ## 〇、補記 — 2026-07-17 之十（Beans 紅燈卡直達豆 ✅ 待 push）
