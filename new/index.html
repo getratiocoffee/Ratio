@@ -219,11 +219,11 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .din{width:100%;border:1.5px solid var(--line2);border-radius:14px;padding:14px 15px;font-size:17px;font-family:inherit;background:var(--surface);color:var(--ink);outline:none;margin-top:8px;transition:border-color .15s,box-shadow .15s}
 .din:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
 /* Dial in 2026-07-17 改版：Grind 大格帶 −/＋ 步進（±0.1 免鍵盤）＋ Dose/Time/Yield 三格並排大字（吧台一眼看全）；tint 格子語言與 .ro-sum 同款 */
-.dlg-hero{background:var(--tint);border-radius:14px;padding:12px 10px 10px;margin-top:8px}
+.dlg-hero{background:var(--tint);border-radius:14px;padding:18px 12px 16px;margin-top:8px}
 .dlg-lab{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;text-align:center}
 .dlg-row{display:flex;align-items:center;gap:8px;margin-top:2px}
-.dlg-step{flex:0 0 auto;width:52px;height:52px;border:1.5px solid var(--line2);background:var(--surface);color:var(--ink);border-radius:12px;font-size:24px;font-weight:700;font-family:inherit;cursor:pointer;line-height:1}
-.dlg-big{flex:1;min-width:0;border:none;background:none;font-size:48px;font-weight:800;font-family:inherit;color:var(--ink);text-align:center;outline:none;font-variant-numeric:tabular-nums;padding:0}
+.dlg-step{flex:0 0 auto;width:60px;height:60px;border:1.5px solid var(--line2);background:var(--surface);color:var(--ink);border-radius:14px;font-size:28px;font-weight:700;font-family:inherit;cursor:pointer;line-height:1}
+.dlg-big{flex:1;min-width:0;border:none;background:none;font-size:clamp(44px,15vw,64px);font-weight:800;font-family:inherit;color:var(--ink);text-align:center;outline:none;font-variant-numeric:tabular-nums;padding:0}
 .dlg-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
 .dlg-cell{background:var(--tint);border-radius:12px;padding:9px 4px;text-align:center}
 .dlg-num{width:100%;border:none;background:none;font-size:24px;font-weight:800;font-family:inherit;color:var(--ink);text-align:center;outline:none;font-variant-numeric:tabular-nums;padding:2px 0}
@@ -2323,9 +2323,8 @@ function openDialinSheet(){
   var opts=[];
   (DB.blends||[]).forEach(function(b){var n=(b.name||'').trim();if(!n)return;opts.push({id:String(b.id),name:n,proc:'',isBlend:true,lab:n});});
   opts.sort(function(a,b){return a.name.localeCompare(b.name);});
-  openDrawerHTML('<div class="t" style="font-size:19px">Dial in</div>'
-    +'<div class="s" style="margin-top:2px">log espresso shots — pick a blend below and the last numbers load</div>'
-    +dlgFieldsHTML('dls',null)
+  /* 2026-07-17 老闆再簡：title/description 都不要——開抽屜直接是 Grind 大格 */
+  openDrawerHTML(dlgFieldsHTML('dls',null)
     +'<div class="dlab">Coffee</div>'
     +'<select class="din" id="dls-coffee" style="padding:12px"><option value="">— pick a blend —</option>'
     +opts.map(function(o){return '<option value="'+esc(o.id)+'"'+(DLS.targetId===o.id?' selected':'')+'>'+esc(o.lab)+'</option>';}).join('')+'</select>'
