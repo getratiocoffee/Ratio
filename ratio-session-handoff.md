@@ -80,6 +80,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-17 之九（Dial in 二次簡化：只剩四格＋拼配下拉 ✅ 待 push）
+- **老闆指示**：Tools 版 Dial in 抽屜 tasting note 以後全收掉＋下拉只列拼配。現貌＝Grind 大格（−/＋）＋Dose/Time/Yield＋Coffee 下拉（`DB.blends` only）＋last 摘要＋Log dial-in。
+- **收掉的**：Tasting note 欄（insert 不再帶 note，DB 欄位還在恆存 null）、Latest per coffee、Recent、Apply to brew guide（`applyDialinBrew` 整段刪除——要復活 `git show 35d3214^` 之前版本）。
+- **沒動**：今日流卡片版 openDialinForm（單品 stale 卡照舊可調）、dialins 表、dlMeta/dlRatio（Recipe 抽屜近 12 筆 dial-in 顯示還在用）。
+- **驗證**：jscheck ✓；假資料 DOM：下拉只剩拼配、四區消失、選豆帶上次數字、儲存後重開保持選豆。
+
 ## 〇、補記 — 2026-07-17 之八（豆子編號顯示靜音：只留 ID book ✅ 待 push）
 - **老闆定案**：全 app 顯示豆子時不再帶 S#/B# 編號，只有 ID book 保留。作法＝四個編號函式顯示靜音（`gNo`/`bNoFor`/`rNo`/`bNosForName` 一律回 ''），真編號改名 `gNoRaw`/`bNoRaw`/`rNoRaw`/`bNosForNameRaw`（目前只有 openIdBookSheet 用 gNoRaw；其餘 Raw 版備用）。35+ 處「(編號?編號+'·':'')」條件顯示自動消失，零逐處手改。
 - **搜尋不受影響**：S#/B# 編號搜尋（Tools 搜尋 s13/b13）比對走原始欄位 `green_no`/`blend_no` 不經函式；搜尋結果兩處非條件式拼接（Green/Roast hits 的 t 與 det ID 行）已改掉。ID book 拼配區直接排 `blend_no` 也不經函式。
