@@ -5014,8 +5014,11 @@ function openTransferSheet(){
       +(ed?'<button class="chip" data-trx="'+i+'" style="margin:0;padding:2px 10px;color:var(--muted)" aria-label="return">✕</button>'
         +'<button class="chip" data-trf="'+i+'" style="margin:0;padding:2px 10px;color:var(--muted)" aria-label="fix kg">✎</button>':'')+'</span></div>';
   }).join('');
-  if(ed)h+='<button class="dclose" id="trf-add">+ Add coffee to the pool</button>';
-  if(pool.length&&rsMoney())h+='<button class="act" id="trf-settle" style="margin-top:10px">Settle & invoice…</button>';
+  /* Add 與 Settle 並排一排（2026-07-18 老闆點名）；只有一顆時自己撐滿 */
+  var tb='';
+  if(ed)tb+='<button class="dclose" id="trf-add" style="flex:1;margin-top:0;white-space:nowrap;border-radius:16px">+ Add</button>';
+  if(pool.length&&rsMoney())tb+='<button class="act" id="trf-settle" style="flex:1.8;margin-top:0;white-space:nowrap">Settle & invoice…</button>';
+  if(tb)h+='<div style="display:flex;gap:8px;align-items:stretch;margin-top:12px">'+tb+'</div>';
   h+='<div class="dlab">Past settlements</div><div id="trf-hist"><div class="s" style="color:var(--muted)">Loading…</div></div>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
   openDrawerHTML(h);
@@ -5116,8 +5119,12 @@ function openTransferRemove(t){
   if(!t||!t.id)return;
   openDrawerHTML('<div class="t" style="font-size:19px">'+esc(t.name)+(t.process?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(t.process)+'</span>':'')+'</div>'
     +'<div class="s" style="margin-top:2px">'+t.kg+' kg · '+(t.roast_date?fmtD(t.roast_date):'no date')+' batch — what happened to it?</div>'
-    +'<button class="act" id="trm-ret" style="margin-top:14px">Return — back to Coffee Stock</button>'
-    +'<button class="dclose" id="trm-used">Used — remove without returning</button>'
+    /* Return 與 Used 並排一排（2026-07-18 老闆點名）；Cancel 留下方 */
+    +'<div style="display:flex;gap:8px;align-items:stretch;margin-top:14px">'
+    +'<button class="act" id="trm-ret" style="flex:1.3;margin-top:0;white-space:nowrap">Return to stock</button>'
+    +'<button class="dclose" id="trm-used" style="flex:1;margin-top:0;white-space:nowrap;border-radius:16px">Used</button>'
+    +'</div>'
+    +'<div class="s" style="margin-top:6px;color:var(--muted)">Return puts the beans back · Used removes the line without returning</div>'
     +'<button class="dclose" id="trm-cancel" style="border:none;background:none;color:var(--muted)">Cancel</button>');
   $('trm-ret').addEventListener('click',function(){transferReturn(t);});
   $('trm-used').addEventListener('click',function(){transferUsed(t);});
