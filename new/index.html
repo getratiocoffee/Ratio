@@ -10704,7 +10704,7 @@ function blUid(){try{return crypto.randomUUID();}catch(e){return null;}}
 function blankBlend(name){return {id:blUid(),name:name||'',hname:name||'',parts:[{bean:'',process:'',pct:''},{bean:'',process:'',pct:''},{bean:'',process:'',pct:''}],note:'',comment:'',brew:null};}
 function blDupNames(defs){var cnt={},dups={};(defs||[]).forEach(function(b){var k=String(b&&b.name||'').trim().toLowerCase();if(!k)return;cnt[k]=(cnt[k]||0)+1;if(cnt[k]>1)dups[k]=true;});return dups;}
 async function openRecipeSheet(){
-  openDrawerHTML('<div class="t" style="font-size:19px">Recipe</div><div class="empty" style="margin-top:16px">Loading…</div>');
+  openDrawerHTML('<div class="t" style="font-size:19px">Blend Recipe</div><div class="empty" style="margin-top:16px">Loading…</div>');
   var blends=[];
   try{var bq=await sb.from('blends').select('*').order('pos',{ascending:true});blends=(bq.data||[]).filter(function(b){return b&&(b.name||b.id);});}catch(e){}
   RCP.defs=blends.map(function(b){return {id:b.id,name:b.name||'',hname:(b.hname!=null?b.hname:(b.name||'')),parts:(Array.isArray(b.parts)&&b.parts.length)?b.parts:[{bean:'',process:'',pct:''},{bean:'',process:'',pct:''},{bean:'',process:'',pct:''}],note:b.note||'',comment:b.comment||'',brew:(b.brew&&typeof b.brew==='object')?b.brew:null};});
@@ -10742,10 +10742,10 @@ function paintRecipe(){
         body='<div style="margin-top:8px">'+rows
           +'<input class="din" data-bnote="'+bi+'" value="'+esc(bl.note||'')+'" placeholder="Note" style="margin-top:8px">'
           +'<input class="din" data-bcmt="'+bi+'" value="'+esc(bl.comment||'')+'" placeholder="Special comment · e.g. V3.0 Competition Blend" style="margin-top:6px">'
+          /* Cost/KG 與 Total 字放大（2026-07-18 老闆點名）；Blend this 鈕已移除（同日點名，去 Log roast 選配方即可） */
           +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px">'
-          +'<span class="s" style="color:var(--muted)" data-bcost="'+bi+'">'+blCostHTML(bl)+'</span>'
-          +'<span class="s" data-btot="'+bi+'" style="color:'+(totOk?'var(--muted)':'var(--accent)')+'">Total <b>'+tot+'%</b>'+(totOk?'':' · should be 100%')+'</span></div>'
-          +'<button class="chip" data-bgo="'+bi+'" style="margin-top:8px">Blend this →</button></div>';
+          +'<span style="font-size:14.5px;color:var(--muted)" data-bcost="'+bi+'">'+blCostHTML(bl)+'</span>'
+          +'<span data-btot="'+bi+'" style="font-size:14.5px;color:'+(totOk?'var(--muted)':'var(--accent)')+'">Total <b>'+tot+'%</b>'+(totOk?'':' · should be 100%')+'</span></div></div>';
       }
       return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-top:8px">'+head+body+'</div>';
     }).join('');
@@ -10757,7 +10757,7 @@ function paintRecipe(){
   var addSave=ed
     ?'<div style="display:flex;gap:8px;margin-top:12px"><button class="chip" id="rcp-add" style="flex:1">+ New blend</button><button class="act" id="rcp-save" style="flex:1;margin:0">Save recipe</button></div><div class="s" id="rcp-saved" style="text-align:center;margin-top:6px;opacity:0;transition:opacity .2s">✓ Saved</div>'
     :'';
-  openDrawerHTML('<div class="t" style="font-size:19px">Recipe</div>'
+  openDrawerHTML('<div class="t" style="font-size:19px">Blend Recipe</div>'
     +'<div class="s" style="margin-top:2px">'+(ed?'blend recipes — pick single origins and set % to 100':'blend recipes and recent dial-ins — read-only')+'</div>'
     +'<div class="dlab">Blends</div>'+blendHTML
     +addSave
@@ -10770,7 +10770,6 @@ function paintRecipe(){
   document.querySelectorAll('[data-bn]').forEach(function(inp){inp.addEventListener('input',function(){RCP.defs[+inp.dataset.bn].name=inp.value;});});
   document.querySelectorAll('[data-bnote]').forEach(function(inp){inp.addEventListener('input',function(){RCP.defs[+inp.dataset.bnote].note=inp.value;});});
   document.querySelectorAll('[data-bcmt]').forEach(function(inp){inp.addEventListener('input',function(){RCP.defs[+inp.dataset.bcmt].comment=inp.value;});});
-  document.querySelectorAll('[data-bgo]').forEach(function(b){b.addEventListener('click',function(){var nm=(RCP.defs[+b.dataset.bgo]||{}).name;if(nm)openRoastPreset('blend',nm);});});
   document.querySelectorAll('[data-bs]').forEach(function(s){s.addEventListener('change',function(){var parsed=String(s.value||'').split(BL_SEP);var pt=RCP.defs[+s.dataset.bs].parts[+s.dataset.pi];pt.bean=parsed[0]||'';pt.process=parsed[1]||'';
     /* 選定成分＝存 bean_id（認 ID 不認名字）：下拉每項對一支 beans，name+process 唯一命中 */
     var _b=(DB.beans||[]).find(function(b){return String(b.name||'').trim().toLowerCase()===pt.bean.toLowerCase()&&procKey(b.process)===procKey(pt.process);});
