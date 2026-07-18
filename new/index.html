@@ -9795,22 +9795,26 @@ function buildInvoicePDF(logo,invNo){
    未收全累加（pending_payment/overdue，只讀持久化的 overdue 標記——轉換仍在 Orders 流程）、
    生豆庫存價值 Σ(quantity×cost_per_kg)（q>0 且有價；未定價另計提示）、本月買豆（ordered_at||created_at）。
    orders/beans 用記憶體（loadAll 已排除 Cancelled）；purchases 當場查。錢的 gate＝rsMoney（磁貼區已 gate，這裡再擋一次保險）。 */
-/* ===== Bills（2026-07-19 老闆點名）：Gmail 排程（gmail-invoice-alert）掃出的待繳帳單清單——
-   資料＝messages 表 💸 開頭的通知；✓ Paid＝刪該筆通知（清單移除、鈴鐺同步消失）。 */
+/* ===== Bills（2026-07-19 老闆點名）：Gmail 排程（gmail-invoice-alert）掃出的待繳帳單——
+   ✓ Paid＝標 paid:true 搬進歷史（不刪、老闆點名要留紀錄）；右上 🕘＝已繳歷史，那裡才能真刪。 */
 async function openBillsSheet(){
   if(!rsMoney()){roToast();return;}
   openDrawerHTML('<div class="t" style="font-size:19px">Bills</div><div class="empty">Loading…</div>');
-  var q=await sb.from('messages').select('id,title,preview,created_at,link').like('title','💸%').order('created_at',{ascending:false}).limit(50);
-  var rows=q.data||[];
+  var q=await sb.from('messages').select('id,title,preview,created_at,link,paid').like('title','💸%').order('created_at',{ascending:false}).limit(100);
+  var all=q.data||[];
+  var rows=all.filter(function(m){return !m.paid;});
+  var hist=all.filter(function(m){return m.paid;});
+  function billTitle(m){return esc(String(m.title||'').replace(/^💸\s*/,''));}
   function paint(){
-    openDrawerHTML('<div class="t" style="font-size:19px">Bills</div>'
+    openDrawerHTML('<div style="display:flex;justify-content:space-between;align-items:center"><span class="t" style="font-size:19px">Bills</span>'
+      +'<button class="chip" id="bills-hist" style="margin:0;padding:4px 12px;font-size:16px" aria-label="paid history">🕘</button></div>'
       +'<div class="s" style="margin-top:2px">found in Gmail every morning — tap ✓ when paid</div>'
       +(rows.length?rows.map(function(m,i){
-        /* 排程有抓到付款連結（messages.link）→ Pay 鈕開新分頁（2026-07-19 老闆點名） */
+        /* 排程有抓到付款連結（messages.link）→ Pay 鈕開新分頁 */
         var payBtn=(m.link&&/^https:\/\//i.test(m.link))?'<button class="chip" data-bl="'+i+'" style="margin:0;padding:4px 12px;flex:0 0 auto;border-color:var(--accent);color:var(--accent)">Pay →</button>':'';
         return '<div style="border:1px solid var(--line2);border-radius:14px;padding:10px 13px;margin-top:8px">'
           +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
-          +'<span style="min-width:0"><span class="t" style="font-size:14px">'+esc(String(m.title||'').replace(/^💸\s*/,''))+'</span>'
+          +'<span style="min-width:0"><span class="t" style="font-size:14px">'+billTitle(m)+'</span>'
           +'<span class="s" style="display:block;color:var(--muted);font-size:12px;margin-top:3px">'+esc(m.preview||'')+' · seen '+fmtD(m.created_at)+'</span></span>'
           +'<span style="display:flex;align-items:center;gap:6px;flex:0 0 auto">'+payBtn
           +'<button class="chip" data-bp="'+i+'" style="margin:0;padding:4px 12px">✓ Paid</button></span>'
@@ -9818,19 +9822,44 @@ async function openBillsSheet(){
       }).join(''):'<div class="empty">No bills waiting ✓<br>New ones from Gmail land here every morning</div>')
       +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
     $('d-cl').addEventListener('click',closeDrawer);
+    $('bills-hist').addEventListener('click',paintHist);
     document.querySelectorAll('#drawer [data-bl]').forEach(function(el){el.addEventListener('click',function(){
       var m=rows[+el.dataset.bl];if(m&&m.link)window.open(m.link,'_blank');
     });});
     document.querySelectorAll('#drawer [data-bp]').forEach(function(el){el.addEventListener('click',async function(){
       var m=rows[+el.dataset.bp];
-      if(!confirm('Paid?\n\n'+String(m.title||'').replace(/^💸\s*/,'')+'\n\nThe reminder is removed.'))return;
+      if(!confirm('Paid?\n\n'+String(m.title||'').replace(/^💸\s*/,'')+'\n\nIt moves to the 🕘 history.'))return;
+      el.disabled=true;el.textContent='…';
+      var u=await sb.from('messages').update({paid:true,unread:false}).eq('id',m.id);
+      if(u.error){el.disabled=false;el.textContent='✓ Paid';alert('Failed: '+u.error.message);return;}
+      logAct('bill marked paid',String(m.title||'').replace(/^💸\s*/,''));
+      m.paid=true;rows.splice(+el.dataset.bp,1);hist.unshift(m);
+      toast('Paid ✓ moved to history');
+      paint();
+    });});
+  }
+  /* 已繳歷史：查看＋真刪（老闆點名） */
+  function paintHist(){
+    openDrawerHTML('<div class="t" style="font-size:19px">Bills · paid history</div>'
+      +'<div class="s" style="margin-top:2px">everything marked paid — ✕ deletes the record for good</div>'
+      +(hist.length?hist.map(function(m,i){
+        return '<div class="dl"><span style="min-width:0"><span style="color:var(--muted)">✓</span> '+billTitle(m)
+          +'<span class="s" style="display:block;color:var(--muted);font-size:12px;margin-top:2px">'+esc(m.preview||'')+' · seen '+fmtD(m.created_at)+'</span></span>'
+          +'<button class="chip" data-bh="'+i+'" style="margin:0;padding:4px 11px;color:var(--danger);border-color:var(--danger);flex:0 0 auto" aria-label="delete">✕</button></div>';
+      }).join(''):'<div class="empty">Nothing here yet<br>Bills you mark ✓ Paid stay here</div>')
+      +'<button class="dclose" id="bh-back">‹ Back to bills</button>'
+      +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+    $('bh-back').addEventListener('click',paint);
+    $('d-cl').addEventListener('click',closeDrawer);
+    document.querySelectorAll('#drawer [data-bh]').forEach(function(el){el.addEventListener('click',async function(){
+      var m=hist[+el.dataset.bh];
+      if(!confirm('Delete this record for good?\n\n'+String(m.title||'').replace(/^💸\s*/,'')))return;
       el.disabled=true;el.textContent='…';
       var d=await sb.from('messages').delete().eq('id',m.id);
-      if(d.error){el.disabled=false;el.textContent='✓ Paid';alert('Failed: '+d.error.message);return;}
-      logAct('bill marked paid',String(m.title||'').replace(/^💸\s*/,''));
-      rows.splice(+el.dataset.bp,1);
-      toast('Paid ✓');
-      paint();
+      if(d.error){el.disabled=false;el.textContent='✕';alert('Failed: '+d.error.message);return;}
+      hist.splice(+el.dataset.bh,1);
+      toast('Deleted ✓');
+      paintHist();
     });});
   }
   paint();
