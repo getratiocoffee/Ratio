@@ -5056,7 +5056,9 @@ async function openTransferHistory(){
         return '<div class="dl" data-th="'+i+'" style="cursor:pointer'+(open?';border-bottom:none':'')+'"><span>'+esc(g.no)+'<span style="color:var(--muted);font-size:12px"> · '+(g.at?fmtD(g.at):'—')+'</span></span><span>'+g.kg+' kg · '+money(g.amt)+'</span></div>'
           +(open?g.lines.map(function(l){
             return '<div class="dl" style="border-bottom:none;padding:3px 0 3px 12px"><span class="s" style="color:var(--muted)">'+esc(l.name)+(l.proc?' · '+esc(l.proc):'')+'</span><span class="s" style="color:var(--muted)">'+l.kg+' kg × '+money(l.price)+' = '+money(l.amt)+'</span></div>';
-          }).join(''):'');
+          }).join('')
+          /* 重出 PDF（2026-07-18：iOS Safari 可能在 Submit 時打斷下載——這裡隨時補印） */
+          +(rsMoney()?'<button class="dclose" data-thp="'+i+'" style="margin-top:4px">Download PDF again</button>':''):'');
       }).join(''):'<div class="empty">Nothing submitted yet<br>The pool becomes an invoice here every Sunday</div>')
       +'<button class="dclose" id="th-back">‹ Back</button>'
       +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
@@ -5067,6 +5069,15 @@ async function openTransferHistory(){
       var g=gs[+el.dataset.th];
       TRFH.open=(TRFH.open===g.no)?null:g.no;
       paint();
+    });});
+    document.querySelectorAll('#drawer [data-thp]').forEach(function(el){el.addEventListener('click',async function(ev){
+      ev.stopPropagation();
+      var g=gs[+el.dataset.thp];
+      el.disabled=true;el.textContent='Drawing…';
+      try{
+        await trfInvoicePDF(g.no,g.lines,String(g.at||'').slice(0,10)||todayKey());
+        el.disabled=false;el.textContent='Download PDF again';
+      }catch(e){el.disabled=false;el.textContent='Download PDF again';alert('PDF failed: '+(e&&e.message||e));}
     });});
   }
   paint();
@@ -5349,18 +5360,11 @@ async function openTransferSettle(){
     for(var i=0;i<rows.length;i++){var p=parseFloat(rows[i].price);if(isNaN(p)||p<0){toast('Set a $/kg for '+rows[i].name);return;}}
     var total=0;rows.forEach(function(r){total+=r.kg*parseFloat(r.price);});
     if(!confirm('Submit '+trfPoolKg()+' kg to '+TRF_DEST+' for '+money(total)+'?\n\nOne PDF invoice, then the pool resets for next week.'))return;
-    var btn=this;btn.disabled=true;btn.textContent='Drawing…';
-    var keep={inv:INV};
+    var btn=this;btn.disabled=true;btn.textContent='Saving…';
     try{
       var seq=await invNextNo(todayKey());
-      INV={buyerName:'Ratio Coffee — '+TRF_DEST+' store',buyerEmail:'',
-        buyerAddr:'Shop 2, 473 Pacific Highway, Crows Nest NSW 2065',
-        items:rows.map(function(r){return {cat:'Roasted Beans',desc:r.name+(r.proc?' — '+r.proc:'')+' · per kg',pack:'',qty:String(r.kg),unit:r.price,gstMode:'plus'};}),
-        notes:'Internal stock transfer — settled '+fmtD(todayKey()),date:todayKey(),due:''};
-      await menusPDF(function(logo){buildInvoicePDF(logo,seq.no);});
-      await seq.commit();
-      INV=keep.inv;
-      /* PDF 出了才動帳：逐豆標 settled＋記價（同鍵 pool 行一次蓋） */
+      /* ①先動帳（2026-07-18 iPhone 實測：iOS Safari 的 PDF 下載會掐斷進行中的 fetch「Load failed」——
+         所以 DB 全部寫完才出 PDF；PDF 被打斷沒關係，🧾 歷史可重出） */
       var err=null;
       for(var j=0;j<rows.length;j++){
         var r=rows[j];
@@ -5370,7 +5374,12 @@ async function openTransferSettle(){
         var u=await q;
         if(u.error){err=u.error.message;break;}
       }
-      if(err){btn.disabled=false;btn.textContent='Submit — PDF invoice';alert('Invoice PDF is saved but the pool did not clear: '+err+'\n\nFix and press Submit again (it will draw a new invoice number).');return;}
+      if(err){
+        btn.disabled=false;btn.textContent='Submit — PDF invoice';
+        alert('Submit did not finish: '+err+'\n\nPress Submit again — anything already submitted stays on invoice '+seq.no+', the rest goes on a new one.');
+        return;
+      }
+      await seq.commit();
       /* 價格記憶寫回（失敗不擋） */
       try{
         var pm={};rows.forEach(function(r){pm[r.key]=parseFloat(r.price);});
@@ -5382,14 +5391,30 @@ async function openTransferSettle(){
       logAct('transfer settled',seq.no,trfPoolKg()+' kg · '+money(total)+' → '+TRF_DEST);
       DB.transfers=[];
       buildItems();
-      toast('Settled ✓ '+seq.no);
+      /* ②最後才出 PDF——失敗只提示去 🧾 重出，單已結好 */
+      btn.textContent='Drawing…';
+      var pdfOk=true;
+      try{await trfInvoicePDF(seq.no,rows.map(function(r){return {name:r.name,proc:r.proc,kg:r.kg,price:r.price};}),todayKey());}
+      catch(e2){pdfOk=false;}
+      if(pdfOk)toast('Submitted ✓ '+seq.no);
+      else alert('Submitted ✓ '+seq.no+' — but the PDF did not download.\n\nOpen the 🧾 icon, tap the invoice and press Download PDF again.');
       openTransferSheet();
     }catch(e){
-      INV=keep.inv;
       btn.disabled=false;btn.textContent='Submit — PDF invoice';
-      alert('Settle failed: '+(e&&e.message||e));
+      alert('Submit failed: '+(e&&e.message||e));
     }
   });
+}
+/* 共用：結單明細 → invoice PDF（Submit 與 🧾 歷史重出共用）；lines=[{name,proc,kg,price}] */
+async function trfInvoicePDF(no,lines,dateStr){
+  var keep=INV;
+  try{
+    INV={buyerName:'Ratio Coffee — '+TRF_DEST+' store',buyerEmail:'',
+      buyerAddr:'Shop 2, 473 Pacific Highway, Crows Nest NSW 2065',
+      items:lines.map(function(r){return {cat:'Roasted Beans',desc:r.name+(r.proc?' — '+r.proc:'')+' · per kg',pack:'',qty:String(r.kg),unit:String(r.price),gstMode:'plus'};}),
+      notes:'Internal stock transfer — settled '+fmtD(dateStr),date:dateStr,due:''};
+    await menusPDF(function(logo){buildInvoicePDF(logo,no);});
+  }finally{INV=keep;}
 }
 /* ===== 訂單瀏覽（唯讀：最近訂單清單＋詳情抽屜；動作照舊走今日流卡片）===== */
 function openOrdersSheet(){
