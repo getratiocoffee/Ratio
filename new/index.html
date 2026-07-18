@@ -10489,7 +10489,7 @@ function renderTools(){
   var DEPT={green:'var(--green)',roast:'var(--roast)',qc:'var(--qc)',mkt:'var(--mkt)',ord:'var(--orders)',cust:'var(--cust)',fin:'var(--fin)',day:'var(--day)',team:'var(--team)',print:'var(--print)',set:'var(--set)'};
   function _sec(title,color,inner){return '<div class="gsec" style="color:'+color+'"><span class="gdot"></span>'+title+'</div><div class="tgrid" style="--dept:'+color+'">'+inner+'</div>';}
   /* Green/Marketing 整區 lead 以上才見（2026-07-14 老闆權限矩陣：staff 八站不含這兩區） */
-  var _groups=(isLead()?_sec('Green',DEPT.green,
+  var _groups=(isLead()?_sec('Green Bean',DEPT.green,
       (_mk?_mkTile('t-recv','Receive green','delivery in','receive')+_mkTile('t-stk','Stocktake','weigh greens','tasks'):'')
       +_tiles([['Green stock','full list','greens','stock'],['ID book','all S# &amp; B# numbers','idbook','menu'],['Sample analyse','green cupping','sampleana','qc',1],['Buy log','green purchases','buylog','order',1],['C Market','futures · landed cost','cmarket','statement']])):'')
     +_sec('Roasted Bean',DEPT.roast,
