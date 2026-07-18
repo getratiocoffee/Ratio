@@ -10503,7 +10503,8 @@ function renderTools(){
       +_tiles([['Green stock','full list','greens','stock'],['ID book','all S# &amp; B# numbers','idbook','menu'],['Sample analyse','green cupping','sampleana','qc',1],['Buy log','green purchases','buylog','order',1],['C Market','futures · landed cost','cmarket','statement']])):'')
     +_sec('Roasted Bean',DEPT.roast,
       (_mk?_mkTile('t-roast','Log roast','green in','flame'):'')
-      +_tiles([['Coffee Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Crows Nest','transfer pool · Sunday invoice','transfer','dispatch',_mk?1:0],['Coffee Info','flavour · dossier','retail','market']].concat(isLead()?[['Delete a coffee','remove · careful','delbean','trash',1],['Clean up','orphans · dead links','cleanup','refresh',1]]:[])))
+      /* Delete a coffee＋Clean up 磁貼已移除（2026-07-18 老闆點名）——openDeleteCoffeeSheet/openCleanupSheet 函式保留，復活加回磁貼一行即可 */
+      +_tiles([['Coffee Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Crows Nest','transfer pool · Sunday invoice','transfer','dispatch',_mk?1:0],['Coffee Info','flavour · dossier','retail','market']]))
     +_sec('QC &amp; Recipe',DEPT.qc,
       _tiles([['QC','cup and judge','qcgo','qc'],['Live cupping','blind · together','livecup','qc'],['Blend Recipe','blends · dial-in','recipe','recipe'],['A68 Dial in','espresso shots','dialin','espresso',1]]))
     /* 2026-07-12 統整：Coffee Info/Post to socials/IG asset/Announce 四顆收進 Publish 一鍵上架面板 */
@@ -10635,8 +10636,6 @@ function renderTools(){
     if(k==='brewcard'){openBrewCardSheet();return;}
     if(k==='social4'){openSocialSplitSheet();return;}
     if(k==='menus'){openMenusSheet();return;}
-    if(k==='delbean'){openDeleteCoffeeSheet();return;}
-    if(k==='cleanup'){openCleanupSheet();return;}
     if(k==='livecup'){openLiveCupSheet();return;}
     if(k==='subs'){openSubsSheet();return;}
     if(k==='wholesale'){openWholesaleSheet();return;}
