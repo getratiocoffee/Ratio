@@ -5062,7 +5062,8 @@ function openTransferAdd(){
   if(cur){
     h+='<div class="dlab">Batch</div><div id="tra-bats">'
       +groups.map(function(g){return '<button class="chip" data-tg="'+esc(g.key)+'" style="margin-bottom:6px"><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(g.date)+';margin-right:5px;vertical-align:0"></span>'+(g.date?fmtD(g.date):'no date')+' · '+g.kg+' kg</button>';}).join(' ')+'</div>'
-      +'<div class="dlab" id="tra-kglab">Kg to transfer</div><input class="din" id="tra-kg" inputmode="decimal" placeholder="e.g. 2">';
+      /* kg 預填選中批次的總量（2026-07-18 老闆點名）：整批全轉直接按存、部分轉改數字 */
+      +'<div class="dlab" id="tra-kglab">Kg to transfer</div><input class="din" id="tra-kg" inputmode="decimal" value="'+((groups.find(function(g){return g.key===TRF.gkey;})||{}).kg||'')+'">';
   }
   h+='<div style="display:flex;gap:8px;align-items:stretch;margin-top:12px">'
     +'<button class="dclose" id="tra-back" style="flex:1;margin-top:0;white-space:nowrap;border-radius:16px">‹ Back</button>'
@@ -5075,7 +5076,12 @@ function openTransferAdd(){
   $('tra-b').addEventListener('click',function(){if(TRF.seg!=='blend'){TRF.seg='blend';TRF.bean=null;TRF.gkey=null;openTransferAdd();}});
   $('tra-s').addEventListener('click',function(){if(TRF.seg!=='single'){TRF.seg='single';TRF.bean=null;TRF.gkey=null;openTransferAdd();}});
   if($('tra-bean'))$('tra-bean').addEventListener('change',function(){TRF.bean=this.value||null;TRF.gkey=null;openTransferAdd();});
-  document.querySelectorAll('#tra-bats .chip').forEach(function(c){c.addEventListener('click',function(){TRF.gkey=c.dataset.tg;sel();});});
+  document.querySelectorAll('#tra-bats .chip').forEach(function(c){c.addEventListener('click',function(){
+    TRF.gkey=c.dataset.tg;sel();
+    /* 換批次＝kg 重填該批總量 */
+    var ng=groups.find(function(g){return g.key===TRF.gkey;});
+    if(ng&&$('tra-kg'))$('tra-kg').value=ng.kg;
+  });});
   $('tra-back').addEventListener('click',openTransferSheet);
   $('d-cl').addEventListener('click',closeDrawer);
   $('tra-save').addEventListener('click',async function(){

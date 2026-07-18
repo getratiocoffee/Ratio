@@ -87,6 +87,7 @@
 - **驗證**：jscheck ✓；本機 8124 假資料攔 fetch 全測——池抽屜統計/行清單 ✓、Add 選豆→批次→超量擋「only has 5 kg」✓、合法轉 2kg r1 5→3＋寫入序 PATCH roasts→POST transfers→activity_log ✓、退回 r3 3→4.5＋行刪 ✓、結單聚合 $28/kg 總計 $56 ✓ INV-20260718-001 ✓ PATCH transfers（process null 用 .is）✓ 價格記憶寫回 ✓ 池歸零 ✓、週六不出卡/假週日出卡 ✓、console 零錯誤＋截圖 ✓。
 - **等老闆（部署後真機）**：①Tools→Stock transfer 真轉一筆看 Coffee Stock 血條同步扣②週日看今日流 Transfer settlement 卡→填價結單→看 PDF invoice ③之後開第二家店跟我說——把 TRF_DEST 常數升級成去向選單。
 - **注意**：轉入只從**可賣池**扣（降級/待秤批次不進轉撥）；結單 PDF 出了但池清失敗會 alert 提示重按（會出新發票號，內部單無大害）。
+- **同日追加四（老闆點名）**：Add 抽屜 kg 欄**預填選中批次的總量**（整批全轉直接按存、部分轉改數字；換批次 chip 重填該批總量）。驗證：選豆預填 5、切批 4、切回 5 ✓。
 - **同日追加三（老闆點名並排 ×2）**：①池抽屜「+ Add」與「Settle & invoice…」合一排（flex 1:1.8、Add 縮字防窄機截斷；只有一顆時自己撐滿）②三選抽屜「Return to stock」與「Used」合一排（1.3:1）＋下方灰字一行說明、Cancel 留底。截圖驗證兩排不爆框 ✓。
 - **同日追加二（老闆點名）**：✕ 改**三選抽屜** `openTransferRemove`（原 confirm 兩鈕裝不下）——Return（走 transferReturn 補血刪行，confirm 已拿掉）／Used（`transferUsed`＝店裡用掉：只刪池行**不補血、不進週日結單**，logAct 'transfer used'）／Cancel（回池）。驗證：三選出現 ✓ Cancel 全不動 ✓ Used 只 DELETE 行血條不動 ✓ Return r4 8→10＋行刪 ✓ 截圖 ✓。
 - **同日追加（老闆點名兩處）**：①池行日期移到豆名下一行 ②✕ 右邊加 ✎＝**矯正量** `openTransferFix`：輸「正確的 kg」直接調到位、差額跟 Coffee Stock 結算——改小補回原日期批次（找批邏輯同退回）、改大從原日期批次組 FIFO 再扣（**不夠擋存**「only has X kg spare」、提示別批豆用 + Add 另開行）；先動 roasts 再改池行、池行改失敗把血滾回；logAct 'corrected transfer' old→new。驗證：改小 2→1.5（r1 3→3.5）✓ 改大 1.5→3（r1 3.5→2）✓ 超量 2→20 擋且數字全不動 ✓ 截圖 ✓。
