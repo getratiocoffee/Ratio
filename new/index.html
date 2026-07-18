@@ -9173,6 +9173,90 @@ async function openLabelSheet(){
   paintLabelBody();
 }
 function paintLabelBody(){if(LBL_KIND==='tin')renderTinLabel();else renderLabel();}
+/* ===== Post Label（收件人貼紙 .lbx；2026-07-18 老闆點名 Customers 區新磁貼）=====
+   重用 blend-label.lbx 範本＋lblFitBlock 縮放：名字塊→收件人、成分行→地址行1、comment 行→地址行2、
+   風味行→suburb state postcode、date 行→電話、NET 行清空。挑客人自動帶 customers.address
+  （手動 {line1,suburb,postcode} 與 Square {address_line_1,locality,…} 兩種格式都認），欄位可手改。 */
+var ADDR={cust:'',name:'',phone:'',l1:'',l2:'',l3:''};
+function custAddrParts(c){
+  var a=(c&&c.address)||{};
+  return {
+    l1:a.line1||a.address_line_1||'',
+    l2:a.line2||a.address_line_2||'',
+    l3:[a.suburb||a.locality||'',a.state||a.administrative_district_level_1||'',a.postcode||a.postal_code||''].filter(Boolean).join(' ')
+  };
+}
+async function openAddrLabelSheet(){
+  if(!canWrite()){roToast();return;}
+  paintAddrLabel();
+  try{if(!window.JSZip)await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');}catch(e){}
+}
+function paintAddrLabel(){
+  var custs=(DB.customers||[]).slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
+  openDrawerHTML('<div class="t" style="font-size:19px">Post Label</div>'
+    +'<div class="s" style="margin-top:2px">recipient sticker — generate the .lbx, open it in P-touch Editor to print</div>'
+    +'<div class="dlab">Customer</div>'
+    +'<select class="din" id="al-cust"><option value="">— pick, or type below —</option>'
+    +custs.map(function(c){return '<option value="'+esc(c.id)+'"'+(String(c.id)===String(ADDR.cust)?' selected':'')+'>'+esc(c.name||'—')+(c.address?'':' · no address')+'</option>';}).join('')+'</select>'
+    +'<div class="dlab">Recipient</div><input class="din" id="al-name" placeholder="Name" value="'+esc(ADDR.name)+'">'
+    +'<input class="din" id="al-l1" placeholder="Address line 1" value="'+esc(ADDR.l1)+'" style="margin-top:6px">'
+    +'<input class="din" id="al-l2" placeholder="Address line 2 · optional" value="'+esc(ADDR.l2)+'" style="margin-top:6px">'
+    +'<input class="din" id="al-l3" placeholder="Suburb State Postcode" value="'+esc(ADDR.l3)+'" style="margin-top:6px">'
+    +'<input class="din" id="al-phone" placeholder="Phone · optional" value="'+esc(ADDR.phone)+'" style="margin-top:6px">'
+    +'<div class="s" id="al-msg" style="margin-top:10px;color:var(--muted)"></div>'
+    +'<button class="act" id="al-gen">Generate .lbx</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('d-cl').addEventListener('click',closeDrawer);
+  $('al-cust').addEventListener('change',function(){
+    ADDR.cust=this.value;
+    var c=(DB.customers||[]).find(function(x){return String(x.id)===String(ADDR.cust);});
+    if(c){var p=custAddrParts(c);ADDR.name=c.name||'';ADDR.phone=c.phone||'';ADDR.l1=p.l1;ADDR.l2=p.l2;ADDR.l3=p.l3;}
+    paintAddrLabel();
+  });
+  [['al-name','name'],['al-phone','phone'],['al-l1','l1'],['al-l2','l2'],['al-l3','l3']].forEach(function(x){
+    $(x[0]).addEventListener('input',function(){ADDR[x[1]]=this.value;});
+  });
+  $('al-gen').addEventListener('click',generateAddrLbx);
+}
+async function generateAddrLbx(){
+  var msg=$('al-msg'),btn=$('al-gen');
+  function say(t,err){if(msg){msg.textContent=t;msg.style.color=err?'var(--danger)':'var(--muted)';}}
+  try{
+    if(!(ADDR.name||'').trim()){say('Fill in the recipient name',1);return;}
+    if(!window.JSZip){try{await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');}catch(e){}}
+    if(!window.JSZip){say('Zip library still loading, try again',1);return;}
+    btn.disabled=true;say('Building .lbx…');
+    var zip=await JSZip.loadAsync(await fetchAsset('/blend-label.lbx'));
+    var xml=await zip.file('label.xml').async('string');
+    [
+      {value:(ADDR.name||'').trim().toUpperCase(),orig:'DARK KNIGHT',fit:1},
+      {value:(ADDR.l1||'').trim(),orig:'Espigao | Danche | El Indio',fit:1},
+      {value:(ADDR.l2||'').trim(),orig:'V3.0 Competition Blend',fit:1},
+      {value:(ADDR.l3||'').trim(),orig:'Dried Fruit | Walnut | Chocolate',fit:1},
+      {value:(ADDR.phone||'').trim(),orig:'READY BREW DATE: 06 | 07',fit:0},
+      {value:'',orig:'NET 250G',fit:0}
+    ].forEach(function(f){
+      var dataOld='<pt:data>'+xmlEsc(f.orig)+'</pt:data>';
+      var idx=xml.indexOf(dataOld);if(idx<0)return;
+      var bStart=xml.lastIndexOf('<text:text>',idx);var bEnd=xml.indexOf('</text:text>',idx)+12;
+      var block=xml.slice(bStart,bEnd),nb=block;
+      var newText=f.value||'';
+      if(newText!==f.orig){
+        nb=nb.replace(/<pt:data>[\s\S]*?<\/pt:data>/,'<pt:data>'+xmlEsc(newText)+'</pt:data>')
+             .replace(/(<text:stringItem charLen=")\d+(")/,'$1'+newText.length+'$2');
+      }
+      if(f.fit&&newText){nb=lblFitBlock(nb,f.orig.length);}
+      if(nb!==block){xml=xml.slice(0,bStart)+nb+xml.slice(bEnd);}
+    });
+    var nm=(ADDR.name||'address').replace(/[^A-Za-z0-9 _\-]/g,'').trim().replace(/\s+/g,'_')||'address';
+    zip.file('label.xml',xml);
+    var blob=await zip.generateAsync({type:'blob',mimeType:'application/octet-stream',compression:'DEFLATE'});
+    var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='POST_'+nm+'.lbx';document.body.appendChild(a);a.click();
+    setTimeout(function(){URL.revokeObjectURL(url);a.remove();},1500);
+    btn.disabled=false;say('Done — POST_'+nm+'.lbx downloaded');
+    logAct('post label generated',ADDR.name);
+  }catch(e){btn.disabled=false;say('Generate failed: '+(e&&e.message||e),1);}
+}
 
 /* ===== Tools ===== */
 /* ===== Timesheet 2.0 Stage B：排班（本週＋下兩週；班型模板；N/A 撞班警告）=====
@@ -10530,7 +10614,7 @@ function renderTools(){
       (_mk?_mkTile('t-neworder','New order','right here','plus'):'')
       +_tiles([['Orders','recent list','orders','order']].concat(ROLE==='director'?[['Subscriptions','fortnightly beans · plans','subs','reorder',1],['Wholesale','discount % · accounts','wholesale','statement',1]]:[])))
     +_sec('Customers',DEPT.cust,
-      _tiles([['Customers','book','customers','user'],['Contacts','suppliers · partners','contacts','team',_mk?1:0]]))
+      _tiles([['Customers','book','customers','user'],['Post Label','recipient sticker · brother','addrlabel','tag',_mk?1:0],['Contacts','suppliers · partners','contacts','team',_mk?1:0]]))
     +(rsMoney()?_sec('Finance',DEPT.fin,
       _tiles([['P&amp;L','money overview','pnl','statement'],['Invoice','GST PDF','invoice','invoice',1],['Payroll','wages · weeks','payroll','user',_mk?1:0],['Calculator','cost · margins','calc','plus']])):'')
     +_sec('Daily task',DEPT.day,
@@ -10632,6 +10716,7 @@ function renderTools(){
     if(k==='sampleana'){openSampleSheet();return;}
     if(k==='buylog'){openBuyLogSheet();return;}
     if(k==='customers'){openCustomersSheet();return;}
+    if(k==='addrlabel'){openAddrLabelSheet();return;}
     if(k==='contacts'){openContactsSheet();return;}
     if(k==='help'){openHelpSheet();return;}
     if(k==='retail'){openRetailSheet();return;}
