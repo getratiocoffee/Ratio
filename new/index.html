@@ -9800,21 +9800,27 @@ function buildInvoicePDF(logo,invNo){
 async function openBillsSheet(){
   if(!rsMoney()){roToast();return;}
   openDrawerHTML('<div class="t" style="font-size:19px">Bills</div><div class="empty">Loading…</div>');
-  var q=await sb.from('messages').select('id,title,preview,created_at').like('title','💸%').order('created_at',{ascending:false}).limit(50);
+  var q=await sb.from('messages').select('id,title,preview,created_at,link').like('title','💸%').order('created_at',{ascending:false}).limit(50);
   var rows=q.data||[];
   function paint(){
     openDrawerHTML('<div class="t" style="font-size:19px">Bills</div>'
       +'<div class="s" style="margin-top:2px">found in Gmail every morning — tap ✓ when paid</div>'
       +(rows.length?rows.map(function(m,i){
+        /* 排程有抓到付款連結（messages.link）→ Pay 鈕開新分頁（2026-07-19 老闆點名） */
+        var payBtn=(m.link&&/^https:\/\//i.test(m.link))?'<button class="chip" data-bl="'+i+'" style="margin:0;padding:4px 12px;flex:0 0 auto;border-color:var(--accent);color:var(--accent)">Pay →</button>':'';
         return '<div style="border:1px solid var(--line2);border-radius:14px;padding:10px 13px;margin-top:8px">'
           +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
           +'<span style="min-width:0"><span class="t" style="font-size:14px">'+esc(String(m.title||'').replace(/^💸\s*/,''))+'</span>'
           +'<span class="s" style="display:block;color:var(--muted);font-size:12px;margin-top:3px">'+esc(m.preview||'')+' · seen '+fmtD(m.created_at)+'</span></span>'
-          +'<button class="chip" data-bp="'+i+'" style="margin:0;padding:4px 12px;flex:0 0 auto">✓ Paid</button>'
+          +'<span style="display:flex;align-items:center;gap:6px;flex:0 0 auto">'+payBtn
+          +'<button class="chip" data-bp="'+i+'" style="margin:0;padding:4px 12px">✓ Paid</button></span>'
           +'</div></div>';
       }).join(''):'<div class="empty">No bills waiting ✓<br>New ones from Gmail land here every morning</div>')
       +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
     $('d-cl').addEventListener('click',closeDrawer);
+    document.querySelectorAll('#drawer [data-bl]').forEach(function(el){el.addEventListener('click',function(){
+      var m=rows[+el.dataset.bl];if(m&&m.link)window.open(m.link,'_blank');
+    });});
     document.querySelectorAll('#drawer [data-bp]').forEach(function(el){el.addEventListener('click',async function(){
       var m=rows[+el.dataset.bp];
       if(!confirm('Paid?\n\n'+String(m.title||'').replace(/^💸\s*/,'')+'\n\nThe reminder is removed.'))return;
