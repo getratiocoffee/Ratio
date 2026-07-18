@@ -5068,8 +5068,11 @@ async function openTransferHistory(){
           +(open?g.lines.map(function(l){
             return '<div class="dl" style="border-bottom:none;padding:3px 0 3px 12px"><span class="s" style="color:var(--muted)">'+esc(l.name)+(l.proc?' · '+esc(l.proc):'')+'</span><span class="s" style="color:var(--muted)">'+l.kg+' kg × '+money(l.price)+' = '+money(l.amt)+'</span></div>';
           }).join('')
-          /* 重出 PDF（2026-07-18：iOS Safari 可能在 Submit 時打斷下載——這裡隨時補印） */
-          +((rsMoney()||isLead())?'<button class="dclose" data-thp="'+i+'" style="margin-top:4px">Download PDF again</button>':''):'');
+          /* 重出 PDF（iOS Safari 可能在 Submit 時打斷下載——隨時補印）＋刪單（2026-07-18 老闆點名；刪帳面紀錄、不動 Coffee Stock） */
+          +((rsMoney()||isLead())?'<div style="display:flex;gap:8px;align-items:stretch;margin-top:4px">'
+            +'<button class="dclose" data-thp="'+i+'" style="flex:1.6;margin-top:0;white-space:nowrap;border-radius:16px">Download PDF again</button>'
+            +'<button class="dclose" data-thd="'+i+'" style="flex:1;margin-top:0;white-space:nowrap;border-radius:16px;color:var(--danger);border-color:var(--danger)">Delete</button>'
+            +'</div>':''):'');
       }).join(''):'<div class="empty">Nothing submitted yet<br>The pool becomes an invoice here every Sunday</div>')
       +'<button class="dclose" id="th-back">‹ Back</button>'
       +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
@@ -5089,6 +5092,19 @@ async function openTransferHistory(){
         await trfInvoicePDF(g.no,g.lines,String(g.at||'').slice(0,10)||todayKey());
         el.disabled=false;el.textContent='Download PDF again';
       }catch(e){el.disabled=false;el.textContent='Download PDF again';alert('PDF failed: '+(e&&e.message||e));}
+    });});
+    /* 刪單＝硬刪該發票號的 settled 行（帳面紀錄；Coffee Stock 不動、發票號不回收） */
+    document.querySelectorAll('#drawer [data-thd]').forEach(function(el){el.addEventListener('click',async function(ev){
+      ev.stopPropagation();
+      var g=gs[+el.dataset.thd];
+      if(!confirm('Delete invoice '+g.no+' ('+g.kg+' kg · '+money(g.amt)+')?\n\nThe record disappears from this list — Coffee Stock is not changed.'))return;
+      el.disabled=true;el.textContent='Deleting…';
+      var d=await sb.from('transfers').delete().eq('invoice_no',g.no).eq('status','settled');
+      if(d.error){el.disabled=false;el.textContent='Delete';alert('Failed: '+d.error.message);return;}
+      logAct('transfer invoice deleted',g.no,g.kg+' kg · '+money(g.amt));
+      toast('Deleted ✓ '+g.no);
+      gs.splice(+el.dataset.thd,1);TRFH.open=null;
+      paint();
     });});
   }
   paint();
