@@ -82,7 +82,7 @@
 
 ## 〇、補記 — 2026-07-18 之十七（Blend Menu 每格 Extra Surcharge 填空 ✅ 待 push）
 - **老闆需求**：Menus→Blend Menu 每支多一個「Extra Surcharge」填空，PDF 印「$# Extra」。
-- **做法**：①全域 `MENU_SURCH=['','','','']`＋app_state key **'menu_surch'**（menusEnsureData 讀、saveMenuSurch 存——同 menu_slots 模式跨裝置）②openMenuBlendSheet 每格 select 下加 input（data-msc、placeholder 'Extra Surcharge $ · optional'、input 即存）③genBlendMenuPDF info4 帶 `surch`（`replace(/[^0-9.]/g,'')` 只留數字）④drawCell：FLAVOUR 標題行右端印 `'$'+surch+' Extra'`（8.5pt berry 色粗體右對齊；留空不印）。
+- **做法**：①全域 `MENU_SURCH=['','','','']`＋app_state key **'menu_surch'**（menusEnsureData 讀、saveMenuSurch 存——同 menu_slots 模式跨裝置）②openMenuBlendSheet 每格 select 下加 input（data-msc、placeholder 'Extra Surcharge $ · optional'、input 即存）③genBlendMenuPDF info4 帶 `surch`（`replace(/[^0-9.]/g,'')` 只留數字）④drawCell：**name band 右端**印（同帶文字色 9pt 粗體右對齊、豆名讓寬不撞字；原 FLAVOUR 行位置 2026-07-18 老闆改定位） `'$'+surch+' Extra'`（8.5pt berry 色粗體右對齊；留空不印）。
 - **驗證**：jscheck ✓；假資料——4 格各有填空 ✓、輸入即存 MENU_SURCH ✓、PDF 原始碼（蓋 API.save 抓 output）'$3 Extra' ×2（左右兩半各一）✓、空格不印 ✓。
 - **⚠ 測試坑（記給下次）**：jsPDF 2.5.1 的 text/save **不在 JS.API 上**（建構閉包內）；蓋 `JS.API.text=wrapper(oT=undefined)` 會在 mixin 時把實例真方法蓋成壞的→buildFn 在 menusPDF 的 Promise executor 內 throw→**promise 永不 settle＝假 hang**。攔 PDF 內容的正路：`JS.API.save=function(){raw=this.output();}`（mixin 蓋掉真 save）、測完 `delete JS.API.save`。
 

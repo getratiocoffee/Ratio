@@ -8235,9 +8235,13 @@ function saveDinein(){menusSave('dinein',DINEIN);}
     var lum=(0.299*band[0]+0.587*band[1]+0.114*band[2]);
     var tc=lum>165?[40,34,32]:[255,255,255];
     doc.setFont('helvetica','bold');doc.setTextColor(tc[0],tc[1],tc[2]);
+    /* Extra Surcharge（2026-07-18 老闆定位：name band 右端）：帶同色小字、豆名讓出寬度不撞字 */
+    var surchTxt=info.surch?('$'+info.surch+' Extra'):'',surchW=0;
+    if(surchTxt){doc.setFontSize(9);surchW=doc.getTextWidth(surchTxt)+10;}
     var ns=18;doc.setFontSize(ns);
-    while(ns>11&&doc.getTextWidth(mnAsc(info.name))>pw){ns-=0.5;doc.setFontSize(ns);}
-    doc.text(mnAsc(info.name),px,y+bandH/2+ns*0.34,{maxWidth:pw});
+    while(ns>11&&doc.getTextWidth(mnAsc(info.name))>pw-surchW){ns-=0.5;doc.setFontSize(ns);}
+    doc.text(mnAsc(info.name),px,y+bandH/2+ns*0.34,{maxWidth:pw-surchW});
+    if(surchTxt){doc.setFontSize(9);doc.text(surchTxt,px+pw,y+bandH/2+9*0.34,{align:'right'});}
     var cy=y+bandH+20;
     /* ===== NOTE — small highlighted title bar, centred under the name ===== */
     if(info.note){
@@ -8260,11 +8264,6 @@ function saveDinein(){menusSave('dinein',DINEIN);}
        so the black outline stays a clean unbroken line where the fills reach the edges */
     doc.setDrawColor(30,26,25);doc.setLineWidth(0.8);
     if(doc.roundedRect)doc.roundedRect(x,y,w,h,9,9,'S');else doc.rect(x,y,w,h,'S');
-    /* ===== Extra Surcharge（2026-07-18 老闆點名）：FLAVOUR 標題行右端「$N Extra」berry 色粗體 ===== */
-    if(info.surch){
-      doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
-      doc.text('$'+info.surch+' Extra',px+pw,cy,{align:'right'});
-    }
     /* ===== FLAVOUR — primary focus (large) ===== */
     if(info.flavour&&info.flavour.length){
       doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
