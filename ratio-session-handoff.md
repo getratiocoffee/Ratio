@@ -87,6 +87,7 @@
 - **驗證**：jscheck ✓；本機 8124 假資料攔 fetch 全測——池抽屜統計/行清單 ✓、Add 選豆→批次→超量擋「only has 5 kg」✓、合法轉 2kg r1 5→3＋寫入序 PATCH roasts→POST transfers→activity_log ✓、退回 r3 3→4.5＋行刪 ✓、結單聚合 $28/kg 總計 $56 ✓ INV-20260718-001 ✓ PATCH transfers（process null 用 .is）✓ 價格記憶寫回 ✓ 池歸零 ✓、週六不出卡/假週日出卡 ✓、console 零錯誤＋截圖 ✓。
 - **等老闆（部署後真機）**：①Tools→Stock transfer 真轉一筆看 Coffee Stock 血條同步扣②週日看今日流 Transfer settlement 卡→填價結單→看 PDF invoice ③之後開第二家店跟我說——把 TRF_DEST 常數升級成去向選單。
 - **注意**：轉入只從**可賣池**扣（降級/待秤批次不進轉撥）；結單 PDF 出了但池清失敗會 alert 提示重按（會出新發票號，內部單無大害）。
+- **同日追加（老闆點名兩處）**：①池行日期移到豆名下一行 ②✕ 右邊加 ✎＝**矯正量** `openTransferFix`：輸「正確的 kg」直接調到位、差額跟 Coffee Stock 結算——改小補回原日期批次（找批邏輯同退回）、改大從原日期批次組 FIFO 再扣（**不夠擋存**「only has X kg spare」、提示別批豆用 + Add 另開行）；先動 roasts 再改池行、池行改失敗把血滾回；logAct 'corrected transfer' old→new。驗證：改小 2→1.5（r1 3→3.5）✓ 改大 1.5→3（r1 3.5→2）✓ 超量 2→20 擋且數字全不動 ✓ 截圖 ✓。
 
 ## 〇、補記 — 2026-07-17 之十五（Marketing 新磁貼 Edit Notes：改已 Pass 豆風味 ✅ 待 push）
 - **老闆需求**：Marketing 區加「Edit Notes」鈕改已 Pass 豆的風味。磁貼（lead only 同 Publish、icon 'book'、data-t 'editnotes'）→ `openEditNotesSheet`：母體＝samples flavour_locked=true 去重（sample_id|procKey 最新一筆，同 Publish 口徑）、每列豆名＋處理法＋現風味詞；點列 → `openEditNotesForm`：三格風味（maxlength 22）＋comment（30）預填現值、Save→update samples {features(濾空),comment||null} eq id→本地同物件參照即時同步＋logAct 'edited notes'→回列表。至少一個風味詞防呆。
