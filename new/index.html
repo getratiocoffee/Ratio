@@ -10492,7 +10492,7 @@ function renderTools(){
   var _groups=(isLead()?_sec('Green',DEPT.green,
       (_mk?_mkTile('t-recv','Receive green','delivery in','receive')+_mkTile('t-stk','Stocktake','weigh greens','tasks'):'')
       +_tiles([['Green stock','full list','greens','stock'],['ID book','all S# &amp; B# numbers','idbook','menu'],['Sample analyse','green cupping','sampleana','qc',1],['Buy log','green purchases','buylog','order',1],['C Market','futures · landed cost','cmarket','statement']])):'')
-    +_sec('Roast',DEPT.roast,
+    +_sec('Roasted Bean',DEPT.roast,
       (_mk?_mkTile('t-roast','Log roast','green in','flame'):'')
       +_tiles([['Coffee Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Crows Nest','transfer pool · Sunday invoice','transfer','dispatch',_mk?1:0],['Coffee Info','flavour · dossier','retail','market']].concat(isLead()?[['Delete a coffee','remove · careful','delbean','trash',1],['Clean up','orphans · dead links','cleanup','refresh',1]]:[])))
     +_sec('QC &amp; Recipe',DEPT.qc,
