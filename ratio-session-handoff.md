@@ -80,6 +80,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-18 之十七（Blend Menu 每格 Extra Surcharge 填空 ✅ 待 push）
+- **老闆需求**：Menus→Blend Menu 每支多一個「Extra Surcharge」填空，PDF 印「$# Extra」。
+- **做法**：①全域 `MENU_SURCH=['','','','']`＋app_state key **'menu_surch'**（menusEnsureData 讀、saveMenuSurch 存——同 menu_slots 模式跨裝置）②openMenuBlendSheet 每格 select 下加 input（data-msc、placeholder 'Extra Surcharge $ · optional'、input 即存）③genBlendMenuPDF info4 帶 `surch`（`replace(/[^0-9.]/g,'')` 只留數字）④drawCell：FLAVOUR 標題行右端印 `'$'+surch+' Extra'`（8.5pt berry 色粗體右對齊；留空不印）。
+- **驗證**：jscheck ✓；假資料——4 格各有填空 ✓、輸入即存 MENU_SURCH ✓、PDF 原始碼（蓋 API.save 抓 output）'$3 Extra' ×2（左右兩半各一）✓、空格不印 ✓。
+- **⚠ 測試坑（記給下次）**：jsPDF 2.5.1 的 text/save **不在 JS.API 上**（建構閉包內）；蓋 `JS.API.text=wrapper(oT=undefined)` 會在 mixin 時把實例真方法蓋成壞的→buildFn 在 menusPDF 的 Promise executor 內 throw→**promise 永不 settle＝假 hang**。攔 PDF 內容的正路：`JS.API.save=function(){raw=this.output();}`（mixin 蓋掉真 save）、測完 `delete JS.API.save`。
+
 ## 〇、補記 — 2026-07-18 之十六（Stock transfer：底下店面調撥池＋週日結單出 invoice ✅ 待 push）
 - **老闆需求**：底下店面（目前 Crows Nest）拿豆先進「transfer pool」累積，池可從 Coffee Stock 增（轉入）減（退回），**週日結單**＝存紀錄＋出 invoice。
 - **新表 `transfers`**（migration `transfers_table`，RLS is_staff() 四政策照 subscriptions）：dest（默認 'Crows Nest'）/name/process/is_blend/kg(>0)/roast_date/status(pool|settled)/settled_at/invoice_no/price_per_kg。loadAll 尾端 append `.eq('status','pool')`→`DB.transfers`（**rs[23]**；歷史結單抽屜內當場查）。

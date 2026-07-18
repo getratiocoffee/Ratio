@@ -7672,7 +7672,7 @@ function loadScriptOnce(url){
    版面繪製函式【逐字拷貝】自 classic（jsPDF 同引擎＝版面照舊）；
    資料層接新殼：BEANS/ROASTS/RETAIL_BEANS 轉接 DB.*，設定存 app_state（與 classic 同鑰匙互通） */
 var BEANS=[],ROASTS=[],RETAIL_BEANS=[];
-var MENU_SLOTS=['','','',''],SPECIAL_PICK=[],SPECIAL_PRICES={},DINEIN=null;
+var MENU_SLOTS=['','','',''],MENU_SURCH=['','','',''],SPECIAL_PICK=[],SPECIAL_PRICES={},DINEIN=null; /* MENU_SURCH＝Blend Menu 每格 Extra Surcharge（2026-07-18 老闆點名） */
 var MENUS_DATA={blends:[],grams:{},loaded:false};
 function loadBlendDefs(){return MENUS_DATA.blends;}
 function blendNames(){return loadBlendDefs().map(function(b){return (b.name||'').trim();}).filter(Boolean);}
@@ -7697,9 +7697,10 @@ async function menusEnsureData(force){
   try{var b=await sb.from('blends').select('id,name,hname,parts,note,comment,brew').order('pos',{ascending:true});
     MENUS_DATA.blends=(b.data||[]).map(function(x){return {id:x.id,name:x.name||'',hname:x.hname||'',parts:Array.isArray(x.parts)?x.parts:[],note:x.note||'',comment:x.comment||'',brew:(x.brew&&typeof x.brew==='object')?x.brew:{}};});}catch(e){}
   try{
-    var r=await sb.from('app_state').select('key,value').in('key',['menu_slots','special_slots','special_prices','dinein','rtl_g','rtl_dot']);
+    var r=await sb.from('app_state').select('key,value').in('key',['menu_slots','menu_surch','special_slots','special_prices','dinein','rtl_g','rtl_dot']);
     var m={};(r.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}m[x.key]=v;});
     if(Array.isArray(m.menu_slots)&&m.menu_slots.length===4)MENU_SLOTS=m.menu_slots.map(function(x){return String(x||'');});
+    if(Array.isArray(m.menu_surch)&&m.menu_surch.length===4)MENU_SURCH=m.menu_surch.map(function(x){return String(x||'');});
     if(Array.isArray(m.special_slots))SPECIAL_PICK=m.special_slots.map(function(x){return String(x||'').trim();}).filter(Boolean);
     if(m.special_prices&&typeof m.special_prices==='object'&&!Array.isArray(m.special_prices))SPECIAL_PRICES=m.special_prices;
     DINEIN=normDinein(m.dinein);
@@ -7711,6 +7712,7 @@ async function menusEnsureData(force){
 }
 async function menusSave(key,val){try{await sb.from('app_state').upsert({key:key,value:val,updated_at:new Date().toISOString()},{onConflict:'key'});}catch(e){}}
 function saveMenuSlots(){menusSave('menu_slots',MENU_SLOTS);}
+function saveMenuSurch(){menusSave('menu_surch',MENU_SURCH);}
 function saveSpecialPick(){menusSave('special_slots',SPECIAL_PICK);}
 function saveSpecialPrices(){menusSave('special_prices',SPECIAL_PRICES);}
 function saveDinein(){menusSave('dinein',DINEIN);}
@@ -8258,6 +8260,11 @@ function saveDinein(){menusSave('dinein',DINEIN);}
        so the black outline stays a clean unbroken line where the fills reach the edges */
     doc.setDrawColor(30,26,25);doc.setLineWidth(0.8);
     if(doc.roundedRect)doc.roundedRect(x,y,w,h,9,9,'S');else doc.rect(x,y,w,h,'S');
+    /* ===== Extra Surcharge（2026-07-18 老闆點名）：FLAVOUR 標題行右端「$N Extra」berry 色粗體 ===== */
+    if(info.surch){
+      doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(BERRY[0],BERRY[1],BERRY[2]);
+      doc.text('$'+info.surch+' Extra',px+pw,cy,{align:'right'});
+    }
     /* ===== FLAVOUR — primary focus (large) ===== */
     if(info.flavour&&info.flavour.length){
       doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.setTextColor(MUTE[0],MUTE[1],MUTE[2]);
@@ -8348,7 +8355,11 @@ async function menusPDF(buildFn){
 async function genBlendMenuPDF(btn){
   if(btn){btn.disabled=true;btn.textContent='Drawing…';}
   try{
-    var info4=MENU_SLOTS.map(function(n){return menuInfoFor(n);});
+    var info4=MENU_SLOTS.map(function(n,i){
+      var o=menuInfoFor(n);
+      o.surch=String(MENU_SURCH[i]||'').replace(/[^0-9.]/g,''); /* 只留數字——PDF 印 $N Extra */
+      return o;
+    });
     await menusPDF(function(logo){buildMenuPDF(info4,logo);});
     toast('Blend menu PDF ✓');
   }catch(e){alert('PDF failed: '+(e&&e.message||e));}
@@ -8417,11 +8428,16 @@ function openMenuBlendSheet(){
       var cur=MENU_SLOTS[i]||'';
       var info=cur?menuInfoFor(cur):null;
       var pv=info&&info.flavour&&info.flavour.length?('<div class="s" style="margin-top:3px">'+esc(info.flavour.join(' · '))+'</div>'):'';
-      return '<div class="dlab">'+p+'</div><select class="din" data-ms="'+i+'" style="padding:12px">'+mnSelOpts(opts,cur)+'</select>'+pv;
+      /* Extra Surcharge 填空（2026-07-18 老闆點名）：留空不印，PDF 印「$# Extra」 */
+      return '<div class="dlab">'+p+'</div><select class="din" data-ms="'+i+'" style="padding:12px">'+mnSelOpts(opts,cur)+'</select>'+pv
+        +'<input class="din" data-msc="'+i+'" inputmode="decimal" placeholder="Extra Surcharge $ · optional" value="'+esc(MENU_SURCH[i]||'')+'" style="margin-top:6px">';
     }).join('')
     +mnBackClose());
   document.querySelectorAll('#drawer [data-ms]').forEach(function(el){el.addEventListener('change',function(){
     MENU_SLOTS[+el.dataset.ms]=el.value;saveMenuSlots();openMenuBlendSheet();
+  });});
+  document.querySelectorAll('#drawer [data-msc]').forEach(function(el){el.addEventListener('input',function(){
+    MENU_SURCH[+el.dataset.msc]=el.value;saveMenuSurch();
   });});
   mnWireTail(genBlendMenuPDF);
 }
