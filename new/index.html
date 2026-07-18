@@ -9795,6 +9795,40 @@ function buildInvoicePDF(logo,invNo){
    未收全累加（pending_payment/overdue，只讀持久化的 overdue 標記——轉換仍在 Orders 流程）、
    生豆庫存價值 Σ(quantity×cost_per_kg)（q>0 且有價；未定價另計提示）、本月買豆（ordered_at||created_at）。
    orders/beans 用記憶體（loadAll 已排除 Cancelled）；purchases 當場查。錢的 gate＝rsMoney（磁貼區已 gate，這裡再擋一次保險）。 */
+/* ===== Bills（2026-07-19 老闆點名）：Gmail 排程（gmail-invoice-alert）掃出的待繳帳單清單——
+   資料＝messages 表 💸 開頭的通知；✓ Paid＝刪該筆通知（清單移除、鈴鐺同步消失）。 */
+async function openBillsSheet(){
+  if(!rsMoney()){roToast();return;}
+  openDrawerHTML('<div class="t" style="font-size:19px">Bills</div><div class="empty">Loading…</div>');
+  var q=await sb.from('messages').select('id,title,preview,created_at').like('title','💸%').order('created_at',{ascending:false}).limit(50);
+  var rows=q.data||[];
+  function paint(){
+    openDrawerHTML('<div class="t" style="font-size:19px">Bills</div>'
+      +'<div class="s" style="margin-top:2px">found in Gmail every morning — tap ✓ when paid</div>'
+      +(rows.length?rows.map(function(m,i){
+        return '<div style="border:1px solid var(--line2);border-radius:14px;padding:10px 13px;margin-top:8px">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
+          +'<span style="min-width:0"><span class="t" style="font-size:14px">'+esc(String(m.title||'').replace(/^💸\s*/,''))+'</span>'
+          +'<span class="s" style="display:block;color:var(--muted);font-size:12px;margin-top:3px">'+esc(m.preview||'')+' · seen '+fmtD(m.created_at)+'</span></span>'
+          +'<button class="chip" data-bp="'+i+'" style="margin:0;padding:4px 12px;flex:0 0 auto">✓ Paid</button>'
+          +'</div></div>';
+      }).join(''):'<div class="empty">No bills waiting ✓<br>New ones from Gmail land here every morning</div>')
+      +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+    $('d-cl').addEventListener('click',closeDrawer);
+    document.querySelectorAll('#drawer [data-bp]').forEach(function(el){el.addEventListener('click',async function(){
+      var m=rows[+el.dataset.bp];
+      if(!confirm('Paid?\n\n'+String(m.title||'').replace(/^💸\s*/,'')+'\n\nThe reminder is removed.'))return;
+      el.disabled=true;el.textContent='…';
+      var d=await sb.from('messages').delete().eq('id',m.id);
+      if(d.error){el.disabled=false;el.textContent='✓ Paid';alert('Failed: '+d.error.message);return;}
+      logAct('bill marked paid',String(m.title||'').replace(/^💸\s*/,''));
+      rows.splice(+el.dataset.bp,1);
+      toast('Paid ✓');
+      paint();
+    });});
+  }
+  paint();
+}
 async function openPnlSheet(){
   if(!rsMoney()){roToast();return;}
   openDrawerHTML('<div class="t" style="font-size:19px">P&L</div><div class="empty" style="margin-top:16px">Loading…</div>');
@@ -10609,7 +10643,7 @@ function renderTools(){
     +_sec('Customers',DEPT.cust,
       _tiles([['Customers','book','customers','user'],['Contacts','suppliers · partners','contacts','team',_mk?1:0],['Post Label','recipient sticker · brother','addrlabel','tag',_mk?1:0]]))
     +(rsMoney()?_sec('Finance',DEPT.fin,
-      _tiles([['P&amp;L','money overview','pnl','statement'],['Invoice','GST PDF','invoice','invoice',1],['Payroll','wages · weeks','payroll','user',_mk?1:0],['Calculator','cost · margins','calc','plus']])):'')
+      _tiles([['P&amp;L','money overview','pnl','statement'],['Bills','scanned from Gmail · tap paid','bills','statement',1],['Invoice','GST PDF','invoice','invoice',1],['Payroll','wages · weeks','payroll','user',_mk?1:0],['Calculator','cost · margins','calc','plus']])):'')
     +_sec('Daily task',DEPT.day,
       (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'),'plus'):'')
       +_tiles([['Upcoming','30 days · bookings · parcels','upcoming','today']]))
@@ -10721,6 +10755,7 @@ function renderTools(){
     if(k==='igasset'){openIGSheet();return;}
     if(k==='socialpost'){openSocialPostSheet();return;}
     if(k==='pnl'){openPnlSheet();return;}
+    if(k==='bills'){openBillsSheet();return;}
     if(k==='invoice'){openInvoiceSheet();return;}
     if(k==='announce'){openAnnounceSheet();return;}
     if(k==='payroll'){openPayrollSheet();return;}

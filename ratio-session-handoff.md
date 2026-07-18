@@ -85,6 +85,7 @@
 - **做法（零 app 代碼——Claude 排程任務）**：老闆 Mac 的 Claude app 排程 **gmail-invoice-alert**（每天雪梨 07:10，app 沒開則下次開機補跑；SKILL.md 在 ~/.claude/scheduled-tasks/gmail-invoice-alert/）：Gmail 連接器搜 `newer_than:3d (invoice OR bill OR …) -label:Label_14` → 判斷「Ratio 要付錢」的（**排除 invoicing@messaging.squareup.com＝自家開給客人的、行銷、驗證碼**）→ Supabase execute_sql 寫 **messages**（💸 標題＋摘要，app 訊息鈴鐺）＋有到期日寫 **events**（Upcoming 卡＋晨報自然帶到）→ thread 貼 Gmail 標籤 **Ratio/Invoice-alerted（Label_14）** 防重。
 - **首跑演練（2026-07-19 本 session 手動）**：現有 15 封處理完——寫入 5 筆 messages（Cofinet $2,245 due 7/20／Food & Dairy INV01067997／JJ's Waste 逾期 $134.50 扣款失敗／Zest 逾期 $1,062.53／coffeeratio.online 域名 7/25 到期）＋2 筆 events（7/20 Cofinet、7/25 域名）＋15 thread 全貼標。
 - **注意**：排程首次自動跑可能彈工具授權——老闆可在 Scheduled 側欄按 Run now 先把權限批一輪；要調頻率/規則直接跟 Claude 說改排程。
+- **同日追加：Tools→Finance 新磁貼 Bills**（data-t 'bills'，rsMoney gate）＝`openBillsSheet`：當場查 messages `like('title','💸%')` 最新 50 筆卡片列（標題去 💸 前綴＋preview＋seen 日期）、**✓ Paid＝confirm→delete 該 message**（清單與鈴鐺同步消失）＋logAct 'bill marked paid'；空清單「No bills waiting ✓」。驗證：清單/✓ Paid DELETE id 精準/刪後重繪 ✓。
 
 ## 〇、補記 — 2026-07-18 之十七（Blend Menu 每格 Extra Surcharge 填空 ✅ 待 push）
 - **老闆需求**：Menus→Blend Menu 每支多一個「Extra Surcharge」填空，PDF 印「$# Extra」。
