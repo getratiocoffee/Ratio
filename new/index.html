@@ -5022,7 +5022,7 @@ function openTransferSheet(){
   $('d-cl').addEventListener('click',closeDrawer);
   if($('trf-add'))$('trf-add').addEventListener('click',openTransferAdd);
   if($('trf-settle'))$('trf-settle').addEventListener('click',openTransferSettle);
-  document.querySelectorAll('#drawer [data-trx]').forEach(function(el){el.addEventListener('click',function(){transferReturn(pool[+el.dataset.trx]);});});
+  document.querySelectorAll('#drawer [data-trx]').forEach(function(el){el.addEventListener('click',function(){openTransferRemove(pool[+el.dataset.trx]);});});
   document.querySelectorAll('#drawer [data-trf]').forEach(function(el){el.addEventListener('click',function(){openTransferFix(pool[+el.dataset.trf]);});});
   /* 歷史結單：當場查 settled、按發票號分組（一號一次結單） */
   (async function(){
@@ -5110,11 +5110,35 @@ function openTransferAdd(){
     buildItems();openTransferSheet();
   });
 }
-/* 退回：整行刪＋kg 補回原日期批次（找不到原批次→補最舊現存批；全沒批次擋——用 Log roast Intake 補） */
+/* ✕ 三選抽屜（2026-07-18 老闆點名）：Cancel／Return（退回補血）／Used（用掉了——只刪行不補庫存、不進結單） */
+function openTransferRemove(t){
+  if(!canWrite()){roToast();return;}
+  if(!t||!t.id)return;
+  openDrawerHTML('<div class="t" style="font-size:19px">'+esc(t.name)+(t.process?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(t.process)+'</span>':'')+'</div>'
+    +'<div class="s" style="margin-top:2px">'+t.kg+' kg · '+(t.roast_date?fmtD(t.roast_date):'no date')+' batch — what happened to it?</div>'
+    +'<button class="act" id="trm-ret" style="margin-top:14px">Return — back to Coffee Stock</button>'
+    +'<button class="dclose" id="trm-used">Used — remove without returning</button>'
+    +'<button class="dclose" id="trm-cancel" style="border:none;background:none;color:var(--muted)">Cancel</button>');
+  $('trm-ret').addEventListener('click',function(){transferReturn(t);});
+  $('trm-used').addEventListener('click',function(){transferUsed(t);});
+  $('trm-cancel').addEventListener('click',openTransferSheet);
+}
+/* Used＝豆在店裡用掉了：只刪池行（不補血、不進週日結單），logAct 記一筆 */
+async function transferUsed(t){
+  if(!canWrite()){roToast();return;}
+  if(!t||!t.id)return;
+  var d=await sb.from('transfers').delete().eq('id',t.id);
+  if(d.error){alert('Failed: '+d.error.message);return;}
+  DB.transfers=(DB.transfers||[]).filter(function(x){return String(x.id)!==String(t.id);});
+  logAct('transfer used',t.name,t.kg+' kg · '+TRF_DEST);
+  toast('Marked used ✓ '+t.kg+' kg');
+  buildItems();openTransferSheet();
+}
+/* 退回：整行刪＋kg 補回原日期批次（找不到原批次→補最舊現存批；全沒批次擋——用 Log roast Intake 補）。
+   確認一步已由 openTransferRemove 三選抽屜取代（2026-07-18） */
 async function transferReturn(t){
   if(!canWrite()){roToast();return;}
   if(!t||!t.id)return;
-  if(!confirm('Return '+t.kg+' kg of '+t.name+' to Coffee Stock?'))return;
   var pool=rstBatches(t.name,!!t.is_blend,t.is_blend?undefined:(t.process||''));
   var same=pool.filter(function(r){return String(r.roast_date||'')===String(t.roast_date||'');});
   var back=same.length?same[0]:(pool.length?pool[0]:null);
