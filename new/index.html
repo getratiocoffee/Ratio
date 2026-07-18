@@ -9173,10 +9173,10 @@ async function openLabelSheet(){
   paintLabelBody();
 }
 function paintLabelBody(){if(LBL_KIND==='tin')renderTinLabel();else renderLabel();}
-/* ===== Post Label（收件人貼紙 .lbx；2026-07-18 老闆點名，來源＝contacts 通訊錄——同日改，原 customers 版 git 撈）=====
-   重用 blend-label.lbx 範本＋lblFitBlock 縮放：名字塊→收件人、成分行→地址行1、comment 行→地址行2、
-   風味行→suburb state postcode、date 行→電話、NET 行清空。挑聯絡人自動帶 contacts.address
-  （自由文字——按逗號/換行拆：首段→行1、中段＋company→行2、尾段→行3），欄位可手改。 */
+/* ===== Post Label（收件人貼紙 .lbx；2026-07-18 老闆點名，來源＝contacts 通訊錄）=====
+   範本＝老闆給的 /address.lbx（單一 FIXEDFRAME 文字框、shrink 自動縮字）：
+   整段換成「To: 名字\nAddress:\n地址行們」——照範本格式，無電話行。
+   挑聯絡人自動帶 contacts.address（自由文字——按逗號/換行拆：首段→行1、中段＋company→行2、尾段→行3），欄位可手改。 */
 var ADDR={cust:'',name:'',phone:'',l1:'',l2:'',l3:''};
 var ADDR_CONTACTS=[];
 function contactAddrParts(c){
@@ -9206,7 +9206,6 @@ function paintAddrLabel(){
     +'<input class="din" id="al-l1" placeholder="Address line 1" value="'+esc(ADDR.l1)+'" style="margin-top:6px">'
     +'<input class="din" id="al-l2" placeholder="Address line 2 · optional" value="'+esc(ADDR.l2)+'" style="margin-top:6px">'
     +'<input class="din" id="al-l3" placeholder="Suburb State Postcode" value="'+esc(ADDR.l3)+'" style="margin-top:6px">'
-    +'<input class="din" id="al-phone" placeholder="Phone · optional" value="'+esc(ADDR.phone)+'" style="margin-top:6px">'
     +'<div class="s" id="al-msg" style="margin-top:10px;color:var(--muted)"></div>'
     +'<button class="act" id="al-gen">Generate .lbx</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
@@ -9217,7 +9216,7 @@ function paintAddrLabel(){
     if(c){var p=contactAddrParts(c);ADDR.name=c.name||'';ADDR.phone=c.phone||'';ADDR.l1=p.l1;ADDR.l2=p.l2;ADDR.l3=p.l3;}
     paintAddrLabel();
   });
-  [['al-name','name'],['al-phone','phone'],['al-l1','l1'],['al-l2','l2'],['al-l3','l3']].forEach(function(x){
+  [['al-name','name'],['al-l1','l1'],['al-l2','l2'],['al-l3','l3']].forEach(function(x){
     $(x[0]).addEventListener('input',function(){ADDR[x[1]]=this.value;});
   });
   $('al-gen').addEventListener('click',generateAddrLbx);
@@ -9230,28 +9229,18 @@ async function generateAddrLbx(){
     if(!window.JSZip){try{await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');}catch(e){}}
     if(!window.JSZip){say('Zip library still loading, try again',1);return;}
     btn.disabled=true;say('Building .lbx…');
-    var zip=await JSZip.loadAsync(await fetchAsset('/blend-label.lbx'));
+    var zip=await JSZip.loadAsync(await fetchAsset('/address.lbx'));
     var xml=await zip.file('label.xml').async('string');
-    [
-      {value:(ADDR.name||'').trim().toUpperCase(),orig:'DARK KNIGHT',fit:1},
-      {value:(ADDR.l1||'').trim(),orig:'Espigao | Danche | El Indio',fit:1},
-      {value:(ADDR.l2||'').trim(),orig:'V3.0 Competition Blend',fit:1},
-      {value:(ADDR.l3||'').trim(),orig:'Dried Fruit | Walnut | Chocolate',fit:1},
-      {value:(ADDR.phone||'').trim(),orig:'READY BREW DATE: 06 | 07',fit:0},
-      {value:'',orig:'NET 250G',fit:0}
-    ].forEach(function(f){
-      var dataOld='<pt:data>'+xmlEsc(f.orig)+'</pt:data>';
-      var idx=xml.indexOf(dataOld);if(idx<0)return;
-      var bStart=xml.lastIndexOf('<text:text>',idx);var bEnd=xml.indexOf('</text:text>',idx)+12;
-      var block=xml.slice(bStart,bEnd),nb=block;
-      var newText=f.value||'';
-      if(newText!==f.orig){
-        nb=nb.replace(/<pt:data>[\s\S]*?<\/pt:data>/,'<pt:data>'+xmlEsc(newText)+'</pt:data>')
-             .replace(/(<text:stringItem charLen=")\d+(")/,'$1'+newText.length+'$2');
-      }
-      if(f.fit&&newText){nb=lblFitBlock(nb,f.orig.length);}
-      if(nb!==block){xml=xml.slice(0,bStart)+nb+xml.slice(bEnd);}
-    });
+    /* 範本＝單一文字框：整段換「To: 名字\nAddress:\n行們」；stringItem 串縮成單段 charLen=全文長
+      （FIXEDFRAME shrink=true——字太多 Brother 自己縮，不用 lblFitBlock） */
+    var newText='To: '+(ADDR.name||'').trim()
+      +'\nAddress:\n'+[(ADDR.l1||'').trim(),(ADDR.l2||'').trim(),(ADDR.l3||'').trim()].filter(Boolean).join('\n');
+    xml=xml.replace(/<pt:data>[\s\S]*?<\/pt:data>/,'<pt:data>'+xmlEsc(newText)+'</pt:data>');
+    var si=xml.match(/<text:stringItem charLen="\d+">[\s\S]*?<\/text:stringItem>/);
+    if(si){
+      var one=si[0].replace(/charLen="\d+"/,'charLen="'+newText.length+'"');
+      xml=xml.replace(/<text:stringItem charLen="\d+">[\s\S]*?<\/text:stringItem>(\s*<text:stringItem charLen="\d+">[\s\S]*?<\/text:stringItem>)*/,one);
+    }
     var nm=(ADDR.name||'address').replace(/[^A-Za-z0-9 _\-]/g,'').trim().replace(/\s+/g,'_')||'address';
     zip.file('label.xml',xml);
     var blob=await zip.generateAsync({type:'blob',mimeType:'application/octet-stream',compression:'DEFLATE'});
