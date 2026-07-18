@@ -605,7 +605,8 @@ async function loadAll(){
     sb.from('subscriptions').select('*'),
     sb.from('activity_log').select('action,ts').gte('ts',todayStartISO()).limit(800), /* Home 進度條分子——只能 append 在最後（rs[0..20] 位置索引不能動；2026-07-17 bean_swap 查詢移除後全體 -1） */
     sb.from('blends').select('id,name,blend_no,parts,target_kg,low_stock_kg').order('pos',{ascending:true}), /* 熟豆血條＋低量/超量聚合卡用（rs[21]）；blend_no＝拼配的 B# 號 */
-    sb.from('wholesale_applications').select('*').eq('status','new').order('created_at',{ascending:true}) /* 批發申請 pending（rs[22]）：今日流提醒卡＋Wholesale 抽屜 Applications 區 */
+    sb.from('wholesale_applications').select('*').eq('status','new').order('created_at',{ascending:true}), /* 批發申請 pending（rs[22]）：今日流提醒卡＋Wholesale 抽屜 Applications 區 */
+    sb.from('transfers').select('*').eq('status','pool').order('created_at',{ascending:true}) /* Stock transfer 池（rs[23]）：只載未結的；歷史結單開抽屜當場查 */
   ]);
   DB={orders:rs[0].data||[],customers:rs[1].data||[],tasks:rs[2].data||[],dialins:rs[3].data||[],
       syncs:rs[4].data||[],samples:rs[5].data||[],roasts:rs[6].data||[],beans:rs[7].data||[],
@@ -640,6 +641,7 @@ async function loadAll(){
   DB.subs=(rs[19]&&rs[19].data)||[];
   DB.actToday=(rs[20]&&rs[20].data)||null; /* null＝讀不到（RLS/斷線）→ Home 進度條降級只顯示 N to go */
   DB.blends=(rs[21]&&rs[21].data)||[];
+  DB.transfers=(rs[23]&&rs[23].data)||[];
   buildItems();
 }
 function dPlus(n){var t=new Date();t.setDate(t.getDate()+n);return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
@@ -743,6 +745,17 @@ function buildItems(){
       det:subDue.map(function(s){var c=custById(s.customer_id);
         return [(c&&c.name)||'—',subPlanLabel(s.plan)+' · '+(s.grams||0)+'g · '+(s.source==='square'?'Square billed':'payment link')];}),
       det2:'Later',roles:['director'],kind:'subrun'});
+  }
+  /* Stock transfer 週日結單卡：池裡有東西且今天是週日（雪梨本地）→ 一張卡帶老闆進結單。
+     結單出 GST invoice（熟豆 GST-free）＋池子清空；平日池照常在 Tools → Stock transfer 增減 */
+  if(new Date().getDay()===0&&(DB.transfers||[]).length){
+    var trfKg=0;(DB.transfers||[]).forEach(function(t){trfKg+=Number(t.kg)||0;});
+    trfKg=Math.round(trfKg*100)/100;
+    out.push({id:'trf-settle:'+todayKey(),st:'Transaction',hot:1,t:'Transfer settlement — '+trfKg+' kg',
+      s:'Sunday close-off · '+(DB.transfers||[]).length+' transfer'+((DB.transfers||[]).length>1?'s':'')+' to Crows Nest this week',
+      act:'Settle & invoice…',
+      det:[['Pool',trfKg+' kg · '+(DB.transfers||[]).length+' lines'],['Also in','Tools → Stock transfer']],
+      det2:'Later',roles:['director'],kind:'trfsettle'});
   }
   newQ.forEach(function(o){
     var c=custById(o.customer_id);
@@ -1059,6 +1072,7 @@ async function runAction(id,btn){
     }
     if(i.kind==='dialin'){openDialinForm(i);return;}
     if(i.kind==='subrun'){openSubRunSheet();return;}
+    if(i.kind==='trfsettle'){openTransferSettle();return;}
     if(i.kind==='roastlog'){openRoastSheet(Array.isArray(i.ref)?i.ref:null);return;}
     if(i.kind==='list'){await openListSheet(i);return;}
   }catch(e){
@@ -4974,6 +4988,248 @@ function openRstDeduct(x,preGroup,pool){ /* preGroup＝從批次列表點行進�
     logAct('deducted roasted',x.name,'whole batch · '+have+' kg · '+(g.date?fmtD(g.date):'no date'));
     toast('Batch removed ✓ −'+have+' kg');
     buildItems();backToStock();
+  });
+}
+/* ===== Stock transfer（2026-07-18 老闆需求：底下店面調撥池）=====
+   池＝transfers 表 status='pool'（loadAll 載進 DB.transfers）；轉入＝從 Coffee Stock 可賣批次扣
+   （選批次組＋kg、組內 FIFO 依序扣、超量擋存——帳目口徑同 openRstDeduct）；退回＝整行刪＋kg 補回原日期批次。
+   週日結單（今日流 trfsettle 卡或抽屜內 Settle 鈕）＝按豆聚合填 $/kg（app_state 'transfer_prices' 記上次價）
+   → 重用 Invoice 引擎出 PDF（熟豆 GST-free、發票號同 inv_seq 序列）→ 全池標 settled、池子歸零。
+   去向 dest 目前固定 'Crows Nest'——之後開第二家店把常數換成選單即可 */
+var TRF_DEST='Crows Nest';
+var TRF={seg:'blend',bean:null,gkey:null};
+function trfPoolKg(){var s=0;(DB.transfers||[]).forEach(function(t){s+=Number(t.kg)||0;});return Math.round(s*100)/100;}
+function openTransferSheet(){
+  var pool=DB.transfers||[],ed=canWrite();
+  var h='<div class="t" style="font-size:19px">Stock transfer · '+esc(TRF_DEST)+'</div>'
+    +'<div class="s" style="margin-top:2px">beans set aside for the shop — settled with an invoice every Sunday</div>'
+    +'<div class="gs-sum"><div class="box"><div class="n">'+trfPoolKg()+'</div><div class="l">kg in pool</div></div>'
+    +'<div class="box"><div class="n">'+pool.length+'</div><div class="l">Transfer'+(pool.length===1?'':'s')+'</div></div></div>';
+  if(!pool.length)h+='<div class="empty">Pool is empty<br>Add coffee below — it comes off Coffee Stock</div>';
+  else h+='<div class="dlab">In the pool</div>'+pool.map(function(t,i){
+    return '<div class="dl"><span>'+esc(t.name)+(t.process?' <span style="color:var(--muted);font-size:12px">'+esc(t.process)+'</span>':'')
+      +'<span style="color:var(--muted);font-size:12px"> · '+(t.roast_date?fmtD(t.roast_date):'no date')+' batch · added '+fmtD(t.created_at)+'</span></span>'
+      +'<span style="display:flex;align-items:center;gap:8px">'+t.kg+' kg'
+      +(ed?'<button class="chip" data-trx="'+i+'" style="margin:0;padding:2px 10px;color:var(--muted)" aria-label="return">✕</button>':'')+'</span></div>';
+  }).join('');
+  if(ed)h+='<button class="dclose" id="trf-add">+ Add coffee to the pool</button>';
+  if(pool.length&&rsMoney())h+='<button class="act" id="trf-settle" style="margin-top:10px">Settle & invoice…</button>';
+  h+='<div class="dlab">Past settlements</div><div id="trf-hist"><div class="s" style="color:var(--muted)">Loading…</div></div>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
+  openDrawerHTML(h);
+  $('d-cl').addEventListener('click',closeDrawer);
+  if($('trf-add'))$('trf-add').addEventListener('click',openTransferAdd);
+  if($('trf-settle'))$('trf-settle').addEventListener('click',openTransferSettle);
+  document.querySelectorAll('#drawer [data-trx]').forEach(function(el){el.addEventListener('click',function(){transferReturn(pool[+el.dataset.trx]);});});
+  /* 歷史結單：當場查 settled、按發票號分組（一號一次結單） */
+  (async function(){
+    var he=$('trf-hist');if(!he)return;
+    try{
+      var q=await sb.from('transfers').select('name,kg,price_per_kg,invoice_no,settled_at').eq('status','settled').order('settled_at',{ascending:false}).limit(80);
+      var gs=[],gi={};
+      (q.data||[]).forEach(function(t){
+        var k=String(t.invoice_no||'—');
+        if(gi[k]==null){gi[k]=gs.length;gs.push({no:k,at:t.settled_at,kg:0,amt:0});}
+        var g=gs[gi[k]];g.kg+=Number(t.kg)||0;g.amt+=(Number(t.kg)||0)*(Number(t.price_per_kg)||0);
+      });
+      he.innerHTML=gs.length?gs.slice(0,8).map(function(g){
+        return '<div class="dl"><span>'+esc(g.no)+'<span style="color:var(--muted);font-size:12px"> · '+(g.at?fmtD(g.at):'—')+'</span></span><span>'+(Math.round(g.kg*100)/100)+' kg · '+money(g.amt)+'</span></div>';
+      }).join(''):'<div class="s" style="color:var(--muted)">No settlements yet</div>';
+    }catch(e){he.innerHTML='<div class="s" style="color:var(--muted)">Could not load history</div>';}
+  })();
+}
+/* 轉入池：選豆（Blends/Single origins 同 Coffee Stock 分頁）→ 選批次組（預設最舊）→ 輸 kg → 扣血＋入池 */
+function openTransferAdd(){
+  if(!canWrite()){roToast();return;}
+  var isBlend=TRF.seg==='blend';
+  var rows=rstRows(isBlend).filter(function(x){return x.batches.length;});
+  var cur=rows.find(function(x){return x.key===TRF.bean;})||null;
+  var groups=cur?rstGroupByDate(cur.batches):[];
+  if(cur&&!groups.some(function(g){return g.key===TRF.gkey;}))TRF.gkey=groups.length?groups[0].key:null;
+  var h='<div class="t" style="font-size:19px">Add to transfer pool</div>'
+    +'<div class="s" style="margin-top:2px">comes off Coffee Stock now — invoiced on Sunday</div>'
+    +'<div class="pm-seg" style="margin-top:10px"><button id="tra-b" class="'+(isBlend?'on':'')+'">Blends</button><button id="tra-s" class="'+(isBlend?'':'on')+'">Single origins</button></div>'
+    +'<div class="dlab">Coffee</div>'
+    +(rows.length?'<select class="din" id="tra-bean"><option value="">— pick a coffee —</option>'
+      +rows.map(function(x){return '<option value="'+esc(x.key)+'"'+(cur&&x.key===cur.key?' selected':'')+'>'+esc(x.name)+(x.proc?' · '+esc(x.proc):'')+' — '+rstStockKg(x.name,x.isBlend,x.isBlend?undefined:(x.proc||''))+' kg</option>';}).join('')
+      +'</select>':'<div class="empty">Nothing in stock here</div>');
+  if(cur){
+    h+='<div class="dlab">Batch</div><div id="tra-bats">'
+      +groups.map(function(g){return '<button class="chip" data-tg="'+esc(g.key)+'" style="margin-bottom:6px"><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(g.date)+';margin-right:5px;vertical-align:0"></span>'+(g.date?fmtD(g.date):'no date')+' · '+g.kg+' kg</button>';}).join(' ')+'</div>'
+      +'<div class="dlab" id="tra-kglab">Kg to transfer</div><input class="din" id="tra-kg" inputmode="decimal" placeholder="e.g. 2">';
+  }
+  h+='<div style="display:flex;gap:8px;align-items:stretch;margin-top:12px">'
+    +'<button class="dclose" id="tra-back" style="flex:1;margin-top:0;white-space:nowrap;border-radius:16px">‹ Back</button>'
+    +'<button class="act" id="tra-save" style="flex:1.6;margin-top:0;white-space:nowrap"'+(cur?'':' disabled')+'>Add to pool</button>'
+    +'</div>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
+  openDrawerHTML(h);
+  function sel(){document.querySelectorAll('#tra-bats .chip').forEach(function(c){var on=c.dataset.tg===TRF.gkey;c.style.borderColor=on?'var(--accent)':'';c.style.color=on?'var(--accent)':'';});}
+  sel();
+  $('tra-b').addEventListener('click',function(){if(TRF.seg!=='blend'){TRF.seg='blend';TRF.bean=null;TRF.gkey=null;openTransferAdd();}});
+  $('tra-s').addEventListener('click',function(){if(TRF.seg!=='single'){TRF.seg='single';TRF.bean=null;TRF.gkey=null;openTransferAdd();}});
+  if($('tra-bean'))$('tra-bean').addEventListener('change',function(){TRF.bean=this.value||null;TRF.gkey=null;openTransferAdd();});
+  document.querySelectorAll('#tra-bats .chip').forEach(function(c){c.addEventListener('click',function(){TRF.gkey=c.dataset.tg;sel();});});
+  $('tra-back').addEventListener('click',openTransferSheet);
+  $('d-cl').addEventListener('click',closeDrawer);
+  $('tra-save').addEventListener('click',async function(){
+    if(!cur)return;
+    var g=groups.find(function(x){return x.key===TRF.gkey;});
+    if(!g){toast('Pick a batch');return;}
+    var kg=parseFloat(($('tra-kg').value||'').trim());
+    if(isNaN(kg)||kg<=0){toast('Enter the kg');return;}
+    if(kg>g.kg+0.0005){toast('That batch only has '+g.kg+' kg');return;}
+    var btn=this;btn.disabled=true;btn.textContent='Saving…';
+    /* 組內 FIFO 依序扣（同日多鍋合併一組——帳目口徑同扣血） */
+    var left=kg,err=null;
+    for(var i=0;i<g.batches.length&&left>0.0001;i++){
+      var r=g.batches[i];
+      var have=Number(r.remaining_kg)||0;if(!(have>0))continue;
+      var take=Math.min(have,left);
+      var nv=Math.max(0,Math.round((have-take)*1000)/1000);
+      var u=await sb.from('roasts').update({remaining_kg:nv}).eq('id',r.id);
+      if(u.error){err=u.error.message;break;}
+      r.remaining_kg=nv;left-=take;
+    }
+    if(err){btn.disabled=false;btn.textContent='Add to pool';alert('Failed: '+err);buildItems();return;}
+    var took=Math.round((kg-Math.max(0,left))*1000)/1000;
+    var ins=await sb.from('transfers').insert({dest:TRF_DEST,name:cur.name,process:cur.isBlend?null:(cur.proc||null),is_blend:!!cur.isBlend,kg:took,roast_date:g.date||null}).select();
+    if(ins.error){
+      /* 入池失敗＝把剛扣的血補回去（帳不能少一截） */
+      var fb=g.batches[0];
+      try{await sb.from('roasts').update({remaining_kg:Math.round(((Number(fb.remaining_kg)||0)+took)*1000)/1000}).eq('id',fb.id);fb.remaining_kg=(Number(fb.remaining_kg)||0)+took;}catch(e2){}
+      btn.disabled=false;btn.textContent='Add to pool';alert('Failed: '+ins.error.message);buildItems();return;
+    }
+    if(ins.data&&ins.data[0])DB.transfers.push(ins.data[0]);
+    logAct('transferred to pool',cur.name,took+' kg · '+(g.date?fmtD(g.date):'no date')+' → '+TRF_DEST);
+    toast('In the pool ✓ −'+took+' kg');
+    TRF.bean=null;TRF.gkey=null;
+    buildItems();openTransferSheet();
+  });
+}
+/* 退回：整行刪＋kg 補回原日期批次（找不到原批次→補最舊現存批；全沒批次擋——用 Log roast Intake 補） */
+async function transferReturn(t){
+  if(!canWrite()){roToast();return;}
+  if(!t||!t.id)return;
+  if(!confirm('Return '+t.kg+' kg of '+t.name+' to Coffee Stock?'))return;
+  var pool=rstBatches(t.name,!!t.is_blend,t.is_blend?undefined:(t.process||''));
+  var same=pool.filter(function(r){return String(r.roast_date||'')===String(t.roast_date||'');});
+  var back=same.length?same[0]:(pool.length?pool[0]:null);
+  if(!back){
+    /* 原批次已整批清光：找同名任何批次（含 0 kg 的）掛回去，別讓豆消失 */
+    var any=(DB.roasts||[]).filter(function(r){return (t.is_blend?r.kind==='blend':r.kind!=='blend')&&String(r.bean_name||'').trim().toLowerCase()===String(t.name||'').trim().toLowerCase();});
+    back=any.length?any[0]:null;
+  }
+  if(!back){alert('No batch left to return this to — use Log roast Intake to book it back in.');return;}
+  var nv=Math.round(((Number(back.remaining_kg)||0)+(Number(t.kg)||0))*1000)/1000;
+  var u=await sb.from('roasts').update({remaining_kg:nv}).eq('id',back.id);
+  if(u.error){alert('Failed: '+u.error.message);return;}
+  back.remaining_kg=nv;
+  var d=await sb.from('transfers').delete().eq('id',t.id);
+  if(d.error){
+    /* 刪行失敗＝把剛補的血收回（不能兩邊都有） */
+    try{await sb.from('roasts').update({remaining_kg:Math.max(0,Math.round((nv-(Number(t.kg)||0))*1000)/1000)}).eq('id',back.id);back.remaining_kg=Math.max(0,nv-(Number(t.kg)||0));}catch(e2){}
+    alert('Failed: '+d.error.message);return;
+  }
+  DB.transfers=(DB.transfers||[]).filter(function(x){return String(x.id)!==String(t.id);});
+  logAct('transfer returned',t.name,t.kg+' kg ← '+TRF_DEST);
+  toast('Returned ✓ +'+t.kg+' kg');
+  buildItems();openTransferSheet();
+}
+/* 週日結單：按豆聚合＋每行 $/kg（記上次價）→ Invoice 引擎出 PDF（熟豆 GST-free）→ 全池標 settled */
+async function openTransferSettle(){
+  if(!rsMoney()){roToast();return;}
+  var pool=DB.transfers||[];
+  if(!pool.length){toast('Pool is empty — nothing to settle');return;}
+  openDrawerHTML('<div class="t" style="font-size:19px">Settle · '+esc(TRF_DEST)+'</div><div class="empty">Loading…</div>');
+  /* 上次價格記憶（app_state 'transfer_prices'：{beanKey:$/kg}） */
+  var prices={};
+  try{
+    var pq=await sb.from('app_state').select('value').eq('key','transfer_prices').maybeSingle();
+    var pv=pq.data&&pq.data.value;if(typeof pv==='string'){try{pv=JSON.parse(pv);}catch(e){pv=null;}}
+    if(pv&&typeof pv==='object')prices=pv;
+  }catch(e){}
+  /* 按 豆名+處理法 聚合 */
+  var rows=[],ri={};
+  pool.forEach(function(t){
+    var k=String(t.name||'').trim().toLowerCase()+'|'+String(t.process||'').trim().toLowerCase();
+    if(ri[k]==null){ri[k]=rows.length;rows.push({key:k,name:t.name,proc:t.process||'',isBlend:!!t.is_blend,kg:0});}
+    rows[ri[k]].kg+=Number(t.kg)||0;
+  });
+  rows.forEach(function(r){r.kg=Math.round(r.kg*1000)/1000;r.price=prices[r.key]!=null?String(prices[r.key]):'';});
+  var h='<div class="t" style="font-size:19px">Settle · '+esc(TRF_DEST)+'</div>'
+    +'<div class="s" style="margin-top:2px">price per kg — the pool becomes one invoice, then resets</div>'
+    +'<div class="dlab">This week</div>'
+    +rows.map(function(r,i){
+      return '<div style="display:flex;gap:8px;align-items:center;margin-top:8px">'
+        +'<span style="flex:1.6;min-width:0"><span class="t" style="font-size:14px">'+esc(r.name)+'</span>'
+        +(r.proc?' <span style="color:var(--muted);font-size:12px">'+esc(r.proc)+'</span>':'')
+        +'<span class="s" style="display:block;color:var(--muted)">'+r.kg+' kg</span></span>'
+        +'<input class="din" data-tp="'+i+'" inputmode="decimal" placeholder="$/kg" value="'+esc(r.price)+'" style="flex:1;margin:0">'
+        +'<span class="s" data-tt="'+i+'" style="flex:0 0 74px;text-align:right"></span></div>';
+    }).join('')
+    +'<div style="border-top:1px solid var(--line);margin-top:12px;padding-top:8px"><div class="dl"><span style="font-weight:700">Total · GST-free</span><span style="font-weight:700" id="tset-tot"></span></div></div>'
+    +'<button class="act" id="tset-go">Settle — PDF invoice</button>'
+    +'<button class="dclose" id="tset-back">‹ Back</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
+  openDrawerHTML(h);
+  function upd(){
+    var tot=0;
+    rows.forEach(function(r,i){
+      var p=parseFloat(r.price);var ok=!isNaN(p)&&p>=0;
+      var amt=ok?r.kg*p:null;if(ok)tot+=amt;
+      var te=document.querySelector('#drawer [data-tt="'+i+'"]');if(te)te.textContent=ok?money(amt):'—';
+    });
+    var e=$('tset-tot');if(e)e.textContent=money(tot);
+  }
+  upd();
+  document.querySelectorAll('#drawer [data-tp]').forEach(function(inp){inp.addEventListener('input',function(){rows[+inp.dataset.tp].price=inp.value;upd();});});
+  $('tset-back').addEventListener('click',openTransferSheet);
+  $('d-cl').addEventListener('click',closeDrawer);
+  $('tset-go').addEventListener('click',async function(){
+    for(var i=0;i<rows.length;i++){var p=parseFloat(rows[i].price);if(isNaN(p)||p<0){toast('Set a $/kg for '+rows[i].name);return;}}
+    var total=0;rows.forEach(function(r){total+=r.kg*parseFloat(r.price);});
+    if(!confirm('Settle '+trfPoolKg()+' kg to '+TRF_DEST+' for '+money(total)+'?\n\nOne PDF invoice, then the pool resets for next week.'))return;
+    var btn=this;btn.disabled=true;btn.textContent='Drawing…';
+    var keep={inv:INV};
+    try{
+      var seq=await invNextNo(todayKey());
+      INV={buyerName:'Ratio Coffee — '+TRF_DEST+' store',buyerEmail:'',
+        buyerAddr:'Shop 2, 473 Pacific Highway, Crows Nest NSW 2065',
+        items:rows.map(function(r){return {cat:'Roasted Beans',desc:r.name+(r.proc?' — '+r.proc:'')+' · per kg',pack:'',qty:String(r.kg),unit:r.price,gstMode:'plus'};}),
+        notes:'Internal stock transfer — settled '+fmtD(todayKey()),date:todayKey(),due:''};
+      await menusPDF(function(logo){buildInvoicePDF(logo,seq.no);});
+      await seq.commit();
+      INV=keep.inv;
+      /* PDF 出了才動帳：逐豆標 settled＋記價（同鍵 pool 行一次蓋） */
+      var err=null;
+      for(var j=0;j<rows.length;j++){
+        var r=rows[j];
+        var q=sb.from('transfers').update({status:'settled',settled_at:new Date().toISOString(),invoice_no:seq.no,price_per_kg:parseFloat(r.price)})
+          .eq('status','pool').eq('name',r.name).eq('is_blend',r.isBlend);
+        q=r.proc?q.eq('process',r.proc):q.is('process',null);
+        var u=await q;
+        if(u.error){err=u.error.message;break;}
+      }
+      if(err){btn.disabled=false;btn.textContent='Settle — PDF invoice';alert('Invoice PDF is saved but the pool did not clear: '+err+'\n\nFix and press Settle again (it will draw a new invoice number).');return;}
+      /* 價格記憶寫回（失敗不擋） */
+      try{
+        var pm={};rows.forEach(function(r){pm[r.key]=parseFloat(r.price);});
+        var pq2=await sb.from('app_state').select('value').eq('key','transfer_prices').maybeSingle();
+        var old=pq2.data&&pq2.data.value;if(typeof old==='string'){try{old=JSON.parse(old);}catch(e){old=null;}}
+        if(old&&typeof old==='object')pm=Object.assign(old,pm);
+        await sb.from('app_state').upsert({key:'transfer_prices',value:pm,updated_at:new Date().toISOString()},{onConflict:'key'});
+      }catch(e){}
+      logAct('transfer settled',seq.no,trfPoolKg()+' kg · '+money(total)+' → '+TRF_DEST);
+      DB.transfers=[];
+      buildItems();
+      toast('Settled ✓ '+seq.no);
+      openTransferSheet();
+    }catch(e){
+      INV=keep.inv;
+      btn.disabled=false;btn.textContent='Settle — PDF invoice';
+      alert('Settle failed: '+(e&&e.message||e));
+    }
   });
 }
 /* ===== 訂單瀏覽（唯讀：最近訂單清單＋詳情抽屜；動作照舊走今日流卡片）===== */
@@ -10011,7 +10267,7 @@ var TOOL_ICONS={
 };
 function tsvg(k){return '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'+(TOOL_ICONS[k]||TOOL_ICONS.dot)+'</svg>';}
 /* 開發期進度標記：改過的工具在 Tools 字變紅——完工後把整組（DONE_TOOLS＋.tool-done＋tool-done class）拿掉 */
-var DONE_TOOLS=['Timesheet','C Market','Green stock','Roasted Stock','QC','Log roast'];
+var DONE_TOOLS=['Timesheet','C Market','Green stock','Roasted Stock','QC','Log roast','Stock transfer'];
 function _isDone(label){return DONE_TOOLS.indexOf(label)>-1;}
 function renderTools(){
   $('deck').style.display='none';
@@ -10036,7 +10292,7 @@ function renderTools(){
       +_tiles([['Green stock','full list','greens','stock'],['ID book','all S# &amp; B# numbers','idbook','menu'],['Sample analyse','green cupping','sampleana','qc',1],['Buy log','green purchases','buylog','order',1],['C Market','futures · landed cost','cmarket','statement']])):'')
     +_sec('Roast',DEPT.roast,
       (_mk?_mkTile('t-roast','Log roast','green in','flame'):'')
-      +_tiles([['Coffee Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Coffee Info','flavour · dossier','retail','market']].concat(isLead()?[['Delete a coffee','remove · careful','delbean','trash',1],['Clean up','orphans · dead links','cleanup','refresh',1]]:[])))
+      +_tiles([['Coffee Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Stock transfer','pool for the shop · Sunday invoice','transfer','dispatch',_mk?1:0],['Coffee Info','flavour · dossier','retail','market']].concat(isLead()?[['Delete a coffee','remove · careful','delbean','trash',1],['Clean up','orphans · dead links','cleanup','refresh',1]]:[])))
     +_sec('QC &amp; Recipe',DEPT.qc,
       _tiles([['QC','cup and judge','qcgo','qc'],['Live cupping','blind · together','livecup','qc'],['Recipe','blends · dial-in','recipe','recipe'],['Dial in','espresso shots','dialin','espresso',1]]))
     /* 2026-07-12 統整：Coffee Info/Post to socials/IG asset/Announce 四顆收進 Publish 一鍵上架面板 */
@@ -10144,6 +10400,7 @@ function renderTools(){
     if(k==='greens'){openGreensSheet();return;}
     if(k==='idbook'){openIdBookSheet();return;}
     if(k==='batches'){openBatchesSheet();return;}
+    if(k==='transfer'){openTransferSheet();return;}
     if(k==='sampleana'){openSampleSheet();return;}
     if(k==='buylog'){openBuyLogSheet();return;}
     if(k==='customers'){openCustomersSheet();return;}

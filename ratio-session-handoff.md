@@ -80,6 +80,14 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-18 之十六（Stock transfer：底下店面調撥池＋週日結單出 invoice ✅ 待 push）
+- **老闆需求**：底下店面（目前 Crows Nest）拿豆先進「transfer pool」累積，池可從 Coffee Stock 增（轉入）減（退回），**週日結單**＝存紀錄＋出 invoice。
+- **新表 `transfers`**（migration `transfers_table`，RLS is_staff() 四政策照 subscriptions）：dest（默認 'Crows Nest'）/name/process/is_blend/kg(>0)/roast_date/status(pool|settled)/settled_at/invoice_no/price_per_kg。loadAll 尾端 append `.eq('status','pool')`→`DB.transfers`（**rs[23]**；歷史結單抽屜內當場查）。
+- **前端（new/index.html）**：①Roast 區新磁貼「Stock transfer」（data-t 'transfer'，Coffee Stock 旁）→`openTransferSheet`＝池總覽（kg/行數統計、逐行 ✕ 退回、+ Add、Settle 鈕 rsMoney gate、Past settlements 按 invoice_no 分組近 8 次）②`openTransferAdd`：Blends/Single origins seg＋豆下拉（rstRows 有批次者、帶現量）→批次組 chips（rstGroupByDate 預設最舊、鮮度色點同扣血）→kg→存＝**組內 FIFO 扣 roasts.remaining_kg（超量擋存「only has X kg」）→insert transfers**；insert 失敗自動把剛扣的血補回（帳不缺角）③`transferReturn`：整行刪＋kg 補回原日期批次（沒了→最舊現存批→全無擋並提示走 Log roast Intake）；刪行失敗把剛補的血收回④`openTransferSettle`（rsMoney）：按豆聚合＋每行 $/kg（**app_state 'transfer_prices' 記上次價**、即時小計/總計）→confirm→**重用 Invoice 引擎**（invNextNo 同 inv_seq 序列；INV 暫存還原；items cat 'Roasted Beans'＝GST-free、qty=kg、unit=$/kg；buyer 'Ratio Coffee — Crows Nest store'）→PDF 成功才逐豆 update status settled+invoice_no+price_per_kg→價格記憶寫回（失敗不擋）→池歸零⑤buildItems **'trf-settle' 週日卡**（getDay()===0 且池非空；st:'Transaction' hot director only kind:'trfsettle'→開結單抽屜；det2 Later 可睡）⑥DONE_TOOLS +'Stock transfer'。
+- **驗證**：jscheck ✓；本機 8124 假資料攔 fetch 全測——池抽屜統計/行清單 ✓、Add 選豆→批次→超量擋「only has 5 kg」✓、合法轉 2kg r1 5→3＋寫入序 PATCH roasts→POST transfers→activity_log ✓、退回 r3 3→4.5＋行刪 ✓、結單聚合 $28/kg 總計 $56 ✓ INV-20260718-001 ✓ PATCH transfers（process null 用 .is）✓ 價格記憶寫回 ✓ 池歸零 ✓、週六不出卡/假週日出卡 ✓、console 零錯誤＋截圖 ✓。
+- **等老闆（部署後真機）**：①Tools→Stock transfer 真轉一筆看 Coffee Stock 血條同步扣②週日看今日流 Transfer settlement 卡→填價結單→看 PDF invoice ③之後開第二家店跟我說——把 TRF_DEST 常數升級成去向選單。
+- **注意**：轉入只從**可賣池**扣（降級/待秤批次不進轉撥）；結單 PDF 出了但池清失敗會 alert 提示重按（會出新發票號，內部單無大害）。
+
 ## 〇、補記 — 2026-07-17 之十五（Marketing 新磁貼 Edit Notes：改已 Pass 豆風味 ✅ 待 push）
 - **老闆需求**：Marketing 區加「Edit Notes」鈕改已 Pass 豆的風味。磁貼（lead only 同 Publish、icon 'book'、data-t 'editnotes'）→ `openEditNotesSheet`：母體＝samples flavour_locked=true 去重（sample_id|procKey 最新一筆，同 Publish 口徑）、每列豆名＋處理法＋現風味詞；點列 → `openEditNotesForm`：三格風味（maxlength 22）＋comment（30）預填現值、Save→update samples {features(濾空),comment||null} eq id→本地同物件參照即時同步＋logAct 'edited notes'→回列表。至少一個風味詞防呆。
 - **傳播鏈**：只改 app 端 samples——店面菜單/?bean 公開頁約 5 分快取後自動跟；**Square 商品描述不自動同步**（要走 Publish→Update listing），抽屜副標有註明。
