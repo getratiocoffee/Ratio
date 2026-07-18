@@ -93,6 +93,7 @@
 - **驗證**：jscheck ✓；本機 8124 假資料攔 fetch 全測——池抽屜統計/行清單 ✓、Add 選豆→批次→超量擋「only has 5 kg」✓、合法轉 2kg r1 5→3＋寫入序 PATCH roasts→POST transfers→activity_log ✓、退回 r3 3→4.5＋行刪 ✓、結單聚合 $28/kg 總計 $56 ✓ INV-20260718-001 ✓ PATCH transfers（process null 用 .is）✓ 價格記憶寫回 ✓ 池歸零 ✓、週六不出卡/假週日出卡 ✓、console 零錯誤＋截圖 ✓。
 - **等老闆（部署後真機）**：①Tools→Stock transfer 真轉一筆看 Coffee Stock 血條同步扣②週日看今日流 Transfer settlement 卡→填價結單→看 PDF invoice ③之後開第二家店跟我說——把 TRF_DEST 常數升級成去向選單。
 - **注意**：轉入只從**可賣池**扣（降級/待秤批次不進轉撥）；結單 PDF 出了但池清失敗會 alert 提示重按（會出新發票號，內部單無大害）。
+- **同日追加六（老闆定價）**：**transfer 價＝RRP 的 50%**——openTransferSettle 當場查 product_sync（channel square，price/grams）→ $/kg=price/grams×1000 → **打對折預填**（process 級優先、名字級退路）；行下註「RRP $X/kg → half」；**沒上架的豆**註「no RRP — set a price」→ 退回上次記憶價 → 空手填；欄位仍可手改。驗證：$30/150g→預填 $100、$25/100g→$125、無 RRP 空欄、總計 $387.50 ✓。
 - **同日追加五（老闆點名）**：①「Settle & invoice…」全改 **Submit**（池抽屜鈕/結單抽屜鈕 Submit — PDF invoice/confirm 文/週日卡 act 'Submit…'）②抽屜標題右上加 **🧾 icon**＝`openTransferHistory`「Submitted invoices」抽屜：settled 按發票號分組（號＋日期｜總 kg＋金額）、**點組展開明細行**（豆名 · kg × $/kg = 小計）、查一次展開只重繪不重打 DB；原主抽屜底部 Past settlements 區收掉。驗證：Submit 文案 ✓ 歷史兩單分組＋展開明細 ✓ 展開零額外查詢 ✓ 卡 act ✓ 截圖 ✓。
 - **同日追加四（老闆點名）**：Add 抽屜 kg 欄**預填選中批次的總量**（整批全轉直接按存、部分轉改數字；換批次 chip 重填該批總量）。驗證：選豆預填 5、切批 4、切回 5 ✓。
 - **同日追加三（老闆點名並排 ×2）**：①池抽屜「+ Add」與「Settle & invoice…」合一排（flex 1:1.8、Add 縮字防窄機截斷；只有一顆時自己撐滿）②三選抽屜「Return to stock」與「Used」合一排（1.3:1）＋下方灰字一行說明、Cancel 留底。截圖驗證兩排不爆框 ✓。

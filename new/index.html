@@ -5280,12 +5280,26 @@ async function openTransferSettle(){
   var pool=DB.transfers||[];
   if(!pool.length){toast('Pool is empty — nothing to settle');return;}
   openDrawerHTML('<div class="t" style="font-size:19px">Settle · '+esc(TRF_DEST)+'</div><div class="empty">Loading…</div>');
-  /* 上次價格記憶（app_state 'transfer_prices'：{beanKey:$/kg}） */
+  /* 上次價格記憶（app_state 'transfer_prices'：{beanKey:$/kg}）——沒 RRP 的豆才用 */
   var prices={};
   try{
     var pq=await sb.from('app_state').select('value').eq('key','transfer_prices').maybeSingle();
     var pv=pq.data&&pq.data.value;if(typeof pv==='string'){try{pv=JSON.parse(pv);}catch(e){pv=null;}}
     if(pv&&typeof pv==='object')prices=pv;
+  }catch(e){}
+  /* RRP 50%（2026-07-18 老闆定價）：product_sync 上架價/克數 → $/kg → 打對折預填。
+     process 級優先、名字級退路（拼配沒 process）；沒上架的豆 → 上次記憶價 → 空手填 */
+  var rrp={};
+  try{
+    var rq=await sb.from('product_sync').select('bean_id,process,price,grams').eq('channel','square');
+    (rq.data||[]).forEach(function(p){
+      var pr=Number(p.price),g=Number(p.grams);
+      if(!(pr>0&&g>0))return;
+      var nk=String(p.bean_id||'').trim().toLowerCase();if(!nk)return;
+      var perKg=pr/g*1000;
+      rrp[nk+'|'+procKey(p.process||'')]=perKg;
+      if(rrp[nk]==null)rrp[nk]=perKg;
+    });
   }catch(e){}
   /* 按 豆名+處理法 聚合 */
   var rows=[],ri={};
@@ -5294,15 +5308,22 @@ async function openTransferSettle(){
     if(ri[k]==null){ri[k]=rows.length;rows.push({key:k,name:t.name,proc:t.process||'',isBlend:!!t.is_blend,kg:0});}
     rows[ri[k]].kg+=Number(t.kg)||0;
   });
-  rows.forEach(function(r){r.kg=Math.round(r.kg*1000)/1000;r.price=prices[r.key]!=null?String(prices[r.key]):'';});
+  rows.forEach(function(r){
+    r.kg=Math.round(r.kg*1000)/1000;
+    var nk=String(r.name||'').trim().toLowerCase();
+    var perKg=rrp[nk+'|'+procKey(r.proc||'')];if(perKg==null)perKg=rrp[nk];
+    r.rrpKg=perKg!=null?Math.round(perKg*100)/100:null;
+    if(perKg!=null)r.price=String(Math.round(perKg*0.5*100)/100);
+    else r.price=prices[r.key]!=null?String(prices[r.key]):'';
+  });
   var h='<div class="t" style="font-size:19px">Settle · '+esc(TRF_DEST)+'</div>'
-    +'<div class="s" style="margin-top:2px">price per kg — the pool becomes one invoice, then resets</div>'
+    +'<div class="s" style="margin-top:2px">half of RRP prefilled per kg — the pool becomes one invoice, then resets</div>'
     +'<div class="dlab">This week</div>'
     +rows.map(function(r,i){
       return '<div style="display:flex;gap:8px;align-items:center;margin-top:8px">'
         +'<span style="flex:1.6;min-width:0"><span class="t" style="font-size:14px">'+esc(r.name)+'</span>'
         +(r.proc?' <span style="color:var(--muted);font-size:12px">'+esc(r.proc)+'</span>':'')
-        +'<span class="s" style="display:block;color:var(--muted)">'+r.kg+' kg</span></span>'
+        +'<span class="s" style="display:block;color:var(--muted)">'+r.kg+' kg'+(r.rrpKg!=null?' · RRP $'+r.rrpKg+'/kg → half':' · no RRP — set a price')+'</span></span>'
         +'<input class="din" data-tp="'+i+'" inputmode="decimal" placeholder="$/kg" value="'+esc(r.price)+'" style="flex:1;margin:0">'
         +'<span class="s" data-tt="'+i+'" style="flex:0 0 74px;text-align:right"></span></div>';
     }).join('')
