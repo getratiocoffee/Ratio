@@ -754,8 +754,9 @@ function buildItems(){
     out.push({id:'trf-settle:'+todayKey(),st:'Transaction',hot:1,t:'Transfer settlement — '+trfKg+' kg',
       s:'Sunday close-off · '+(DB.transfers||[]).length+' transfer'+((DB.transfers||[]).length>1?'s':'')+' to Crows Nest this week',
       act:'Submit…',
-      det:[['Pool',trfKg+' kg · '+(DB.transfers||[]).length+' lines'],['Also in','Tools → Stock transfer']],
-      det2:'Later',roles:['director'],kind:'trfsettle'});
+      det:[['Pool',trfKg+' kg · '+(DB.transfers||[]).length+' lines'],['Also in','Tools → Crows Nest']],
+      /* lead＝manager 也收卡（roles 是 role 名單、lead 是旗標——自己是 lead 就把自己的 role 塞進名單） */
+      det2:'Later',roles:isLead()?['director',myRole()]:['director'],kind:'trfsettle'});
   }
   newQ.forEach(function(o){
     var c=custById(o.customer_id);
@@ -5019,7 +5020,8 @@ function openTransferSheet(){
   /* Add 與 Settle 並排一排（2026-07-18 老闆點名）；只有一顆時自己撐滿 */
   var tb='';
   if(ed)tb+='<button class="dclose" id="trf-add" style="flex:1;margin-top:0;white-space:nowrap;border-radius:16px">+ Add</button>';
-  if(pool.length&&rsMoney())tb+='<button class="act" id="trf-settle" style="flex:1.8;margin-top:0;white-space:nowrap">Submit</button>';
+  /* Submit 開放給 lead＝manager（2026-07-18 老闆點名；rsMoney 之外 isLead 也放行） */
+  if(pool.length&&(rsMoney()||isLead()))tb+='<button class="act" id="trf-settle" style="flex:1.8;margin-top:0;white-space:nowrap">Submit</button>';
   if(tb)h+='<div style="display:flex;gap:8px;align-items:stretch;margin-top:12px">'+tb+'</div>';
   h+='<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
   openDrawerHTML(h);
@@ -5058,7 +5060,7 @@ async function openTransferHistory(){
             return '<div class="dl" style="border-bottom:none;padding:3px 0 3px 12px"><span class="s" style="color:var(--muted)">'+esc(l.name)+(l.proc?' · '+esc(l.proc):'')+'</span><span class="s" style="color:var(--muted)">'+l.kg+' kg × '+money(l.price)+' = '+money(l.amt)+'</span></div>';
           }).join('')
           /* 重出 PDF（2026-07-18：iOS Safari 可能在 Submit 時打斷下載——這裡隨時補印） */
-          +(rsMoney()?'<button class="dclose" data-thp="'+i+'" style="margin-top:4px">Download PDF again</button>':''):'');
+          +((rsMoney()||isLead())?'<button class="dclose" data-thp="'+i+'" style="margin-top:4px">Download PDF again</button>':''):'');
       }).join(''):'<div class="empty">Nothing submitted yet<br>The pool becomes an invoice here every Sunday</div>')
       +'<button class="dclose" id="th-back">‹ Back</button>'
       +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
@@ -5287,7 +5289,7 @@ function openTransferFix(t){
 }
 /* 週日結單：按豆聚合＋每行 $/kg（記上次價）→ Invoice 引擎出 PDF（熟豆 GST-free）→ 全池標 settled */
 async function openTransferSettle(){
-  if(!rsMoney()){roToast();return;}
+  if(!rsMoney()&&!isLead()){roToast();return;} /* lead＝manager 也可結單（2026-07-18 老闆點名） */
   var pool=DB.transfers||[];
   if(!pool.length){toast('Pool is empty — nothing to settle');return;}
   openDrawerHTML('<div class="t" style="font-size:19px">Settle · '+esc(TRF_DEST)+'</div><div class="empty">Loading…</div>');
