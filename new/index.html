@@ -10496,7 +10496,7 @@ function renderTools(){
       (_mk?_mkTile('t-roast','Log roast','green in','flame'):'')
       +_tiles([['Coffee Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Crows Nest','transfer pool · Sunday invoice','transfer','dispatch',_mk?1:0],['Coffee Info','flavour · dossier','retail','market']].concat(isLead()?[['Delete a coffee','remove · careful','delbean','trash',1],['Clean up','orphans · dead links','cleanup','refresh',1]]:[])))
     +_sec('QC &amp; Recipe',DEPT.qc,
-      _tiles([['QC','cup and judge','qcgo','qc'],['Live cupping','blind · together','livecup','qc'],['Recipe','blends · dial-in','recipe','recipe'],['Dial in','espresso shots','dialin','espresso',1]]))
+      _tiles([['QC','cup and judge','qcgo','qc'],['Live cupping','blind · together','livecup','qc'],['Blend Recipe','blends · dial-in','recipe','recipe'],['Dial in','espresso shots','dialin','espresso',1]]))
     /* 2026-07-12 統整：Coffee Info/Post to socials/IG asset/Announce 四顆收進 Publish 一鍵上架面板 */
     +(isLead()?_sec('Marketing',DEPT.mkt,
       _tiles([['Publish','QC → every channel','publish','mega',1],['Edit Notes','flavour on passed beans','editnotes','book',1]])):'')
