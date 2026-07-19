@@ -182,7 +182,7 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 .empty{text-align:center;color:var(--muted);padding:46px 20px;font-size:15px;line-height:1.7}
 .chip{flex:0 0 auto;border:1px solid var(--line2);background:var(--surface);color:var(--muted);border-radius:999px;padding:8px 14px;min-height:40px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
 .chip.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
-nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1.5px solid var(--ink);display:flex;gap:8px;padding:10px 20px max(env(safe-area-inset-bottom,0px) - 16px,12px);z-index:30}
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1.5px solid var(--ink);display:flex;gap:8px;padding:10px 20px max(env(safe-area-inset-bottom,0px) - 16px,12px);z-index:30;max-width:520px;margin:0 auto;border-left:1.5px solid var(--ink);border-right:1.5px solid var(--ink)} /* 寬度跟手機內容同 520px（2026-07-19 老闆點名）；桌機置中、左右補框 */
 nav button{flex:1;border:1px solid var(--line2);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px 6px;min-height:44px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer}
 nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .deck{position:fixed;left:0;right:0;bottom:calc(max(env(safe-area-inset-bottom,0px) - 16px,12px) + 64px);background:var(--surface);border-top:1px solid var(--line);padding:12px 22px 10px;z-index:20}
