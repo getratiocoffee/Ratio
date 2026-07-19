@@ -80,6 +80,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-20 之二（Log roast 對齊老闆思路定稿：entry 全域化＋Roast green % 聯動＋Customise ✅ 待 push）
+- **老闆口述完整思路（plan mode 核准）**：①最上層先選當日/補過去（互斥）②當日＝扣生豆庫，blend 標準＝輸生豆自動換算 %、另有 Customise 自由填 ③補過去＝同樣輸入但不扣、必填日期。UI 要簡單易懂手機優先。
+- **改法四件**：①**entry 全域化**——刪 `RO.bentry`，單品拼配共用 `RO.entry`（互斥保證：一次 submit 全 roast 或全 intake）；上排 seg 一組管全部 ②**Blend 當日**：卡內 seg 標籤白話化「**Roast green**（生拼，預設 `pre:true`）｜**Mix roasted**（熟拼＝原 post 原樣）」；Roast green **預設照配方 % 聯動**（輸一成分格→反推總量攤其他格；Green total 變 input `data-bgt` 直輸往下攤；helpers `roSpreadGreen`/`roGreenHint`/`roGreenTotals` 在 paintRoastSheet 閉包）＋右上小字「**Customise ✎**」（`bb.custom` 切自由填＝原 pre 行為，值保留來回切）；**存檔共用原 pre 路徑零改動** ③**intake blend 成分開放選填**（同生拼版面、無庫存 hint 無聯動）——有填就進 recipe 快照（parts 帶 green_kg＋green_kg=Σ），照舊零扣帳 ④**session 日期欄移除**（當日＝todayStr()；intake 每卡日期）——`grab()` 留空殼（多處呼叫，Log roast 閉包內）。
+- **驗證**：jscheck ✓；假資料 fetch 攔截六路徑 payload 全對——roast 單品（扣豆+moves 迴歸）、Roast green 聯動（3→總 5→攤 2；total 輸 10→攤 6/4；loss −15%；submit＝pre 快照 green_kg 7/4+扣豆 10→3/5→1+moves×2）、Customise（解鎖不聯動 7/4、切回值保留）、Mix roasted（FIFO 4→1/3→1 迴歸）、intake 單品（零扣帳迴歸）、intake blend（快照帶 green_kg 2.4/1.6+date、零 PATCH 零 moves）；entry 互斥（blend 切 intake→single 也 intake）✓；截圖 ✓。
+
 ## 〇、補記 — 2026-07-20（Log roast 拼配加 Intake · past 補舊批 ✅ 待 push）
 - **老闆需求**：「blend 也要能夠輸入是當日烘焙，還是入庫之前的批次」——拼配分頁比照單品加 Roast today / Intake · past 切換（原本拼配只有 pre/post，補舊批會誤扣現在的庫存）。
 - **做法（`RO.bentry`，不進草稿——每次開抽屜預設 roast）**：①Blend 分頁頂部加 pm-seg「Roast today｜Intake · past」（`ro-be-r`/`ro-be-i`，樣式同單品）②intake 卡片＝選配方＋**成分唯讀快照列**（不填量）＋**每卡 Roast date**（data-bbd）＋Roasted；Pre/Post seg 與 session 日期欄都藏（每卡自帶日期）③`roBlendDone` intake＝name+out+date；`roValidBlends` 加 date 判有效卡④`submitAllSession` intake 分支＝**照 saveBackfill 拼配口徑**：insert roasts {kind:'blend',green_kg:null,recipe 快照,roast_date=卡日期}——**不扣生豆、不 consumeBlendParts、不寫 stock_moves**；dup check intake 比各卡日期；pre-blend 生豆 check intake 跳過⑤訂單籌碼 data-blend 帶入強制切回 roast（今天要烘的）。

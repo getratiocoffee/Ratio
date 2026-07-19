@@ -6426,9 +6426,9 @@ function openBuyReceive(p){
 var RO=null;
 function todayStr(){var t=new Date();return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
 function roEmptyBatch(){return {beanId:'',green:'',out:'',date:''};}
-function roEmptyBlendBatch(){return {name:'',out:'',amt:{},pre:false,gamt:{},date:''};} /* pre＝生拼（2026-07-19 老闆點名）：gamt=成分生豆 kg 自由填；date＝intake 補舊批用 */
+function roEmptyBlendBatch(){return {name:'',out:'',amt:{},pre:true,custom:false,gamt:{},date:''};} /* 2026-07-20 老闆思路定稿：預設 pre＝Roast green（生拼）照 % 聯動；custom＝解鎖自由填；date＝intake 補舊批用 */
 async function openRoastSheet(pre){
-  RO={mode:'single',entry:'roast',bentry:'roast',date:todayStr(), /* bentry＝拼配分頁 roast/intake（2026-07-20 老闆點名拼配也能補舊批） */
+  RO={mode:'single',entry:'roast', /* entry 全域一個（2026-07-20 老闆思路：當日/補過去互斥，單品拼配共用）；roast 日期＝今天不另選 */
     blends:[],batches:[],bb:[roEmptyBlendBatch()],pre:(pre&&pre.length)?pre:null};
   /* 拼配模式要配方表（比例快照＋成分扣帳）——已隨 loadAll 常駐 DB.blends，不再另查 */
   RO.blends=(DB.blends||[]).filter(function(b){return b.name;});
@@ -6652,8 +6652,8 @@ function roBlendDone(bb){
   var bl=RO.blends.find(function(b){return b.name===bb.name;});
   if(!bl)return false;
   if(!(parseFloat(bb.out)>0))return false;
-  /* intake（補舊批）：配方＋出爐＋日期就好，成分不用填（不扣帳） */
-  if(RO.bentry==='intake')return !!bb.date;
+  /* intake（補舊批）：配方＋出爐＋日期就好，成分選填（不扣帳） */
+  if(RO.entry==='intake')return !!bb.date;
   /* pre-blend：至少一個成分有生豆 kg（自由填、不強制照比例） */
   if(bb.pre){
     var any=false;Object.keys(bb.gamt||{}).forEach(function(k){if(parseFloat(bb.gamt[k])>0)any=true;});
@@ -6696,25 +6696,23 @@ function roBlendCard(bb,ix){
   var bl=RO.blends.find(function(b){return b.name===bb.name;})||null;
   var parts=bl?(bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}):[];
   var last=RO.bb.length-1;
-  var intake=RO.bentry==='intake';
-  var pre=!!bb.pre&&!intake; /* intake 補舊批：不分 pre/post、不扣帳 */
+  var intake=RO.entry==='intake';
+  var pre=!!bb.pre||intake; /* intake 補舊批＝生豆成分選填記錄（不扣帳）、畫面同生拼但無庫存對照 */
   var partsHTML='';
   if(bl){
-    if(intake){
-      /* intake（2026-07-20 老闆點名）：配方成分唯讀快照——只留紀錄，不填量、不扣任何庫存 */
-      partsHTML=parts.map(function(p){
-        return '<div class="s" style="margin-top:7px">'+esc(p.pct+'% '+p.bean)+(p.process?' <span style="color:var(--muted);font-size:11px">'+esc(p.process)+'</span>':'')+'</div>';
-      }).join('')||'<div class="s" style="margin-top:6px"><span class="red">recipe has no parts — add them in Recipe</span></div>';
-    }else if(pre){
-      /* pre-blend（生拼；2026-07-19 老闆點名）：成分＝生豆 kg 自由填不聯動、對照生豆庫存（beans.quantity） */
+    if(pre){
+      /* Roast green（2026-07-20 老闆思路定稿）：成分生豆 kg，預設照配方 % 聯動、Customise 解鎖自由填；
+         intake＝選填純記錄（無聯動無庫存 hint）。input 帶 data-pct 供聯動反推 */
       partsHTML=parts.map(function(p,pi){
-        var b=roGreenBean(p.bean,p.process||'');
+        var b=intake?null:roGreenBean(p.bean,p.process||'');
         var have=b?Math.round((Number(b.quantity)||0)*1000)/1000:0;
         return '<div style="display:flex;gap:8px;align-items:center;margin-top:7px">'
           +'<span class="s" style="flex:1">'+esc(p.pct+'% '+p.bean)+(p.process?' <span style="color:var(--muted);font-size:11px">'+esc(p.process)+'</span>':'')+'</span>'
-          +'<input class="din" data-gc="'+ix+'" data-gp="'+pi+'" inputmode="decimal" placeholder="kg" value="'+esc(bb.gamt[pi]!=null?String(bb.gamt[pi]):'')+'" style="width:80px;margin:0;text-align:right">'
-          +'<span class="s" id="ro-gps-'+ix+'-'+pi+'" style="flex:0 0 104px;text-align:right;'+(have<=0?'color:var(--danger)':'color:var(--muted)')+'">green '+have+' kg</span></div>';
+          +'<input class="din" data-gc="'+ix+'" data-gp="'+pi+'" data-pct="'+parseFloat(p.pct)+'" inputmode="decimal" placeholder="kg" value="'+esc(bb.gamt[pi]!=null?String(bb.gamt[pi]):'')+'" style="width:80px;margin:0;text-align:right">'
+          +(intake?'':'<span class="s" id="ro-gps-'+ix+'-'+pi+'" style="flex:0 0 104px;text-align:right;'+(have<=0?'color:var(--danger)':'color:var(--muted)')+'">green '+have+' kg</span>')+'</div>';
       }).join('')||'<div class="s" style="margin-top:6px"><span class="red">recipe has no parts — add them in Recipe</span></div>';
+      /* Customise 小切換（roast 才有；intake 本來就自由填）：不佔一排的小字 */
+      if(!intake&&parts.length)partsHTML='<div style="text-align:right;margin-top:8px"><button data-bcust="'+ix+'" style="border:none;background:none;color:var(--muted);font-size:12px;text-decoration:underline;padding:0">'+(bb.custom?'← By recipe %':'Customise ✎')+'</button></div>'+partsHTML;
     }else{
       partsHTML=parts.map(function(p,pi){
         var have=blendPartPool(p.bean,(p.process!=null&&String(p.process).trim()!=='')?p.process:undefined,p.bean_id);
@@ -6734,19 +6732,21 @@ function roBlendCard(bb,ix){
   +'<select class="din" data-bbsel="'+ix+'" style="padding:11px 12px;font-size:15px"><option value="">— pick a blend —</option>'
   +RO.blends.map(function(b){return '<option'+(bb.name===b.name?' selected':'')+'>'+esc(b.name)+'</option>';}).join('')
   +'</select>'
-  /* Pre / Post 同卡切換（2026-07-19 老闆點名同一畫面）：pre＝混生豆下鍋、post＝熟豆按比例拼；intake 補舊批不分 */
-  +(intake?'':'<div class="pm-seg" style="margin-top:8px"><button data-bpre="'+ix+'"'+(pre?' class="on"':'')+'>Pre-blend · green</button><button data-bpost="'+ix+'"'+(pre?'':' class="on"')+'>Post-blend · roasted</button></div>')
+  /* 卡內二態 seg（2026-07-20 定稿標籤白話化）：Roast green＝生拼（預設）／Mix roasted＝熟拼；intake 不分 */
+  +(intake?'':'<div class="pm-seg" style="margin-top:8px"><button data-bpre="'+ix+'"'+(pre?' class="on"':'')+'>Roast green</button><button data-bpost="'+ix+'"'+(pre?'':' class="on"')+'>Mix roasted</button></div>')
   +partsHTML
-  +(intake
-    ?'<div class="ro-blab" style="margin-top:9px;color:var(--muted)">Roast date</div><input class="din" type="date" data-bbd="'+ix+'" value="'+esc(bb.date||'')+'" style="margin-top:4px;padding:10px 12px;font-size:15px">'
-      +'<div class="ro-cols"><div style="flex:1"><div class="ro-blab" style="color:color-mix(in srgb,var(--roast) 65%,var(--ink))">Roasted</div><input class="din ro-num o" data-bbo="'+ix+'" inputmode="decimal" placeholder="0.0" value="'+esc(bb.out)+'"></div></div>'
-    :(pre
+  +(intake?'<div class="ro-blab" style="margin-top:9px;color:var(--muted)">Roast date</div><input class="din" type="date" data-bbd="'+ix+'" value="'+esc(bb.date||'')+'" style="margin-top:4px;padding:10px 12px;font-size:15px">':'')
+  +(pre
     ?'<div class="ro-cols">'
-      +'<div style="flex:1"><div class="ro-blab" style="color:color-mix(in srgb,var(--green) 65%,var(--ink))">Green · total</div><b id="ro-gtot-'+ix+'" style="display:block;font-size:19px;padding:9px 0 0">'+(gTot>0?roFmt1(gTot):'—')+'</b></div>'
-      +'<div style="flex:1"><div class="ro-blab" style="color:color-mix(in srgb,var(--roast) 65%,var(--ink))">Roasted out</div><input class="din ro-num o" data-bbo="'+ix+'" inputmode="decimal" placeholder="0.0" value="'+esc(bb.out)+'"></div>'
+      /* Green total：聯動模式（roast＋非 custom）可直接輸往下攤；custom/intake＝Σ 唯讀 */
+      +'<div style="flex:1"><div class="ro-blab" style="color:color-mix(in srgb,var(--green) 65%,var(--ink))">Green · total</div>'
+        +((!intake&&!bb.custom)
+          ?'<input class="din ro-num g" data-bgt="'+ix+'" inputmode="decimal" placeholder="0.0" value="'+(gTot>0?esc(roFmt1(gTot)):'')+'">'
+          :'<b id="ro-gtot-'+ix+'" style="display:block;font-size:19px;padding:9px 0 0">'+(gTot>0?roFmt1(gTot):'—')+'</b>')+'</div>'
+      +'<div style="flex:1"><div class="ro-blab" style="color:color-mix(in srgb,var(--roast) 65%,var(--ink))">Roasted'+(intake?'':' out')+'</div><input class="din ro-num o" data-bbo="'+ix+'" inputmode="decimal" placeholder="0.0" value="'+esc(bb.out)+'"></div>'
       +'<div class="ro-bloss"><div class="s1">Loss</div><b id="ro-gloss-'+ix+'">'+(function(){var lp=roastLossPct(gTot,bb.out);return lp!=null?'−'+lp+'%':'—';})()+'</b></div>'
       +'</div>'
-    :'<div class="ro-cols"><div style="flex:1"><div class="ro-blab" style="color:color-mix(in srgb,var(--roast) 65%,var(--ink))">Roasted · total <span style="color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400">syncs with parts</span></div><input class="din ro-num o" data-bbo="'+ix+'" inputmode="decimal" placeholder="0.0" value="'+esc(bb.out)+'"></div></div>'))
+    :'<div class="ro-cols"><div style="flex:1"><div class="ro-blab" style="color:color-mix(in srgb,var(--roast) 65%,var(--ink))">Roasted · total <span style="color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400">syncs with parts</span></div><input class="din ro-num o" data-bbo="'+ix+'" inputmode="decimal" placeholder="0.0" value="'+esc(bb.out)+'"></div></div>')
   +'</div>';
 }
 function paintRoastSheet(){
@@ -6768,10 +6768,8 @@ function paintRoastSheet(){
     }).join('');
   }
   var single=RO.mode==='single';
-  /* entry seg 移到 mode seg 上面（2026-07-20 老闆點名上下對換）：Roast today/Intake 在上、Single origin/Blend 在下 */
-  var entrySeg=single
-    ?'<div class="pm-seg"><button id="ro-e-r" class="'+(RO.entry==='roast'?'on':'')+'">Roast today</button><button id="ro-e-i" class="'+(RO.entry==='roast'?'':'on')+'">Intake · past</button></div>'
-    :'<div class="pm-seg"><button id="ro-be-r" class="'+(RO.bentry!=='intake'?'on':'')+'">Roast today</button><button id="ro-be-i" class="'+(RO.bentry!=='intake'?'':'on')+'">Intake · past</button></div>';
+  /* entry seg＝最上層總開關（2026-07-20 老闆思路定稿：當日/補過去互斥，一個開關管單品＋拼配） */
+  var entrySeg='<div class="pm-seg"><button id="ro-e-r" class="'+(RO.entry==='roast'?'on':'')+'">Roast today</button><button id="ro-e-i" class="'+(RO.entry==='roast'?'':'on')+'">Intake · past</button></div>';
   var body;
   if(single){
     var sum=roSummary();
@@ -6789,36 +6787,32 @@ function paintRoastSheet(){
   }
   var allDone=roAllReady(); /* 兩分頁一起算（合併 Submit） */
   openDrawerHTML('<div class="t" style="font-size:19px">Log roast</div>'
-    +'<div class="s" style="margin-top:2px">'+(single
-      ?(RO.entry==='roast'?'one card per kettle · one submit deducts green and logs all':'backfill past roasts · green stock untouched')
-      :(RO.bentry==='intake'?'backfill past blend batches · nothing deducted':'one card per blend batch · consumes component batches (oldest first)'))+'</div>'
+    +'<div class="s" style="margin-top:2px">'+(RO.entry==='intake'
+      ?(single?'backfill past roasts · green stock untouched':'backfill past blend batches · nothing deducted')
+      :(single?'one card per kettle · one submit deducts green and logs all':'one card per blend batch · deducts stock on submit'))+'</div>'
     +'<div class="ro-wx" id="ro-wx"></div>'
     +chips
     +entrySeg
     +'<div class="pm-seg" style="margin-top:10px"><button id="ro-m-s" class="'+(single?'on':'')+'">Single origin</button><button id="ro-m-b" class="'+(single?'':'on')+'">Blend</button></div>'
     +body
-    +((single||RO.bentry==='intake')?'':'<div class="dlab" style="margin-top:14px">Roast date · whole session</div><input class="din" id="ro-date" type="date" value="'+esc(RO.date)+'">') /* intake 每卡自帶日期 */
     +'<div style="display:flex;gap:8px;align-items:stretch;margin-top:12px">'
       +'<button class="ro-addrow" id="ro-addrow" style="flex:1;margin-top:0;white-space:nowrap">＋ Add</button>'
       +'<button class="act" id="ro-submit" style="flex:1.8;margin-top:0;white-space:nowrap'+(allDone?'':';opacity:.5')+'"'+(allDone?'':' disabled')+'>'+roSubmitLabel()+'</button>'
     +'</div>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   /* 重畫前先把已打的值收回 RO（兩分頁卡片值都由 input 事件即時寫回，這裡只收 session 日期） */
-  function grab(){var el=$('ro-date');if(el)RO.date=el.value;}
+  function grab(){} /* session 日期欄已移除（2026-07-20 當日＝今天）：留空殼給各呼叫點 */
   document.querySelectorAll('#drawer [data-lot]').forEach(function(el){el.addEventListener('click',function(){
     grab();RO.mode='single';RO.entry='roast';roFillBatch(el.dataset.lot,el.dataset.kg);saveRoastDraft();paintRoastSheet();
   });});
   document.querySelectorAll('#drawer [data-blend]').forEach(function(el){el.addEventListener('click',function(){
-    grab();RO.mode='blend';RO.bentry='roast';roFillBlendBatch(el.dataset.blend,el.dataset.bkg);paintRoastSheet(); /* 訂單需求＝今天要烘，帶回 roast 模式 */
+    RO.mode='blend';RO.entry='roast';roFillBlendBatch(el.dataset.blend,el.dataset.bkg);saveRoastDraft();paintRoastSheet(); /* 訂單需求＝今天要烘，帶回 roast 模式 */
   });});
   $('ro-m-s').addEventListener('click',function(){grab();RO.mode='single';paintRoastSheet();});
   $('ro-m-b').addEventListener('click',function(){grab();RO.mode='blend';paintRoastSheet();});
   /* Roast today / Intake 切換：同一批卡片換規則（intake 出日期欄、生豆變選填），已打的值原地保留 */
   var er=$('ro-e-r');if(er)er.addEventListener('click',function(){if(RO.entry==='roast')return;RO.entry='roast';saveRoastDraft();paintRoastSheet();});
   var ei=$('ro-e-i');if(ei)ei.addEventListener('click',function(){if(RO.entry==='intake')return;RO.entry='intake';saveRoastDraft();paintRoastSheet();});
-  /* 拼配分頁的 Roast today / Intake 切換（2026-07-20）：值原地保留，只換規則與畫面 */
-  var ber=$('ro-be-r');if(ber)ber.addEventListener('click',function(){if(RO.bentry!=='intake')return;grab();RO.bentry='roast';paintRoastSheet();});
-  var bei=$('ro-be-i');if(bei)bei.addEventListener('click',function(){if(RO.bentry==='intake')return;grab();RO.bentry='intake';paintRoastSheet();});
   /* batch 卡事件：input 即時寫回＋roRefresh（不重繪、免掉鍵盤焦點）；blur 整理成小數 1 位＋存草稿 */
   document.querySelectorAll('#drawer [data-bsel]').forEach(function(el){el.addEventListener('change',function(){
     var bt=RO.batches[+el.dataset.bsel];if(!bt)return;bt.beanId=el.value;saveRoastDraft();roRefresh();
@@ -6893,8 +6887,8 @@ function paintRoastSheet(){
     var bb=RO.bb[+el.dataset.bbo];if(!bb)return;
     el.addEventListener('input',function(){
       bb.out=el.value;
-      /* pre-blend：出爐量獨立輸入，不觸發成分比例聯動；只刷 loss */
-      if(bb.pre){var le=$('ro-gloss-'+el.dataset.bbo);if(le){var lp=roastLossPct(roPreGreenTot(bb),bb.out);le.textContent=lp!=null?'−'+lp+'%':'—';}roRefreshBlend();return;}
+      /* 生拼/intake：出爐量獨立輸入，不觸發成分聯動；只刷 loss。Mix roasted 才聯動熟豆成分 */
+      if(bb.pre||RO.entry==='intake'){var le=$('ro-gloss-'+el.dataset.bbo);if(le){var lp=roastLossPct(roPreGreenTot(bb),bb.out);le.textContent=lp!=null?'−'+lp+'%':'—';}roRefreshBlend();return;}
       roSpreadCard(+el.dataset.bbo,parseFloat(el.value)||0,null);roRefreshBlend();
     });
     el.addEventListener('change',function(){var n=parseFloat(el.value);if(!isNaN(n))el.value=roFmt1(n);bb.out=el.value;roRefreshBlend();});
@@ -6906,24 +6900,59 @@ function paintRoastSheet(){
   document.querySelectorAll('#drawer [data-bpost]').forEach(function(el){el.addEventListener('click',function(){
     var bb=RO.bb[+el.dataset.bpost];if(!bb||!bb.pre)return;bb.pre=false;grab();paintRoastSheet();
   });});
-  /* pre-blend 成分生豆 kg（自由填不聯動）：即時寫回＋green total/loss/庫存 hint */
+  /* ── 生豆成分 kg（2026-07-20 定稿）：roast＋非 custom＝照配方 % 聯動（輸一格反推總量攤其他格、Green total 可直輸）；
+        custom／intake＝自由填。helpers 都在本閉包（同 roStockHint 模式）── */
+  function roGreenEls(ci){return document.querySelectorAll('#drawer [data-gc="'+ci+'"]');}
+  function roGreenHint(el){
+    var ci=+el.dataset.gc,sp=$('ro-gps-'+ci+'-'+el.dataset.gp);if(!sp)return; /* intake 沒 hint */
+    var bb=RO.bb[ci];if(!bb)return;
+    var row=(RO.blends.find(function(b){return b.name===bb.name;})||{}).parts||[];
+    var p=row.filter(function(x){return x&&x.bean&&parseFloat(x.pct)>0;})[+el.dataset.gp];
+    var b=p?roGreenBean(p.bean,p.process||''):null;
+    var have=b?Math.round((Number(b.quantity)||0)*1000)/1000:0;
+    var need=parseFloat(el.value)||0;
+    if(need>have+0.0001){sp.style.color='var(--danger)';sp.textContent='short '+(Math.round((need-have)*100)/100)+' · green '+have;}
+    else{sp.style.color=have<=0?'var(--danger)':'var(--muted)';sp.textContent='green '+have+' kg';}
+  }
+  function roSpreadGreen(ci,total,skipPi){ /* 總生豆 → 各成分照 pct 攤（跳過打字中那格） */
+    var els=roGreenEls(ci),blTot=0;
+    els.forEach(function(x){blTot+=parseFloat(x.dataset.pct)||0;});
+    els.forEach(function(x){
+      var share=blTot>0?((parseFloat(x.dataset.pct)||0)/blTot):0;
+      var v=total>0?String(Math.round(total*share*1000)/1000):'';
+      if(x.dataset.gp!==skipPi){x.value=v;RO.bb[ci].gamt[+x.dataset.gp]=v;}
+      roGreenHint(x);
+    });
+  }
+  function roGreenTotals(ci){ /* total（input 或唯讀 b）＋loss 同步 */
+    var bb=RO.bb[ci];if(!bb)return;
+    var gTot=roPreGreenTot(bb);
+    var ti=document.querySelector('#drawer [data-bgt="'+ci+'"]');
+    if(ti&&document.activeElement!==ti)ti.value=gTot>0?String(roFmt1(gTot)):'';
+    var te=$('ro-gtot-'+ci);if(te)te.textContent=gTot>0?roFmt1(gTot):'—';
+    var le=$('ro-gloss-'+ci);if(le){var lp=roastLossPct(gTot,bb.out);le.textContent=lp!=null?'−'+lp+'%':'—';}
+  }
   document.querySelectorAll('#drawer [data-gp]').forEach(function(el){el.addEventListener('input',function(){
     var ci=+el.dataset.gc,bb=RO.bb[ci];if(!bb)return;
     bb.gamt[+el.dataset.gp]=el.value;
-    var gTot=roPreGreenTot(bb);
-    var te=$('ro-gtot-'+ci);if(te)te.textContent=gTot>0?roFmt1(gTot):'—';
-    var le=$('ro-gloss-'+ci);if(le){var lp=roastLossPct(gTot,bb.out);le.textContent=lp!=null?'−'+lp+'%':'—';}
-    var sp=$('ro-gps-'+ci+'-'+el.dataset.gp);
-    if(sp){
-      var row=(RO.blends.find(function(b){return b.name===bb.name;})||{}).parts||[];
-      var p=row.filter(function(x){return x&&x.bean&&parseFloat(x.pct)>0;})[+el.dataset.gp];
-      var b=p?roGreenBean(p.bean,p.process||''):null;
-      var have=b?Math.round((Number(b.quantity)||0)*1000)/1000:0;
-      var need=parseFloat(el.value)||0;
-      if(need>have+0.0001){sp.style.color='var(--danger)';sp.textContent='short '+(Math.round((need-have)*100)/100)+' · green '+have;}
-      else{sp.style.color=have<=0?'var(--danger)':'var(--muted)';sp.textContent='green '+have+' kg';}
-    }
+    if(RO.entry!=='intake'&&!bb.custom){
+      var els=roGreenEls(ci),blTot=0;els.forEach(function(x){blTot+=parseFloat(x.dataset.pct)||0;});
+      var amt=parseFloat(el.value),share=blTot>0?((parseFloat(el.dataset.pct)||0)/blTot):0;
+      if(!isNaN(amt)&&share>0)roSpreadGreen(ci,Math.round(amt/share*1000)/1000,el.dataset.gp);
+      else roGreenHint(el);
+    }else roGreenHint(el);
+    roGreenTotals(ci);
     roRefreshBlend();
+  });});
+  document.querySelectorAll('#drawer [data-bgt]').forEach(function(el){el.addEventListener('input',function(){
+    var ci=+el.dataset.bgt,bb=RO.bb[ci];if(!bb)return;
+    roSpreadGreen(ci,parseFloat(el.value)||0,null);
+    var le=$('ro-gloss-'+ci);if(le){var lp=roastLossPct(parseFloat(el.value)||0,bb.out);le.textContent=lp!=null?'−'+lp+'%':'—';}
+    roRefreshBlend();
+  });});
+  /* Customise 小切換：解鎖/恢復 % 聯動（現值保留，下次輸入才聯動） */
+  document.querySelectorAll('#drawer [data-bcust]').forEach(function(el){el.addEventListener('click',function(){
+    var bb=RO.bb[+el.dataset.bcust];if(!bb)return;bb.custom=!bb.custom;paintRoastSheet();
   });});
   document.querySelectorAll('#drawer [data-bmvup]').forEach(function(el){el.addEventListener('click',function(){
     var i=+el.dataset.bmvup;if(i<=0)return;grab();
@@ -6953,7 +6982,7 @@ async function submitAllSession(){
   if(!sList.length&&!bList.length){toast('Nothing to submit');return;}
   if(!sList.every(roBatchDone)||!bList.every(roBlendDone)){toast('Fill every batch first');return;}
   var intake=RO.entry==='intake';
-  var date=RO.date||todayStr();
+  var date=todayStr(); /* 當日烘焙＝今天（2026-07-20 session 日期欄移除）；intake 用各卡日期 */
   /* ① 單品生豆庫存 check（roast 才扣；同 beanId 加總；不足 confirm 放行、扣到 0 為止） */
   var byBean={};
   if(sList.length&&!intake){
@@ -6966,7 +6995,7 @@ async function submitAllSession(){
     });
     if(shorts.length&&!confirm('Stock check:\n'+shorts.join('\n')+'\n\nSubmit anyway? Stock stops at 0 — fix later with Stocktake.'))return;
   }
-  var bIntake=RO.bentry==='intake'; /* 拼配補舊批（2026-07-20）：每卡自帶日期、不扣任何帳 */
+  var bIntake=RO.entry==='intake'; /* entry 全域一個：intake＝單品拼配一起補舊帳、都不扣（互斥保證） */
   /* ② 拼配同日重複 check（intake 比對各卡日期） */
   var dups=bList.filter(function(bb){
     var d=bIntake?(bb.date||date):date;
@@ -7022,10 +7051,16 @@ async function submitAllSession(){
       var bkg=parseFloat(bb.out);
       if(bIntake){
         /* ── intake（補入庫之前的舊批；2026-07-20 老闆點名）：照 Coffee Stock saveBackfill 口徑——
-           kind='blend'＋配方快照進拼配貨架，不扣生豆、不 consumeBlendParts、不寫 stock_moves ── */
-        var iParts=(bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;})
-          .map(function(p){return {bean:p.bean,process:p.process||'',pct:parseFloat(p.pct)};});
-        var recI={bean_id:null,bean_name:bl.name,country:null,green_kg:null,status:'pending_cupping',roast_date:bb.date||date,kind:'blend',
+           kind='blend'＋配方快照進拼配貨架，不扣生豆、不 consumeBlendParts、不寫 stock_moves。
+           成分生豆 kg 選填（老闆思路「同上但不扣」）：有填就記進快照＋green_kg=Σ，純紀錄 ── */
+        var iRaw=(bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;});
+        var iTot=0;iRaw.forEach(function(p,pi){var v=parseFloat(bb.gamt[pi]);if(v>0)iTot+=v;});
+        iTot=Math.round(iTot*1000)/1000;
+        var iParts=iRaw.map(function(p,pi){
+          var o={bean:p.bean,process:p.process||'',pct:parseFloat(p.pct)};
+          var v=parseFloat(bb.gamt[pi]);if(iTot>0&&v>0)o.green_kg=v;
+          return o;});
+        var recI={bean_id:null,bean_name:bl.name,country:null,green_kg:iTot>0?iTot:null,status:'pending_cupping',roast_date:bb.date||date,kind:'blend',
           recipe:{blend_id:bl.id||null,parts:iParts}};
         if(bkg>0){recI.roasted_kg=bkg;recI.remaining_kg=bkg;}
         var insI=await sb.from('roasts').insert(recI).select();
