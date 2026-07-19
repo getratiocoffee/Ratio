@@ -6549,9 +6549,28 @@ function roSummary(){
   RO.batches.forEach(function(bt){var gv=parseFloat(bt.green),ov=parseFloat(bt.out);if(gv>0)g+=gv;if(ov>0)o+=ov;});
   return {n:RO.batches.length,g:g>0?roFmt1(g):'—',o:o>0?roFmt1(o):'—'};
 }
-function roSubmitLabel(){ /* 並排空間有限用短版（2026-07-16 老闆點名 Add batch/Submit 並排）；模式語意在抽屜副標 */
-  var n=RO.mode==='single'?RO.batches.length:RO.bb.length;
-  return 'Submit '+n+' batch'+(n===1?'':'es');
+/* 合併 Submit（2026-07-19 老闆點名：單品＋拼配一次送）——「有效卡」＝填過任何東西的卡；全空卡忽略 */
+function roValidSingles(){
+  return RO.batches.filter(function(b){return b.beanId||String(b.green||'').trim()||String(b.out||'').trim()||b.date;});
+}
+function roValidBlends(){
+  return RO.bb.filter(function(b){
+    if(b.name||String(b.out||'').trim())return true;
+    var any=false;
+    Object.keys(b.amt||{}).forEach(function(k){if(String(b.amt[k]||'').trim())any=true;});
+    Object.keys(b.gamt||{}).forEach(function(k){if(String(b.gamt[k]||'').trim())any=true;});
+    return any;
+  });
+}
+function roAllReady(){
+  var s=roValidSingles(),b=roValidBlends();
+  if(!s.length&&!b.length)return false;
+  return s.every(roBatchDone)&&b.every(roBlendDone);
+}
+function roSubmitLabel(){ /* 並排空間有限用短版；兩分頁有效卡合計、混填標 (X+Y) */
+  var ns=roValidSingles().length,nb=roValidBlends().length,n=ns+nb;
+  if(!n)return 'Submit';
+  return 'Submit '+n+(ns&&nb?' ('+ns+'+'+nb+')':' batch'+(n===1?'':'es'));
 }
 /* 輸入後即時刷新（不重繪、免掉鍵盤焦點）：每列 loss/紅字＋頂部總計＋submit 鈕狀態 */
 function roRefresh(){
@@ -6564,8 +6583,8 @@ function roRefresh(){
   var g=$('ro-sum-g');if(g)g.textContent=s.g;
   var o=$('ro-sum-o');if(o)o.textContent=s.o;
   var btn=$('ro-submit');
-  if(btn){var ok=RO.batches.length>0&&RO.batches.every(roBatchDone);
-    btn.disabled=!ok;btn.style.opacity=ok?'':'.5';btn.textContent=roSubmitLabel(ok);}
+  if(btn){var ok=roAllReady();
+    btn.disabled=!ok;btn.style.opacity=ok?'':'.5';btn.textContent=roSubmitLabel();}
 }
 function roBatchCard(bt,ix,beans){
   var intake=RO.entry==='intake';
@@ -6668,7 +6687,7 @@ function roRefreshBlend(){
   var n=$('ro-bsum-n');if(n)n.textContent=s.n;
   var o=$('ro-bsum-o');if(o)o.textContent=s.o;
   var btn=$('ro-submit');
-  if(btn){var ok=RO.bb.length>0&&RO.bb.every(roBlendDone);
+  if(btn){var ok=roAllReady();
     btn.disabled=!ok;btn.style.opacity=ok?'':'.5';btn.textContent=roSubmitLabel();}
 }
 function roBlendCard(bb,ix){
@@ -6754,7 +6773,7 @@ function paintRoastSheet(){
     +'<div><div class="s1">Roasted</div><b id="ro-bsum-o">'+bsum.o+'</b></div></div>'
     +RO.bb.map(function(bb,ix){return roBlendCard(bb,ix);}).join('');
   }
-  var allDone=single?(RO.batches.length>0&&RO.batches.every(roBatchDone)):(RO.bb.length>0&&RO.bb.every(roBlendDone));
+  var allDone=roAllReady(); /* 兩分頁一起算（合併 Submit） */
   openDrawerHTML('<div class="t" style="font-size:19px">Log roast</div>'
     +'<div class="s" style="margin-top:2px">'+(single
       ?(RO.entry==='roast'?'one card per kettle · one submit deducts green and logs all':'backfill past roasts · green stock untouched')
@@ -6897,22 +6916,41 @@ function paintRoastSheet(){
   });});
   document.querySelectorAll('#drawer [data-bp]').forEach(function(el){roStockHint(el,el.value);});
   var subB=$('ro-submit');if(subB)subB.addEventListener('click',function(){
-    if(single)submitRoastSession();else{grab();submitBlendSession();}
+    grab();submitAllSession(); /* 合併 Submit：兩分頁有效卡一次全送 */
   });
   document.querySelectorAll('#drawer [data-delbatch]').forEach(function(el){el.addEventListener('click',function(){roastDelBatch(+el.dataset.delbatch);});});
   $('d-cl').addEventListener('click',closeDrawer);
   roWxFill(); /* 環境窗口非同步填（快取 15 分鐘，抓不到整條隱藏） */
 }
 /* 拼配多鍋 Submit（2026-07-16 卡片化；單鍋寫入邏輯承 classic addCoffeeSubmit blend 路徑：快照配方→insert→FIFO 扣成分）*/
-async function submitBlendSession(){
-  if(!RO.bb.length||!RO.bb.every(roBlendDone)){toast('Fill every batch first');return;}
+/* ===== 合併 Submit（2026-07-19 老闆點名：單品＋拼配一次全送）=====
+   兩分頁「有效卡」（填過東西的）一顆 Submit 全送；全空卡忽略。單品照 roast/intake 規則扣生豆、
+   拼配 pre 扣生豆／post 扣熟豆成分（consumeBlendParts FIFO）；全部寫完清兩邊、一次 reload。 */
+async function submitAllSession(){
+  var sList=roValidSingles(),bList=roValidBlends();
+  if(!sList.length&&!bList.length){toast('Nothing to submit');return;}
+  if(!sList.every(roBatchDone)||!bList.every(roBlendDone)){toast('Fill every batch first');return;}
+  var intake=RO.entry==='intake';
   var date=RO.date||todayStr();
-  var dups=RO.bb.filter(function(bb){return (DB.roasts||[]).some(function(r){return (r.roast_date||'')===date&&String(r.bean_name||'').trim().toLowerCase()===String(bb.name).trim().toLowerCase();});})
+  /* ① 單品生豆庫存 check（roast 才扣；同 beanId 加總；不足 confirm 放行、扣到 0 為止） */
+  var byBean={};
+  if(sList.length&&!intake){
+    sList.forEach(function(b){byBean[b.beanId]=(byBean[b.beanId]||0)+parseFloat(b.green);});
+    var shorts=[];
+    Object.keys(byBean).forEach(function(id){
+      var bn0=(DB.beans||[]).find(function(x){return String(x.id)===String(id);});
+      var stock0=bn0?Number(bn0.quantity)||0:0;
+      if(byBean[id]>stock0+0.0001)shorts.push((bn0?bn0.name:id)+': '+(Math.round(byBean[id]*100)/100)+' kg used, '+stock0+' kg in stock');
+    });
+    if(shorts.length&&!confirm('Stock check:\n'+shorts.join('\n')+'\n\nSubmit anyway? Stock stops at 0 — fix later with Stocktake.'))return;
+  }
+  /* ② 拼配同日重複 check */
+  var dups=bList.filter(function(bb){return (DB.roasts||[]).some(function(r){return (r.roast_date||'')===date&&String(r.bean_name||'').trim().toLowerCase()===String(bb.name).trim().toLowerCase();});})
     .map(function(bb){return bb.name;});
   if(dups.length&&!confirm('Already batches dated '+date+' for: '+dups.join(', ')+'. Add anyway?'))return;
-  /* pre-blend 卡的生豆先做庫存 check（同 single 口徑：不足 confirm 放行、扣到 0 為止） */
+  /* ③ pre-blend 卡的生豆庫存 check */
   var gShorts=[];
-  RO.bb.forEach(function(bb){
+  bList.forEach(function(bb){
     if(!bb.pre)return;
     var bl=RO.blends.find(function(b){return b.name===bb.name;});if(!bl)return;
     (bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}).forEach(function(p,pi){
@@ -6926,9 +6964,35 @@ async function submitBlendSession(){
   if(gShorts.length&&!confirm('Green stock check:\n'+gShorts.join('\n')+'\n\nSubmit anyway? Stock stops at 0 — fix later with Stocktake.'))return;
   var btn=$('ro-submit');if(btn){btn.disabled=true;btn.textContent='Submitting…';}
   try{
+    /* ── 單品：insert（依卡序）→ roast 扣生豆＋stock_moves（照原 submitRoastSession 口徑） ── */
+    for(var si=0;si<sList.length;si++){
+      var insS=await sb.from('roasts').insert(buildRoastRec(sList[si])).select();
+      if(insS.error)throw new Error(insS.error.message);
+      if(insS.data&&insS.data[0])DB.roasts.unshift(insS.data[0]);
+    }
+    if(sList.length&&!intake){
+      var sids=Object.keys(byBean);
+      for(var sj=0;sj<sids.length;sj++){
+        var sbn=(DB.beans||[]).find(function(x){return String(x.id)===String(sids[sj]);});
+        if(!sbn)continue;
+        var sq=Math.max(0,Math.round(((Number(sbn.quantity)||0)-byBean[sids[sj]])*1000)/1000);
+        var su=await sb.from('beans').update({quantity:sq}).eq('id',sbn.id);
+        if(su.error)throw new Error('roasts saved but green stock update failed: '+su.error.message);
+        sbn.quantity=sq;
+      }
+      for(var sk=0;sk<sList.length;sk++){
+        var sbt=sList[sk],sbn2=(DB.beans||[]).find(function(x){return String(x.id)===String(sbt.beanId);});
+        try{await sb.from('stock_moves').insert({bean_id:sbt.beanId,kind:'roast',delta_kg:-parseFloat(sbt.green),after_kg:sbn2?sbn2.quantity:null,note:'Roast '+todayStr()});}catch(e){}
+      }
+      var sTotG=sids.reduce(function(s,id){return s+byBean[id];},0);
+      logAct('roasted',sList.length+' batch'+(sList.length>1?'es':''),(Math.round(sTotG*100)/100)+' kg green');
+    }else if(sList.length){
+      logAct('intake roasts',sList.length+' past batch'+(sList.length>1?'es':''),null);
+    }
+    /* ── 拼配：pre/post 分支（照原 submitBlendSession 口徑） ── */
     var shortAll=[];
-    for(var i=0;i<RO.bb.length;i++){ /* 依卡片順序 insert＝R#/B# 跟著 Batch 1..N */
-      var bb=RO.bb[i];
+    for(var i=0;i<bList.length;i++){ /* 依卡片順序 insert＝R#/B# 跟著 Batch 1..N */
+      var bb=bList[i];
       var bl=RO.blends.find(function(b){return b.name===bb.name;});
       var bkg=parseFloat(bb.out);
       if(bb.pre){
@@ -6972,15 +7036,19 @@ async function submitBlendSession(){
         if(sh.length)shortAll=shortAll.concat(sh.map(function(x){return bl.name+' — '+x;}));
       }
     }
-    var n=RO.bb.length;
-    RO.bb=[roEmptyBlendBatch()];
+    /* ── 收尾：兩邊一起清、一次 reload ── */
+    var msg=[];
+    if(sList.length)msg.push(sList.length+' single');
+    if(bList.length)msg.push(bList.length+' blend');
+    RO.batches=[];RO.bb=[roEmptyBlendBatch()];
+    await saveRoastDraft();
     closeDrawer();
-    if(shortAll.length)alert('Blend'+(n>1?'s':'')+' logged, but batch stock came up short:\n'+shortAll.join('\n')+'\n\nCheck the batch levels under Coffee Stock.');
-    else toast(n+' blend batch'+(n>1?'es':'')+' logged ✓');
+    if(shortAll.length)alert(msg.join(' + ')+' logged, but batch stock came up short:\n'+shortAll.join('\n')+'\n\nCheck the batch levels under Coffee Stock.');
+    else toast(msg.join(' + ')+' logged ✓');
     await reload();
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent=roSubmitLabel();}
-    alert('Log failed: '+(e&&e.message||e));
+    alert('Submit failed: '+(e&&e.message||e));
   }
 }
 /* FIFO 消耗成分批次（照 classic consumeBlendComponents）——回傳不夠扣的清單 */
@@ -7056,58 +7124,7 @@ function buildRoastRec(bt){
   rec.roast_date=(RO.entry==='intake'&&bt.date)?bt.date:todayStr();
   return rec;
 }
-async function submitRoastSession(){
-  if(!RO.batches.length||!RO.batches.every(roBatchDone)){toast('Fill every batch first');return;}
-  var intake=RO.entry==='intake';
-  /* roast：生豆累加扣（同 beanId 加總）＋庫存不足 confirm；intake 不碰生豆、全跳過 */
-  var byBean={};
-  if(!intake){
-    RO.batches.forEach(function(b){byBean[b.beanId]=(byBean[b.beanId]||0)+parseFloat(b.green);});
-    var shorts=[];
-    Object.keys(byBean).forEach(function(id){
-      var bn=(DB.beans||[]).find(function(x){return String(x.id)===String(id);});
-      var stock=bn?Number(bn.quantity)||0:0;
-      if(byBean[id]>stock+0.0001)shorts.push((bn?bn.name:id)+': '+(Math.round(byBean[id]*100)/100)+' kg used, '+stock+' kg in stock');
-    });
-    if(shorts.length&&!confirm('Stock check:\n'+shorts.join('\n')+'\n\nSubmit anyway? Stock stops at 0 — fix later with Stocktake.'))return;
-  }
-  var btn=$('ro-submit');if(btn){btn.disabled=true;btn.textContent='Submitting…';}
-  try{
-    for(var i=0;i<RO.batches.length;i++){ /* 依卡片順序 insert＝R# 序號跟著 Batch 1..N */
-      var ins=await sb.from('roasts').insert(buildRoastRec(RO.batches[i])).select();
-      if(ins.error)throw new Error(ins.error.message);
-      if(ins.data&&ins.data[0])DB.roasts.unshift(ins.data[0]);
-    }
-    var n=RO.batches.length;
-    if(intake){
-      logAct('intake roasts',n+' past batch'+(n>1?'es':''),null);
-      RO.batches=[];await saveRoastDraft();
-      closeDrawer();toast(n+' past roast'+(n>1?'s':'')+' added ✓ green stock untouched');
-    }else{
-      var ids=Object.keys(byBean);
-      for(var j=0;j<ids.length;j++){
-        var bn=(DB.beans||[]).find(function(x){return String(x.id)===String(ids[j]);});
-        if(!bn)continue;
-        var newQty=Math.max(0,Math.round(((Number(bn.quantity)||0)-byBean[ids[j]])*1000)/1000);
-        var u=await sb.from('beans').update({quantity:newQty}).eq('id',bn.id);
-        if(u.error)throw new Error('roasts saved but green stock update failed: '+u.error.message);
-        bn.quantity=newQty;
-      }
-      for(var k=0;k<RO.batches.length;k++){
-        var bt=RO.batches[k],bn2=(DB.beans||[]).find(function(x){return String(x.id)===String(bt.beanId);});
-        try{await sb.from('stock_moves').insert({bean_id:bt.beanId,kind:'roast',delta_kg:-parseFloat(bt.green),after_kg:bn2?bn2.quantity:null,note:'Roast '+todayStr()});}catch(e){}
-      }
-      var totGreen=ids.reduce(function(s,id){return s+byBean[id];},0);
-      logAct('roasted',n+' batch'+(n>1?'es':''),(Math.round(totGreen*100)/100)+' kg green');
-      RO.batches=[];await saveRoastDraft();
-      closeDrawer();toast(n+' roast'+(n>1?'s':'')+' logged ✓ green −'+(Math.round(totGreen*100)/100)+' kg');
-    }
-    await reload();
-  }catch(e){
-    if(btn){btn.disabled=false;btn.textContent=roSubmitLabel(true);}
-    alert('Submit failed: '+(e&&e.message||e));
-  }
-}
+/* submitRoastSession 已併入 submitAllSession（2026-07-19 合併 Submit）——舊實作 git 撈 */
 /* ===== 滑卡（兩段式）=====
    右滑 >35% 寬＝直接做（照舊）。左滑不再直接貪睡：過門檻放手 → 卡片停在 -88px
    露出底層 Later 鈕，要「再點 Later」才真的睡（防誤滑）；點卡片本體/滑開別張＝彈回 */
