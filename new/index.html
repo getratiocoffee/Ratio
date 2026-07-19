@@ -6661,8 +6661,13 @@ function roBlendDone(bb){
   }
   return true;
 }
-/* pre-blend 成分的生豆批（DB.beans；name+process 精準、同名退路）——Menus 的 beanByNameProcess 在閉包內拿不到 */
-function roGreenBean(name,process){
+/* pre-blend 成分的生豆批（2026-07-20 老闆點名從 recipe 截取）：recipe parts 的 bean_id 優先直配、
+   名字＋處理法備援（舊配方沒 bean_id 用）——Menus 的 beanByNameProcess 在閉包內拿不到 */
+function roGreenBean(name,process,beanId){
+  if(beanId!=null&&String(beanId).trim()!==''){
+    var hit=(DB.beans||[]).find(function(b){return String(b.id)===String(beanId);});
+    if(hit)return hit;
+  }
   var nk=String(name||'').trim().toLowerCase();if(!nk)return null;
   var pool=(DB.beans||[]).filter(function(b){return String(b.name||'').trim().toLowerCase()===nk;});
   if(!pool.length)return null;
@@ -6704,7 +6709,7 @@ function roBlendCard(bb,ix){
       /* Roast green（2026-07-20 老闆思路定稿）：成分生豆 kg，預設照配方 % 聯動、Customise 解鎖自由填；
          intake＝選填純記錄（無聯動無庫存 hint）。input 帶 data-pct 供聯動反推 */
       partsHTML=parts.map(function(p,pi){
-        var b=intake?null:roGreenBean(p.bean,p.process||'');
+        var b=intake?null:roGreenBean(p.bean,p.process||'',p.bean_id);
         var have=b?Math.round((Number(b.quantity)||0)*1000)/1000:0;
         return '<div style="display:flex;gap:8px;align-items:center;margin-top:7px">'
           +'<span class="s" style="flex:1">'+esc(p.pct+'% '+p.bean)+(p.process?' <span style="color:var(--muted);font-size:11px">'+esc(p.process)+'</span>':'')+'</span>'
@@ -6718,7 +6723,7 @@ function roBlendCard(bb,ix){
         var have=blendPartPool(p.bean,(p.process!=null&&String(p.process).trim()!=='')?p.process:undefined,p.bean_id);
         return '<div style="display:flex;gap:8px;align-items:center;margin-top:7px">'
           +'<span class="s" style="flex:1">'+esc(p.pct+'% '+p.bean)+(p.process?' <span style="color:var(--muted);font-size:11px">'+esc(p.process)+'</span>':'')+'</span>'
-          +'<input class="din" data-bc="'+ix+'" data-bp="'+pi+'" data-pct="'+parseFloat(p.pct)+'" data-bn="'+esc(p.bean)+'" data-bproc="'+esc(p.process||'')+'" inputmode="decimal" placeholder="kg" value="'+esc(bb.amt[pi]!=null?String(bb.amt[pi]):'')+'" style="width:80px;margin:0;text-align:right">'
+          +'<input class="din" data-bc="'+ix+'" data-bp="'+pi+'" data-pct="'+parseFloat(p.pct)+'" data-bn="'+esc(p.bean)+'" data-bproc="'+esc(p.process||'')+'" data-bid="'+esc(p.bean_id||'')+'" inputmode="decimal" placeholder="kg" value="'+esc(bb.amt[pi]!=null?String(bb.amt[pi]):'')+'" style="width:80px;margin:0;text-align:right">'
           +'<span class="s" id="ro-bps-'+ix+'-'+pi+'" style="flex:0 0 104px;text-align:right;'+(have<=0?'color:var(--danger)':'color:var(--muted)')+'">stock '+have+' kg</span></div>';
       }).join('')||'<div class="s" style="margin-top:6px"><span class="red">recipe has no parts — add them in Recipe</span></div>';
     }
@@ -6849,7 +6854,7 @@ function paintRoastSheet(){
   /* ── blend 卡片綁定（比例聯動照舊邏輯、per-card scope；不重繪抽屜免掉鍵盤焦點）── */
   function roStockHint(el,val){
     var sp=$('ro-bps-'+el.dataset.bc+'-'+el.dataset.bp);if(!sp)return;
-    var have=blendPartPool(el.dataset.bn,el.dataset.bproc?el.dataset.bproc:undefined);
+    var have=blendPartPool(el.dataset.bn,el.dataset.bproc?el.dataset.bproc:undefined,el.dataset.bid||undefined);
     var need=parseFloat(val)||0;
     if(need>have+0.0001){sp.style.color='var(--danger)';sp.textContent='short '+(Math.round((need-have)*100)/100)+' · stock '+have;}
     else{sp.style.color=have<=0?'var(--danger)':'var(--muted)';sp.textContent='stock '+have+' kg';}
@@ -6908,7 +6913,7 @@ function paintRoastSheet(){
     var bb=RO.bb[ci];if(!bb)return;
     var row=(RO.blends.find(function(b){return b.name===bb.name;})||{}).parts||[];
     var p=row.filter(function(x){return x&&x.bean&&parseFloat(x.pct)>0;})[+el.dataset.gp];
-    var b=p?roGreenBean(p.bean,p.process||''):null;
+    var b=p?roGreenBean(p.bean,p.process||'',p.bean_id):null;
     var have=b?Math.round((Number(b.quantity)||0)*1000)/1000:0;
     var need=parseFloat(el.value)||0;
     if(need>have+0.0001){sp.style.color='var(--danger)';sp.textContent='short '+(Math.round((need-have)*100)/100)+' · green '+have;}
@@ -7009,7 +7014,7 @@ async function submitAllSession(){
     var bl=RO.blends.find(function(b){return b.name===bb.name;});if(!bl)return;
     (bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}).forEach(function(p,pi){
       var kg=parseFloat(bb.gamt[pi]);if(!(kg>0))return;
-      var b=roGreenBean(p.bean,p.process||'');
+      var b=roGreenBean(p.bean,p.process||'',p.bean_id);
       var stock=b?Number(b.quantity)||0:0;
       if(!b)gShorts.push(p.bean+': no green lot found — not deducted');
       else if(kg>stock+0.0001)gShorts.push(p.bean+': '+(Math.round(kg*100)/100)+' kg used, '+stock+' kg in stock');
@@ -7057,7 +7062,7 @@ async function submitAllSession(){
         var iTot=0;iRaw.forEach(function(p,pi){var v=parseFloat(bb.gamt[pi]);if(v>0)iTot+=v;});
         iTot=Math.round(iTot*1000)/1000;
         var iParts=iRaw.map(function(p,pi){
-          var o={bean:p.bean,process:p.process||'',pct:parseFloat(p.pct)};
+          var o={bean:p.bean,bean_id:p.bean_id||null,process:p.process||'',pct:parseFloat(p.pct)};
           var v=parseFloat(bb.gamt[pi]);if(iTot>0&&v>0)o.green_kg=v;
           return o;});
         var recI={bean_id:null,bean_name:bl.name,country:null,green_kg:iTot>0?iTot:null,status:'pending_cupping',roast_date:bb.date||date,kind:'blend',
@@ -7073,7 +7078,7 @@ async function submitAllSession(){
       if(bb.pre){
         /* ── pre-blend（生拼；2026-07-19 老闆點名）：recipe 快照帶實際生豆 kg、green_kg=Σ、扣生豆＋stock_moves ── */
         var rawParts=(bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;});
-        var gparts=rawParts.map(function(p,pi){return {bean:p.bean,process:p.process||'',pct:parseFloat(p.pct),green_kg:parseFloat(bb.gamt[pi])||0};})
+        var gparts=rawParts.map(function(p,pi){return {bean:p.bean,bean_id:p.bean_id||null,process:p.process||'',pct:parseFloat(p.pct),green_kg:parseFloat(bb.gamt[pi])||0};})
           .filter(function(x){return x.green_kg>0;});
         var gTot=Math.round(gparts.reduce(function(s,x){return s+x.green_kg;},0)*1000)/1000;
         var recP={bean_id:null,bean_name:bl.name,country:null,green_kg:gTot,status:'pending_cupping',roast_date:date,kind:'blend',
@@ -7086,7 +7091,7 @@ async function submitAllSession(){
         logAct('roasted pre-blend',bl.name,gTot+' kg green → '+bkg+' kg');
         for(var gi=0;gi<gparts.length;gi++){
           var gp=gparts[gi];
-          var gb=roGreenBean(gp.bean,gp.process||'');
+          var gb=roGreenBean(gp.bean,gp.process||'',gp.bean_id);
           if(!gb)continue; /* 找不到生豆批＝已在 confirm 提示過，不扣 */
           var nq=Math.max(0,Math.round(((Number(gb.quantity)||0)-gp.green_kg)*1000)/1000);
           var gu=await sb.from('beans').update({quantity:nq}).eq('id',gb.id);
@@ -7097,7 +7102,7 @@ async function submitAllSession(){
         continue;
       }
       var parts=(bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;})
-        .map(function(p){return {bean:p.bean,process:p.process||'',pct:parseFloat(p.pct)};});
+        .map(function(p){return {bean:p.bean,bean_id:p.bean_id||null,process:p.process||'',pct:parseFloat(p.pct)};}); /* bean_id 進快照＝consumeBlendParts 的 ID 優先直接生效 */
       var rec={bean_id:null,bean_name:bl.name,country:null,green_kg:null,status:'pending_cupping',roast_date:date,kind:'blend',
         recipe:{blend_id:bl.id||null,parts:parts}};
       if(bkg>0){rec.roasted_kg=bkg;rec.remaining_kg=bkg;}

@@ -80,6 +80,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-20 之三（Log roast 拼配成分改吃 recipe 的 bean_id ✅ 待 push）
+- **老闆點名「blend 要從 blend recipe 截取資料」**：查線上真資料——blends.parts 每成分都帶 `bean_id`（且 pct 是**字串**、常有空尾列 `{pct:'',bean:''}`；Finca Milan 同名兩支不同 culturing＝名字配對的地雷），但 Log roast 生豆對照/扣帳只用名字＋處理法猜。
+- **改法（ID 優先、名字備援）**：①`roGreenBean(name,process,beanId)` 加第三參數——recipe 的 bean_id 直配 DB.beans，配不到才退名字＋procKey（舊配方沒 bean_id 用）②呼叫點全帶 ID：卡片渲染 hint／roGreenHint（打字重算）／submit 生豆 check／pre 扣帳 ③**三種快照（pre/post/intake）的 recipe.parts 都補 bean_id**——post 帶 ID 後 `consumeBlendParts` 現成的「ID 優先」邏輯直接生效（原本收不到 ID 一直退名字配）④Mix roasted 打字 hint 的 `roStockHint` 補 `data-bid` 帶 ID。
+- **驗證**：jscheck ✓；假資料照真形狀（字串 pct/空尾列/同名 Finca Milan ×2 不同 id）——空尾列濾掉只 2 行 ✓、hint 精準抓 Nitro 那支 3kg（名字配會誤抓 April 8kg）✓、字串 pct 聯動 7→總 10→攤 3 ✓、pre 扣帳只扣 bean_B/bean_C（同名 bean_A 不動）＋快照帶 bean_id ✓、Mix roasted：hint 只算 Nitro 批次 6kg、FIFO 精準扣 rA/rC（同名 rX 不動）、快照帶 bean_id ✓。
+
 ## 〇、補記 — 2026-07-20 之二（Log roast 對齊老闆思路定稿：entry 全域化＋Roast green % 聯動＋Customise ✅ 待 push）
 - **老闆口述完整思路（plan mode 核准）**：①最上層先選當日/補過去（互斥）②當日＝扣生豆庫，blend 標準＝輸生豆自動換算 %、另有 Customise 自由填 ③補過去＝同樣輸入但不扣、必填日期。UI 要簡單易懂手機優先。
 - **改法四件**：①**entry 全域化**——刪 `RO.bentry`，單品拼配共用 `RO.entry`（互斥保證：一次 submit 全 roast 或全 intake）；上排 seg 一組管全部 ②**Blend 當日**：卡內 seg 標籤白話化「**Roast green**（生拼，預設 `pre:true`）｜**Mix roasted**（熟拼＝原 post 原樣）」；Roast green **預設照配方 % 聯動**（輸一成分格→反推總量攤其他格；Green total 變 input `data-bgt` 直輸往下攤；helpers `roSpreadGreen`/`roGreenHint`/`roGreenTotals` 在 paintRoastSheet 閉包）＋右上小字「**Customise ✎**」（`bb.custom` 切自由填＝原 pre 行為，值保留來回切）；**存檔共用原 pre 路徑零改動** ③**intake blend 成分開放選填**（同生拼版面、無庫存 hint 無聯動）——有填就進 recipe 快照（parts 帶 green_kg＋green_kg=Σ），照舊零扣帳 ④**session 日期欄移除**（當日＝todayStr()；intake 每卡日期）——`grab()` 留空殼（多處呼叫，Log roast 閉包內）。
