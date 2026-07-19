@@ -80,6 +80,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-20（Log roast 拼配加 Intake · past 補舊批 ✅ 待 push）
+- **老闆需求**：「blend 也要能夠輸入是當日烘焙，還是入庫之前的批次」——拼配分頁比照單品加 Roast today / Intake · past 切換（原本拼配只有 pre/post，補舊批會誤扣現在的庫存）。
+- **做法（`RO.bentry`，不進草稿——每次開抽屜預設 roast）**：①Blend 分頁頂部加 pm-seg「Roast today｜Intake · past」（`ro-be-r`/`ro-be-i`，樣式同單品）②intake 卡片＝選配方＋**成分唯讀快照列**（不填量）＋**每卡 Roast date**（data-bbd）＋Roasted；Pre/Post seg 與 session 日期欄都藏（每卡自帶日期）③`roBlendDone` intake＝name+out+date；`roValidBlends` 加 date 判有效卡④`submitAllSession` intake 分支＝**照 saveBackfill 拼配口徑**：insert roasts {kind:'blend',green_kg:null,recipe 快照,roast_date=卡日期}——**不扣生豆、不 consumeBlendParts、不寫 stock_moves**；dup check intake 比各卡日期；pre-blend 生豆 check intake 跳過⑤訂單籌碼 data-blend 帶入強制切回 roast（今天要烘的）。
+- **驗證**：jscheck ✓；假資料（fetch 層攔截——**蓋 window.sb 沒用**，sb 是內部 const，記憶警告屬實）——seg 預設 roast/切 intake 畫面切換 ✓、成分唯讀無輸入框 ✓、gate 沒日期擋/填了放行 ✓、intake submit 寫入鏈只有 roasts insert（kind blend+快照+2026-06-15）+activity_log，**零 PATCH beans/roasts、零 stock_moves** ✓、迴歸：重開抽屜回 roast、比例聯動 5→3/2、post 扣成分 FIFO 4→1/3→1 照舊 ✓、截圖 ✓。
+
 ## 〇、補記 — 2026-07-19 之十九（Log roast 拼配加 Pre-blend 生拼 ✅ 待 push）
 - **老闆需求**：開新烘焙時 pre-blend（生拼）與 post-blend（熟拼）**同一畫面**；pre-blend 成分**輸個別公斤數**（自由填、不被配方比例鎖）。
 - **做法（Blend 分頁每卡加 pm-seg「Pre-blend · green｜Post-blend · roasted」）**：①`roEmptyBlendBatch` 加 `pre:false,gamt:{}`（pre 成分生豆 kg；amt/gamt 分開存、**切換不丟值**）②pre 渲染：成分行自由輸 kg（**不聯動**）＋「green X kg」對照（新全域 `roGreenBean(name,process)`＝DB.beans name+procKey；⚠ Menus 的 beanByNameProcess 在閉包內拿不到——踩過）＋Green·total 自動 Σ＋Roasted out 獨立輸（**data-bbo handler pre 時跳過 roSpreadCard**）＋Loss 即時③`roBlendDone` pre＝至少一成分>0 且 out>0④`submitBlendSession` pre 分支：生豆庫存 check confirm（同 single 口徑）→ insert roasts {kind:'blend',green_kg:Σ,recipe:{pre:true,parts:[{bean,process,pct,green_kg 實際}]}} → **逐成分扣 beans.quantity＋stock_moves {kind:'roast',note:'Pre-blend 配方 日期'}**；post 路徑照舊（比例聯動＋consumeBlendParts 扣熟豆）。
