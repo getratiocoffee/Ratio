@@ -84,6 +84,7 @@
 - **老闆需求**：「blend 也要能夠輸入是當日烘焙，還是入庫之前的批次」——拼配分頁比照單品加 Roast today / Intake · past 切換（原本拼配只有 pre/post，補舊批會誤扣現在的庫存）。
 - **做法（`RO.bentry`，不進草稿——每次開抽屜預設 roast）**：①Blend 分頁頂部加 pm-seg「Roast today｜Intake · past」（`ro-be-r`/`ro-be-i`，樣式同單品）②intake 卡片＝選配方＋**成分唯讀快照列**（不填量）＋**每卡 Roast date**（data-bbd）＋Roasted；Pre/Post seg 與 session 日期欄都藏（每卡自帶日期）③`roBlendDone` intake＝name+out+date；`roValidBlends` 加 date 判有效卡④`submitAllSession` intake 分支＝**照 saveBackfill 拼配口徑**：insert roasts {kind:'blend',green_kg:null,recipe 快照,roast_date=卡日期}——**不扣生豆、不 consumeBlendParts、不寫 stock_moves**；dup check intake 比各卡日期；pre-blend 生豆 check intake 跳過⑤訂單籌碼 data-blend 帶入強制切回 roast（今天要烘的）。
 - **驗證**：jscheck ✓；假資料（fetch 層攔截——**蓋 window.sb 沒用**，sb 是內部 const，記憶警告屬實）——seg 預設 roast/切 intake 畫面切換 ✓、成分唯讀無輸入框 ✓、gate 沒日期擋/填了放行 ✓、intake submit 寫入鏈只有 roasts insert（kind blend+快照+2026-06-15）+activity_log，**零 PATCH beans/roasts、零 stock_moves** ✓、迴歸：重開抽屜回 roast、比例聯動 5→3/2、post 扣成分 FIFO 4→1/3→1 照舊 ✓、截圖 ✓。
+- **追加（老闆點名上下對換）**：兩排 seg 對調——Roast today/Intake·past 移到**上排**（entrySeg 抽出 body、單品/拼配共用位）、Single origin/Blend 在下排；卡內 Pre/Post seg 不動。驗證：兩分頁 seg 順序、四向切換、截圖 ✓。
 
 ## 〇、補記 — 2026-07-19 之十九（Log roast 拼配加 Pre-blend 生拼 ✅ 待 push）
 - **老闆需求**：開新烘焙時 pre-blend（生拼）與 post-blend（熟拼）**同一畫面**；pre-blend 成分**輸個別公斤數**（自由填、不被配方比例鎖）。

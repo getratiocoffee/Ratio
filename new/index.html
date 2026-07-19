@@ -6768,22 +6768,22 @@ function paintRoastSheet(){
     }).join('');
   }
   var single=RO.mode==='single';
+  /* entry seg 移到 mode seg 上面（2026-07-20 老闆點名上下對換）：Roast today/Intake 在上、Single origin/Blend 在下 */
+  var entrySeg=single
+    ?'<div class="pm-seg"><button id="ro-e-r" class="'+(RO.entry==='roast'?'on':'')+'">Roast today</button><button id="ro-e-i" class="'+(RO.entry==='roast'?'':'on')+'">Intake · past</button></div>'
+    :'<div class="pm-seg"><button id="ro-be-r" class="'+(RO.bentry!=='intake'?'on':'')+'">Roast today</button><button id="ro-be-i" class="'+(RO.bentry!=='intake'?'':'on')+'">Intake · past</button></div>';
   var body;
   if(single){
-    var roast=RO.entry==='roast';
     var sum=roSummary();
-    body='<div class="pm-seg" style="margin-top:10px"><button id="ro-e-r" class="'+(roast?'on':'')+'">Roast today</button><button id="ro-e-i" class="'+(roast?'':'on')+'">Intake · past</button></div>'
-    +'<div class="ro-sum"><div><div class="s1">Batches</div><b id="ro-sum-n">'+sum.n+'</b></div>'
+    body='<div class="ro-sum"><div><div class="s1">Batches</div><b id="ro-sum-n">'+sum.n+'</b></div>'
     +'<div><div class="s1">Green</div><b id="ro-sum-g">'+sum.g+'</b></div>'
     +'<div><div class="s1">Roasted</div><b id="ro-sum-o">'+sum.o+'</b></div></div>'
     +RO.batches.map(function(bt,ix){return roBatchCard(bt,ix,beans);}).join('');
   }else{
     /* 拼配卡片化（2026-07-16）：比例聯動/成分 stock hint 邏輯照舊，只是搬進 per-card（roBlendCard/roSpreadCard）
        2026-07-20 加 Roast today / Intake 切換（老闆點名跟單品同款）：intake＝補入庫之前的舊批，不扣帳 */
-    var broast=RO.bentry!=='intake';
     var bsum=roBlendSummary();
-    body='<div class="pm-seg" style="margin-top:10px"><button id="ro-be-r" class="'+(broast?'on':'')+'">Roast today</button><button id="ro-be-i" class="'+(broast?'':'on')+'">Intake · past</button></div>'
-    +'<div class="ro-sum"><div><div class="s1">Batches</div><b id="ro-bsum-n">'+bsum.n+'</b></div>'
+    body='<div class="ro-sum"><div><div class="s1">Batches</div><b id="ro-bsum-n">'+bsum.n+'</b></div>'
     +'<div><div class="s1">Roasted</div><b id="ro-bsum-o">'+bsum.o+'</b></div></div>'
     +RO.bb.map(function(bb,ix){return roBlendCard(bb,ix);}).join('');
   }
@@ -6794,7 +6794,8 @@ function paintRoastSheet(){
       :(RO.bentry==='intake'?'backfill past blend batches · nothing deducted':'one card per blend batch · consumes component batches (oldest first)'))+'</div>'
     +'<div class="ro-wx" id="ro-wx"></div>'
     +chips
-    +'<div class="pm-seg"><button id="ro-m-s" class="'+(single?'on':'')+'">Single origin</button><button id="ro-m-b" class="'+(single?'':'on')+'">Blend</button></div>'
+    +entrySeg
+    +'<div class="pm-seg" style="margin-top:10px"><button id="ro-m-s" class="'+(single?'on':'')+'">Single origin</button><button id="ro-m-b" class="'+(single?'':'on')+'">Blend</button></div>'
     +body
     +((single||RO.bentry==='intake')?'':'<div class="dlab" style="margin-top:14px">Roast date · whole session</div><input class="din" id="ro-date" type="date" value="'+esc(RO.date)+'">') /* intake 每卡自帶日期 */
     +'<div style="display:flex;gap:8px;align-items:stretch;margin-top:12px">'
