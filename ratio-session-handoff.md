@@ -80,6 +80,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-19 之十九（Log roast 拼配加 Pre-blend 生拼 ✅ 待 push）
+- **老闆需求**：開新烘焙時 pre-blend（生拼）與 post-blend（熟拼）**同一畫面**；pre-blend 成分**輸個別公斤數**（自由填、不被配方比例鎖）。
+- **做法（Blend 分頁每卡加 pm-seg「Pre-blend · green｜Post-blend · roasted」）**：①`roEmptyBlendBatch` 加 `pre:false,gamt:{}`（pre 成分生豆 kg；amt/gamt 分開存、**切換不丟值**）②pre 渲染：成分行自由輸 kg（**不聯動**）＋「green X kg」對照（新全域 `roGreenBean(name,process)`＝DB.beans name+procKey；⚠ Menus 的 beanByNameProcess 在閉包內拿不到——踩過）＋Green·total 自動 Σ＋Roasted out 獨立輸（**data-bbo handler pre 時跳過 roSpreadCard**）＋Loss 即時③`roBlendDone` pre＝至少一成分>0 且 out>0④`submitBlendSession` pre 分支：生豆庫存 check confirm（同 single 口徑）→ insert roasts {kind:'blend',green_kg:Σ,recipe:{pre:true,parts:[{bean,process,pct,green_kg 實際}]}} → **逐成分扣 beans.quantity＋stock_moves {kind:'roast',note:'Pre-blend 配方 日期'}**；post 路徑照舊（比例聯動＋consumeBlendParts 扣熟豆）。
+- **驗證**：jscheck ✓；假資料——卡上兩 seg ✓、pre 自由輸 3/1.2（60/40 配方不干預）＋總計 4.2＋loss −14.3% ✓、出爐輸入不反蓋成分 ✓、Submit 寫入鏈 POST roasts(pre=true,green=4.2)→PATCH beans 10→7/6→4.8→stock_moves −3/−1.2 ✓、post 聯動照舊（3→2→total 5）✓、pre↔post 來回切值保留 ✓、截圖 ✓。
+
 ## 〇、補記 — 2026-07-19 之十八（Gmail 帳單偵測排程 ✅ 不涉及 app 代碼）
 - **老闆需求**：偵測 Gmail 裡「需要繳費的 invoice」並通知。
 - **做法（零 app 代碼——Claude 排程任務）**：老闆 Mac 的 Claude app 排程 **gmail-invoice-alert**（每天雪梨 07:10，app 沒開則下次開機補跑；SKILL.md 在 ~/.claude/scheduled-tasks/gmail-invoice-alert/）：Gmail 連接器搜 `newer_than:3d (invoice OR bill OR …) -label:Label_14` → 判斷「Ratio 要付錢」的（**排除 invoicing@messaging.squareup.com＝自家開給客人的、行銷、驗證碼**）→ Supabase execute_sql 寫 **messages**（💸 標題＋摘要，app 訊息鈴鐺）＋有到期日寫 **events**（Upcoming 卡＋晨報自然帶到）→ thread 貼 Gmail 標籤 **Ratio/Invoice-alerted（Label_14）** 防重。

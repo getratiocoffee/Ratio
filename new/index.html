@@ -6426,7 +6426,7 @@ function openBuyReceive(p){
 var RO=null;
 function todayStr(){var t=new Date();return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
 function roEmptyBatch(){return {beanId:'',green:'',out:'',date:''};}
-function roEmptyBlendBatch(){return {name:'',out:'',amt:{}};}
+function roEmptyBlendBatch(){return {name:'',out:'',amt:{},pre:false,gamt:{}};} /* pre＝生拼（2026-07-19 老闆點名）：gamt=成分生豆 kg 自由填 */
 async function openRoastSheet(pre){
   RO={mode:'single',entry:'roast',date:todayStr(),
     blends:[],batches:[],bb:[roEmptyBlendBatch()],pre:(pre&&pre.length)?pre:null};
@@ -6632,7 +6632,26 @@ async function roWxFill(){
 function roBlendDone(bb){
   var bl=RO.blends.find(function(b){return b.name===bb.name;});
   if(!bl)return false;
-  return parseFloat(bb.out)>0;
+  if(!(parseFloat(bb.out)>0))return false;
+  /* pre-blend：至少一個成分有生豆 kg（自由填、不強制照比例） */
+  if(bb.pre){
+    var any=false;Object.keys(bb.gamt||{}).forEach(function(k){if(parseFloat(bb.gamt[k])>0)any=true;});
+    return any;
+  }
+  return true;
+}
+/* pre-blend 成分的生豆批（DB.beans；name+process 精準、同名退路）——Menus 的 beanByNameProcess 在閉包內拿不到 */
+function roGreenBean(name,process){
+  var nk=String(name||'').trim().toLowerCase();if(!nk)return null;
+  var pool=(DB.beans||[]).filter(function(b){return String(b.name||'').trim().toLowerCase()===nk;});
+  if(!pool.length)return null;
+  var pk=procKey(process||'');
+  return pool.find(function(b){return procKey(b.process)===pk;})||pool[0];
+}
+/* pre-blend 成分生豆總量 */
+function roPreGreenTot(bb){
+  var s=0;Object.keys(bb.gamt||{}).forEach(function(k){var v=parseFloat(bb.gamt[k]);if(v>0)s+=v;});
+  return Math.round(s*1000)/1000;
 }
 function roBlendSummary(){
   var o=0;RO.bb.forEach(function(b){var v=parseFloat(b.out);if(v>0)o+=v;});
@@ -6656,6 +6675,30 @@ function roBlendCard(bb,ix){
   var bl=RO.blends.find(function(b){return b.name===bb.name;})||null;
   var parts=bl?(bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}):[];
   var last=RO.bb.length-1;
+  var pre=!!bb.pre;
+  var partsHTML='';
+  if(bl){
+    if(pre){
+      /* pre-blend（生拼；2026-07-19 老闆點名）：成分＝生豆 kg 自由填不聯動、對照生豆庫存（beans.quantity） */
+      partsHTML=parts.map(function(p,pi){
+        var b=roGreenBean(p.bean,p.process||'');
+        var have=b?Math.round((Number(b.quantity)||0)*1000)/1000:0;
+        return '<div style="display:flex;gap:8px;align-items:center;margin-top:7px">'
+          +'<span class="s" style="flex:1">'+esc(p.pct+'% '+p.bean)+(p.process?' <span style="color:var(--muted);font-size:11px">'+esc(p.process)+'</span>':'')+'</span>'
+          +'<input class="din" data-gc="'+ix+'" data-gp="'+pi+'" inputmode="decimal" placeholder="kg" value="'+esc(bb.gamt[pi]!=null?String(bb.gamt[pi]):'')+'" style="width:80px;margin:0;text-align:right">'
+          +'<span class="s" id="ro-gps-'+ix+'-'+pi+'" style="flex:0 0 104px;text-align:right;'+(have<=0?'color:var(--danger)':'color:var(--muted)')+'">green '+have+' kg</span></div>';
+      }).join('')||'<div class="s" style="margin-top:6px"><span class="red">recipe has no parts — add them in Recipe</span></div>';
+    }else{
+      partsHTML=parts.map(function(p,pi){
+        var have=blendPartPool(p.bean,(p.process!=null&&String(p.process).trim()!=='')?p.process:undefined,p.bean_id);
+        return '<div style="display:flex;gap:8px;align-items:center;margin-top:7px">'
+          +'<span class="s" style="flex:1">'+esc(p.pct+'% '+p.bean)+(p.process?' <span style="color:var(--muted);font-size:11px">'+esc(p.process)+'</span>':'')+'</span>'
+          +'<input class="din" data-bc="'+ix+'" data-bp="'+pi+'" data-pct="'+parseFloat(p.pct)+'" data-bn="'+esc(p.bean)+'" data-bproc="'+esc(p.process||'')+'" inputmode="decimal" placeholder="kg" value="'+esc(bb.amt[pi]!=null?String(bb.amt[pi]):'')+'" style="width:80px;margin:0;text-align:right">'
+          +'<span class="s" id="ro-bps-'+ix+'-'+pi+'" style="flex:0 0 104px;text-align:right;'+(have<=0?'color:var(--danger)':'color:var(--muted)')+'">stock '+have+' kg</span></div>';
+      }).join('')||'<div class="s" style="margin-top:6px"><span class="red">recipe has no parts — add them in Recipe</span></div>';
+    }
+  }
+  var gTot=roPreGreenTot(bb);
   return '<div class="ro-batch">'
   +'<div class="ro-bhead"><b>Batch '+(ix+1)+'</b><span style="display:flex;gap:6px">'
   +'<button class="ro-bbtn" data-bmvup="'+ix+'" aria-label="move up"'+(ix===0?' disabled':'')+'>▲</button>'
@@ -6664,14 +6707,16 @@ function roBlendCard(bb,ix){
   +'<select class="din" data-bbsel="'+ix+'" style="padding:11px 12px;font-size:15px"><option value="">— pick a blend —</option>'
   +RO.blends.map(function(b){return '<option'+(bb.name===b.name?' selected':'')+'>'+esc(b.name)+'</option>';}).join('')
   +'</select>'
-  +(bl?(parts.map(function(p,pi){
-      var have=blendPartPool(p.bean,(p.process!=null&&String(p.process).trim()!=='')?p.process:undefined,p.bean_id);
-      return '<div style="display:flex;gap:8px;align-items:center;margin-top:7px">'
-        +'<span class="s" style="flex:1">'+esc(p.pct+'% '+p.bean)+(p.process?' <span style="color:var(--muted);font-size:11px">'+esc(p.process)+'</span>':'')+'</span>'
-        +'<input class="din" data-bc="'+ix+'" data-bp="'+pi+'" data-pct="'+parseFloat(p.pct)+'" data-bn="'+esc(p.bean)+'" data-bproc="'+esc(p.process||'')+'" inputmode="decimal" placeholder="kg" value="'+esc(bb.amt[pi]!=null?String(bb.amt[pi]):'')+'" style="width:80px;margin:0;text-align:right">'
-        +'<span class="s" id="ro-bps-'+ix+'-'+pi+'" style="flex:0 0 104px;text-align:right;'+(have<=0?'color:var(--danger)':'color:var(--muted)')+'">stock '+have+' kg</span></div>';
-    }).join('')||'<div class="s" style="margin-top:6px"><span class="red">recipe has no parts — add them in Recipe</span></div>'):'')
-  +'<div class="ro-cols"><div style="flex:1"><div class="ro-blab" style="color:color-mix(in srgb,var(--roast) 65%,var(--ink))">Roasted · total <span style="color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400">syncs with parts</span></div><input class="din ro-num o" data-bbo="'+ix+'" inputmode="decimal" placeholder="0.0" value="'+esc(bb.out)+'"></div></div>'
+  /* Pre / Post 同卡切換（2026-07-19 老闆點名同一畫面）：pre＝混生豆下鍋、post＝熟豆按比例拼 */
+  +'<div class="pm-seg" style="margin-top:8px"><button data-bpre="'+ix+'"'+(pre?' class="on"':'')+'>Pre-blend · green</button><button data-bpost="'+ix+'"'+(pre?'':' class="on"')+'>Post-blend · roasted</button></div>'
+  +partsHTML
+  +(pre
+    ?'<div class="ro-cols">'
+      +'<div style="flex:1"><div class="ro-blab" style="color:color-mix(in srgb,var(--green) 65%,var(--ink))">Green · total</div><b id="ro-gtot-'+ix+'" style="display:block;font-size:19px;padding:9px 0 0">'+(gTot>0?roFmt1(gTot):'—')+'</b></div>'
+      +'<div style="flex:1"><div class="ro-blab" style="color:color-mix(in srgb,var(--roast) 65%,var(--ink))">Roasted out</div><input class="din ro-num o" data-bbo="'+ix+'" inputmode="decimal" placeholder="0.0" value="'+esc(bb.out)+'"></div>'
+      +'<div class="ro-bloss"><div class="s1">Loss</div><b id="ro-gloss-'+ix+'">'+(function(){var lp=roastLossPct(gTot,bb.out);return lp!=null?'−'+lp+'%':'—';})()+'</b></div>'
+      +'</div>'
+    :'<div class="ro-cols"><div style="flex:1"><div class="ro-blab" style="color:color-mix(in srgb,var(--roast) 65%,var(--ink))">Roasted · total <span style="color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400">syncs with parts</span></div><input class="din ro-num o" data-bbo="'+ix+'" inputmode="decimal" placeholder="0.0" value="'+esc(bb.out)+'"></div></div>')
   +'</div>';
 }
 function paintRoastSheet(){
@@ -6805,9 +6850,40 @@ function paintRoastSheet(){
   });});
   document.querySelectorAll('#drawer [data-bbo]').forEach(function(el){
     var bb=RO.bb[+el.dataset.bbo];if(!bb)return;
-    el.addEventListener('input',function(){bb.out=el.value;roSpreadCard(+el.dataset.bbo,parseFloat(el.value)||0,null);roRefreshBlend();});
+    el.addEventListener('input',function(){
+      bb.out=el.value;
+      /* pre-blend：出爐量獨立輸入，不觸發成分比例聯動；只刷 loss */
+      if(bb.pre){var le=$('ro-gloss-'+el.dataset.bbo);if(le){var lp=roastLossPct(roPreGreenTot(bb),bb.out);le.textContent=lp!=null?'−'+lp+'%':'—';}roRefreshBlend();return;}
+      roSpreadCard(+el.dataset.bbo,parseFloat(el.value)||0,null);roRefreshBlend();
+    });
     el.addEventListener('change',function(){var n=parseFloat(el.value);if(!isNaN(n))el.value=roFmt1(n);bb.out=el.value;roRefreshBlend();});
   });
+  /* pre/post 同卡切換（值各自保留在 gamt/amt，切回不丟） */
+  document.querySelectorAll('#drawer [data-bpre]').forEach(function(el){el.addEventListener('click',function(){
+    var bb=RO.bb[+el.dataset.bpre];if(!bb||bb.pre)return;bb.pre=true;grab();paintRoastSheet();
+  });});
+  document.querySelectorAll('#drawer [data-bpost]').forEach(function(el){el.addEventListener('click',function(){
+    var bb=RO.bb[+el.dataset.bpost];if(!bb||!bb.pre)return;bb.pre=false;grab();paintRoastSheet();
+  });});
+  /* pre-blend 成分生豆 kg（自由填不聯動）：即時寫回＋green total/loss/庫存 hint */
+  document.querySelectorAll('#drawer [data-gp]').forEach(function(el){el.addEventListener('input',function(){
+    var ci=+el.dataset.gc,bb=RO.bb[ci];if(!bb)return;
+    bb.gamt[+el.dataset.gp]=el.value;
+    var gTot=roPreGreenTot(bb);
+    var te=$('ro-gtot-'+ci);if(te)te.textContent=gTot>0?roFmt1(gTot):'—';
+    var le=$('ro-gloss-'+ci);if(le){var lp=roastLossPct(gTot,bb.out);le.textContent=lp!=null?'−'+lp+'%':'—';}
+    var sp=$('ro-gps-'+ci+'-'+el.dataset.gp);
+    if(sp){
+      var row=(RO.blends.find(function(b){return b.name===bb.name;})||{}).parts||[];
+      var p=row.filter(function(x){return x&&x.bean&&parseFloat(x.pct)>0;})[+el.dataset.gp];
+      var b=p?roGreenBean(p.bean,p.process||''):null;
+      var have=b?Math.round((Number(b.quantity)||0)*1000)/1000:0;
+      var need=parseFloat(el.value)||0;
+      if(need>have+0.0001){sp.style.color='var(--danger)';sp.textContent='short '+(Math.round((need-have)*100)/100)+' · green '+have;}
+      else{sp.style.color=have<=0?'var(--danger)':'var(--muted)';sp.textContent='green '+have+' kg';}
+    }
+    roRefreshBlend();
+  });});
   document.querySelectorAll('#drawer [data-bmvup]').forEach(function(el){el.addEventListener('click',function(){
     var i=+el.dataset.bmvup;if(i<=0)return;grab();
     var t=RO.bb[i-1];RO.bb[i-1]=RO.bb[i];RO.bb[i]=t;paintRoastSheet();
@@ -6834,6 +6910,20 @@ async function submitBlendSession(){
   var dups=RO.bb.filter(function(bb){return (DB.roasts||[]).some(function(r){return (r.roast_date||'')===date&&String(r.bean_name||'').trim().toLowerCase()===String(bb.name).trim().toLowerCase();});})
     .map(function(bb){return bb.name;});
   if(dups.length&&!confirm('Already batches dated '+date+' for: '+dups.join(', ')+'. Add anyway?'))return;
+  /* pre-blend 卡的生豆先做庫存 check（同 single 口徑：不足 confirm 放行、扣到 0 為止） */
+  var gShorts=[];
+  RO.bb.forEach(function(bb){
+    if(!bb.pre)return;
+    var bl=RO.blends.find(function(b){return b.name===bb.name;});if(!bl)return;
+    (bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;}).forEach(function(p,pi){
+      var kg=parseFloat(bb.gamt[pi]);if(!(kg>0))return;
+      var b=roGreenBean(p.bean,p.process||'');
+      var stock=b?Number(b.quantity)||0:0;
+      if(!b)gShorts.push(p.bean+': no green lot found — not deducted');
+      else if(kg>stock+0.0001)gShorts.push(p.bean+': '+(Math.round(kg*100)/100)+' kg used, '+stock+' kg in stock');
+    });
+  });
+  if(gShorts.length&&!confirm('Green stock check:\n'+gShorts.join('\n')+'\n\nSubmit anyway? Stock stops at 0 — fix later with Stocktake.'))return;
   var btn=$('ro-submit');if(btn){btn.disabled=true;btn.textContent='Submitting…';}
   try{
     var shortAll=[];
@@ -6841,6 +6931,32 @@ async function submitBlendSession(){
       var bb=RO.bb[i];
       var bl=RO.blends.find(function(b){return b.name===bb.name;});
       var bkg=parseFloat(bb.out);
+      if(bb.pre){
+        /* ── pre-blend（生拼；2026-07-19 老闆點名）：recipe 快照帶實際生豆 kg、green_kg=Σ、扣生豆＋stock_moves ── */
+        var rawParts=(bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;});
+        var gparts=rawParts.map(function(p,pi){return {bean:p.bean,process:p.process||'',pct:parseFloat(p.pct),green_kg:parseFloat(bb.gamt[pi])||0};})
+          .filter(function(x){return x.green_kg>0;});
+        var gTot=Math.round(gparts.reduce(function(s,x){return s+x.green_kg;},0)*1000)/1000;
+        var recP={bean_id:null,bean_name:bl.name,country:null,green_kg:gTot,status:'pending_cupping',roast_date:date,kind:'blend',
+          recipe:{blend_id:bl.id||null,pre:true,parts:gparts}};
+        if(bkg>0){recP.roasted_kg=bkg;recP.remaining_kg=bkg;}
+        var insP=await sb.from('roasts').insert(recP).select();
+        if(insP.error){var rp2=Object.assign({},recP);delete rp2.kind;delete rp2.recipe;insP=await sb.from('roasts').insert(rp2).select();}
+        if(insP.error)throw new Error(insP.error.message);
+        if(insP.data&&insP.data[0])DB.roasts.unshift(insP.data[0]);
+        logAct('roasted pre-blend',bl.name,gTot+' kg green → '+bkg+' kg');
+        for(var gi=0;gi<gparts.length;gi++){
+          var gp=gparts[gi];
+          var gb=roGreenBean(gp.bean,gp.process||'');
+          if(!gb)continue; /* 找不到生豆批＝已在 confirm 提示過，不扣 */
+          var nq=Math.max(0,Math.round(((Number(gb.quantity)||0)-gp.green_kg)*1000)/1000);
+          var gu=await sb.from('beans').update({quantity:nq}).eq('id',gb.id);
+          if(gu.error)throw new Error('roast saved but green stock update failed: '+gu.error.message);
+          gb.quantity=nq;
+          try{await sb.from('stock_moves').insert({bean_id:gb.id,kind:'roast',delta_kg:-gp.green_kg,after_kg:nq,note:'Pre-blend '+bl.name+' '+date});}catch(e){}
+        }
+        continue;
+      }
       var parts=(bl.parts||[]).filter(function(p){return p&&p.bean&&parseFloat(p.pct)>0;})
         .map(function(p){return {bean:p.bean,process:p.process||'',pct:parseFloat(p.pct)};});
       var rec={bean_id:null,bean_name:bl.name,country:null,green_kg:null,status:'pending_cupping',roast_date:date,kind:'blend',
