@@ -80,6 +80,10 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-20 之四（Log roast 全區顯示兩位小數 ✅ 待 push）
+- **老闆點名**：`roFmt1`（一位）改名 `roFmt2`＝`toFixed(2)`（replace_all 連定義一次到位；只在 Log roast 區用過，grep 確認無外部呼叫）；聯動攤分/反推總量的捨入 `*1000/1000` 三位→`*100/100` 兩位（roSpreadCard/roSpreadGreen/兩處反推）；庫存 hint have 兩位；ro-num placeholder 0.0→0.00（×5）。內部 Σ（roPreGreenTot 等）留三位精度不動。
+- **驗證**：jscheck ✓；33/33/34 除不盡配方——hint 10.456→10.46、總量 10 攤 3.3/3.3/3.4、成分 1 反推總量 3.03、blur 4.567→4.57、兩分頁總計 4.57／3.46+2.89 ✓。
+
 ## 〇、補記 — 2026-07-20 之三（Log roast 拼配成分改吃 recipe 的 bean_id ✅ 待 push）
 - **老闆點名「blend 要從 blend recipe 截取資料」**：查線上真資料——blends.parts 每成分都帶 `bean_id`（且 pct 是**字串**、常有空尾列 `{pct:'',bean:''}`；Finca Milan 同名兩支不同 culturing＝名字配對的地雷），但 Log roast 生豆對照/扣帳只用名字＋處理法猜。
 - **改法（ID 優先、名字備援）**：①`roGreenBean(name,process,beanId)` 加第三參數——recipe 的 bean_id 直配 DB.beans，配不到才退名字＋procKey（舊配方沒 bean_id 用）②呼叫點全帶 ID：卡片渲染 hint／roGreenHint（打字重算）／submit 生豆 check／pre 扣帳 ③**三種快照（pre/post/intake）的 recipe.parts 都補 bean_id**——post 帶 ID 後 `consumeBlendParts` 現成的「ID 優先」邏輯直接生效（原本收不到 ID 一直退名字配）④Mix roasted 打字 hint 的 `roStockHint` 補 `data-bid` 帶 ID。
