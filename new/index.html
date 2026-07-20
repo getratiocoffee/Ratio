@@ -5407,68 +5407,30 @@ async function transferReturn(t){
   toast('Returned ✓ +'+t.kg+' kg');
   buildItems();openTransferSheet();
 }
-/* 矯正池行 kg（2026-07-18 老闆點名）：輸「正確的 kg」直接調到位，差額跟 Coffee Stock 結算——
-   改小＝補回原日期批次（同退回的找批邏輯）、改大＝從原日期批次組再扣（FIFO、不夠擋存）。
-   先動 roasts 再改池行；池行改失敗把血滾回（帳不兩邊記） */
+/* 改實際公斤數（2026-07-20 老闆定稿：**純改數字**——不動 Coffee Stock、不做差額結算；
+   店面實秤多少記多少，差異＝損耗誤差自行吸收。舊差額結算版 git 撈） */
 function openTransferFix(t){
   if(!canWrite()){roToast();return;}
   if(!t||!t.id)return;
-  /* settled 行也可改（2026-07-20 老闆點名改實際公斤數）——🧾 歷史金額按新 kg 活算＝帳同步更正 */
   openDrawerHTML('<div class="t" style="font-size:19px">Fix kg · '+esc(t.name)+(t.process?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(t.process)+'</span>':'')+'</div>'
-    +'<div class="s" style="margin-top:2px">'+(t.roast_date?fmtD(t.roast_date):'no date')+' batch · now '+t.kg+' kg — type what it should be</div>'
-    +'<div class="dlab">Correct kg</div><input class="din" id="tfx-kg" inputmode="decimal" placeholder="'+t.kg+'">'
-    +'<div class="s" style="margin-top:6px;color:var(--muted)">Coffee Stock adjusts by the difference — smaller puts beans back, bigger takes more</div>'
+    +'<div class="s" style="margin-top:2px">'+(t.roast_date?fmtD(t.roast_date):'no date')+' batch · now '+t.kg+' kg — type the actual kg</div>'
+    +'<div class="dlab">Actual kg</div><input class="din" id="tfx-kg" inputmode="decimal" placeholder="'+t.kg+'">'
+    +'<div class="s" style="margin-top:6px;color:var(--muted)">Just fixes this number — Coffee Stock is not touched</div>'
     +'<div style="display:flex;gap:8px;align-items:stretch;margin-top:12px">'
     +'<button class="dclose" id="tfx-back" style="flex:1;margin-top:0;white-space:nowrap;border-radius:16px">‹ Back</button>'
-    +'<button class="act" id="tfx-save" style="flex:1.6;margin-top:0;white-space:nowrap">Save correction</button>'
+    +'<button class="act" id="tfx-save" style="flex:1.6;margin-top:0;white-space:nowrap">Save</button>'
     +'</div>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('tfx-back').addEventListener('click',openTransferSheet);
   $('d-cl').addEventListener('click',closeDrawer);
   $('tfx-save').addEventListener('click',async function(){
     var nv=parseFloat(($('tfx-kg').value||'').trim());
-    if(isNaN(nv)||nv<=0){toast('Enter the corrected kg — to remove the line use ✕');return;}
-    nv=Math.round(nv*1000)/1000;
-    var diff=Math.round((nv-(Number(t.kg)||0))*1000)/1000;
-    if(Math.abs(diff)<0.0005){toast('Already '+t.kg+' kg — nothing to fix');return;}
+    if(isNaN(nv)||nv<=0){toast('Enter the actual kg — to remove the line use ✕');return;}
+    nv=Math.round(nv*100)/100;
+    if(Math.abs(nv-(Number(t.kg)||0))<0.0005){toast('Already '+t.kg+' kg — nothing to fix');return;}
     var btn=this;btn.disabled=true;btn.textContent='Saving…';
-    var pool=rstBatches(t.name,!!t.is_blend,t.is_blend?undefined:(t.process||''));
-    var same=pool.filter(function(r){return String(r.roast_date||'')===String(t.roast_date||'');});
-    var touched=[]; /* [{r,prev}] 滾回用 */
-    var err=null;
-    if(diff>0){
-      /* 改大＝原日期批次組再扣 diff（FIFO；剩量不夠擋存——別批的豆用 + Add 另開一行） */
-      var avail=0;same.forEach(function(r){avail+=Number(r.remaining_kg)||0;});
-      avail=Math.round(avail*1000)/1000;
-      if(diff>avail+0.0005){btn.disabled=false;btn.textContent='Save correction';alert('That batch only has '+avail+' kg spare in Coffee Stock. Taking from another batch? Add it as a new line instead.');return;}
-      var left=diff;
-      for(var i=0;i<same.length&&left>0.0001;i++){
-        var r=same[i];var have=Number(r.remaining_kg)||0;if(!(have>0))continue;
-        var take=Math.min(have,left);
-        var v=Math.max(0,Math.round((have-take)*1000)/1000);
-        var u=await sb.from('roasts').update({remaining_kg:v}).eq('id',r.id);
-        if(u.error){err=u.error.message;break;}
-        touched.push({r:r,prev:have});r.remaining_kg=v;left-=take;
-      }
-    }else{
-      /* 改小＝把差額補回（找批共用 trfBackBatch：原日期批→最舊現存批→同名任何批；全無擋） */
-      var back=trfBackBatch(t);
-      if(!back){btn.disabled=false;btn.textContent='Save correction';alert('No batch left to return the difference to — use Log roast Intake to book it back in.');return;}
-      var prev=Number(back.remaining_kg)||0;
-      var v2=Math.round((prev+(-diff))*1000)/1000;
-      var u2=await sb.from('roasts').update({remaining_kg:v2}).eq('id',back.id);
-      if(u2.error)err=u2.error.message;
-      else{touched.push({r:back,prev:prev});back.remaining_kg=v2;}
-    }
-    if(err){btn.disabled=false;btn.textContent='Save correction';alert('Failed: '+err);buildItems();return;}
     var up=await sb.from('transfers').update({kg:nv}).eq('id',t.id);
-    if(up.error){
-      /* 池行沒改成＝把剛動的血滾回（帳不兩邊記） */
-      for(var j=0;j<touched.length;j++){
-        try{await sb.from('roasts').update({remaining_kg:touched[j].prev}).eq('id',touched[j].r.id);touched[j].r.remaining_kg=touched[j].prev;}catch(e2){}
-      }
-      btn.disabled=false;btn.textContent='Save correction';alert('Failed: '+up.error.message);buildItems();return;
-    }
+    if(up.error){btn.disabled=false;btn.textContent='Save';alert('Failed: '+up.error.message);return;}
     var old=t.kg;t.kg=nv;
     logAct('corrected transfer',t.name,old+' → '+nv+' kg · '+(t.roast_date?fmtD(t.roast_date):'no date'));
     toast('Fixed ✓ '+old+' → '+nv+' kg');
