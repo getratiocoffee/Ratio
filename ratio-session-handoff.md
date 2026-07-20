@@ -88,6 +88,7 @@
 - **追加（老闆點名上層同豆收抽屜）**：Shop 層改 name+process 聚合一行（合計 kg＋N batches；組序＝最早入池順序）→ 點行展開各批明細（☐/鮮度點/日期/INV#/kg/↓ 全在明細行）；`TRFO` 手風琴一次一組、↓ 加 stopPropagation。
 - **追加 v2（老闆點名新轉入不收抽屜＋highlight 加強）**：**只有 settled 進聚合抽屜**；pool（新轉入）＝**獨立卡沉底**——1.5px accent 框＋13% accent 底＋實心 **NEW 白字膠囊**、↓ 直接按不用展開、點行詳情照舊（pool 有 Fix）。驗證：settled DK 聚 4kg/2 批無 new 標、NEW 卡 ×2 排聚合組後、highlight 13% 底、↓×2 收合即可按、新卡行詳情有 Fix ✓、截圖 ✓。
 - **追加 v3（老闆點名每豆放刪除鍵）**：明細行＋NEW 卡的 kg 旁都加 **✕**（data-trm，↓ 左邊）＝開 openTransferLine 選 Used/Return（刪除必選補不補庫存，不瞎猜）。驗證：✕×2、NEW ✕→Fix/Used/Return 全、Used→PATCH status='used' 軟刪、settled ✕→無 Fix ✓。
+- **追加 v4（老闆點名退回要警訊）**：`transferReturn` 開頭加 confirm（帶豆名/處理法/kg；↓ 與行詳情 Return 都過這關）。驗證：取消＝零寫入行還在、確定＝補血＋returned 照常 ✓。另實測確認 Submit 後 NEW 卡自動收進同豆抽屜（0 NEW/組併入/總 kg 不變/Submit 鈕消失）——本來就是 v2 設計行為，老闆問過一次。
 
 ## 〇、補記 — 2026-07-20 之五（Green stock 詳情可直接改數量 ✅ 待 push）
 - **老闆點名**：`openGreenDetail` 的 Stock 行從純文字改**輸入格**（canWrite 才有；read-only 照舊文字）——值變了才浮出「Save stock」鈕（改回原值自動藏＝防誤存）。

@@ -5388,6 +5388,8 @@ function trfBackBatch(t){
 async function transferReturn(t){
   if(!canWrite()){roToast();return;}
   if(!t||!t.id)return;
+  /* 退回警訊（2026-07-20 老闆點名）：↓ 與行詳情 Return 都過這關 */
+  if(!confirm('Return '+t.kg+' kg of '+t.name+(t.process?' ('+t.process+')':'')+' to the roastery?\n\nCoffee Stock goes back up and the line leaves the shop list.'))return;
   var back=trfBackBatch(t);
   if(!back){alert('No batch left to return this to — use Log roast Intake to book it back in.');return;}
   var nv=Math.round(((Number(back.remaining_kg)||0)+(Number(t.kg)||0))*1000)/1000;
