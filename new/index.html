@@ -5036,6 +5036,7 @@ function openRstDeduct(x,preGroup,pool){ /* preGroup＝從批次列表點行進�
 var TRF_DEST='Crows Nest';
 var TRF={seg:'blend',bean:null,gkey:null,lock:false}; /* lock＝雙層 ↑ 預選進來（藏豆下拉） */
 var TRF_CHECKS={}; /* 池行打勾備忘（app_state 'trf_checks'——跨裝置、無功能純備忘；2026-07-19 老闆點名） */
+var TRFO={open:null}; /* 上層同豆抽屜展開狀態（2026-07-20 老闆點名收抽屜）：一次開一組 */
 /* 2026-07-20 雙層改版 helpers：上層＝店面現有（pool 未結＋settled 已結）、下層＝roastery 可賣 */
 function trfShopKg(){var s=0;(DB.transfers||[]).forEach(function(t){s+=Number(t.kg)||0;});return Math.round(s*100)/100;}
 function trfPoolKg(){return trfShopKg();} /* 舊名保留（外部引用防斷） */
@@ -5069,25 +5070,53 @@ async function openTransferSheet(){
     +'<div class="s" style="margin-top:2px">shop stock on top · roastery below — new lines are invoiced on Sunday</div>'
     /* ── 上層 SHOP ── */
     +'<div class="dlab" style="display:flex;justify-content:space-between;align-items:baseline"><span>Shop · '+esc(TRF_DEST)+'</span><span style="font-weight:700;color:var(--ink);text-transform:none;letter-spacing:0">'+trfShopKg()+' kg</span></div>';
+  /* 上層同豆收抽屜（2026-07-20 老闆點名跟下層一樣）：name+process 聚合一行合計 kg，
+     點行展開各批明細（☐/日期/INV#/kg/↓ 都在明細行）；組序＝最早入池順序（新豆組自然沉底） */
+  var sg=[],sgi={};
+  pool.forEach(function(t,i){
+    var k=String(t.name||'').trim().toLowerCase()+'|'+(t.is_blend?'':procKey(t.process||''));
+    if(sgi[k]==null){sgi[k]=sg.length;sg.push({k:k,name:t.name,proc:t.is_blend?'':(t.process||''),kg:0,hasNew:false,items:[]});}
+    var g=sg[sgi[k]];
+    g.kg+=Number(t.kg)||0;
+    if(t.status==='pool')g.hasNew=true;
+    g.items.push({t:t,i:i});
+  });
+  sg.forEach(function(g){g.kg=Math.round(g.kg*100)/100;});
   if(!pool.length)h+='<div class="empty" style="padding:14px 0">Nothing at the shop yet<br>Send beans up with ↑ below</div>';
-  else h+=pool.map(function(t,i){
-    var isNew=t.status==='pool';
-    var ck=!!TRF_CHECKS[t.id];
-    return '<div style="border:1px solid '+(isNew?'var(--accent)':'var(--line2)')+';border-radius:14px;padding:10px 13px;margin-top:8px'+(isNew?';background:color-mix(in srgb,var(--accent) 6%,transparent)':'')+'">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
-      +'<span style="min-width:0;display:flex;align-items:flex-start;gap:8px">'
-      +'<button class="chip" data-tc="'+i+'" style="margin:0;padding:2px 9px;font-size:15px;flex:0 0 auto;'+(ck?'border-color:var(--accent);color:var(--accent)':'color:var(--muted)')+'" aria-label="tick memo">'+(ck?'☑':'☐')+'</button>'
-      +'<span style="min-width:0;cursor:pointer" data-tline="'+i+'">'
-      +'<span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(t.roast_date)+';margin-right:6px;vertical-align:0"></span>'
-      +'<span class="t" style="font-size:14.5px">'+esc(t.name)+'</span>'
-      +(t.process?' <span style="color:var(--muted);font-size:12px">'+esc(t.process)+'</span>':'')
-      +(isNew?' <span style="color:var(--accent);font-size:11px;font-weight:700">‹new›</span>':'')
-      +'<span class="s" style="display:block;color:var(--muted);font-size:12px;margin-top:3px;padding-left:14px">'+(t.roast_date?fmtD(t.roast_date):'no date')+' batch'+(isNew?' · not invoiced yet':(t.invoice_no?' · '+esc(t.invoice_no):''))+'</span>'
-      +'</span></span>'
-      +'<span style="display:flex;align-items:center;gap:6px;flex:0 0 auto">'
-      +'<span style="font-weight:700;font-size:14.5px;margin-right:2px">'+t.kg+' kg</span>'
-      +(ed?'<button class="chip" data-tdn="'+i+'" style="margin:0;padding:4px 12px;font-size:15px" aria-label="send back to roastery">↓</button>':'')
-      +'</span></div></div>';
+  else h+=sg.map(function(g){
+    var open=TRFO.open===g.k;
+    var d0=g.items[0].t.roast_date;
+    var head='<div style="border:1px solid '+(g.hasNew?'var(--accent)':'var(--line2)')+';border-radius:14px;padding:10px 13px;margin-top:8px'+(g.hasNew?';background:color-mix(in srgb,var(--accent) 6%,transparent)':'')+'">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer" data-tgx="'+esc(g.k)+'">'
+      +'<span style="min-width:0">'
+      +'<span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(d0)+';margin-right:6px;vertical-align:0"></span>'
+      +'<span class="t" style="font-size:14.5px">'+esc(g.name)+'</span>'
+      +(g.proc?' <span style="color:var(--muted);font-size:12px">'+esc(g.proc)+'</span>':'')
+      +(g.hasNew?' <span style="color:var(--accent);font-size:11px;font-weight:700">‹new›</span>':'')
+      +'<span class="s" style="display:block;color:var(--muted);font-size:12px;margin-top:3px;padding-left:14px">'+g.items.length+' batch'+(g.items.length===1?'':'es')+'</span>'
+      +'</span>'
+      +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto">'
+      +'<span style="font-weight:700;font-size:14.5px">'+g.kg+' kg</span>'
+      +'<span style="color:var(--muted);font-size:12px">'+(open?'▾':'▸')+'</span>'
+      +'</span></div>';
+    var body='';
+    if(open)body=g.items.map(function(x){
+      var t=x.t,i=x.i,isNew=t.status==='pool';
+      var ck=!!TRF_CHECKS[t.id];
+      return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:9px;padding-top:9px;border-top:1px solid var(--line)">'
+        +'<span style="min-width:0;display:flex;align-items:center;gap:8px">'
+        +'<button class="chip" data-tc="'+i+'" style="margin:0;padding:2px 9px;font-size:15px;flex:0 0 auto;'+(ck?'border-color:var(--accent);color:var(--accent)':'color:var(--muted)')+'" aria-label="tick memo">'+(ck?'☑':'☐')+'</button>'
+        +'<span style="min-width:0;cursor:pointer" data-tline="'+i+'">'
+        +'<span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(t.roast_date)+';margin-right:6px;vertical-align:0"></span>'
+        +'<span class="s" style="font-size:13px">'+(t.roast_date?fmtD(t.roast_date):'no date')+' batch</span>'
+        +'<span class="s" style="display:block;color:var(--muted);font-size:12px;padding-left:14px">'+(isNew?'<span style="color:var(--accent);font-weight:700">‹new›</span> not invoiced yet':esc(t.invoice_no||'invoiced'))+'</span>'
+        +'</span></span>'
+        +'<span style="display:flex;align-items:center;gap:6px;flex:0 0 auto">'
+        +'<span style="font-weight:700;font-size:14px;margin-right:2px">'+t.kg+' kg</span>'
+        +(ed?'<button class="chip" data-tdn="'+i+'" style="margin:0;padding:4px 12px;font-size:15px" aria-label="send back to roastery">↓</button>':'')
+        +'</span></div>';
+    }).join('');
+    return head+body+'</div>';
   }).join('');
   /* ── 中間方向圖例 ── */
   h+='<div style="display:flex;align-items:center;gap:10px;margin:16px 0 2px;color:var(--muted);font-size:12px">'
@@ -5117,8 +5146,12 @@ async function openTransferSheet(){
   $('d-cl').addEventListener('click',closeDrawer);
   $('trf-hist-btn').addEventListener('click',openTransferHistory);
   if($('trf-settle'))$('trf-settle').addEventListener('click',openTransferSettle);
-  /* 上層：↓＝直接退回（誤按再 ↑ 轉回即可）；點行文字＝行詳情（改 kg/Used/Return） */
-  document.querySelectorAll('#drawer [data-tdn]').forEach(function(el){el.addEventListener('click',function(){transferReturn(pool[+el.dataset.tdn]);});});
+  /* 上層聚合行：點開/收（手風琴——一次一組） */
+  document.querySelectorAll('#drawer [data-tgx]').forEach(function(el){el.addEventListener('click',function(){
+    TRFO.open=(TRFO.open===el.dataset.tgx)?null:el.dataset.tgx;openTransferSheet();
+  });});
+  /* 上層明細：↓＝直接退回（誤按再 ↑ 轉回即可）；點行文字＝行詳情（改 kg/Used/Return） */
+  document.querySelectorAll('#drawer [data-tdn]').forEach(function(el){el.addEventListener('click',function(ev){ev.stopPropagation();transferReturn(pool[+el.dataset.tdn]);});});
   document.querySelectorAll('#drawer [data-tline]').forEach(function(el){el.addEventListener('click',function(){if(ed)openTransferLine(pool[+el.dataset.tline]);});});
   /* 下層：↑ 或點行＝預選該豆開轉入抽屜（批次＋kg 確認那步保留） */
   function goUp(i){
