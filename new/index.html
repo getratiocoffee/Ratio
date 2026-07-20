@@ -4586,17 +4586,52 @@ function openGreensSheet(){
 }
 async function openGreenDetail(b){
   var t=(b.low_stock_kg==null?GREEN_LOW_KG:Number(b.low_stock_kg));
+  var q0=Number(b.quantity)||0;
+  /* Stock 行可直接改量（2026-07-20 老闆點名）：canWrite 顯示輸入格、值變了浮出 Save——
+     存檔照 Stocktake 口徑（beans.quantity＋stock_moves 'stocktake'）流水帳不斷 */
+  var stockRow=canWrite()
+    ?'<div class="dl"><span>Stock</span><span style="display:flex;align-items:center;gap:6px"><input class="din" id="gd-qty" inputmode="decimal" value="'+q0+'" style="width:90px;margin:0;text-align:right;padding:7px 10px"> kg</span></div>'
+    :'<div class="dl"><span>Stock</span><span>'+q0+' kg</span></div>';
   openDrawerHTML('<span class="tag">Green</span><div class="t" style="font-size:19px">'+esc(b.name)+(b.process?' · '+esc(b.process):'')+'</div>'
     +'<div style="margin-top:10px">'
     +(gNo(b)?'<div class="dl"><span>ID</span><span>'+gNo(b)+'</span></div>':'')
-    +'<div class="dl"><span>Stock</span><span>'+(Number(b.quantity)||0)+' kg</span></div>'
+    +stockRow
     +'<div class="dl"><span>Low line</span><span>'+(t>0?t+' kg':'off (rotation bean)')+'</span></div>'
     +'<div class="dl"><span>Cost</span><span>'+(b.cost_per_kg!=null?money(b.cost_per_kg)+' / kg':'—')+'</span></div>'
     +'<div class="dl"><span>Supplier</span><span>'+esc(b.supplier||'—')+'</span></div>'
-    +'</div><button class="act" id="gd-edit" style="margin-top:12px">Edit details</button>'
+    +'</div>'
+    +'<button class="act" id="gd-qsave" style="margin-top:10px;display:none">Save stock</button>'
+    +'<button class="act" id="gd-edit" style="margin-top:12px">Edit details</button>'
     +'<div class="dlab">Recent stock moves</div><div id="gd-moves" class="empty" style="padding:14px 0">Loading…</div>'
     +'<button class="dclose" id="gd-back">‹ Back to list</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  var qi=$('gd-qty'),qs=$('gd-qsave');
+  if(qi&&qs){
+    qi.addEventListener('input',function(){
+      var v=parseFloat(qi.value);
+      qs.style.display=(!isNaN(v)&&v>=0&&Math.abs(v-q0)>0.0001)?'':'none';
+    });
+    qs.addEventListener('click',async function(){
+      var v=parseFloat(qi.value);
+      if(isNaN(v)||v<0){toast('Stock must be 0 or more');return;}
+      v=Math.round(v*100)/100;
+      var delta=Math.round((v-q0)*100)/100;
+      qs.disabled=true;qs.textContent='Saving…';
+      try{
+        var u=await sb.from('beans').update({quantity:v}).eq('id',b.id);
+        if(u.error)throw new Error(u.error.message);
+        try{await sb.from('stock_moves').insert({bean_id:b.id,kind:'stocktake',delta_kg:delta,after_kg:v,note:'Adjusted in Green stock'});}catch(e){}
+        b.quantity=v;
+        var mb=(DB.beans||[]).find(function(x){return String(x.id)===String(b.id);});if(mb)mb.quantity=v;
+        logAct('stocktake',b.name,(delta>0?'+':'')+delta+' kg → '+v);
+        toast('Stock updated ✓');
+        openGreenDetail(b); /* 重開＝刷新數字與流水帳 */
+      }catch(e){
+        qs.disabled=false;qs.textContent='Save stock';
+        alert('Save failed: '+(e&&e.message||e));
+      }
+    });
+  }
   $('gd-edit').addEventListener('click',function(){openGreenEdit(b);});
   $('gd-back').addEventListener('click',openGreensSheet);
   $('d-cl').addEventListener('click',closeDrawer);

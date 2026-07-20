@@ -80,6 +80,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-20 之五（Green stock 詳情可直接改數量 ✅ 待 push）
+- **老闆點名**：`openGreenDetail` 的 Stock 行從純文字改**輸入格**（canWrite 才有；read-only 照舊文字）——值變了才浮出「Save stock」鈕（改回原值自動藏＝防誤存）。
+- **存檔照 Stocktake 口徑**（歷史不斷）：beans.quantity 更新＋stock_moves `{kind:'stocktake',delta_kg,after_kg,note:'Adjusted in Green stock'}`＋DB.beans 記憶體同步＋logAct；成功後重開詳情＝數字與流水帳即時刷新。負數擋、兩位捨入。Edit details 抽屜照舊不碰庫存（那句「Stock kg is set in Stocktake」文案未動——現在詳情頁自己就能改）。
+- **驗證**：jscheck ✓；假資料——input 初值 450、改 447.5 浮 Save、改回 450 藏 ✓、存檔鏈 PATCH beans＋stock_moves stocktake（delta −2.5/after 447.5）✓、記憶體同步＋重開刷新 ✓、截圖 ✓。
+
 ## 〇、補記 — 2026-07-20 之四（Log roast 全區顯示兩位小數 ✅ 待 push）
 - **老闆點名**：`roFmt1`（一位）改名 `roFmt2`＝`toFixed(2)`（replace_all 連定義一次到位；只在 Log roast 區用過，grep 確認無外部呼叫）；聯動攤分/反推總量的捨入 `*1000/1000` 三位→`*100/100` 兩位（roSpreadCard/roSpreadGreen/兩處反推）；庫存 hint have 兩位；ro-num placeholder 0.0→0.00（×5）。內部 Σ（roPreGreenTot 等）留三位精度不動。
 - **驗證**：jscheck ✓；33/33/34 除不盡配方——hint 10.456→10.46、總量 10 攤 3.3/3.3/3.4、成分 1 反推總量 3.03、blur 4.567→4.57、兩分頁總計 4.57／3.46+2.89 ✓。
