@@ -80,6 +80,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-20 之六（Crows Nest 改雙層 Stock Transfer ✅ 待 push＋**DB migration 已上線**）
+- **老闆設計定稿（plan mode 核准）**：上層＝店面庫存（Submit 後**保留清單**）、下層＝Coffee Stock、每行 ↑↓ 直接轉移、點豆選 kg、兩層各總 kg、Submit→invoice→右上 🧾（原有）。拍板：上層入池順序（新豆沉底）＋**未結行亮色 ‹new›**；國家分組退役（07-19 的），☐ 備忘保留。
+- **資料生命週期（軟刪）**：pool（new 亮色）→ Submit → settled（普通色留清單）→ Used/Return → **update status='used'/'returned'**（不 delete——🧾 invoice 歷史金額不缺行）。⚠ **transfers_status_check constraint 已 migration 放寬**（'transfers_status_soft_delete'：+used/returned）。
+- **改法**：①loadAll 載 `in('status',['pool','settled'])` ②openTransferSheet 重寫雙層（上層行 [☐][色點][名/日期/INV#][kg][↓]、‹new› accent 邊框淡底；中間圖例分隔；下層 `trfRoasteryRows()`＝rstRows 兩池聚合拼配前單品字母序 [↑]）＋`trfShopKg/trfNewList/trfRoasteryKg` helpers（trfPoolKg 留 alias）③↑＝TRF.lock 預選開 openTransferAdd（藏 seg/豆下拉、標題帶豆名、批次 chip＋kg 預填保留；tra-b/s 加 null guard）④↓＝transferReturn 直接退 ⑤點上層行＝`openTransferLine`（原 ✕✎ 合併：pool 行 Fix kg＋Return/Used；settled 行只 Return/Used——**Fix 擋 settled**（🧾 金額凍結），+ Add 磁貼鈕移除（下層全列了）⑥Settle 只聚合 pool 行、結完本地標 settled 不移除、文案改 ⑦🧾 歷史查詢改 `invoice_no not null`；**刪 invoice＝撤銷結單**（settled→pool 清發票欄、used/returned 只摘發票號）⑧Sunday 卡改算 pool 子集。
+- **驗證**：jscheck ✓；假資料 fetch 攔截——雙層渲染（Shop 6.5/Roastery 10.5、‹new›×1 沉底、↑×2 ↓×3、Submit 1 new）✓、↑ 流（預選抽屜無選豆步驟、kg 預填 4.5、改 2 → PATCH roasts 4.5→2.5＋POST transfers、回雙層 ‹new›×2 Shop 8.5）✓、↓ 流（補血 PATCH＋**status='returned' 非 DELETE**、Shop 7）✓、行詳情（settled 無 Fix 標 INV#、pool 有 Fix）✓、Settle（只列 2 條 pool、PATCH settled 帶價與 INV、舊 settled 行不動、**結完三行全留清單 ‹new› 歸零**）✓、截圖上下層 ✓。
+
 ## 〇、補記 — 2026-07-20 之五（Green stock 詳情可直接改數量 ✅ 待 push）
 - **老闆點名**：`openGreenDetail` 的 Stock 行從純文字改**輸入格**（canWrite 才有；read-only 照舊文字）——值變了才浮出「Save stock」鈕（改回原值自動藏＝防誤存）。
 - **存檔照 Stocktake 口徑**（歷史不斷）：beans.quantity 更新＋stock_moves `{kind:'stocktake',delta_kg,after_kg,note:'Adjusted in Green stock'}`＋DB.beans 記憶體同步＋logAct；成功後重開詳情＝數字與流水帳即時刷新。負數擋、兩位捨入。Edit details 抽屜照舊不碰庫存（那句「Stock kg is set in Stocktake」文案未動——現在詳情頁自己就能改）。
