@@ -3313,14 +3313,23 @@ function paintRetailPresets(){
   var h='<div class="t" style="font-size:19px">Retail prices</div>'
     +'<div class="s" style="margin-top:2px">coffees that passed QC — set bag size and every price once; List on Square picks them up · untouched coffees keep their old prices</div>'
     +(rows.length?rows.map(function(r,i){
-      return '<div style="border:1px solid var(--line2);border-radius:14px;padding:10px 13px;margin-top:8px">'
-        +'<div><span class="t" style="font-size:14.5px">'+esc(r.name)+'</span>'
+      /* 排版 v2（2026-07-21 老闆點名好懂）：每規格一行「左＝規格、右＝價錢」；袋裝行標籤跟著選的克數走 */
+      function priceRow(lbl,sub,attr,val){
+        return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px">'
+          +'<span style="min-width:0"><span class="t" style="font-size:13.5px">'+lbl+'</span>'
+          +(sub?'<span class="s" style="color:var(--muted);font-size:11.5px"> · '+sub+'</span>':'')+'</span>'
+          +'<input class="din" '+attr+'="'+i+'" inputmode="decimal" placeholder="$ —" value="'+esc(val)+'" style="width:118px;margin:0;text-align:right;flex:0 0 auto">'
+          +'</div>';
+      }
+      return '<div style="border:1px solid var(--line2);border-radius:14px;padding:11px 13px;margin-top:10px">'
+        +'<div style="margin-bottom:2px"><span class="t" style="font-size:15px">'+esc(r.name)+'</span>'
         +(r.proc?' <span style="color:var(--muted);font-size:12px">'+esc(r.proc)+'</span>':'')+'</div>'
-        +'<div class="pm-seg" style="margin-top:8px">'+[100,150,200,250].map(function(g){return '<button data-rpg="'+i+':'+g+'"'+(r.g===g?' class="on"':'')+'>'+g+'g</button>';}).join('')+'</div>'
-        +'<div style="display:flex;gap:8px;margin-top:8px">'
-        +'<span style="flex:1"><span class="s" style="color:var(--muted);font-size:11.5px">Bag $</span><input class="din" data-rp="'+i+'" inputmode="decimal" placeholder="—" value="'+esc(r.p)+'" style="margin-top:3px"></span>'
-        +'<span style="flex:1"><span class="s" style="color:var(--muted);font-size:11.5px">500g $</span><input class="din" data-rp5="'+i+'" inputmode="decimal" placeholder="—" value="'+esc(r.p5)+'" style="margin-top:3px"></span>'
-        +'<span style="flex:1"><span class="s" style="color:var(--muted);font-size:11.5px">1kg $</span><input class="din" data-rp1="'+i+'" inputmode="decimal" placeholder="—" value="'+esc(r.p1)+'" style="margin-top:3px"></span>'
+        +'<div class="s" style="color:var(--muted);font-size:11.5px;margin-top:7px;letter-spacing:.4px">BAG SIZE</div>'
+        +'<div class="pm-seg" style="margin-top:5px">'+[100,150,200,250].map(function(g){return '<button data-rpg="'+i+':'+g+'"'+(r.g===g?' class="on"':'')+'>'+g+'g</button>';}).join('')+'</div>'
+        +'<div style="border-top:1px solid var(--line);margin-top:11px">'
+        +priceRow('Bag price',''+r.g+'g','data-rp',r.p)
+        +priceRow('500g','blank = not offered','data-rp5',r.p5)
+        +priceRow('1kg','blank = not offered','data-rp1',r.p1)
         +'</div></div>';
     }).join(''):'<div class="empty">No coffees passed QC yet<br>Pass one in QC first, then set its prices here</div>')
     +(rows.length?'<button class="act" id="rp-save">Save prices</button>':'')
