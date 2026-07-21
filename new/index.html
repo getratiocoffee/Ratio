@@ -9834,7 +9834,7 @@ async function saveRosterWeek(ws,btn){
 }
 /* ===== My unavailability：員工自己標休（staff_na）＝唯讀班表下唯一能寫的東西。
    RLS＝is_staff() 且 name=my_profile_name()（或 money）——只能動自己那筆，名字自動帶 WHO */
-var NA_Y=null,NA_M=null,NA_SEL=null;
+var NA_Y=null,NA_M=null,NA_SEL=null,NA_SEL2=null; /* NA_SEL＝第一點；NA_SEL2＝第二點成區間（2026-07-21 老闆點名：兩點選 period、第三點重選） */
 function openMyNA(){
   if(NA_Y==null){var now=new Date();NA_Y=now.getFullYear();NA_M=now.getMonth();}
   renderMyNA();
@@ -9856,14 +9856,21 @@ function naOffMap(){
   (RS_NA||[]).forEach(function(n){
     var s=new Date(n.start_date+'T00:00'),e=new Date(n.end_date+'T00:00');
     if(isNaN(s.getTime())||isNaN(e.getTime()))return;
-    for(var t=new Date(s);t<=e;t.setDate(t.getDate()+1)){var k=rsDIso(t);(map[k]=map[k]||[]).push(n.name);}
+    for(var t=new Date(s);t<=e;t.setDate(t.getDate()+1)){var k=rsDIso(t);map[k]=map[k]||[];if(map[k].indexOf(n.name)<0)map[k].push(n.name);}
   });
   return map;
 }
 function naSelHTML(off){
   if(!NA_SEL)return '<span style="color:var(--muted);font-weight:600">Tap a day to see who&#39;s off</span>';
+  function naLbl(k){var d2=new Date(k+'T00:00');return ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][(d2.getDay()+6)%7]+' '+rsDMY(d2);}
+  if(NA_SEL2&&NA_SEL2!==NA_SEL){ /* 兩點成區間：一次標整段（自己已涵蓋整段→Clear） */
+    var n=Math.round((new Date(NA_SEL2+'T00:00')-new Date(NA_SEL+'T00:00'))/86400000)+1;
+    var mineBlk=WHO&&(RS_NA||[]).some(function(x){return String(x.name)===String(WHO)&&String(x.start_date)<=NA_SEL&&String(x.end_date)>=NA_SEL2;});
+    var btn2=WHO?'<button class="chip" id="na-togglebtn" style="margin-left:auto;'+(mineBlk?'border-color:var(--danger);color:var(--danger)':'border-color:var(--accent);color:var(--accent)')+'">'+(mineBlk?'Clear me':'Mark me off &middot; '+n+' days')+'</button>':'';
+    return '<b style="margin-right:4px">'+naLbl(NA_SEL)+' &ndash; '+naLbl(NA_SEL2)+'</b><span style="color:var(--muted);font-weight:600">'+n+' days</span>'+btn2;
+  }
   var o=off[NA_SEL]||[],dd=new Date(NA_SEL+'T00:00');
-  var lbl=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][(dd.getDay()+6)%7]+' '+rsDMY(dd);
+  var lbl=naLbl(NA_SEL);
   var who=o.length?o.map(function(nm){return '<span style="color:'+naColor(nm)+'">&#9679; '+esc(nm)+'</span>';}).join(' &nbsp; '):'<span style="color:var(--muted);font-weight:600">everyone available &#10003;</span>';
   var mineOn=o.indexOf(WHO)>-1;
   var btn=WHO?'<button class="chip" id="na-togglebtn" style="margin-left:auto;'+(mineOn?'border-color:var(--danger);color:var(--danger)':'border-color:var(--accent);color:var(--accent)')+'">'+(mineOn?'Clear me':'Mark me off')+'</button>':'';
@@ -9878,29 +9885,40 @@ function renderMyNA(){
   for(var d=1;d<=days;d++){
     var k=NA_Y+'-'+String(NA_M+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'),o=off[k]||[];
     var pips=o.slice(0,4).map(function(nm){return '<i style="background:'+naColor(nm)+'"></i>';}).join('')+(o.length>4?'<span class="more">+'+(o.length-4)+'</span>':'');
-    var cls='na-cell'+(o.length?' off':'')+(k===today?' today':'')+(o.indexOf(WHO)>-1?' me':'')+(k===NA_SEL?' sel':'');
+    var inSel=(k===NA_SEL)||(NA_SEL&&NA_SEL2&&k>=NA_SEL&&k<=NA_SEL2); /* 區間整段高亮 */
+    var cls='na-cell'+(o.length?' off':'')+(k===today?' today':'')+(o.indexOf(WHO)>-1?' me':'')+(inSel?' sel':'');
     cells+='<button class="'+cls+'" data-nak="'+k+'"><span class="dn">'+d+'</span><div class="na-pips">'+pips+'</div></button>';
   }
   var leg=(RS_STAFF||[]).slice(0,8).map(function(n){return '<span><i style="background:'+naColor(n)+'"></i>'+esc(n)+(String(n)===String(WHO)?' (you)':'')+'</span>';}).join('');
   openDrawerHTML('<div class="t" style="font-size:19px">Who&#39;s off</div>'
-    +'<div class="s" style="margin-top:2px">Days people cannot work · tap a day to mark or clear yourself. The roster shows &#9888; if someone is booked on a day off.</div>'
+    +'<div class="s" style="margin-top:2px">Days people cannot work · tap a day (or two for a period) to mark or clear yourself. The roster shows &#9888; if someone is booked on a day off.</div>'
     +'<div class="na-mhead"><button class="na-nav" id="na-prev">&#8249;</button><b>'+MN[NA_M]+' '+NA_Y+'</b><button class="na-nav" id="na-next">&#8250;</button></div>'
     +'<div class="na-dow"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>'
     +'<div class="na-cal">'+cells+'</div>'
     +'<div class="na-sel">'+naSelHTML(off)+'</div>'
     +(leg?'<div class="na-leg">'+leg+'</div>':'')
     +'<button class="dclose" id="na-back" style="border:none;background:none;color:var(--muted)">&#8249; Back to timesheet</button>');
-  document.querySelectorAll('#drawer [data-nak]').forEach(function(b){b.addEventListener('click',function(){NA_SEL=b.dataset.nak;renderMyNA();});});
-  $('na-prev').addEventListener('click',function(){NA_M--;if(NA_M<0){NA_M=11;NA_Y--;}NA_SEL=null;renderMyNA();});
-  $('na-next').addEventListener('click',function(){NA_M++;if(NA_M>11){NA_M=0;NA_Y++;}NA_SEL=null;renderMyNA();});
+  /* 點日三步（2026-07-21 老闆點名）：第一點＝起點、第二點＝成區間（點在前面自動對調）、第三點＝重選起點 */
+  document.querySelectorAll('#drawer [data-nak]').forEach(function(b){b.addEventListener('click',function(){
+    var d=b.dataset.nak;
+    if(!NA_SEL||NA_SEL2){NA_SEL=d;NA_SEL2=null;}
+    else if(d===NA_SEL){NA_SEL2=null;}
+    else if(d<NA_SEL){NA_SEL2=NA_SEL;NA_SEL=d;}
+    else NA_SEL2=d;
+    renderMyNA();
+  });});
+  /* 換月不清選取——區間可跨月（第一點上個月、第二點下個月） */
+  $('na-prev').addEventListener('click',function(){NA_M--;if(NA_M<0){NA_M=11;NA_Y--;}renderMyNA();});
+  $('na-next').addEventListener('click',function(){NA_M++;if(NA_M>11){NA_M=0;NA_Y++;}renderMyNA();});
   $('na-back').addEventListener('click',renderRoster);
-  var tb=$('na-togglebtn');if(tb)tb.addEventListener('click',function(){naToggleSelf(NA_SEL,tb);});
+  var tb=$('na-togglebtn');if(tb)tb.addEventListener('click',function(){naToggleSelf(NA_SEL,NA_SEL2,tb);});
 }
-/* 標／清自己那天：新增用單日 staff_na；清除找涵蓋該日的自己那筆整筆刪（跨日會先確認）*/
-async function naToggleSelf(day,btn){
+/* 標／清自己：a 單日或 a–b 區間一筆 staff_na；清除找涵蓋整段的自己那筆整筆刪（跨日會先確認）*/
+async function naToggleSelf(a,b,btn){
   if(!WHO){alert('Your account has no name set yet — ask the owner to set it before marking days off.');return;}
-  if(!day)return;
-  var mine=(RS_NA||[]).find(function(n){return String(n.name)===String(WHO)&&String(n.start_date)<=day&&String(n.end_date)>=day;});
+  if(!a)return;
+  b=(b&&b>a)?b:a;
+  var mine=(RS_NA||[]).find(function(n){return String(n.name)===String(WHO)&&String(n.start_date)<=a&&String(n.end_date)>=b;});
   if(mine&&String(mine.start_date)!==String(mine.end_date)&&!confirm('This clears your whole days-off block '+mine.start_date+' to '+mine.end_date+'. Continue?'))return;
   if(btn)btn.disabled=true;
   try{
@@ -9909,10 +9927,11 @@ async function naToggleSelf(day,btn){
       if(u.error)throw new Error(u.error.message);
       RS_NA=RS_NA.filter(function(n){return n!==mine;});toast('Cleared ✓');
     }else{
-      var u2=await sbRaw('staff_na').insert({name:WHO,start_date:day,end_date:day});
+      var u2=await sbRaw('staff_na').insert({name:WHO,start_date:a,end_date:b});
       if(u2.error)throw new Error(u2.error.message);
-      RS_NA.push({name:WHO,start_date:day,end_date:day});toast('Marked off ✓');
+      RS_NA.push({name:WHO,start_date:a,end_date:b});toast(b>a?'Marked off '+fmtD(a)+' – '+fmtD(b)+' ✓':'Marked off ✓');
     }
+    if(b>a){NA_SEL=null;NA_SEL2=null;} /* 區間存完清選取——防再按一次重複寫 */
     renderMyNA();
   }catch(err){if(btn)btn.disabled=false;alert('Could not save: '+(err&&err.message||err));}
 }

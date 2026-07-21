@@ -80,6 +80,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-21 之二（Who's off 月曆兩點選 period ✅ 待 commit）
+- **老闆點名**：N/A 日期改「點第一天＝起點、點第二天＝整段 period、點第三下＝重選起點」。實作：`NA_SEL2` 第二點全域；點日邏輯＝無選取或已成區間→重設起點、同一天→維持單日、點在前面→**自動對調**、否則成區間；月曆 a–b 整段 `.sel` 高亮；資訊列區間版「Wed 22/7 – Sat 25/7 · 4 days」＋「Mark me off · N days」。
+- **naToggleSelf 改 (a,b,btn)**：區間一筆 staff_na `{start_date:a,end_date:b}`；自己已有一筆**涵蓋整段**→按鈕變 Clear me（原跨日 confirm＋整筆刪照舊）；區間存完清選取防重複按；單日行為與原版完全等價。換月**不再清選取**（區間可跨月）。順手：naOffMap 同名同日去重（重疊 N/A 不再重複 pips）。
+- **驗證**：jscheck ✓；假資料 stub——三步互動（單日→22-25 四格高亮+4 days 鈕→第三點重選）✓、反向對調（先 30 後 27→27–30）✓、區間 Mark POST payload {start,end} ✓、涵蓋整段變 Clear→DELETE 精準那筆 ✓、存完清選取 ✓、console 零錯誤＋截圖 ✓。serve 複本已 cp。
+
 ## 〇、補記 — 2026-07-21（Crows Nest 上層豆子 ≡ 拖移換順序 ✅ 待 commit）
 - **老闆點名**：Crows Nest 上層店面清單可拖移自訂順序。做法：每行（settled 聚合組＋NEW 卡）右側 kg 左邊加 **≡ 把手**（canWrite 才有）；按住上下拖、越過鄰行中點就換位（DOM insertBefore 交換法）；放開存 **app_state `trf_order`**（key 序列：組＝`g:name|procKey`、NEW 卡＝`n:<transfer id>`）——跨裝置照老規矩。
 - **順序規則**：TRF_ORDER 有記的照記；沒記的（新出現的行）照舊預設＝settled 組先、NEW 沉底，排在有序項之後。NEW 卡 Submit 後併入聚合組，`n:` key 自然失效無需清理。
