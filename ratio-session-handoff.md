@@ -80,7 +80,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
-## 〇、補記 — 2026-07-20 之六（Crows Nest 改雙層 Stock Transfer ✅ 待 push＋**DB migration 已上線**）
+## 〇、補記 — 2026-07-21（Crows Nest 上層豆子 ≡ 拖移換順序 ✅ 待 commit）
+- **老闆點名**：Crows Nest 上層店面清單可拖移自訂順序。做法：每行（settled 聚合組＋NEW 卡）右側 kg 左邊加 **≡ 把手**（canWrite 才有）；按住上下拖、越過鄰行中點就換位（DOM insertBefore 交換法）；放開存 **app_state `trf_order`**（key 序列：組＝`g:name|procKey`、NEW 卡＝`n:<transfer id>`）——跨裝置照老規矩。
+- **順序規則**：TRF_ORDER 有記的照記；沒記的（新出現的行）照舊預設＝settled 組先、NEW 沉底，排在有序項之後。NEW 卡 Submit 後併入聚合組，`n:` key 自然失效無需清理。
+- **實作細節**：①openTransferSheet 開頭 app_state 讀取改 `.in('key',['trf_checks','trf_order'])` 一次讀兩包 ②渲染改 shopRows[{k,html}] 先拼再排 ③把手照 attachDrawerDrag 慣例——touch-action:none＋**非 passive touchmove preventDefault**（iOS Safari 捲動容器雷）＋click stopPropagation（別觸發聚合開合）④pointercancel 也收尾。
+- **驗證**：jscheck ✓；假資料 fetch 攔截（test.html stub：假 director session＋5 筆 transfers）——預設序（2 組先 2 NEW 沉底、把手 ×4）✓、拖 Brazil NEW 底→頂（DOM 序＋POST app_state on_conflict=key payload 新序）✓、重開抽屜照存序渲染 ✓、把手 click 不觸發開合/點行照常展開 ✓、console 零錯誤＋截圖 ✓。serve 複本已 cp。
 - **老闆設計定稿（plan mode 核准）**：上層＝店面庫存（Submit 後**保留清單**）、下層＝Coffee Stock、每行 ↑↓ 直接轉移、點豆選 kg、兩層各總 kg、Submit→invoice→右上 🧾（原有）。拍板：上層入池順序（新豆沉底）＋**未結行亮色 ‹new›**；國家分組退役（07-19 的），☐ 備忘保留。
 - **資料生命週期（軟刪）**：pool（new 亮色）→ Submit → settled（普通色留清單）→ Used/Return → **update status='used'/'returned'**（不 delete——🧾 invoice 歷史金額不缺行）。⚠ **transfers_status_check constraint 已 migration 放寬**（'transfers_status_soft_delete'：+used/returned）。
 - **改法**：①loadAll 載 `in('status',['pool','settled'])` ②openTransferSheet 重寫雙層（上層行 [☐][色點][名/日期/INV#][kg][↓]、‹new› accent 邊框淡底；中間圖例分隔；下層 `trfRoasteryRows()`＝rstRows 兩池聚合拼配前單品字母序 [↑]）＋`trfShopKg/trfNewList/trfRoasteryKg` helpers（trfPoolKg 留 alias）③↑＝TRF.lock 預選開 openTransferAdd（藏 seg/豆下拉、標題帶豆名、批次 chip＋kg 預填保留；tra-b/s 加 null guard）④↓＝transferReturn 直接退 ⑤點上層行＝`openTransferLine`（原 ✕✎ 合併：pool 行 Fix kg＋Return/Used；settled 行只 Return/Used——**Fix 擋 settled**（🧾 金額凍結），+ Add 磁貼鈕移除（下層全列了）⑥Settle 只聚合 pool 行、結完本地標 settled 不移除、文案改 ⑦🧾 歷史查詢改 `invoice_no not null`；**刪 invoice＝撤銷結單**（settled→pool 清發票欄、used/returned 只摘發票號）⑧Sunday 卡改算 pool 子集。

@@ -5037,6 +5037,7 @@ var TRF_DEST='Crows Nest';
 var TRF={seg:'blend',bean:null,gkey:null,lock:false}; /* lock＝雙層 ↑ 預選進來（藏豆下拉） */
 var TRF_CHECKS={}; /* 池行打勾備忘（app_state 'trf_checks'——跨裝置、無功能純備忘；2026-07-19 老闆點名） */
 var TRFO={open:null}; /* 上層同豆抽屜展開狀態（2026-07-20 老闆點名收抽屜）：一次開一組 */
+var TRF_ORDER=[]; /* 上層行手動排序（app_state 'trf_order'——≡ 拖移換順序，跨裝置；2026-07-21 老闆點名） */
 /* 2026-07-20 雙層改版 helpers：上層＝店面現有（pool 未結＋settled 已結）、下層＝roastery 可賣 */
 function trfShopKg(){var s=0;(DB.transfers||[]).forEach(function(t){s+=Number(t.kg)||0;});return Math.round(s*100)/100;}
 function trfPoolKg(){return trfShopKg();} /* 舊名保留（外部引用防斷） */
@@ -5057,11 +5058,17 @@ function trfRoasteryKg(){var s=0;trfRoasteryRows().forEach(function(x){s+=x.kg;}
    Submit 只結 pool 行（invoice→🧾），settled 行留清單＝店面庫存表。 */
 async function openTransferSheet(){
   var pool=DB.transfers||[],ed=canWrite();
-  /* 勾選備忘：每次進來讀最新（跨裝置同步） */
+  /* 勾選備忘＋手動排序：每次進來讀最新（跨裝置同步） */
   try{
-    var cq=await sb.from('app_state').select('value').eq('key','trf_checks').maybeSingle();
-    var cv=cq.data&&cq.data.value;if(typeof cv==='string'){try{cv=JSON.parse(cv);}catch(e){cv=null;}}
-    TRF_CHECKS=(cv&&typeof cv==='object')?cv:{};
+    var cq=await sb.from('app_state').select('key,value').in('key',['trf_checks','trf_order']);
+    if(!cq.error){
+      TRF_CHECKS={};TRF_ORDER=[];
+      (cq.data||[]).forEach(function(r){
+        var v=r.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
+        if(r.key==='trf_checks'&&v&&typeof v==='object'&&!Array.isArray(v))TRF_CHECKS=v;
+        if(r.key==='trf_order'&&Array.isArray(v))TRF_ORDER=v;
+      });
+    }
   }catch(e){}
   var rrows=trfRoasteryRows();
   var newN=trfNewList().length;
@@ -5084,10 +5091,12 @@ async function openTransferSheet(){
   sg.forEach(function(g){g.kg=Math.round(g.kg*100)/100;});
   if(!pool.length)h+='<div class="empty" style="padding:14px 0">Nothing at the shop yet<br>Send beans up with ↑ below</div>';
   else{
-    h+=sg.map(function(g){
+    /* 手動排序（2026-07-21 老闆點名 ≡ 拖移）：先各自拼 html 進 shopRows，再照 TRF_ORDER 排；沒排過的照舊＝settled 組先、NEW 沉底 */
+    var shopRows=[];
+    sg.forEach(function(g){
       var open=TRFO.open===g.k;
       var d0=g.items[0].t.roast_date;
-      var head='<div style="border:1px solid var(--line2);border-radius:14px;padding:10px 13px;margin-top:8px">'
+      var head='<div data-trow="g:'+esc(g.k)+'" style="border:1px solid var(--line2);border-radius:14px;padding:10px 13px;margin-top:8px">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer" data-tgx="'+esc(g.k)+'">'
         +'<span style="min-width:0">'
         +'<span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(d0)+';margin-right:6px;vertical-align:0"></span>'
@@ -5096,6 +5105,7 @@ async function openTransferSheet(){
         +'<span class="s" style="display:block;color:var(--muted);font-size:12px;margin-top:3px;padding-left:14px">'+g.items.length+' batch'+(g.items.length===1?'':'es')+'</span>'
         +'</span>'
         +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto">'
+        +(ed?'<button class="chip" data-tdrag style="margin:0;padding:4px 10px;font-size:14px;color:var(--muted);touch-action:none;cursor:grab" aria-label="drag to reorder">≡</button>':'')
         +'<span style="font-weight:700;font-size:14.5px">'+g.kg+' kg</span>'
         +'<span style="color:var(--muted);font-size:12px">'+(open?'▾':'▸')+'</span>'
         +'</span></div>';
@@ -5117,13 +5127,13 @@ async function openTransferSheet(){
             +'<button class="chip" data-tdn="'+i+'" style="margin:0;padding:4px 12px;font-size:15px" aria-label="send back to roastery">↓</button>':'')
           +'</span></div>';
       }).join('');
-      return head+body+'</div>';
-    }).join('');
-    /* 新轉入獨立卡（不聚合、沉底、強 highlight） */
-    h+=newRows.map(function(x){
+      shopRows.push({k:'g:'+g.k,html:head+body+'</div>'});
+    });
+    /* 新轉入獨立卡（不聚合、預設沉底、強 highlight） */
+    newRows.forEach(function(x){
       var t=x.t,i=x.i;
       var ck=!!TRF_CHECKS[t.id];
-      return '<div style="border:1.5px solid var(--accent);border-radius:14px;padding:10px 13px;margin-top:8px;background:color-mix(in srgb,var(--accent) 13%,transparent)">'
+      shopRows.push({k:'n:'+t.id,html:'<div data-trow="n:'+esc(t.id)+'" style="border:1.5px solid var(--accent);border-radius:14px;padding:10px 13px;margin-top:8px;background:color-mix(in srgb,var(--accent) 13%,transparent)">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
         +'<span style="min-width:0;display:flex;align-items:flex-start;gap:8px">'
         +'<button class="chip" data-tc="'+i+'" style="margin:0;padding:2px 9px;font-size:15px;flex:0 0 auto;'+(ck?'border-color:var(--accent);color:var(--accent)':'color:var(--muted)')+'" aria-label="tick memo">'+(ck?'☑':'☐')+'</button>'
@@ -5134,11 +5144,15 @@ async function openTransferSheet(){
         +'<span class="s" style="display:block;color:var(--muted);font-size:12px;margin-top:3px">'+(t.roast_date?fmtD(t.roast_date):'no date')+' batch · not invoiced yet</span>'
         +'</span></span>'
         +'<span style="display:flex;align-items:center;gap:6px;flex:0 0 auto">'
+        +(ed?'<button class="chip" data-tdrag style="margin:0;padding:4px 10px;font-size:14px;color:var(--muted);touch-action:none;cursor:grab" aria-label="drag to reorder">≡</button>':'')
         +'<span style="font-weight:700;font-size:14.5px;margin-right:2px">'+t.kg+' kg</span>'
         +(ed?'<button class="chip" data-trm="'+i+'" style="margin:0;padding:4px 11px;color:var(--muted)" aria-label="remove line">✕</button>'
           +'<button class="chip" data-tdn="'+i+'" style="margin:0;padding:4px 12px;font-size:15px" aria-label="send back to roastery">↓</button>':'')
-        +'</span></div></div>';
-    }).join('');
+        +'</span></div></div>'});
+    });
+    shopRows.forEach(function(r,i){var ix=TRF_ORDER.indexOf(r.k);r.ord=ix<0?TRF_ORDER.length+i:ix;});
+    shopRows.sort(function(a,b){return a.ord-b.ord;});
+    h+=shopRows.map(function(r){return r.html;}).join('');
   }
   /* ── 中間方向圖例 ── */
   h+='<div style="display:flex;align-items:center;gap:10px;margin:16px 0 2px;color:var(--muted);font-size:12px">'
@@ -5194,6 +5208,45 @@ async function openTransferSheet(){
     var keep={};pool.forEach(function(p){if(TRF_CHECKS[p.id])keep[p.id]=true;});
     try{sb.from('app_state').upsert({key:'trf_checks',value:keep,updated_at:new Date().toISOString()},{onConflict:'key'}).then(function(){});}catch(e){}
   });});
+  /* ≡ 拖移換順序（2026-07-21 老闆點名）：按住把手上下拖、越過鄰行中點就換位；放開存 app_state 'trf_order'。
+     iOS Safari 捲動容器內 touch-action:none 不一定買帳（同 attachDrawerDrag 註解）——非 passive touchmove 硬擋 */
+  document.querySelectorAll('#drawer [data-tdrag]').forEach(function(hd){
+    hd.addEventListener('click',function(ev){ev.stopPropagation();}); /* 別觸發聚合行開合 */
+    hd.addEventListener('touchmove',function(e){e.preventDefault();},{passive:false});
+    hd.addEventListener('pointerdown',function(e){
+      e.preventDefault();e.stopPropagation();
+      var row=hd.closest('[data-trow]');if(!row)return;
+      try{hd.setPointerCapture(e.pointerId);}catch(e2){}
+      var moved=false;
+      row.style.outline='2px solid var(--accent)';row.style.opacity='.92';
+      function mv(ev){
+        moved=true;
+        var y=ev.clientY;
+        var prev=row.previousElementSibling,next=row.nextElementSibling;
+        if(prev&&prev.hasAttribute('data-trow')){
+          var pr=prev.getBoundingClientRect();
+          if(y<pr.top+pr.height/2){row.parentNode.insertBefore(row,prev);return;}
+        }
+        if(next&&next.hasAttribute('data-trow')){
+          var nr=next.getBoundingClientRect();
+          if(y>nr.top+nr.height/2){row.parentNode.insertBefore(next,row);return;}
+        }
+      }
+      function up(){
+        document.removeEventListener('pointermove',mv);
+        document.removeEventListener('pointerup',up);
+        document.removeEventListener('pointercancel',up);
+        row.style.outline='';row.style.opacity='';
+        if(!moved)return;
+        var ks=[];document.querySelectorAll('#drawer [data-trow]').forEach(function(el){ks.push(el.dataset.trow);});
+        TRF_ORDER=ks;
+        try{sb.from('app_state').upsert({key:'trf_order',value:ks,updated_at:new Date().toISOString()},{onConflict:'key'}).then(function(){});}catch(e3){}
+      }
+      document.addEventListener('pointermove',mv);
+      document.addEventListener('pointerup',up);
+      document.addEventListener('pointercancel',up);
+    });
+  });
 }
 /* 歷次 submit 的單（2026-07-18 老闆點名 🧾 icon 入口）：settled 按發票號分組、點組展開明細行 */
 var TRFH={open:null};
