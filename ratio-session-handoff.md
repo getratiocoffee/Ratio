@@ -80,6 +80,10 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-21 之八（Finance→Transactions 訂單金流磁貼 ✅ 待 commit）
+- **老闆點名**「finance 那邊做個 icon 查看 ordering 的 transaction」。Tools Finance 區（rsMoney）加 **Transactions** 磁貼（data-t 'fintx'）→ `openFinTxSheet`：DB.orders（非取消、時間降序）＋**All/Paid/Unpaid seg**（FTX.f）＋頂部筆數/總額＋**月分組**（月標題帶 n·$小計）；行＝#單號·客名·$·日期·bank/card·paid✓（accent）/unpaid/overdue（紅）；點行 → `openOrderDetail(o,backTo)`——**detail 加第二參數 backTo**（預設 openOrdersSheet 不變），Transactions 進去 Back 回 Transactions 且篩選保留。
+- **驗證**：jscheck ✓；假資料 4 單兩月——月分組（July 3·$125/June 1·$32.50）＋總計 $157.50 ✓、Unpaid 篩 2 筆（pending+overdue）✓、詳情 #0031→Back 回 Transactions＋seg 保留 ✓、console 零錯誤＋截圖 ✓。serve 複本已 cp。
+
 ## 〇、補記 — 2026-07-21 之七（push 卡死在 Pushing… → callFn 加 2 分鐘逾時 ✅ 待 commit）
 - **老闆回報**：Update listing 卡在 Pushing…。查 edge log：sync-to-square 只有 2 筆 OPTIONS（preflight 過）、**POST 從未完成**＝大 payload（4 張商品圖 base64 幾 MB）上傳半路悶掉；`callFn` 裸 fetch **無逾時** → 按鈕永遠 Pushing…。非當日改動造成（push 管線當日零改動）。
 - **修法**：callFn 加 AbortController **120s 逾時**——超時 abort＋throw「Timed out after 2 min — check your connection and try again」→ push handler 既有 catch 會 alert＋按鈕復原可重試。
