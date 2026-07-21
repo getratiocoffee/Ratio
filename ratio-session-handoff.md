@@ -80,6 +80,13 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-21 之十三（coffeeratio.com.au 網域接 Vercel ✅ 零程式碼變更）
+- **老闆點名**：VentraIP 的 coffeeratio.com.au 連到 ?shop。零改 code——未登入開根路徑本來就是公開菜單（?shop 沒程式判斷）。Chrome 代跑兩邊 Dashboard：
+  - **Vercel**（ratio 專案 → Settings → Domains）：加 coffeeratio.com.au（自動 308 → www）＋ www.coffeeratio.com.au（Production）；SSL 已簽發
+  - **VentraIP VIPControl**（Manage DNS，網域仍掛 VentraIP hosting NS＝ns1/ns2.syd5.hostingplatform.net.au）：只改兩筆——A @ 199.34.228.175→**216.198.79.1**、CNAME www coffeeratio.com.au→**e2fa1b3211515247.vercel-dns-017.com**；**mail A / MX ×2 / SPF / DKIM ×2 全沒動**（email 收發不受影響；send.@ 走 amazonses＝Resend 寄信域）
+- **⚠ 舊官網下線**：原 A 指向 Square Online 舊官網（199.34.228.x＝Weebly IP）——切換後網域不再指它；網站本身還在 Square 後台，要回退把 A 改回 199.34.228.175＋CNAME www 改回 coffeeratio.com.au 即可
+- **驗證**：權威 NS dig 回新值 ✓；curl --resolve 直連 Vercel——apex 308 → www ✓、www 200＋title「Ratio Coffee」＋renderPublicMenu 在 ✓（舊站 title 是「…Espresso | Filter | Brewing…」可區分）；Vercel Domains 兩筆 Valid Configuration ✓。舊 TTL 14400＝全球快取最長 ~4 小時陸續切換，期間開到舊站正常
+
 ## 〇、補記 — 2026-07-21 之十二（Retail prices 每豆收抽屜 ✅ 待 push）
 - **老闆點名**：Set retail prices 每豆收進抽屜。`RPP.open` 手風琴（一次一組）：收合行＝豆名＋現價摘要（「$24 · 200g +」，+＝有 500g/1kg 加購；沒價 muted「no price」）＋▸；點展開＝BAG SIZE seg＋三行價（排版 v2 原樣）。展開/收合/切組都先 grabInputs——**打到一半的價換組不掉**、收合摘要即時反映、Save 用 rows 記憶值（收合組照存）。
 - **驗證**：jscheck ✓；假資料——初始全收合 0 input/摘要對 ✓、展開只一組 ✓、Ethiopia 改 24 切 Dark Blend→摘要變 $24＋Save payload 24 ✓、console 零錯誤＋截圖 ✓。serve 複本已 cp。
