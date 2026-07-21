@@ -4340,14 +4340,20 @@ function openSubsSheet(){
     })()
     +(subs.length?subs.map(function(s,ix){
       var c=custById(s.customer_id);
-      return '<div class="hit" data-sb="'+ix+'"'+(s.status!=='active'?' style="opacity:.55"':'')+'><span>'
+      /* Card on File（2026-07-21）：app 訂戶顯示卡狀態＋Invite 寄綁卡邀請信（純邀請模式，老闆控節奏） */
+      var cardBit=(s.source!=='square')?(s.card_id?' · <span style="color:var(--accent)">card ✓</span>':' · no card'):'';
+      var invBtn=(s.source!=='square'&&s.status!=='cancelled')
+        ?'<button class="chip" data-sbinv="'+ix+'" style="margin:0;padding:4px 10px;font-size:12px;color:var(--muted)">'+(s.card_id?'Re-invite':'Invite')+'</button>':'';
+      return '<div class="hit" data-sb="'+ix+'"'+(s.status!=='active'?' style="opacity:.55"':'')+'><span style="min-width:0">'
         +'<div class="t">'+esc((c&&c.name)||'—')+'</div>'
         +'<div class="s">'+subPlanLabel(s.plan)+' · '+money(s.price)+' · '+(s.grams||0)+'g'
         +(s.status==='active'?' · next '+(fmtD(s.next_ship_date)||'—'):'')
         +(s.status==='paused'?' · <span style="color:#B8860B">paused</span>':'')
         +(s.status==='cancelled'?' · cancelled':'')
+        +cardBit
         +'</div></span>'
-        +'<span class="k">'+(s.source==='square'?'square':'app')+'</span></div>';
+        +'<span style="display:flex;align-items:center;gap:6px;flex:0 0 auto">'+invBtn
+        +'<span class="k">'+(s.source==='square'?'square':'app')+'</span></span></div>';
     }).join(''):'<div class="empty">No subscribers yet — add your Square regulars here too, marked Square billed, so every box ships from one list</div>')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('sub-add').addEventListener('click',function(){openSubForm(null);});
@@ -4364,6 +4370,18 @@ function openSubsSheet(){
     }catch(e){ss.disabled=false;ss.textContent='Set up shop subscription items…';alert('Setup failed: '+(e&&e.message||e));}
   });
   document.querySelectorAll('#drawer [data-sb]').forEach(function(el){el.addEventListener('click',function(){openSubForm(subs[+el.dataset.sb]);});});
+  /* 綁卡邀請信（Card on File）：點列不觸發（stopPropagation）；成功 toast、失敗 alert */
+  document.querySelectorAll('#drawer [data-sbinv]').forEach(function(el){el.addEventListener('click',async function(ev){
+    ev.stopPropagation();
+    var s=subs[+el.dataset.sbinv],c=custById(s.customer_id);
+    if(!confirm('Email a card-saving invite to '+((c&&c.name)||'this subscriber')+'?'))return;
+    el.disabled=true;el.textContent='Sending…';
+    try{
+      await callFn('send-email',{action:'sub_card_invite',sub_id:s.id});
+      logAct('card invite sent',(c&&c.name)||String(s.id));
+      toast('Invite sent ✓');el.textContent='Sent ✓';
+    }catch(e){el.disabled=false;el.textContent=s.card_id?'Re-invite':'Invite';alert('Invite failed: '+(e&&e.message||e));}
+  });});
   $('d-cl').addEventListener('click',closeDrawer);
 }
 function openSubForm(sub){
@@ -4510,8 +4528,16 @@ function subBump(s){
    冪等：sync-to-square payment_link 對已有連結的單會 reuse。 */
 async function subCollectPayment(order,sub){
   if(sub.source==='square')return {ok:true};  /* Square 端訂閱已自動扣款 */
+  /* Card on File（2026-07-21 老闆定案）：有綁卡先直接扣（edge charge_sub＝含 2.2% surcharge、
+     冪等 key 綁單防重扣、成功標 paid）；扣不過自動退回付款連結老路——催款縮成少數例外 */
+  if(sub.card_id&&sub.sq_customer_id){
+    try{
+      var c=await callFn('sync-to-square',{action:'charge_sub',order_id:order.id,sub_id:sub.id});
+      if(c&&c.ok&&c.paid)return {ok:true,charged:true};
+    }catch(e){console.warn('charge_sub failed — falling back to payment link',e);}
+  }
   var r=await callFn('sync-to-square',{action:'payment_link',order_id:order.id});
-  return {ok:true,url:r&&r.url};
+  return {ok:true,url:r&&r.url,cardFailed:!!(sub.card_id&&sub.sq_customer_id)};
 }
 async function openSubRunSheet(){
   SUBRUN={blends:[]};
@@ -4570,7 +4596,7 @@ async function runSubShipment(due,needSingle,needBlend){
   if(!confirm('Create '+due.length+' subscription order'+(due.length>1?'s':'')+'?'
     +(singleName?'\nSingle origin: '+singleName:'')+(blendName?'\nBlend: '+blendName:'')))return;
   var b=$('sr-go');b.disabled=true;b.textContent='Creating…';
-  var made=0,fails=[],warns=[];
+  var made=0,charged=0,fails=[],warns=[];
   try{
     /* order_no 迴圈外查一次 max（照 saveNewOrder），成功一筆 ++ 一次 */
     var mx=await sb.from('orders').select('order_no').order('order_no',{ascending:false}).limit(1);
@@ -4590,7 +4616,12 @@ async function runSubShipment(due,needSingle,needBlend){
         var uo=await sb.from('subscriptions').update({next_ship_date:subBump(s),last_order_id:ins.data.id,
           updated_at:new Date().toISOString()}).eq('id',s.id);
         if(uo.error)warns.push(nm+': order #'+String(ins.data.order_no).padStart(4,'0')+' created but the next-ship date did not move — fix the date in Subscriptions or this box ships twice');
-        try{await subCollectPayment(ins.data,s);}
+        /* Card on File：charged=卡扣成功；cardFailed=有卡但扣不過（已自動退回連結）——摘要明講 */
+        try{
+          var pay=await subCollectPayment(ins.data,s);
+          if(pay&&pay.charged)charged++;
+          else if(pay&&pay.cardFailed)warns.push(nm+': card charge failed — payment link sent instead (ask them to update the card)');
+        }
         catch(e1){warns.push(nm+': payment link failed — resend from the unpaid card later');}
         try{await callFn('send-email',{action:'order_confirmation',order_id:ins.data.id});}
         catch(e2){warns.push(nm+': confirmation email failed');}
@@ -4599,11 +4630,11 @@ async function runSubShipment(due,needSingle,needBlend){
     logAct('subscription run',made+' orders',singleName||blendName||'');
     closeDrawer();
     if(fails.length||warns.length){
-      alert(made+' order'+(made===1?'':'s')+' created.'
+      alert(made+' order'+(made===1?'':'s')+' created.'+(charged?' '+charged+' charged on card ✓':'')
         +(fails.length?'\n\nFailed (still due, run again tomorrow):\n· '+fails.join('\n· '):'')
         +(warns.length?'\n\nWarnings:\n· '+warns.join('\n· '):''));
     }else{
-      toast(made+' subscription order'+(made===1?'':'s')+' created ✓');
+      toast(made+' subscription order'+(made===1?'':'s')+' created ✓'+(charged?' · '+charged+' charged on card':''));
     }
     await reload();view='feed';render();
   }catch(e){
@@ -11885,6 +11916,64 @@ function showApplyOverlay(){
 (function(){
   var q=false;try{q=new URLSearchParams(location.search).has('apply');}catch(e){}
   if(q)showApplyOverlay();
+})();
+/* ===== 訂閱綁卡頁：?card=<bind_token>（免登入；Card on File 2026-07-21）
+   卡號由 Square Web Payments SDK 在瀏覽器直接進 Square 金庫——我們只存卡代號。
+   同一連結重複用＝換卡（覆蓋）。app_id 沒設（SQUARE_APPLICATION_ID secret）＝顯示 not ready */
+async function showCardBindOverlay(token){
+  var old=document.getElementById('fb-ov');if(old)old.remove();
+  var ov=document.createElement('div');ov.id='fb-ov';
+  ov.innerHTML='<div class="fb-card"><div class="fb-title">Ratio Coffee</div><div class="fb-sub">Loading…</div></div>';
+  document.body.appendChild(ov);
+  var info=null;
+  try{
+    var r=await fetch(SUPABASE_URL+'/functions/v1/public-shop?card='+encodeURIComponent(token),{headers:{'apikey':SUPABASE_KEY},cache:'no-store'});
+    info=await r.json();
+  }catch(e){}
+  if(!(info&&info.ok)){
+    ov.innerHTML='<div class="fb-card"><div class="fb-title">Ratio Coffee</div><div class="fb-thanks">This link is not valid.<br>Please use the latest email from us — or reply to it and we will send a fresh one.</div></div>';
+    return;
+  }
+  if(!info.app_id){
+    ov.innerHTML='<div class="fb-card"><div class="fb-title">Ratio Coffee</div><div class="fb-thanks">Card saving is not ready yet.<br>Please try again a little later. ☕</div></div>';
+    return;
+  }
+  var plan=info.plan==='blend'?'Blend':'Single Origin';
+  ov.innerHTML='<div class="fb-card">'
+    +'<div class="fb-title">Ratio Coffee</div>'
+    +'<div class="fb-sub">'+(info.bound?'Update the card on your subscription':'Save a card for your subscription')
+    +'<br>'+esc(plan)+' · $'+centAmt(info.price)+' a fortnight'+(info.name?' · '+esc(info.name):'')+'</div>'
+    +(info.bound?'<div class="fb-msg">A card is already saved ✓ — saving a new one replaces it.</div>':'')
+    +'<div id="sq-card" style="margin:12px 0"></div>'
+    +'<div class="fb-msg" id="cb-msg"></div>'
+    +'<button class="fb-send" id="cb-save">Save card</button>'
+    +'<div style="font-size:11.5px;color:#8C8079;margin-top:10px;line-height:1.5">Each box is charged automatically when it ships — cancel or swap the card any time. Card payments include a 2.2% surcharge, the same as paying by link. Your card details are stored securely by Square — we never see the number.</div>'
+    +'</div>';
+  var msg=ov.querySelector('#cb-msg'),btn=ov.querySelector('#cb-save');
+  btn.disabled=true;
+  var card=null;
+  try{
+    await loadScriptOnce('https://web.squarecdn.com/v1/square.js');
+    var payments=window.Square.payments(info.app_id,info.location_id);
+    card=await payments.card();
+    await card.attach('#sq-card');
+    btn.disabled=false;
+  }catch(e){msg.textContent='Could not load the card form — please try again later.';msg.className='fb-msg err';return;}
+  btn.addEventListener('click',async function(){
+    btn.disabled=true;msg.textContent='Saving…';msg.className='fb-msg';
+    try{
+      var t=await card.tokenize();
+      if(t.status!=='OK')throw new Error((t.errors&&t.errors[0]&&t.errors[0].message)||'Card was not accepted');
+      var r2=await fetch(SUPABASE_URL+'/functions/v1/public-shop',{method:'POST',headers:{'apikey':SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({action:'save_card',token:token,card_token:t.token})});
+      var d2=await r2.json();
+      if(!(d2&&d2.ok))throw new Error((d2&&d2.error)||'could not save the card');
+      ov.innerHTML='<div class="fb-card"><div class="fb-title">Ratio Coffee</div><div class="fb-thanks">Card saved ✓'+(d2.brand?'<br>'+esc(d2.brand)+' ···· '+esc(d2.last4):'')+'<br><br>Your subscription now charges automatically when each box ships — nothing else to do. ☕</div></div>';
+    }catch(e){btn.disabled=false;msg.textContent=String(e&&e.message||e);msg.className='fb-msg err';}
+  });
+}
+(function(){
+  var q='';try{q=new URLSearchParams(location.search).get('card')||'';}catch(e){}
+  if(q)showCardBindOverlay(q);
 })();
 /* 公開豆頁：?bean=<slug>（只給風味已鎖定的豆；public-bean edge 免登入） */
 (function(){

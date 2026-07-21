@@ -80,6 +80,18 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-21 之十七（訂閱 Card on File 自動扣款全鏈 ✅ 待 push 前端＋老闆設 secret）
+- **老闆定案**：訂閱自動扣款走 **Card on File**（自家排程、Square 只當刷卡機＝日後好轉移）；①自動扣款照加 2.2% surcharge（同 payment_link 公式）②綁卡走**純邀請**（不強制，沒綁的照舊寄付款連結——兩套並行）
+- **DB**：migration `subscriptions_card_on_file`——subscriptions +sq_customer_id/card_id/**bind_token**（uuid 預設生成＋唯一索引；連結即鑰匙）
+- **Edge ×3 已部署**：
+  - **public-shop v16**：GET `?card=<token>`＝綁卡頁資訊（name/plan/bound/**app_id**（env SQUARE_APPLICATION_ID）/location_id，無快取）；POST `save_card`｛token,card_token｝＝確保 Square customer（CreateCustomer 存 sq_customer_id）→CreateCard 存 card_id→舊卡 disable（best-effort）。菜單 GET 驗證無恙（13 豆+2 訂閱）
+  - **sync-to-square v32**：`charge_sub`｛order_id,sub_id｝＝CreatePayment（card_id+sq_customer_id，金額×1.022）→成功標 orders paid；**冪等 key="ratio-sub-"+order_id＝同單絕不重扣**
+  - **send-email v25**：`sub_card_invite`｛sub_id｝＝綁卡邀請信（連結 PUBLIC_URL/?card=token，env 預設 https://www.coffeeratio.com.au；已綁＝換卡措辭；surcharge 揭露）
+- **前端**：①`?card` 公開頁 overlay（fb-card 版型；Square Web Payments SDK web.squarecdn.com/v1/square.js 瀏覽器直接 tokenize＝卡號不經我們手；三態=invalid/not ready(app_id 未設)/正常；同連結重用=換卡）②`subCollectPayment` 升級：square 跳過→**有卡先 charge_sub**（成功 charged）→失敗/沒卡 fallback payment_link（cardFailed 旗標）③runSubShipment 摘要帶「N charged on card」＋扣失敗警示「payment link sent instead」④openSubsSheet：app 訂戶列帶 card ✓/no card＋**Invite/Re-invite 鈕**（confirm→sub_card_invite→logAct）
+- **驗證**：jscheck ✓；curl 線上——card_info 無效 token 404「invalid link」✓、菜單照常 ✓；預覽假資料——綁卡頁三態＋tokenize→save_card payload 正確＋成功畫面 VISA···1111 ✓；Subscriptions 抽屜 card 狀態/兩顆邀請鈕（square 訂戶無）✓；subCollectPayment 四分支（square 跳過/扣成功/扣敗 fallback/沒卡連結）✓；console 零錯誤。serve 複本已 cp
+- **⏭ 老闆收尾（照順序）**：①**Supabase Dashboard→Edge Functions→Secrets 加 `SQUARE_APPLICATION_ID`**（developer.squareup.com→自家應用→Production→Application ID，sq0idp- 開頭）——沒設之前綁卡頁顯示 not ready（優雅降級，不擋別的）②push 部署前端③Tools→Subscriptions 登記訂戶後按 Invite 寄邀請、自己先用自己 email＋真卡走一輪（綁卡→到期 run→看 charged on card ✓→Square 退款）
+- **設計筆記**：?shop 結帳零改動（綁卡靠事後邀請信）；webhook 新訂閱自動寄邀請**這輪沒做**（老闆手動 Invite 控節奏；要自動化再加 square-webhook 一段）；收款抽象點 subCollectPayment 仍是唯一知道錢怎麼收的函式＝日後換 Stripe 只改它＋綁卡頁
+
 ## 〇、補記 — 2026-07-21 之十六（員工介面底部黏店面 Blend/Single origin/Subscription 條 ✅ 待 push）
 - **老闆真機抓蟲**：Tools 頁底部出現店面分類條（#shoptabs）。根因＝**視角切換 race**：renderPublicMenu/renderCustomerPortal 要 `await loadShopMenu()` 才 renderShopTabs()——等待期間登入完成（boot 切員工視角、12785 藏 shoptabs），**晚到的渲染回來把 shoptabs 重新打開**（還會把 m.innerHTML 蓋成店面），之後無人再藏 → 黏在員工介面底
 - **修復兩道**：①**BOOT_EPOCH 代次**（根治）——boot() 開頭 ++；兩個店面渲染進場記 ep、await 完 `ep!==BOOT_EPOCH` 就 return（晚到渲染整段放棄，連蓋 main 的問題一起解）②**render() 保險絲**——員工每次重繪 `$('shoptabs').style.display='none'`（就算哪天又漏，點任何 nav 即復原）
