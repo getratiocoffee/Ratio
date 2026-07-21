@@ -5081,7 +5081,8 @@ async function openTransferSheet(){
      pool（新轉入）＝**不進抽屜**、獨立卡片沉底＋強 highlight（accent 底＋NEW 膠囊）——一眼看到剛轉了什麼 */
   var sg=[],sgi={},newRows=[];
   pool.forEach(function(t,i){
-    if(t.status==='pool'){newRows.push({t:t,i:i});return;}
+    /* pool＝NEW 未結；settled 但 arrived_at null＝PENDING（已開發票、豆還沒確認到店——History 按 Transferred 才進抽屜；2026-07-21 老闆點名） */
+    if(t.status==='pool'||!t.arrived_at){newRows.push({t:t,i:i});return;}
     var k=String(t.name||'').trim().toLowerCase()+'|'+(t.is_blend?'':procKey(t.process||''));
     if(sgi[k]==null){sgi[k]=sg.length;sg.push({k:k,name:t.name,proc:t.is_blend?'':(t.process||''),kg:0,items:[]});}
     var g=sg[sgi[k]];
@@ -5105,7 +5106,7 @@ async function openTransferSheet(){
         +'<span class="s" style="display:block;color:var(--muted);font-size:12px;margin-top:3px;padding-left:14px">'+g.items.length+' batch'+(g.items.length===1?'':'es')+'</span>'
         +'</span>'
         +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto">'
-        +(ed?'<button class="chip" data-tdrag style="margin:0;padding:4px 10px;font-size:14px;color:var(--muted);touch-action:none;cursor:grab" aria-label="drag to reorder">≡</button>':'')
+        +(ed?'<button class="chip" data-tdrag style="margin:0;padding:4px 7px;font-size:14px;color:var(--muted);touch-action:none;cursor:grab" aria-label="drag to reorder">≡</button>':'')
         +'<span style="font-weight:700;font-size:14.5px">'+g.kg+' kg</span>'
         +'<span style="color:var(--muted);font-size:12px">'+(open?'▾':'▸')+'</span>'
         +'</span></div>';
@@ -5119,7 +5120,7 @@ async function openTransferSheet(){
           +'<span style="min-width:0;cursor:pointer" data-tline="'+i+'">'
           +'<span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(t.roast_date)+';margin-right:6px;vertical-align:0"></span>'
           +'<span class="s" style="font-size:13px">'+(t.roast_date?fmtD(t.roast_date):'no date')+' batch</span>'
-          +'<span class="s" style="display:block;color:var(--muted);font-size:12px;padding-left:14px">'+esc(t.invoice_no||'invoiced')+'</span>'
+          +'<span class="s" style="display:block;color:var(--muted);font-size:12px;padding-left:14px">'+(t.fixed_at?'fixed '+fmtD(t.fixed_at):esc(t.invoice_no||'invoiced'))+'</span>'
           +'</span></span>'
           +'<span style="display:flex;align-items:center;gap:6px;flex:0 0 auto">'
           +'<span style="font-weight:700;font-size:14px;margin-right:2px">'+t.kg+' kg</span>'
@@ -5133,22 +5134,26 @@ async function openTransferSheet(){
     newRows.forEach(function(x){
       var t=x.t,i=x.i;
       var ck=!!TRF_CHECKS[t.id];
-      shopRows.push({k:'n:'+t.id,html:'<div data-trow="n:'+esc(t.id)+'" style="border:1.5px solid var(--accent);border-radius:14px;padding:10px 13px;margin-top:8px;background:color-mix(in srgb,var(--accent) 13%,transparent)">'
+      var pend=t.status!=='pool'; /* settled 未到店＝PENDING（灰款）；pool＝NEW（accent 亮款） */
+      shopRows.push({k:'n:'+t.id,html:'<div data-trow="n:'+esc(t.id)+'" style="border:1.5px solid '+(pend?'var(--line2)':'var(--accent)')+';border-radius:14px;padding:10px 13px;margin-top:8px'+(pend?'':';background:color-mix(in srgb,var(--accent) 13%,transparent)')+'">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
-        +'<span style="min-width:0;display:flex;align-items:flex-start;gap:8px">'
+        +'<span style="min-width:0;display:flex;align-items:center;gap:8px">'
         +'<button class="chip" data-tc="'+i+'" style="margin:0;padding:2px 9px;font-size:15px;flex:0 0 auto;'+(ck?'border-color:var(--accent);color:var(--accent)':'color:var(--muted)')+'" aria-label="tick memo">'+(ck?'☑':'☐')+'</button>'
         +'<span style="min-width:0;cursor:pointer" data-tline="'+i+'">'
-        +'<span style="background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:.5px;margin-right:6px;vertical-align:1px">NEW</span>'
         +'<span class="t" style="font-size:14.5px">'+esc(t.name)+'</span>'
         +(t.process?' <span style="color:var(--muted);font-size:12px">'+esc(t.process)+'</span>':'')
-        +'<span class="s" style="display:block;color:var(--muted);font-size:12px;margin-top:3px">'+(t.roast_date?fmtD(t.roast_date):'no date')+' batch · not invoiced yet</span>'
         +'</span></span>'
         +'<span style="display:flex;align-items:center;gap:6px;flex:0 0 auto">'
-        +(ed?'<button class="chip" data-tdrag style="margin:0;padding:4px 10px;font-size:14px;color:var(--muted);touch-action:none;cursor:grab" aria-label="drag to reorder">≡</button>':'')
+        +(ed?'<button class="chip" data-tdrag style="margin:0;padding:4px 7px;font-size:14px;color:var(--muted);touch-action:none;cursor:grab" aria-label="drag to reorder">≡</button>':'')
         +'<span style="font-weight:700;font-size:14.5px;margin-right:2px">'+t.kg+' kg</span>'
         +(ed?'<button class="chip" data-trm="'+i+'" style="margin:0;padding:4px 11px;color:var(--muted)" aria-label="remove line">✕</button>'
           +'<button class="chip" data-tdn="'+i+'" style="margin:0;padding:4px 12px;font-size:15px" aria-label="send back to roastery">↓</button>':'')
-        +'</span></div></div>'});
+        +'</span></div>'
+        /* 第二行獨立全寬（2026-07-21：手機窄欄擠爆——膠囊＋批次資訊移下來） */
+        +'<div class="s" data-tline="'+i+'" style="color:var(--muted);font-size:12px;margin-top:5px;padding-left:2px;cursor:pointer">'
+        +'<span style="background:'+(pend?'var(--muted)':'var(--accent)')+';color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:.5px;margin-right:7px;vertical-align:1px">'+(pend?'PENDING':'NEW')+'</span>'
+        +(t.roast_date?fmtD(t.roast_date):'no date')+' batch · '+(pend?(t.fixed_at?'fixed '+fmtD(t.fixed_at):esc(t.invoice_no||'invoiced')):'not invoiced yet')
+        +'</div></div>'});
     });
     shopRows.forEach(function(r,i){var ix=TRF_ORDER.indexOf(r.k);r.ord=ix<0?TRF_ORDER.length+i:ix;});
     shopRows.sort(function(a,b){return a.ord-b.ord;});
@@ -5254,14 +5259,15 @@ async function openTransferHistory(){
   openDrawerHTML('<div class="t" style="font-size:19px">Submitted invoices</div><div class="empty">Loading…</div>');
   var gs=[],gi={};
   try{
-    var q=await sb.from('transfers').select('name,process,kg,price_per_kg,invoice_no,settled_at').not('invoice_no','is',null).order('settled_at',{ascending:false}).limit(400); /* 含 used/returned 軟刪行——invoice 金額不缺角 */
+    var q=await sb.from('transfers').select('id,status,arrived_at,name,process,kg,price_per_kg,invoice_no,settled_at').not('invoice_no','is',null).order('settled_at',{ascending:false}).limit(400); /* 含 used/returned 軟刪行——invoice 金額不缺角 */
     (q.data||[]).forEach(function(t){
       var k=String(t.invoice_no||'—');
-      if(gi[k]==null){gi[k]=gs.length;gs.push({no:k,at:t.settled_at,kg:0,amt:0,lines:[]});}
+      if(gi[k]==null){gi[k]=gs.length;gs.push({no:k,at:t.settled_at,kg:0,amt:0,lines:[],pendIds:[]});}
       var g=gs[gi[k]];
       var amt=(Number(t.kg)||0)*(Number(t.price_per_kg)||0);
       g.kg+=Number(t.kg)||0;g.amt+=amt;
       g.lines.push({name:t.name,proc:t.process||'',kg:Number(t.kg)||0,price:Number(t.price_per_kg)||0,amt:amt});
+      if(t.status==='settled'&&!t.arrived_at)g.pendIds.push(t.id); /* 還沒確認到店的行（2026-07-21 老闆點名 Transferred 流程） */
     });
   }catch(e){}
   gs.forEach(function(g){g.kg=Math.round(g.kg*100)/100;});
@@ -5271,10 +5277,12 @@ async function openTransferHistory(){
       +'<div class="s" style="margin-top:2px">'+esc(TRF_DEST)+' · one line per Sunday submit — tap to see the beans</div>'
       +(gs.length?gs.map(function(g,i){
         var open=TRFH.open===g.no;
-        return '<div class="dl" data-th="'+i+'" style="cursor:pointer'+(open?';border-bottom:none':'')+'"><span>'+esc(g.no)+'<span style="color:var(--muted);font-size:12px"> · '+(g.at?fmtD(g.at):'—')+'</span></span><span>'+g.kg+' kg · '+money(g.amt)+'</span></div>'
+        return '<div class="dl" data-th="'+i+'" style="cursor:pointer'+(open?';border-bottom:none':'')+'"><span>'+esc(g.no)+'<span style="color:var(--muted);font-size:12px"> · '+(g.at?fmtD(g.at):'—')+'</span>'+(g.pendIds.length?' <span style="background:var(--muted);color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;letter-spacing:.5px;vertical-align:1px">PENDING</span>':'')+'</span><span>'+g.kg+' kg · '+money(g.amt)+'</span></div>'
           +(open?g.lines.map(function(l){
             return '<div class="dl" style="border-bottom:none;padding:3px 0 3px 12px"><span class="s" style="color:var(--muted)">'+esc(l.name)+(l.proc?' · '+esc(l.proc):'')+'</span><span class="s" style="color:var(--muted)">'+l.kg+' kg × '+money(l.price)+' = '+money(l.amt)+'</span></div>';
           }).join('')
+          /* Transferred＝豆確認到店（2026-07-21 老闆點名）：pending 拿掉、行收進上層聚合抽屜 */
+          +(g.pendIds.length&&canWrite()?'<button class="act" data-tha="'+i+'" style="margin-top:6px;width:100%">Transferred — put on shop shelf</button>':'')
           /* 重出 PDF（iOS Safari 可能在 Submit 時打斷下載——隨時補印）＋刪單（2026-07-18 老闆點名；刪帳面紀錄、不動 Coffee Stock） */
           +((rsMoney()||isLead())?'<div style="display:flex;gap:8px;align-items:stretch;margin-top:4px">'
             +'<button class="dclose" data-thp="'+i+'" style="flex:1.6;margin-top:0;white-space:nowrap;border-radius:16px">Download PDF again</button>'
@@ -5300,6 +5308,22 @@ async function openTransferHistory(){
         el.disabled=false;el.textContent='Download PDF again';
       }catch(e){el.disabled=false;el.textContent='Download PDF again';alert('PDF failed: '+(e&&e.message||e));}
     });});
+    /* Transferred＝整張發票的 pending 行一次確認到店 → 上層收進聚合抽屜 */
+    document.querySelectorAll('#drawer [data-tha]').forEach(function(el){el.addEventListener('click',async function(ev){
+      ev.stopPropagation();
+      if(!canWrite()){roToast();return;}
+      var g=gs[+el.dataset.tha];if(!g||!g.pendIds.length)return;
+      el.disabled=true;el.textContent='Saving…';
+      var nowIso=new Date().toISOString();
+      var u=await sb.from('transfers').update({arrived_at:nowIso}).in('id',g.pendIds);
+      if(u.error){el.disabled=false;el.textContent='Transferred — put on shop shelf';alert('Failed: '+u.error.message);return;}
+      var ids={};g.pendIds.forEach(function(x){ids[String(x)]=1;});
+      (DB.transfers||[]).forEach(function(t){if(ids[String(t.id)])t.arrived_at=nowIso;});
+      logAct('transfer arrived',g.no,'on shop shelf');
+      g.pendIds=[];
+      toast('On the shop shelf ✓');
+      buildItems();paint();
+    });});
     /* 刪單＝撤銷結單（2026-07-20 軟刪模型）：settled 行退回 ‹new›（豆還在店面清單）、
        used/returned 行只摘掉發票號；Coffee Stock 不動、發票號不回收 */
     document.querySelectorAll('#drawer [data-thd]').forEach(function(el){el.addEventListener('click',async function(ev){
@@ -5307,10 +5331,10 @@ async function openTransferHistory(){
       var g=gs[+el.dataset.thd];
       if(!confirm('Delete invoice '+g.no+' ('+g.kg+' kg · '+money(g.amt)+')?\n\nThe beans go back to ‹new› on the shop list — Coffee Stock is not changed.'))return;
       el.disabled=true;el.textContent='Deleting…';
-      var d=await sb.from('transfers').update({status:'pool',invoice_no:null,price_per_kg:null,settled_at:null}).eq('invoice_no',g.no).eq('status','settled');
+      var d=await sb.from('transfers').update({status:'pool',invoice_no:null,price_per_kg:null,settled_at:null,arrived_at:null}).eq('invoice_no',g.no).eq('status','settled'); /* arrived_at 一併清——重新 submit 才會重走 pending 流程 */
       if(d.error){el.disabled=false;el.textContent='Delete';alert('Failed: '+d.error.message);return;}
       try{await sb.from('transfers').update({invoice_no:null,price_per_kg:null}).eq('invoice_no',g.no).in('status',['used','returned']);}catch(e2){}
-      (DB.transfers||[]).forEach(function(t){if(String(t.invoice_no||'')===String(g.no)&&t.status==='settled'){t.status='pool';t.invoice_no=null;t.price_per_kg=null;t.settled_at=null;}});
+      (DB.transfers||[]).forEach(function(t){if(String(t.invoice_no||'')===String(g.no)&&t.status==='settled'){t.status='pool';t.invoice_no=null;t.price_per_kg=null;t.settled_at=null;t.arrived_at=null;}});
       logAct('transfer invoice deleted',g.no,g.kg+' kg · '+money(g.amt));
       toast('Deleted ✓ '+g.no+' — lines back to new');
       gs.splice(+el.dataset.thd,1);TRFH.open=null;
@@ -5482,9 +5506,10 @@ function openTransferFix(t){
     nv=Math.round(nv*100)/100;
     if(Math.abs(nv-(Number(t.kg)||0))<0.0005){toast('Already '+t.kg+' kg — nothing to fix');return;}
     var btn=this;btn.disabled=true;btn.textContent='Saving…';
-    var up=await sb.from('transfers').update({kg:nv}).eq('id',t.id);
+    var fxIso=new Date().toISOString(); /* modified date：清單行顯示 fixed 日期取代 invoice no（2026-07-21 老闆點名） */
+    var up=await sb.from('transfers').update({kg:nv,fixed_at:fxIso}).eq('id',t.id);
     if(up.error){btn.disabled=false;btn.textContent='Save';alert('Failed: '+up.error.message);return;}
-    var old=t.kg;t.kg=nv;
+    var old=t.kg;t.kg=nv;t.fixed_at=fxIso;
     logAct('corrected transfer',t.name,old+' → '+nv+' kg · '+(t.roast_date?fmtD(t.roast_date):'no date'));
     toast('Fixed ✓ '+old+' → '+nv+' kg');
     buildItems();openTransferSheet();

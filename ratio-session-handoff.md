@@ -80,6 +80,14 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-21 之三（Crows Nest：fixed 日期取代發票號＋Submit→PENDING→Transferred 到店流程 ✅ 待 commit＋**DB migration 已上線**）
+- **老闆兩需求**：①Fix actual kg 過的行，第二行顯示 modified date、**移除 invoice number** ②Submit 後豆先掛 **PENDING**（不進抽屜），History 該發票多一顆 **Transferred** 鈕，按了 pending 拿掉、行才進聚合抽屜。
+- **Migration `transfers_fixed_arrived_at`（已上線）**：transfers 加 `fixed_at`（Fix 改動時間）＋`arrived_at`（到店確認時間）；**backfill 既有 settled 行 arrived_at=settled_at**（歷史庫存不變 pending）。
+- **狀態機**：pool（NEW）→ Submit → settled+arrived_at null（**PENDING 獨立卡**，灰膠囊/灰框、第二行全寬「PENDING · 日期 batch · INV#」）→ History「Transferred — put on shop shelf」（canWrite；整張發票 pendIds 一次 `update arrived_at`）→ 進聚合抽屜。History 組標題帶 PENDING 小膠囊。**刪發票撤銷連 arrived_at 一併清**（重 submit 才重走 pending）。
+- **fixed 顯示**：openTransferFix 寫入加 fixed_at；抽屜明細行＋PENDING 卡第二行＝`fixed_at?'fixed '+fmtD:invoice_no`。
+- **順手（手機排版）**：NEW/PENDING 卡改兩層——上層 ☐＋名＋(≡ kg ✕ ↓)、**膠囊＋批次資訊移第二行全寬**（375px 原本擠成豎排）；把手 padding 瘦 10→7px；兩處都掛 data-tline 可開行詳情。
+- **驗證**：jscheck ✓；假資料——上層分流（settled+arrived 進抽屜/PENDING 卡/NEW 卡）✓、fixed 行顯示「fixed 21/07」取代 INV ✓、History PENDING 膠囊只在含 pending 的發票 ✓、Transferred 鈕 PATCH arrived_at in.(ids)＋logAct＋鈕消失＋行收進抽屜 ✓、Fix PATCH {kg,fixed_at} ✓、Delete 撤銷 payload 含 arrived_at:null ✓、新結構行詳情/拖曳回歸 ✓、console 零錯誤＋手機截圖 ✓。
+
 ## 〇、補記 — 2026-07-21 之二（Who's off 月曆兩點選 period ✅ 待 commit）
 - **老闆點名**：N/A 日期改「點第一天＝起點、點第二天＝整段 period、點第三下＝重選起點」。實作：`NA_SEL2` 第二點全域；點日邏輯＝無選取或已成區間→重設起點、同一天→維持單日、點在前面→**自動對調**、否則成區間；月曆 a–b 整段 `.sel` 高亮；資訊列區間版「Wed 22/7 – Sat 25/7 · 4 days」＋「Mark me off · N days」。
 - **naToggleSelf 改 (a,b,btn)**：區間一筆 staff_na `{start_date:a,end_date:b}`；自己已有一筆**涵蓋整段**→按鈕變 Clear me（原跨日 confirm＋整筆刪照舊）；區間存完清選取防重複按；單日行為與原版完全等價。換月**不再清選取**（區間可跨月）。順手：naOffMap 同名同日去重（重疊 N/A 不再重複 pips）。
