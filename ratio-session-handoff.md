@@ -80,6 +80,10 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-21 之十八（桌機版面鎖手機格式 ✅ 待 push）
+- **老闆點名**（桌機開 coffeeratio.com.au 版面被拉散）：內容主體 .wrap 與 nav 本就 520 置中——漏的是貼螢幕邊的四個：①`.shoptabs` 照 nav 慣例補 max-width:520+margin auto+左右 1.5px 框 ②`header` padding 左右改 `max(18px,calc(50% - 238px))`＝內容縮到 520（購物車不再貼螢幕角；手機 max() 取 18px 無感）③`.shoparr` 輪播箭頭 ≥760px 貼內容邊（calc(50% ± 302px)）④`.deck` 判定板同 520 置中。手機端全部零影響
+- **驗證**：jscheck ✓、桌機寬預覽——shoptabs 置中帶框/箭頭貼邊/整體如置中手機 ✓、console 零錯誤。serve 複本已 cp
+
 ## 〇、補記 — 2026-07-21 之十七（訂閱 Card on File 自動扣款全鏈 ✅ 待 push 前端＋老闆設 secret）
 - **老闆定案**：訂閱自動扣款走 **Card on File**（自家排程、Square 只當刷卡機＝日後好轉移）；①自動扣款照加 2.2% surcharge（同 payment_link 公式）②綁卡走**純邀請**（不強制，沒綁的照舊寄付款連結——兩套並行）
 - **DB**：migration `subscriptions_card_on_file`——subscriptions +sq_customer_id/card_id/**bind_token**（uuid 預設生成＋唯一索引；連結即鑰匙）

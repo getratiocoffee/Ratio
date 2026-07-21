@@ -22,7 +22,7 @@ body.appview{min-height:calc(100vh + 1px);min-height:calc(100lvh + 1px)}
   mask:url(/logo.png) no-repeat center 40% / min(96vw,440px)}
 @media(prefers-color-scheme:dark){:root:not(.light) .bglogo{opacity:.09}}
 :root.dark .bglogo{opacity:.09}
-header{background:var(--bg);color:var(--ink);border-bottom:1.5px solid var(--ink);padding:calc(env(safe-area-inset-top,0px) + 10px) 18px 8px;display:flex;align-items:center;position:sticky;top:0;z-index:10}
+header{background:var(--bg);color:var(--ink);border-bottom:1.5px solid var(--ink);padding:calc(env(safe-area-inset-top,0px) + 10px) max(18px,calc(50% - 238px)) 8px;display:flex;align-items:center;position:sticky;top:0;z-index:10} /* 桌機 header 內容縮到 520 手機寬（購物車不再貼螢幕角）；手機 max() 取 18px 無感 */
 /* logo 置中：左右兩欄各 flex:1 平分，中間 logo 恆在正中（右邊不管是購物車或員工狀態字都不影響） */
 header .hspace{flex:1}
 /* header logo 改文字（2026-07-17 老闆指示）：Ratio. 品牌字＋tagline 兩行置中；.bglogo 浮水印不動 */
@@ -138,11 +138,13 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 /* 毛玻璃導滑箭頭：貼螢幕左右緣、垂直置中在圖片區；到頭的那側自動藏 */
 .shoparr{position:fixed;top:42%;z-index:25;width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(128,128,128,.22);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:var(--ink);display:none;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:0 2px 10px rgba(0,0,0,.10)}
 .shoparr.l{left:7px}.shoparr.r{right:7px}
+/* 桌機（≥760px）輪播箭頭貼 520 內容邊，不再掛在螢幕兩端 */
+@media (min-width:760px){.shoparr.l{left:calc(50% - 302px)}.shoparr.r{right:calc(50% - 302px)}}
 .shoparr svg{display:block}
 .shopdots{display:flex;justify-content:center;gap:7px;margin:12px 0 6px}
 .shopdots span{width:7px;height:7px;border-radius:50%;background:var(--line2)}
 .shopdots span.on{background:var(--accent)}
-.shoptabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1.5px solid var(--ink);display:flex;gap:8px;padding:10px 20px max(env(safe-area-inset-bottom,0px) - 16px,12px);z-index:30}
+.shoptabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1.5px solid var(--ink);display:flex;gap:8px;padding:10px 20px max(env(safe-area-inset-bottom,0px) - 16px,12px);z-index:30;max-width:520px;margin:0 auto;border-left:1.5px solid var(--ink);border-right:1.5px solid var(--ink)} /* 桌機跟手機同寬（2026-07-21 老闆點名）——照 nav 的 520 置中慣例 */
 .shoptabs button{flex:1;border:1.5px solid var(--line2);background:var(--surface);color:var(--muted);border-radius:10px;padding:9px 2px;min-height:44px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
 .shoptabs button.on{background:var(--inv);color:var(--inv-t);border-color:var(--inv)}
 /* 資訊卡圖滿版：CSS 裁掉 Square 安全白邊——內容框在 1200×1200 佔 x217-983/y64-1136，
@@ -185,7 +187,7 @@ header .cnt{flex:1;text-align:right;font-size:14px;color:var(--muted)}
 nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1.5px solid var(--ink);display:flex;gap:8px;padding:10px 20px max(env(safe-area-inset-bottom,0px) - 16px,12px);z-index:30;max-width:520px;margin:0 auto;border-left:1.5px solid var(--ink);border-right:1.5px solid var(--ink)} /* 寬度跟手機內容同 520px（2026-07-19 老闆點名）；桌機置中、左右補框 */
 nav button{flex:1;border:1px solid var(--line2);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px 6px;min-height:44px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer}
 nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
-.deck{position:fixed;left:0;right:0;bottom:calc(max(env(safe-area-inset-bottom,0px) - 16px,12px) + 64px);background:var(--surface);border-top:1px solid var(--line);padding:12px 22px 10px;z-index:20}
+.deck{position:fixed;left:0;right:0;bottom:calc(max(env(safe-area-inset-bottom,0px) - 16px,12px) + 64px);background:var(--surface);border-top:1px solid var(--line);padding:12px 22px 10px;z-index:20;max-width:520px;margin:0 auto;border-left:1px solid var(--line);border-right:1px solid var(--line)} /* 判定板同 520 置中 */
 .deck .who{font-size:13px;color:var(--muted);text-align:center;margin-bottom:8px}
 .deck .who b{color:var(--ink)}
 /* judging → decision 區重排（老闆點名）：底線連結改四顆等寬小鍵，觸控目標大、不換行擠壓 */
