@@ -83,7 +83,8 @@
 ## 〇、補記 — 2026-07-21 之七（push 卡死在 Pushing… → callFn 加 2 分鐘逾時 ✅ 待 commit）
 - **老闆回報**：Update listing 卡在 Pushing…。查 edge log：sync-to-square 只有 2 筆 OPTIONS（preflight 過）、**POST 從未完成**＝大 payload（4 張商品圖 base64 幾 MB）上傳半路悶掉；`callFn` 裸 fetch **無逾時** → 按鈕永遠 Pushing…。非當日改動造成（push 管線當日零改動）。
 - **修法**：callFn 加 AbortController **120s 逾時**——超時 abort＋throw「Timed out after 2 min — check your connection and try again」→ push handler 既有 catch 會 alert＋按鈕復原可重試。
-- **第二幕（老闆重試撞「Push failed: unauthorized」）**：來源＝edge `auth.getUser()` 驗 token 不過（401）——頁面掛久 access_token（1h）過期；角色不對會是「directors only」所以不是權限。**修法**：callFn 拿 session 後**差 60 秒內到期就 `sb.auth.refreshSession()` 主動換新**，換不到 throw「Signed out — reload the app and sign in again」。即時解＝老闆重整 app 再 push。
+- **第二幕（老闆重試撞「Push failed: unauthorized」）**：來源＝edge `auth.getUser()` 驗 token 不過（401）——頁面掛久 access_token（1h）過期；角色不對會是「directors only」所以不是權限。**修法**：callFn 拿 session 後**差 60 秒內到期就 `sb.auth.refreshSession()` 主動換新**，換不到 throw「Signed out — reload the app and sign in again」。即時解＝老闆重整 app 再 push。⚠ 重整仍 401 ×5——重試打架把 refresh token family 撤銷（rotation），**要登出重登**才拿新組。
+- **第三幕（真兇definitivo）**：log 兩筆 **POST 503 execution_time 160 秒**＝edge push 流程太肥（ensure 分類/屬性/研磨串行分頁＋4 張圖串行上傳＋舊圖逐張查刪＝Square 來回 30+ 趟）超過 wall-clock 上限被砍。**sync-to-square v30 已部署（2026-07-21）**：三處並行化——①push 前置四項 Promise.allSettled（ensureRatioCategory/typeCat/ensureRatioRefDef/ensureGrindModifier）②4 張 attachImage 一起傳（imageStatus 邏輯保留 partial/failed 語意）③cleanupOldCardImages 內部並行。**零邏輯改動**；cav 改由 defId 構造（等價）。v29 原始碼在 git 歷史與本補記前版可回滾。
 - **驗證**：jscheck ✓；stub 正常路徑 callFn 照常回資料 ✓（abort 路徑＝標準模式，原生 fetch 尊重 signal）。**遺留觀察**：若老闆重試仍卡，就不是網路——查 payload 尺寸（renderSocialImages 4 張 JPEG）是否異常暴肥、或 Supabase gateway body 上限；替代解＝List 抽屜圖模式切 Colour（單卡最小）先推價。
 - **順帶學到**：Retail prices 設定「是否 wholesale 自動調」＝會，但要按 Update listing 推上 product_sync 後才生效（批發＝上架價×帳號折扣%）；「1kg 沒出現在購物車」同因——rtl_sizes 只是預設倉庫，push 才建 Square variation。
 
