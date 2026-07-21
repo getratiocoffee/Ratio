@@ -5100,13 +5100,13 @@ async function openTransferSheet(){
       var head='<div data-trow="g:'+esc(g.k)+'" style="border:1px solid var(--line2);border-radius:14px;padding:10px 13px;margin-top:8px">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer" data-tgx="'+esc(g.k)+'">'
         +'<span style="min-width:0">'
+        +(ed?'<button class="chip" data-tdrag style="margin:0 8px 0 0;padding:4px 7px;font-size:14px;color:var(--muted);touch-action:none;cursor:grab" aria-label="drag to reorder">≡</button>':'')
         +'<span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(d0)+';margin-right:6px;vertical-align:0"></span>'
         +'<span class="t" style="font-size:14.5px">'+esc(g.name)+'</span>'
         +(g.proc?' <span style="color:var(--muted);font-size:12px">'+esc(g.proc)+'</span>':'')
         +'<span class="s" style="display:block;color:var(--muted);font-size:12px;margin-top:3px;padding-left:14px">'+g.items.length+' batch'+(g.items.length===1?'':'es')+'</span>'
         +'</span>'
         +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto">'
-        +(ed?'<button class="chip" data-tdrag style="margin:0;padding:4px 7px;font-size:14px;color:var(--muted);touch-action:none;cursor:grab" aria-label="drag to reorder">≡</button>':'')
         +'<span style="font-weight:700;font-size:14.5px">'+g.kg+' kg</span>'
         +'<span style="color:var(--muted);font-size:12px">'+(open?'▾':'▸')+'</span>'
         +'</span></div>';
@@ -5120,7 +5120,7 @@ async function openTransferSheet(){
           +'<span style="min-width:0;cursor:pointer" data-tline="'+i+'">'
           +'<span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:'+rstFreshColor(t.roast_date)+';margin-right:6px;vertical-align:0"></span>'
           +'<span class="s" style="font-size:13px">'+(t.roast_date?fmtD(t.roast_date):'no date')+' batch</span>'
-          +'<span class="s" style="display:block;color:var(--muted);font-size:12px;padding-left:14px">'+(t.fixed_at?'fixed '+fmtD(t.fixed_at):esc(t.invoice_no||'invoiced'))+'</span>'
+          +(t.fixed_at?'<span class="s" style="display:block;color:var(--muted);font-size:12px;padding-left:14px">fixed '+fmtD(t.fixed_at)+'</span>':'') /* 發票號不上 shop 清單（2026-07-21 老闆點名）——查號去 🧾 */
           +'</span></span>'
           +'<span style="display:flex;align-items:center;gap:6px;flex:0 0 auto">'
           +'<span style="font-weight:700;font-size:14px;margin-right:2px">'+t.kg+' kg</span>'
@@ -5138,13 +5138,13 @@ async function openTransferSheet(){
       shopRows.push({k:'n:'+t.id,html:'<div data-trow="n:'+esc(t.id)+'" style="border:1.5px solid '+(pend?'var(--line2)':'var(--accent)')+';border-radius:14px;padding:10px 13px;margin-top:8px'+(pend?'':';background:color-mix(in srgb,var(--accent) 13%,transparent)')+'">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
         +'<span style="min-width:0;display:flex;align-items:center;gap:8px">'
+        +(ed?'<button class="chip" data-tdrag style="margin:0;padding:4px 7px;font-size:14px;color:var(--muted);flex:0 0 auto;touch-action:none;cursor:grab" aria-label="drag to reorder">≡</button>':'')
         +'<button class="chip" data-tc="'+i+'" style="margin:0;padding:2px 9px;font-size:15px;flex:0 0 auto;'+(ck?'border-color:var(--accent);color:var(--accent)':'color:var(--muted)')+'" aria-label="tick memo">'+(ck?'☑':'☐')+'</button>'
         +'<span style="min-width:0;cursor:pointer" data-tline="'+i+'">'
         +'<span class="t" style="font-size:14.5px">'+esc(t.name)+'</span>'
         +(t.process?' <span style="color:var(--muted);font-size:12px">'+esc(t.process)+'</span>':'')
         +'</span></span>'
         +'<span style="display:flex;align-items:center;gap:6px;flex:0 0 auto">'
-        +(ed?'<button class="chip" data-tdrag style="margin:0;padding:4px 7px;font-size:14px;color:var(--muted);touch-action:none;cursor:grab" aria-label="drag to reorder">≡</button>':'')
         +'<span style="font-weight:700;font-size:14.5px;margin-right:2px">'+t.kg+' kg</span>'
         +(ed?'<button class="chip" data-trm="'+i+'" style="margin:0;padding:4px 11px;color:var(--muted)" aria-label="remove line">✕</button>'
           +'<button class="chip" data-tdn="'+i+'" style="margin:0;padding:4px 12px;font-size:15px" aria-label="send back to roastery">↓</button>':'')
@@ -5152,7 +5152,7 @@ async function openTransferSheet(){
         /* 第二行獨立全寬（2026-07-21：手機窄欄擠爆——膠囊＋批次資訊移下來） */
         +'<div class="s" data-tline="'+i+'" style="color:var(--muted);font-size:12px;margin-top:5px;padding-left:2px;cursor:pointer">'
         +'<span style="background:'+(pend?'var(--muted)':'var(--accent)')+';color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:.5px;margin-right:7px;vertical-align:1px">'+(pend?'PENDING':'NEW')+'</span>'
-        +(t.roast_date?fmtD(t.roast_date):'no date')+' batch · '+(pend?(t.fixed_at?'fixed '+fmtD(t.fixed_at):esc(t.invoice_no||'invoiced')):'not invoiced yet')
+        +(t.roast_date?fmtD(t.roast_date):'no date')+' batch'+(pend?(t.fixed_at?' · fixed '+fmtD(t.fixed_at):''):' · not invoiced yet') /* 發票號不上 shop 清單（2026-07-21 老闆點名） */
         +'</div></div>'});
     });
     shopRows.forEach(function(r,i){var ix=TRF_ORDER.indexOf(r.k);r.ord=ix<0?TRF_ORDER.length+i:ix;});

@@ -80,7 +80,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
-## 〇、補記 — 2026-07-21 之三（Crows Nest：fixed 日期取代發票號＋Submit→PENDING→Transferred 到店流程 ✅ 待 commit＋**DB migration 已上線**）
+## 〇、補記 — 2026-07-21 之四（Crows Nest：shop 清單全面去發票號＋≡ 移卡片最左 ✅ 待 commit）
+- **老闆點名**：①Shop 層完全不顯示 invoice number（查號去 🧾）——明細行只剩日期 batch（有 fixed 才多一行 fixed 日期）、PENDING 卡第二行「PENDING · 日期 batch」②≡ 拖移把手移到**泡泡卡最左邊**（聚合組行首＋NEW/PENDING 卡 ☐ 左邊），右側只剩 kg ✕ ↓。
+- **意外收穫**：右側瘦身後 375px 名字不再折行。之三的 commit 老闆自己在 GitHub Desktop 分三筆推了（訊息 title/update/update），部署已驗 bytes 一致。
+- **驗證**：jscheck ✓；假資料——整個抽屜 grep 無 INV- ✓、明細行（無 fixed 乾淨/有 fixed「fixed 21/07」）✓、五張卡 ≡ 皆為卡內第一顆 chip ✓、左把手拖曳照常（Colombia 拖頂）✓、console 零錯誤＋截圖 ✓。serve 複本已 cp。
+
+## 〇、補記 — 2026-07-21 之三（Crows Nest：fixed 日期取代發票號＋Submit→PENDING→Transferred 到店流程 ✅ 已上線＋**DB migration 已上線**）
 - **老闆兩需求**：①Fix actual kg 過的行，第二行顯示 modified date、**移除 invoice number** ②Submit 後豆先掛 **PENDING**（不進抽屜），History 該發票多一顆 **Transferred** 鈕，按了 pending 拿掉、行才進聚合抽屜。
 - **Migration `transfers_fixed_arrived_at`（已上線）**：transfers 加 `fixed_at`（Fix 改動時間）＋`arrived_at`（到店確認時間）；**backfill 既有 settled 行 arrived_at=settled_at**（歷史庫存不變 pending）。
 - **狀態機**：pool（NEW）→ Submit → settled+arrived_at null（**PENDING 獨立卡**，灰膠囊/灰框、第二行全寬「PENDING · 日期 batch · INV#」）→ History「Transferred — put on shop shelf」（canWrite；整張發票 pendIds 一次 `update arrived_at`）→ 進聚合抽屜。History 組標題帶 PENDING 小膠囊。**刪發票撤銷連 arrived_at 一併清**（重 submit 才重走 pending）。
