@@ -80,6 +80,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-21 之十四（Publish 商品圖 4 張只上 2 張 → sync-to-square v31 ✅ 待 push 前端）
+- **老闆回報**：Publish Dark Knight 四張商品圖（cover·radar·origin·QR）Square 只出現兩張。**根因＝v30 的 Promise.allSettled 並行 attachImage**——Square 每掛一張圖 item version +1，四張同時打同一 item 撞樂觀鎖被退件（誰搶到誰活）；失敗只寫在回傳 `image:"partial (2/4)"` 欄位，前端沒看、照樣 toast「On the shelf ✓」＝靜默漏圖。佐證：v30 push 只跑 ~3s（v29 序列上圖要十幾秒）
+- **修復**：①**sync-to-square v31 已部署**——圖片改回**序列** attach＋每張失敗重試一次（~2s/張遠低於 160s；v30 其他並行 prep 全保留＝不會回到 503 超時）；cleanupOldCardImages 也改回序列（並行刪同 item 圖同樣撞鎖→舊圖清不掉）②前端 pushToSquare 接回傳檢查 `image` 欄位，`partial|failed` 開頭就 alert 明講「Push again to retry the images」——不再靜默
+- **驗證**：jscheck ✓、serve 複本已 cp；deploy 工具 verify_jwt 這次有參數可控＝保持 true（sync-to-square 本來就要 director JWT，不是 public-shop 那種匿名函式）
+- **⏭ 老闆收尾**：push 部署前端後，重新 Publish 一次 Dark Knight → Square 應見四張齊（兩張舊的自動被換掉）
+
 ## 〇、補記 — 2026-07-21 之十三（coffeeratio.com.au 網域接 Vercel ✅ 零程式碼變更）
 - **老闆點名**：VentraIP 的 coffeeratio.com.au 連到 ?shop。零改 code——未登入開根路徑本來就是公開菜單（?shop 沒程式判斷）。Chrome 代跑兩邊 Dashboard：
   - **Vercel**（ratio 專案 → Settings → Domains）：加 coffeeratio.com.au（自動 308 → www）＋ www.coffeeratio.com.au（Production）；SSL 已簽發

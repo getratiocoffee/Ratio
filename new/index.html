@@ -6214,8 +6214,11 @@ async function pushListToSquare(){
     var desc=[s.process||'',(s.features||[]).slice(0,3).join(', ')].filter(Boolean).join(' · ');
     /* 商品名（2026-07-13）：同名多處理法帶後綴「名 — 處理法」；payload 帶 process＝edge 按 name+process 定位列 */
     var listNm=LST.mkey||listNameFor(nm,s);
-    await callFn('sync-to-square',{action:'push',sample_id:nm,name:listNm,process:s.process||null,target_id:beanIdFor(nm,s.process)||null,description:desc,grams:LST.grams,price:price,variations:variations,
+    var pushRes=await callFn('sync-to-square',{action:'push',sample_id:nm,name:listNm,process:s.process||null,target_id:beanIdFor(nm,s.process)||null,description:desc,grams:LST.grams,price:price,variations:variations,
       image_b64:imgs64?null:img64, images_b64:imgs64, image_mime:imgs64?'image/jpeg':'image/png'});
+    /* 圖片沒全掛上要明講（曾經 4 張只上 2 張還顯示 ✓）——商品本體已同步，重按 Push 就會補齊 */
+    var imgStat=String(pushRes&&pushRes.image||'');
+    if(/^(partial|failed)/.test(imgStat))alert('Listing synced, but some product images did not attach — '+imgStat+'\n\nPush again to retry the images.');
     SHOP_STALE=true; /* 商品圖剛換過——下次看店面別吃 5 分鐘的舊快取 */
     /* 價格＋商品圖模式記憶寫回 app_state（讀回最新再改，避免蓋掉別台改的）——key＝上架顯示名（mkey） */
     try{
