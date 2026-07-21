@@ -5838,6 +5838,33 @@ function openFinTxSheet(){
     if(o)openOrderDetail(o,openFinTxSheet);
   });});
 }
+/* 訂單 invoice（2026-07-21 老闆點名「看到 pending_payment 的 invoice」）：訂單資料灌 Invoice 引擎出 PDF——
+   未付款單直接開發票去追款。發票號＝'INV-'+單號（重印同號、不咬 inv_seq 序列——那是手開發票用的）；
+   items 合計 ≠ 訂單 total 時補一行 Shipping & adjustments（GST inc）讓總額吻合 */
+async function orderInvoicePDF(o,btn){
+  var c=custById(o.customer_id);
+  var keep=INV;
+  try{
+    if(btn){btn.disabled=true;btn.textContent='Drawing…';}
+    var a=c&&c.address;
+    var addr=a?(typeof a==='string'?a:[a.line1,a.line2,a.city,a.state,a.postcode].filter(Boolean).join(', ')):'';
+    var items=(Array.isArray(o.items)?o.items:[]).map(function(it){
+      return {cat:'Roasted Beans',desc:String(it.name||''),pack:it.grams?it.grams+'g':'',qty:String(it.qty||1),unit:String(it.price!=null?it.price:''),gstMode:'plus'};
+    });
+    var sum=0;items.forEach(function(it){sum+=(parseFloat(it.qty)||0)*(parseFloat(it.unit)||0);});
+    var diff=Math.round(((Number(o.total)||0)-sum)*100)/100;
+    if(Math.abs(diff)>0.004)items.push({cat:'Delivery / other',desc:'Shipping & adjustments',pack:'',qty:'1',unit:String(diff),gstMode:'inc'});
+    var no='INV-'+String(o.order_no||'—').padStart(4,'0');
+    INV={buyerName:(c&&c.name)||'Walk-in',buyerEmail:(c&&c.email)||'',buyerAddr:addr,items:items,
+      notes:'Order #'+String(o.order_no||'—').padStart(4,'0')+(o.payment_status==='paid'?' · paid':' · payment pending — '+(o.payment_method==='bank_transfer'?'bank transfer':'card link')),
+      date:String(o.created_at||'').slice(0,10)||todayKey(),due:''};
+    await menusPDF(function(logo){buildInvoicePDF(logo,no);});
+    if(btn){btn.disabled=false;btn.textContent='Invoice PDF ✓';}
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Invoice PDF';}
+    alert('Invoice failed: '+(e&&e.message||e));
+  }finally{INV=keep;}
+}
 function openOrderDetail(o,backTo){
   var c=custById(o.customer_id);
   var items=(Array.isArray(o.items)?o.items:[]).map(function(it){
@@ -5853,10 +5880,12 @@ function openOrderDetail(o,backTo){
     +(o.dispatched_at?'<div class="dl"><span>Dispatched</span><span>'+(fmtD(o.dispatched_at)||'—')+'</span></div>':'')
     +(o.tracking_no?'<div class="dl"><span>Tracking</span><span>'+esc(o.tracking_no)+'</span></div>':'')
     +'</div>'
+    +((rsMoney()||isLead())?'<button class="act" id="od-inv" style="margin-top:12px">Invoice PDF'+(o.payment_status==='paid'?'':' — send for payment')+'</button>':'')
     +'<button class="dclose" id="od-back">‹ Back to list</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('od-back').addEventListener('click',backTo||openOrdersSheet); /* 來源清單（Transactions 也用這詳情） */
   $('d-cl').addEventListener('click',closeDrawer);
+  if($('od-inv'))$('od-inv').addEventListener('click',function(){orderInvoicePDF(o,this);});
 }
 /* ===== 收生豆（照 classic receivePurchase 規則但免採購單：併現有批次或開新豆＋stock_moves 'receive'）===== */
 var RCV=null;
@@ -12142,7 +12171,8 @@ var SHOP_SUBS=[],SHOP_SUBPLAN='blend'; /* 店面訂閱卡：public-shop v11 subs
 async function loadShopMenu(fresh){
   try{
     var bust=(fresh||SHOP_STALE);
-    var r=await fetch(SUPABASE_URL+'/functions/v1/public-shop'+(bust?('?t='+Date.now()):''),bust?{cache:'no-store'}:undefined);
+    /* apikey header（2026-07-21）：public-shop v15 起走 verify_jwt 閘門——publishable key 就能過，匿名客人照常 */
+    var r=await fetch(SUPABASE_URL+'/functions/v1/public-shop'+(bust?('?t='+Date.now()):''),{headers:{'apikey':SUPABASE_KEY},cache:bust?'no-store':'default'});
     var d=await r.json();
     if(bust)SHOP_STALE=false;
     SHOP_SUBS=(d&&d.ok&&Array.isArray(d.subs))?d.subs:[];
@@ -12171,6 +12201,17 @@ function cartAdd(item){
 }
 function cartCount(){return cartGet().reduce(function(a,x){return a+(x.qty||1);},0);}
 function cartTotal(){return cartGet().reduce(function(a,x){return a+(x.qty||1)*(Number(x.price)||0);},0);}
+/* 買三送一（2026-07-21 老闆點名跟 Square 同優惠）：非訂閱滿 4 袋送最便宜 1 袋（一單一次＝POS 同行為）。
+   這裡只管畫面；實收金額 public-shop v15 checkout 同步折（付款連結上看得到折扣行） */
+function cartBogo(){
+  var bags=[];
+  cartGet().forEach(function(x){
+    if(isSubName(x.bean))return;
+    var q=x.qty||1,p=Number(x.price)||0;
+    for(var i=0;i<q;i++)bags.push(p);
+  });
+  return {n:bags.length,off:bags.length>=4?Math.min.apply(null,bags):0};
+}
 /* 右上角購物車 icon：掛在 #hcnt（商店/客戶頁呼叫；其他分頁寫回文字自然蓋掉） */
 function mountCartIcon(){
   $('hcnt').innerHTML='<button class="hcart" id="hcart" aria-label="Cart">'
@@ -12203,7 +12244,14 @@ function openCartSheet(){
         +'<span style="white-space:nowrap">'+money((Number(it.price)||0)*it.qty)
         +' <button data-crm="'+ix+'" style="border:none;background:none;color:var(--danger);font-size:18px;font-weight:700;cursor:pointer;font-family:inherit;padding:4px 2px 4px 8px">✕</button></span></div>';
     }).join('')
-    +'<div class="dl" style="border-bottom:none"><span><b>Subtotal</b></span><span><b>'+money(cartTotal())+'</b></span></div>'
+    +(function(){
+      var bg=cartBogo(),sub=cartTotal();
+      if(bg.off)return '<div class="dl"><span>Subtotal</span><span>'+money(sub)+'</span></div>'
+        +'<div class="dl"><span style="color:var(--accent)">Buy 3 get 1 free — cheapest bag</span><span style="color:var(--accent)">−'+money(bg.off)+'</span></div>'
+        +'<div class="dl" style="border-bottom:none"><span><b>Total</b></span><span><b>'+money(Math.max(0,Math.round((sub-bg.off)*100)/100))+'</b></span></div>';
+      return '<div class="dl" style="border-bottom:none"><span><b>Subtotal</b></span><span><b>'+money(sub)+'</b></span></div>'
+        +(bg.n===3?'<div class="s" style="margin-top:2px;color:var(--accent)">Add 1 more bag — the cheapest one goes free ☕</div>':'');
+    })()
     +'<div class="s" style="margin-top:2px">shipping arranged after payment</div>'
     +'<button class="act" id="cart-go">Checkout with Square</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Keep browsing</button>');
@@ -12219,7 +12267,7 @@ function openCartSheet(){
   $('cart-go').addEventListener('click',async function(){
     var b=$('cart-go');b.disabled=true;b.textContent='Opening secure checkout…';
     try{
-      var r=await fetch(SUPABASE_URL+'/functions/v1/public-shop',{method:'POST',headers:{'Content-Type':'application/json'},
+      var r=await fetch(SUPABASE_URL+'/functions/v1/public-shop',{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},
         body:JSON.stringify({action:'checkout',items:cartGet().map(function(x){return {id:x.vid,qty:x.qty};})})});
       var res=await r.json();
       if(res&&res.ok&&res.url){location.href=res.url;return;} /* cart 不先清——取消付款回來還在；付款成功走 ?checkout=done 清 */

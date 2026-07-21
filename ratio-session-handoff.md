@@ -80,6 +80,17 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-21 之十（?shop 買三送一 ✅＋⚠ public-shop verify_jwt 事故與 apikey hotfix）
+- **老闆點名網店同優惠**：規則同 Square POS＝非訂閱滿 4 袋送最便宜 1 袋、一單一次。①前端 `cartBogo()`（訂閱 isSubName 排除、qty 展開取 min）＋openCartSheet 折扣行/折後 Total/3 袋促購行 ②**public-shop v15 已部署**：checkout 建 priceOfVar（livePrice＋sizesOfItem 全 variations）＋subVids 排除訂閱 → bagPrices≥4 → `order.discounts` fixed 折最便宜（Square 付款頁顯示折扣行；SUBTOTAL_PHASE surcharge 在折後算）；SUB_RE 提頂層、GET 菜單順手濾掉訂閱商品列（subs[] 專屬）。
+- **⚠ 事故＋修復**：MCP deploy 工具把 public-shop `verify_jwt` false→**true**（工具預設、無參數可關）——匿名 GET/POST 全 401、**網店對訪客掛掉**。Supabase/GitHub Dashboard 皆登出無法代跑改回。**Hotfix＝前端兩處 public-shop fetch 加 `apikey: SUPABASE_KEY` header**（實測 publishable key 過 verify_jwt 閘 200）——**要 push 部署 Vercel 才恢復**。⚠ 之後任何 MCP redeploy public-shop 都會維持 verify_jwt true——前端已帶 apikey 無妨；若要改回 false 需老闆登 Supabase Dashboard（Edge Functions→public-shop→Details）。
+- **驗證**：jscheck ✓；前端假資料——4 袋（含 1kg $100＋訂閱）折 $22/Total 對、訂閱不計件、3 袋促購行 ✓；**edge 端到端**：GET 菜單 14 豆＋Dark Knight sizes 250/500/**1000g**（1kg 已在菜單資料）✓、checkout 4×250g → bogo_off 25/total 75/連結成立 ✓。
+- **Square 折扣補記**：買三送一 Dashboard 折扣「Buy Any 4, Get Cheapest Free」已改 All locations＋Add all items（之九）。
+
+## 〇、補記 — 2026-07-21 之九（訂單詳情 Invoice PDF＋Square 買三送一設定 ✅）
+- **老闆點名「看到 pending_payment 的 invoice」**：openOrderDetail 加「Invoice PDF」鈕（rsMoney/isLead；未付款單標「— send for payment」）→ `orderInvoicePDF(o,btn)`：訂單灌 Invoice 引擎（INV keep/restore 照 trfInvoicePDF 路數）——items 映 Roasted Beans（GST-free）、**合計≠total 補「Shipping & adjustments」行（GST inc）總額吻合**、發票號＝'INV-'+單號（重印同號、不咬 inv_seq）、notes 帶付款狀態。Transactions/Orders 兩清單的詳情都有。驗證：jscheck ✓、端到端 INV-0030.pdf 269KB＋鈕 ✓、差額行 $12 GST inc ✓、console 零錯誤。
+- **Square 買三送一（老闆點名，Chrome 代跑 Square Dashboard 完成）**：既有折扣「Buy Any 4, Get Cheapest Free」（買 3 送 1 最低價、100%）原只掛 Online Store＋14 items——已改 **All locations**（含 Crows Nest POS）＋**兩段規則都開 Add all items**（動態全商品、新豆自動含入），Saved ✓。⚠ 已知：自建 ?shop 網店不吃 Square 折扣（quick_pay 固定額）；一單只自動套一次；All items 含訂閱商品（POS 不會刷到、實害無）。
+- **順帶發現**：Dark Knight variations（$25–$100）已在 Square 上＝先前 160s 超時的 push 其實「商品＋價格」段早成功、只斷在圖片；老闆補按 Update listing 傳圖即可。
+
 ## 〇、補記 — 2026-07-21 之八（Finance→Transactions 訂單金流磁貼 ✅ 待 commit）
 - **老闆點名**「finance 那邊做個 icon 查看 ordering 的 transaction」。Tools Finance 區（rsMoney）加 **Transactions** 磁貼（data-t 'fintx'）→ `openFinTxSheet`：DB.orders（非取消、時間降序）＋**All/Paid/Unpaid seg**（FTX.f）＋頂部筆數/總額＋**月分組**（月標題帶 n·$小計）；行＝#單號·客名·$·日期·bank/card·paid✓（accent）/unpaid/overdue（紅）；點行 → `openOrderDetail(o,backTo)`——**detail 加第二參數 backTo**（預設 openOrdersSheet 不變），Transactions 進去 Back 回 Transactions 且篩選保留。
 - **驗證**：jscheck ✓；假資料 4 單兩月——月分組（July 3·$125/June 1·$32.50）＋總計 $157.50 ✓、Unpaid 篩 2 筆（pending+overdue）✓、詳情 #0031→Back 回 Transactions＋seg 保留 ✓、console 零錯誤＋截圖 ✓。serve 複本已 cp。
