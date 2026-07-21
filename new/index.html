@@ -4937,7 +4937,7 @@ function openBatchesSheet(){
   /* 降級量另計另示（不混進可賣總量） */
   var dgTot=0;rows.forEach(function(x){dgTot+=x.dgKg||0;});
   dgTot=Math.round(dgTot*100)/100;
-  var h='<div class="t" style="font-size:19px">Coffee Stock</div>'
+  var h='<div class="t" style="font-size:19px">Roastery Stock</div>'
     +'<div class="gs-sum"><div class="box"><div class="n">'+totKg+'</div><div class="l">kg on shelf</div></div>'
     +'<div class="box"><div class="n">'+rows.length+'</div><div class="l">Coffee'+(rows.length===1?'':'s')+'</div></div></div>'
     +(dgTot>0?'<div class="s" style="margin-top:6px;text-align:center;color:var(--danger)">+'+dgTot+' kg downgraded (not counted in shelf total)</div>':'')
@@ -5306,8 +5306,8 @@ async function openTransferSheet(){
   h+='<div style="display:flex;align-items:center;gap:10px;margin:16px 0 2px;color:var(--muted);font-size:12px">'
     +'<span style="flex:1;border-top:1px solid var(--line)"></span>↑ to shop · ↓ back to roastery<span style="flex:1;border-top:1px solid var(--line)"></span></div>'
     /* ── 下層 ROASTERY ── */
-    +'<div class="dlab" style="display:flex;justify-content:space-between;align-items:baseline"><span>Roastery · Coffee Stock</span><span style="font-weight:700;color:var(--ink);text-transform:none;letter-spacing:0">'+trfRoasteryKg()+' kg</span></div>';
-  if(!rrows.length)h+='<div class="empty" style="padding:14px 0">Nothing sellable in Coffee Stock</div>';
+    +'<div class="dlab" style="display:flex;justify-content:space-between;align-items:baseline"><span>Roastery Stock</span><span style="font-weight:700;color:var(--ink);text-transform:none;letter-spacing:0">'+trfRoasteryKg()+' kg</span></div>';
+  if(!rrows.length)h+='<div class="empty" style="padding:14px 0">Nothing sellable in Roastery Stock</div>';
   else h+=rrows.map(function(x,i){
     var d0=x.batches.length?x.batches[0].roast_date:null; /* FIFO 最舊批的鮮度點 */
     return '<div style="border:1px solid var(--line2);border-radius:14px;padding:10px 13px;margin-top:8px">'
@@ -5472,7 +5472,7 @@ async function openTransferHistory(){
     document.querySelectorAll('#drawer [data-thd]').forEach(function(el){el.addEventListener('click',async function(ev){
       ev.stopPropagation();
       var g=gs[+el.dataset.thd];
-      if(!confirm('Delete invoice '+g.no+' ('+g.kg+' kg · '+money(g.amt)+')?\n\nThe beans go back to ‹new› on the shop list — Coffee Stock is not changed.'))return;
+      if(!confirm('Delete invoice '+g.no+' ('+g.kg+' kg · '+money(g.amt)+')?\n\nThe beans go back to ‹new› on the shop list — Roastery Stock is not changed.'))return;
       el.disabled=true;el.textContent='Deleting…';
       var d=await sb.from('transfers').update({status:'pool',invoice_no:null,price_per_kg:null,settled_at:null,arrived_at:null}).eq('invoice_no',g.no).eq('status','settled'); /* arrived_at 一併清——重新 submit 才會重走 pending 流程 */
       if(d.error){el.disabled=false;el.textContent='Delete';alert('Failed: '+d.error.message);return;}
@@ -5497,7 +5497,7 @@ function openTransferAdd(){
   /* lock＝雙層 ↑ 預選進來（2026-07-20）：藏 seg＋豆下拉，標題直接帶豆名，只剩批次＋kg 兩步 */
   var lock=!!TRF.lock&&!!cur;
   var h='<div class="t" style="font-size:19px">'+(lock?('↑ '+esc(cur.name)+(cur.proc?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(cur.proc)+'</span>':'')):'Send to shop')+'</div>'
-    +'<div class="s" style="margin-top:2px">comes off Coffee Stock now — invoiced on Sunday</div>'
+    +'<div class="s" style="margin-top:2px">comes off Roastery Stock now — invoiced on Sunday</div>'
     +(lock?'':'<div class="pm-seg" style="margin-top:10px"><button id="tra-b" class="'+(isBlend?'on':'')+'">Blends</button><button id="tra-s" class="'+(isBlend?'':'on')+'">Single origins</button></div>'
     +'<div class="dlab">Coffee</div>'
     +(rows.length?'<select class="din" id="tra-bean"><option value="">— pick a coffee —</option>'
@@ -5576,7 +5576,7 @@ function openTransferLine(t){
     +'<button class="dclose" id="trm-ret" style="flex:1.3;margin-top:0;white-space:nowrap;border-radius:16px">Return to stock</button>'
     +'<button class="dclose" id="trm-used" style="flex:1;margin-top:0;white-space:nowrap;border-radius:16px">Used</button>'
     +'</div>'
-    +'<div class="s" style="margin-top:6px;color:var(--muted)">Return puts the beans back in Coffee Stock · Used removes the line without returning'+(isNew?'':' · fixing kg also updates the invoice record')+'</div>'
+    +'<div class="s" style="margin-top:6px;color:var(--muted)">Return puts the beans back in Roastery Stock · Used removes the line without returning'+(isNew?'':' · fixing kg also updates the invoice record')+'</div>'
     +'<button class="dclose" id="trm-cancel" style="border:none;background:none;color:var(--muted)">Cancel</button>');
   if($('trm-fix'))$('trm-fix').addEventListener('click',function(){openTransferFix(t);});
   $('trm-ret').addEventListener('click',function(){transferReturn(t);});
@@ -5614,7 +5614,7 @@ async function transferReturn(t){
   if(!canWrite()){roToast();return;}
   if(!t||!t.id)return;
   /* 退回警訊（2026-07-20 老闆點名）：↓ 與行詳情 Return 都過這關 */
-  if(!confirm('Return '+t.kg+' kg of '+t.name+(t.process?' ('+t.process+')':'')+' to the roastery?\n\nCoffee Stock goes back up and the line leaves the shop list.'))return;
+  if(!confirm('Return '+t.kg+' kg of '+t.name+(t.process?' ('+t.process+')':'')+' to the roastery?\n\nRoastery Stock goes back up and the line leaves the shop list.'))return;
   var back=trfBackBatch(t);
   if(!back){alert('No batch left to return this to — use Log roast Intake to book it back in.');return;}
   var nv=Math.round(((Number(back.remaining_kg)||0)+(Number(t.kg)||0))*1000)/1000;
@@ -5640,7 +5640,7 @@ function openTransferFix(t){
   openDrawerHTML('<div class="t" style="font-size:19px">Fix kg · '+esc(t.name)+(t.process?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+esc(t.process)+'</span>':'')+'</div>'
     +'<div class="s" style="margin-top:2px">'+(t.roast_date?fmtD(t.roast_date):'no date')+' batch · now '+t.kg+' kg — type the actual kg</div>'
     +'<div class="dlab">Actual kg</div><input class="din" id="tfx-kg" inputmode="decimal" placeholder="'+t.kg+'">'
-    +'<div class="s" style="margin-top:6px;color:var(--muted)">Just fixes this number — Coffee Stock is not touched</div>'
+    +'<div class="s" style="margin-top:6px;color:var(--muted)">Just fixes this number — Roastery Stock is not touched</div>'
     +'<div style="display:flex;gap:8px;align-items:stretch;margin-top:12px">'
     +'<button class="dclose" id="tfx-back" style="flex:1;margin-top:0;white-space:nowrap;border-radius:16px">‹ Back</button>'
     +'<button class="act" id="tfx-save" style="flex:1.6;margin-top:0;white-space:nowrap">Save</button>'
@@ -7513,7 +7513,7 @@ async function submitAllSession(){
     RO.batches=[];RO.bb=[roEmptyBlendBatch()];
     await saveRoastDraft();
     closeDrawer();
-    if(shortAll.length)alert(msg.join(' + ')+' logged, but batch stock came up short:\n'+shortAll.join('\n')+'\n\nCheck the batch levels under Coffee Stock.');
+    if(shortAll.length)alert(msg.join(' + ')+' logged, but batch stock came up short:\n'+shortAll.join('\n')+'\n\nCheck the batch levels under Roastery Stock.');
     else toast(msg.join(' + ')+' logged ✓');
     await reload();
   }catch(e){
@@ -11330,7 +11330,7 @@ function renderTools(){
     +_sec('Roasted Bean',DEPT.roast,
       (_mk?_mkTile('t-roast','Log roast','green in','flame'):'')
       /* Delete a coffee＋Clean up 磁貼已移除（2026-07-18 老闆點名）——openDeleteCoffeeSheet/openCleanupSheet 函式保留，復活加回磁貼一行即可 */
-      +_tiles([['Coffee Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Crows Nest','transfer pool · Sunday invoice','transfer','dispatch',_mk?1:0],['Coffee Info','flavour · dossier','retail','market']]))
+      +_tiles([['Roastery Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Crows Nest','transfer pool · Sunday invoice','transfer','dispatch',_mk?1:0],['Coffee Info','flavour · dossier','retail','market']]))
     +_sec('QC &amp; Recipe',DEPT.qc,
       _tiles([['QC','cup and judge','qcgo','qc'],['Live cupping','blind · together','livecup','qc'],['Blend Recipe','blends · dial-in','recipe','recipe'],['A68 Dial in','espresso shots','dialin','espresso',1]]))
     /* 2026-07-12 統整：Coffee Info/Post to socials/IG asset/Announce 四顆收進 Publish 一鍵上架面板 */
