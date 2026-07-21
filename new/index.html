@@ -12126,6 +12126,8 @@ function renderHome(){
 function render(){
   /* 浮水印只給今日流：內容少的頁（QC/Tools）整塊露出來像破圖 */
   var bgl=document.querySelector('.bglogo');if(bgl)bgl.style.display='';
+  /* 保險絲（2026-07-21 老闆抓蟲）：晚到的店面渲染可能把 shoptabs 打開黏在員工介面底部——員工每次重繪都藏 */
+  var stb=$('shoptabs');if(stb)stb.style.display='none';
   if(view==='home')renderHome();else if(view==='feed')renderFeed();else if(view==='beans')renderBeans();else if(view==='tools')renderTools();
   /* 判定板亮著時底部留白加大，清單最後一列才捲得出來（板＋nav 疊起來近 300px） */
   document.body.style.paddingBottom=($('deck').style.display==='block')?'330px':'';
@@ -12703,14 +12705,18 @@ function promoMarqueeHTML(){
   var seg='<span style="padding:0 26px">'+msg+'</span><span style="padding:0 26px">'+msg+'</span>';
   return '<div class="pmq" aria-label="Buy any 3 get 1 free"><div>'+seg+seg+'</div></div>';
 }
-/* 沒登入＝店面：豆單直接開門見山（員工從底部小連結登入） */
+/* 沒登入＝店面：豆單直接開門見山（員工從底部小連結登入）
+   BOOT_EPOCH（2026-07-21 老闆抓蟲）：店面要 await 菜單才開 shoptabs——等待期間視角切了（登入完成），
+   晚到的渲染會把 shoptabs 黏在員工介面底、還蓋掉 main。每次 boot ++，await 完發現代次不符＝放棄 */
 async function renderPublicMenu(){
+  var ep=BOOT_EPOCH;
   document.body.classList.remove('appview');
   var nav=document.querySelector('nav');if(nav)nav.style.display='none';
   mountCartIcon();
   var m=$('main');
   m.innerHTML='<div class="empty">Loading the shelf…</div>';
   SHOP_BEANS=await loadShopMenu();
+  if(ep!==BOOT_EPOCH)return; /* 視角已換人——別蓋台 */
   m.innerHTML=promoMarqueeHTML()
     +'<div id="shopbody"></div>'
     +'<div class="note" style="margin-top:16px"><a href="/?apply" style="color:var(--accent)">Run a cafe? Apply for a wholesale account →</a></div>'
@@ -12722,6 +12728,7 @@ async function renderPublicMenu(){
 }
 /* 客戶登入＝豆單在上、自己的訂單在下＋切員工登入鍵；wholesale 角色＝同門戶換批發菜單＋付款抽屜 */
 async function renderCustomerPortal(sess){
+  var ep=BOOT_EPOCH;
   document.body.classList.remove('appview');
   WS_MODE=(ROLE==='wholesale');
   var nav=document.querySelector('nav');if(nav)nav.style.display='none';
@@ -12741,6 +12748,7 @@ async function renderCustomerPortal(sess){
     }
   }catch(e){}
   SHOP_BEANS=await beansP;
+  if(ep!==BOOT_EPOCH)return; /* 同 renderPublicMenu：晚到的門戶渲染別蓋掉新視角 */
   m.innerHTML='<div class="card brief"><span class="tag">'+(WS_MODE?'Wholesale':'Welcome')+'</span>'
     +'<div class="t">'+esc(custName||'Hello')+'</div>'
     +'<div class="s">'+(WS_MODE
@@ -12774,7 +12782,9 @@ async function renderCustomerPortal(sess){
 }
 /* 三層路由：沒登入＝豆單店面／customer＝客戶門戶／員工四角色＝操作台。
    登入、登出後都重呼叫一次即可換視角（nav/chips 先復位，因為店面與門戶會藏 nav） */
+var BOOT_EPOCH=0; /* 每次 boot ++＝作廢所有還掛在 await 的舊視角渲染 */
 async function boot(){
+  BOOT_EPOCH++;
   /* 付款完成回店面：清購物車＋致謝（Square redirect_url 帶 ?checkout=done 回來） */
   if(/[?&]checkout=done/.test(location.search)){
     try{localStorage.setItem('r2_cart','[]');}catch(e){}

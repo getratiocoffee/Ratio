@@ -80,6 +80,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-21 之十六（員工介面底部黏店面 Blend/Single origin/Subscription 條 ✅ 待 push）
+- **老闆真機抓蟲**：Tools 頁底部出現店面分類條（#shoptabs）。根因＝**視角切換 race**：renderPublicMenu/renderCustomerPortal 要 `await loadShopMenu()` 才 renderShopTabs()——等待期間登入完成（boot 切員工視角、12785 藏 shoptabs），**晚到的渲染回來把 shoptabs 重新打開**（還會把 m.innerHTML 蓋成店面），之後無人再藏 → 黏在員工介面底
+- **修復兩道**：①**BOOT_EPOCH 代次**（根治）——boot() 開頭 ++；兩個店面渲染進場記 ep、await 完 `ep!==BOOT_EPOCH` 就 return（晚到渲染整段放棄，連蓋 main 的問題一起解）②**render() 保險絲**——員工每次重繪 `$('shoptabs').style.display='none'`（就算哪天又漏，點任何 nav 即復原）
+- **驗證**：jscheck ✓；預覽模擬 race（攔 fetch 慢回應→renderPublicMenu 掛起→BOOT_EPOCH++→renderTools→放行 fetch）——晚到渲染放棄、main 保持 Tools ✓；硬開 shoptabs 後 render() 藏回 ✓；console 零錯誤。serve 複本已 cp
+
 ## 〇、補記 — 2026-07-21 之十五（Tools 分類大 icon 化＋分類抽屜 ✅ 待 push；同輪：Roastery Stock 改名、Crows Nest ↓ 移除＋✕→✎）
 - **老闆點名三連**：①UI 全部「Coffee Stock」→「Roastery Stock」（10 處含 Tools 磁貼名）②Crows Nest 列上 ↓ 一鍵退回鈕移除（退回收斂到行詳情 Return to stock）＋列上 ✕ 改 ✎ ③**Tools 主要分類改大 icon、點開抽屜看磁貼**（A 案＋抽屜；老闆選定）
 - **Tools 改造實作**：`runTool(k)`＝原 data-t if 鏈抽成全域函式（40 個 key 對照零改）；`_sec(title,color,icon,inner)` 改回傳 `.catcard` 大 icon 卡（52px `.catic` 吃 --dept 色）、磁貼 HTML 存 `TOOLCATS_LIVE`；`openToolCatSheet(key)` 開分類抽屜＝標題帶色 icon＋tgrid 磁貼＋Close，**注入後才綁** data-t→runTool＋六顆 id 磁貼（t-recv/t-stk/t-roast/t-neworder/t-task/t-label——綁定時機是最大陷阱，磁貼已不在主頁 DOM）；主頁順序＝搜尋→catgrid→Notifications→Appearance（全在 #tgroups 內＝lookup 顯隱照舊）；TOOL_ICONS 新增 `gear`（Setting 用）；CSS 新增 .catgrid/.catcard/.catic/.catl
