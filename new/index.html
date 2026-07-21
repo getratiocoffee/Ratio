@@ -3279,6 +3279,98 @@ function openEditNotesForm(s){
   $('d-cl').addEventListener('click',openEditNotesSheet);
 }
 var PUB={open:null};
+/* 預設零售價（2026-07-21 老闆定稿：**過完 QC 的豆一次設所有克數價錢**）：
+   清單＝有 QC pass 批次的豆；每豆一卡＝Bag size seg＋bag 價＋500g＋1kg（同 List 抽屜四件）；
+   存 rtl_price/rtl_g/rtl_sizes 價格記憶 → List on Square 全部自動預填（openListSheet 零改動）。
+   key 照上架同規則（listNameFor）；整卡全空＝該豆不動；500g/1kg 清空＝拿掉該規格 */
+var RPP={rows:null};
+async function openRetailPresets(){
+  if(!isLead()){roToast();return;}
+  openDrawerHTML('<div class="t" style="font-size:19px">Retail prices</div><div class="empty">Loading…</div>');
+  var mem={rtl_price:{},rtl_g:{},rtl_sizes:{}};
+  try{var r=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes']);
+    (r.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
+      if(v&&typeof v==='object')mem[x.key]=v;});
+  }catch(e){}
+  var rows=[];
+  [true,false].forEach(function(ib){
+    rstRows(ib).filter(function(x){return x.batches.some(function(b){return qcState(b)==='pass';});}) /* 過完 QC 的豆才列 */
+      .sort(function(a,b){return a.name.localeCompare(b.name);})
+      .forEach(function(x){
+        var key=ib?x.name:listNameFor(x.name,{process:x.proc||''});
+        var p=mem.rtl_price[key]!=null?mem.rtl_price[key]:mem.rtl_price[x.name];
+        var sc=mem.rtl_sizes[key]||mem.rtl_sizes[x.name]||{};
+        rows.push({key:key,name:x.name,proc:ib?'':(x.proc||''),
+          g:mem.rtl_g[key]||mem.rtl_g[x.name]||250,
+          p:p!=null?String(p):'',p5:sc.g500!=null?String(sc.g500):'',p1:sc.g1000!=null?String(sc.g1000):''});
+      });
+  });
+  RPP.rows=rows;
+  paintRetailPresets();
+}
+function paintRetailPresets(){
+  var rows=RPP.rows||[];
+  var h='<div class="t" style="font-size:19px">Retail prices</div>'
+    +'<div class="s" style="margin-top:2px">coffees that passed QC — set bag size and every price once; List on Square picks them up · untouched coffees keep their old prices</div>'
+    +(rows.length?rows.map(function(r,i){
+      return '<div style="border:1px solid var(--line2);border-radius:14px;padding:10px 13px;margin-top:8px">'
+        +'<div><span class="t" style="font-size:14.5px">'+esc(r.name)+'</span>'
+        +(r.proc?' <span style="color:var(--muted);font-size:12px">'+esc(r.proc)+'</span>':'')+'</div>'
+        +'<div class="pm-seg" style="margin-top:8px">'+[100,150,200,250].map(function(g){return '<button data-rpg="'+i+':'+g+'"'+(r.g===g?' class="on"':'')+'>'+g+'g</button>';}).join('')+'</div>'
+        +'<div style="display:flex;gap:8px;margin-top:8px">'
+        +'<span style="flex:1"><span class="s" style="color:var(--muted);font-size:11.5px">Bag $</span><input class="din" data-rp="'+i+'" inputmode="decimal" placeholder="—" value="'+esc(r.p)+'" style="margin-top:3px"></span>'
+        +'<span style="flex:1"><span class="s" style="color:var(--muted);font-size:11.5px">500g $</span><input class="din" data-rp5="'+i+'" inputmode="decimal" placeholder="—" value="'+esc(r.p5)+'" style="margin-top:3px"></span>'
+        +'<span style="flex:1"><span class="s" style="color:var(--muted);font-size:11.5px">1kg $</span><input class="din" data-rp1="'+i+'" inputmode="decimal" placeholder="—" value="'+esc(r.p1)+'" style="margin-top:3px"></span>'
+        +'</div></div>';
+    }).join(''):'<div class="empty">No coffees passed QC yet<br>Pass one in QC first, then set its prices here</div>')
+    +(rows.length?'<button class="act" id="rp-save">Save prices</button>':'')
+    +'<button class="dclose" id="rp-back">‹ Back</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
+  openDrawerHTML(h);
+  $('rp-back').addEventListener('click',openPublishSheet);
+  $('d-cl').addEventListener('click',closeDrawer);
+  /* Bag size seg：先把輸入值收回 rows 再重繪（別讓重繪吃掉打到一半的價） */
+  function grabInputs(){
+    (RPP.rows||[]).forEach(function(r,i){
+      var e1=document.querySelector('#drawer [data-rp="'+i+'"]'),e5=document.querySelector('#drawer [data-rp5="'+i+'"]'),ek=document.querySelector('#drawer [data-rp1="'+i+'"]');
+      if(e1)r.p=e1.value;if(e5)r.p5=e5.value;if(ek)r.p1=ek.value;
+    });
+  }
+  document.querySelectorAll('#drawer [data-rpg]').forEach(function(el){el.addEventListener('click',function(){
+    var pr=el.dataset.rpg.split(':');grabInputs();RPP.rows[+pr[0]].g=+pr[1];paintRetailPresets();
+  });});
+  if($('rp-save'))$('rp-save').addEventListener('click',async function(){
+    var btn=this;btn.disabled=true;btn.textContent='Saving…';
+    grabInputs();
+    try{
+      /* read-modify-write 三包記憶：只動有填的豆，別家豆原封保留 */
+      var q=await sb.from('app_state').select('key,value').in('key',['rtl_price','rtl_g','rtl_sizes']);
+      var cur={rtl_price:{},rtl_g:{},rtl_sizes:{}};
+      (q.data||[]).forEach(function(x){var v=x.value;if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
+        if(v&&typeof v==='object')cur[x.key]=v;});
+      var n=0,nowIso=new Date().toISOString();
+      (RPP.rows||[]).forEach(function(r){
+        var p=parseFloat((r.p||'').trim()),p5=parseFloat((r.p5||'').trim()),p1=parseFloat((r.p1||'').trim());
+        var has=(!isNaN(p)&&p>0)||(!isNaN(p5)&&p5>0)||(!isNaN(p1)&&p1>0);
+        if(!has)return; /* 整卡全空＝這支不動 */
+        n++;
+        if(!isNaN(p)&&p>0)cur.rtl_price[r.key]=Math.round(p*100)/100;
+        cur.rtl_g[r.key]=r.g;
+        var sc={};
+        if(!isNaN(p5)&&p5>0)sc.g500=Math.round(p5*100)/100;
+        if(!isNaN(p1)&&p1>0)sc.g1000=Math.round(p1*100)/100;
+        if(Object.keys(sc).length)cur.rtl_sizes[r.key]=sc;else delete cur.rtl_sizes[r.key]; /* 清空＝拿掉加購規格 */
+      });
+      for(var k in cur){
+        var u=await sb.from('app_state').upsert({key:k,value:cur[k],updated_at:nowIso},{onConflict:'key'});
+        if(u.error)throw new Error(u.error.message);
+      }
+      if(n)logAct('retail prices preset','',n+' coffee'+(n===1?'':'s'));
+      toast('Saved ✓'+(n?' · '+n+' coffee'+(n===1?'':'s'):''));
+    }catch(e){alert('Save failed: '+(e&&e.message||e));}
+    btn.disabled=false;btn.textContent='Save prices';
+  });
+}
 async function openPublishSheet(){
   openDrawerHTML('<div class="t" style="font-size:19px">Publish</div><div class="empty" style="margin-top:16px">Loading…</div>');
   var sl=await shelfLiveBeans();
@@ -3356,9 +3448,11 @@ function paintPublishSheet(sl,acts){
   }).join(''):'<div class="empty">No ★ coffees on shelf yet<br>Pass a coffee in QC, then List it on Square — pushing adds the ★</div>';
   openDrawerHTML('<div class="t" style="font-size:19px">Publish</div>'
     +'<div class="s" style="margin-top:2px">your ★ on-shelf coffees → every channel · shop listing = Square + Ratio site together</div>'
+    +(isLead()?'<button class="dclose" id="rp-open" style="margin-top:10px">Set retail prices…</button>':'')
     +body
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);
+  if($('rp-open'))$('rp-open').addEventListener('click',openRetailPresets);
   document.querySelectorAll('#drawer [data-pub]').forEach(function(el){el.addEventListener('click',function(){
     var x=rows[+el.dataset.pub];PUB.open=(PUB.open===x.key)?null:x.key;paintPublishSheet(sl,acts);
   });});

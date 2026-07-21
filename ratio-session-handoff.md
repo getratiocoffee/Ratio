@@ -80,6 +80,11 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-21 之六（Retail prices 預設抽屜 ✅ 待 commit；v2 老闆糾正定稿）
+- **老闆定稿（v2 糾正第一版）**：不是全產線豆——是「**過完 QC 的豆子清單**，一次設定**所有克數價錢**」。Publish 抽屜頂「Set retail prices…」（isLead）→ `openRetailPresets`＋`paintRetailPresets`（RPP 全域）：清單＝**有 QC pass 批次**的豆（rstRows filter qcState pass）；每豆一卡＝**Bag size seg（100/150/200/250）＋Bag $＋500g $＋1kg $**（同 List 抽屜四件套）。
+- **存三包記憶**（read-modify-write）：rtl_price／rtl_g／rtl_sizes{g500,g1000}——整卡全空＝該豆不動；500g/1kg 清空＝**拿掉該規格**；別豆記憶原封。seg 切換先 grabInputs 收值再重繪（打到一半的價不掉）。key 同上架（listNameFor）。**上架流程零改動**：openListSheet 本來就讀這三包預填。
+- **驗證**：jscheck ✓；假資料——只列 QC pass 3 卡（Finca Natural pending **不列**）✓、Ethiopia 預填 bag22/200g seg/500g40 ✓、seg 切 150 保輸入值 ✓、Save 三 payload：price{24 改/28 新/Keep Me 保}、g{150,200}、sizes{Ethiopia 清空 500g **被拿掉**、Dark Blend g1000:95 新、Keep Me 保}、全空 Finca 不寫 ✓、console 零錯誤＋截圖 ✓。serve 複本已 cp。
+
 ## 〇、補記 — 2026-07-21 之五（退回要回原烘焙日批次 🐛 修好＋錯帳已搬正 ✅ 待 commit）
 - **老闆抓蟲**：↓ 退回 13.3kg Dark Knight（06/07 烘）被補進 13/07 批。根因：`trfBackBatch` 只在 `rstBatches`（remaining>0）找同日期——豆全轉去店面後原批 remaining 0 被過濾，fallback 進最舊現存批。
 - **修法**：同日期優先層改在**全部同名批（含 remaining 0）**找（單品加 rstProcMatch 同處理法；blend 不濾）；沒有原日期批才退原鏈：最舊現存批→同名任何批。
