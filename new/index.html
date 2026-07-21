@@ -386,8 +386,6 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .tool .tic{width:38px;height:38px;border-radius:12px;background:var(--dept,var(--muted));display:grid;place-items:center;flex:0 0 38px;box-shadow:0 5px 11px color-mix(in srgb,var(--dept,#8A8A8A) 38%,transparent)}
 .tool .tic svg{width:20px;height:20px;fill:#fff;display:block}
 .tool .tl{min-width:0;line-height:1.2}
-.tool .tl.tool-done{color:#E53935}
-.tool .tl.tool-done small{color:#E53935;opacity:.7}
 .tool small{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-top:2px}
 .hit{background:var(--surface);border:1px solid var(--line2);border-radius:12px;padding:13px 15px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px}
 .hit .t{font-size:17px}
@@ -11342,9 +11340,7 @@ var TOOL_ICONS={
   gear:'<path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.06 7.06 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/>'
 };
 function tsvg(k){return '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'+(TOOL_ICONS[k]||TOOL_ICONS.dot)+'</svg>';}
-/* 開發期進度標記：改過的工具在 Tools 字變紅——完工後把整組（DONE_TOOLS＋.tool-done＋tool-done class）拿掉 */
-var DONE_TOOLS=['Timesheet','C Market','Green stock','Roasted Stock','QC','Log roast','Crows Nest'];
-function _isDone(label){return DONE_TOOLS.indexOf(label)>-1;}
+/* 開發期紅字進度標記（DONE_TOOLS）已於 2026-07-21 老闆點名整組移除 */
 /* ===== Tools 磁貼分派（2026-07-21 抽出）：主頁與分類抽屜共用——磁貼現在動態注入抽屜，
    綁定時直接呼叫這支，不再依賴 renderTools 當下的 DOM ===== */
 function runTool(k){
@@ -11424,8 +11420,8 @@ function renderTools(){
      寫入磁貼（_mk=canWrite）散進各自的類，唯讀磁貼人人看得到——分組是責任標示、不是權限牆 */
   var _mk=canWrite();
   /* x[3] 真＝「這顆會改資料」＝上玫瑰色（可改色）。做 app 期間的臨時規則，完工後整組拿掉 */
-  function _tiles(a){return a.map(function(x){return '<button class="tool'+(x[4]?' mk':'')+'" data-t="'+x[2]+'"><span class="tic">'+tsvg(x[3])+'</span><span class="tl'+(_isDone(x[0])?' tool-done':'')+'">'+x[0]+'<small>'+x[1]+'</small></span></button>';}).join('');}
-  function _mkTile(id,label,sub,icon){return '<button class="tool mk" id="'+id+'"><span class="tic">'+tsvg(icon)+'</span><span class="tl'+(_isDone(label)?' tool-done':'')+'">'+label+'<small>'+sub+'</small></span></button>';}
+  function _tiles(a){return a.map(function(x){return '<button class="tool'+(x[4]?' mk':'')+'" data-t="'+x[2]+'"><span class="tic">'+tsvg(x[3])+'</span><span class="tl">'+x[0]+'<small>'+x[1]+'</small></span></button>';}).join('');}
+  function _mkTile(id,label,sub,icon){return '<button class="tool mk" id="'+id+'"><span class="tic">'+tsvg(icon)+'</span><span class="tl">'+label+'<small>'+sub+'</small></span></button>';}
   /* 部門代表色（同部門同色）：直接沿用今日流的 STCOLOR，讓卡片與工具說同一種色語言。
      Production=Roast 琥珀 / QC&Recipe=QC 藍 / Shelf=紫 / Orders=Orders 玫瑰 / Finance=Transaction 橄欖。
      Marketing、Team 卡片端無對應 → 各給一個不撞色的新色；App=中性灰 */
