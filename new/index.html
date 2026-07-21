@@ -609,7 +609,18 @@ async function callFn(name,payload,roOk){
 function custById(id){return DB.customers.find(function(c){return c.id===id;})||null;}
 /* 批發單判定：訂單走 wholesale 通道，或客戶本身是 wholesale 型 → 歸到 Wholesale 站（否則照常 Orders/Transaction） */
 function whOrd(o,c){return (o&&o.channel==='wholesale')||(c&&String(c.type||'').toLowerCase()==='wholesale');}
-function itemsLine(o){return (Array.isArray(o.items)?o.items:[]).map(function(it){return (it.grams?it.grams+'g ':'')+(it.name||'')+(it.qty>1?(' ×'+it.qty):'');}).join(', ');}
+/* 品項的處理法（同名多處理法是不同商品）：先用 Square variation id 對 product_sync，
+   對不到再退名字比對——但同名只有唯一一列有 process 才敢給（多列＝分不清，寧可不標） */
+function procOfItem(it){
+  if(!it)return '';
+  var m=it.square_variation_id?(DB.syncs||[]).find(function(s){return s.variation_id===it.square_variation_id;}):null;
+  if(!(m&&m.process)){
+    var same=(DB.syncs||[]).filter(function(s){return s.bean_id===it.name&&s.process;});
+    if(same.length===1)m=same[0];
+  }
+  return (m&&m.process)||'';
+}
+function itemsLine(o){return (Array.isArray(o.items)?o.items:[]).map(function(it){var p=procOfItem(it);return (it.grams?it.grams+'g ':'')+(it.name||'')+(p?' ('+p+')':'')+(it.qty>1?(' ×'+it.qty):'');}).join(', ');}
 
 async function loadAll(){
   var rs=await Promise.all([
@@ -617,7 +628,7 @@ async function loadAll(){
     sb.from('customers').select('id,name,email,type'),
     sb.from('tasks').select('*').eq('done',false).order('created_at',{ascending:false}),
     sb.from('dialins').select('id,coffee,target_id,created_at,grind,dose,yield,time_s,barista,note').order('created_at',{ascending:false}).limit(200),
-    sb.from('product_sync').select('bean_id,target_id,status,process').eq('channel','square'),
+    sb.from('product_sync').select('bean_id,target_id,status,process,variation_id').eq('channel','square'),
     sb.from('samples').select('id,sample_id,bean_id,process,roast_date,cupping_date,features,flavour_locked,fragrance,acidity,sweetness,body,aftertaste,comment,cupper').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
     sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg,status,kind,remaining_kg,roasted_kg,process').order('roast_date',{ascending:false}),
     sb.from('beans').select('id,green_no,name,process,quantity,low_stock_kg,country,region,station,variety,harvest,altitude,cost_per_kg,supplier,roast_target_kg,roast_low_kg'),
@@ -12299,6 +12310,7 @@ function maybeAutoRefresh(){
   if(Date.now()-LAST_LOAD>60000)reload();
 }
 document.addEventListener('visibilitychange',maybeAutoRefresh);
+setInterval(maybeAutoRefresh,180000); /* PWA 掛前景不切走也會刷（每 3 分鐘；同條件：抽屜開著不動、未登入不動） */
 $('nav-home').addEventListener('click',function(){view='home';render();});
 $('nav-feed').addEventListener('click',function(){view='feed';render();});
 $('nav-beans').addEventListener('click',function(){view='beans';render();});
