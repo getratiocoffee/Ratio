@@ -80,6 +80,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-21 之五（退回要回原烘焙日批次 🐛 修好＋錯帳已搬正 ✅ 待 commit）
+- **老闆抓蟲**：↓ 退回 13.3kg Dark Knight（06/07 烘）被補進 13/07 批。根因：`trfBackBatch` 只在 `rstBatches`（remaining>0）找同日期——豆全轉去店面後原批 remaining 0 被過濾，fallback 進最舊現存批。
+- **修法**：同日期優先層改在**全部同名批（含 remaining 0）**找（單品加 rstProcMatch 同處理法；blend 不濾）；沒有原日期批才退原鏈：最舊現存批→同名任何批。
+- **錯帳已 SQL 搬正**（線上 roasts）：13/07 批 66352797 remaining 18.8→5.5、06/07 批 b753a0cd 0→10＋3786a010 0→3.3（合計 13.3 歸位，總量不變、remaining≤roasted 帳面乾淨）。
+- **驗證**：jscheck ✓；假資料 trfBackBatch 三路——原日期 remaining 0 批正確命中（修正前會誤配新批）✓、單品同名異處理法精準 ✓、無原日期批 fallback 舊行為 ✓。serve 複本已 cp。
+
 ## 〇、補記 — 2026-07-21 之四（Crows Nest：shop 清單全面去發票號＋≡ 移卡片最左 ✅ 待 commit）
 - **老闆點名**：①Shop 層完全不顯示 invoice number（查號去 🧾）——明細行只剩日期 batch（有 fixed 才多一行 fixed 日期）、PENDING 卡第二行「PENDING · 日期 batch」②≡ 拖移把手移到**泡泡卡最左邊**（聚合組行首＋NEW/PENDING 卡 ☐ 左邊），右側只剩 kg ✕ ↓。
 - **意外收穫**：右側瘦身後 375px 名字不再折行。之三的 commit 老闆自己在 GitHub Desktop 分三筆推了（訊息 title/update/update），部署已驗 bytes 一致。

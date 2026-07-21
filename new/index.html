@@ -5451,14 +5451,19 @@ async function transferUsed(t){
   toast('Marked used ✓ '+t.kg+' kg');
   buildItems();openTransferSheet();
 }
-/* 補回目標批次（退回與矯正共用）：原日期批 → 最舊現存批 → 同名任何批（含 0 kg）；全無回 null */
+/* 補回目標批次（退回與矯正共用）：**原烘焙日批優先——含 remaining 0 的**（豆全轉去店面後退回，
+   原批血條是 0，但退回就該回當天烘的那批；2026-07-21 老闆抓蟲：13.3kg 06/07 被補進 13/07）
+   → 沒有原日期批才退：最舊現存批 → 同名任何批；全無回 null */
 function trfBackBatch(t){
-  var pool=rstBatches(t.name,!!t.is_blend,t.is_blend?undefined:(t.process||''));
-  var same=pool.filter(function(r){return String(r.roast_date||'')===String(t.roast_date||'');});
+  var key=String(t.name||'').trim().toLowerCase();
+  var all=(DB.roasts||[]).filter(function(r){
+    return (t.is_blend?r.kind==='blend':r.kind!=='blend')&&String(r.bean_name||'').trim().toLowerCase()===key&&(t.is_blend||rstProcMatch(r,t.process||''));
+  });
+  var same=all.filter(function(r){return String(r.roast_date||'')===String(t.roast_date||'');});
   if(same.length)return same[0];
+  var pool=rstBatches(t.name,!!t.is_blend,t.is_blend?undefined:(t.process||''));
   if(pool.length)return pool[0];
-  var any=(DB.roasts||[]).filter(function(r){return (t.is_blend?r.kind==='blend':r.kind!=='blend')&&String(r.bean_name||'').trim().toLowerCase()===String(t.name||'').trim().toLowerCase();});
-  return any.length?any[0]:null;
+  return all.length?all[0]:null;
 }
 /* 退回：整行刪＋kg 補回原日期批次（找不到原批次→補最舊現存批；全沒批次擋——用 Log roast Intake 補）。
    確認一步已由 openTransferLine 行詳情取代（2026-07-20 雙層版） */
