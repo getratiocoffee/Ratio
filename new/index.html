@@ -372,6 +372,13 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .gsec{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin:18px 2px 8px;display:flex;align-items:center}
 .gdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor;margin-right:8px;flex:0 0 auto}
 .tgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* Tools 主頁大 icon 分類卡（2026-07-21 老闆點名：分類→大 icon，點開抽屜看該區磁貼） */
+.catgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.catcard{display:flex;flex-direction:column;align-items:center;gap:9px;border:1px solid var(--line2);background:var(--surface);border-radius:16px;padding:18px 8px 14px;font-size:13.5px;font-weight:800;font-family:inherit;color:var(--ink);cursor:pointer;text-align:center;box-shadow:0 6px 14px rgba(120,90,160,.07);transition:transform .13s ease}
+.catcard:active{transform:scale(.97)}
+.catic{width:52px;height:52px;border-radius:16px;background:var(--dept,var(--muted));display:grid;place-items:center;flex:0 0 auto;box-shadow:0 6px 13px color-mix(in srgb,var(--dept,#8A8A8A) 40%,transparent)}
+.catic svg{width:27px;height:27px;fill:#fff;display:block}
+.catl{min-width:0;line-height:1.2}
 .tool{display:flex;align-items:center;gap:11px;border:1px solid var(--line2);background:var(--surface);border-radius:16px;padding:11px 12px;font-size:14px;font-weight:800;font-family:inherit;color:var(--ink);cursor:pointer;text-align:left;box-shadow:0 6px 14px rgba(120,90,160,.07);transition:transform .13s ease}
 .tool:active{transform:scale(.97)}
 .tool .tic{width:38px;height:38px;border-radius:12px;background:var(--dept,var(--muted));display:grid;place-items:center;flex:0 0 38px;box-shadow:0 5px 11px color-mix(in srgb,var(--dept,#8A8A8A) 38%,transparent)}
@@ -11298,12 +11305,82 @@ var TOOL_ICONS={
   tag:'<path d="M3 12 12 3h7a2 2 0 0 1 2 2v7l-9 9zm13-5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/>',
   menu:'<path d="M4 4h16v3H4zm0 5h16v3H4zm0 5h11v3H4z"/>',
   chev:'<path d="M9 5l7 7-7 7-1.4-1.4L13 12 7.6 6.4z"/>',
-  dot:'<path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/>'
+  dot:'<path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/>',
+  gear:'<path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.06 7.06 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/>'
 };
 function tsvg(k){return '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'+(TOOL_ICONS[k]||TOOL_ICONS.dot)+'</svg>';}
 /* 開發期進度標記：改過的工具在 Tools 字變紅——完工後把整組（DONE_TOOLS＋.tool-done＋tool-done class）拿掉 */
 var DONE_TOOLS=['Timesheet','C Market','Green stock','Roasted Stock','QC','Log roast','Crows Nest'];
 function _isDone(label){return DONE_TOOLS.indexOf(label)>-1;}
+/* ===== Tools 磁貼分派（2026-07-21 抽出）：主頁與分類抽屜共用——磁貼現在動態注入抽屜，
+   綁定時直接呼叫這支，不再依賴 renderTools 當下的 DOM ===== */
+function runTool(k){
+  if(k==='files'){openFilesSheet();return;}
+  if(k==='notes'){openNotesSheet();return;}
+  if(k==='activity'){openActivitySheet();return;}
+  if(k==='upcoming'){openUpcomingSheet();return;}
+  if(k==='orders'){openOrdersSheet();return;}
+  if(k==='greens'){openGreensSheet();return;}
+  if(k==='idbook'){openIdBookSheet();return;}
+  if(k==='batches'){openBatchesSheet();return;}
+  if(k==='transfer'){openTransferSheet();return;}
+  if(k==='sampleana'){openSampleSheet();return;}
+  if(k==='buylog'){openBuyLogSheet();return;}
+  if(k==='customers'){openCustomersSheet();return;}
+  if(k==='addrlabel'){openAddrLabelSheet();return;}
+  if(k==='contacts'){openContactsSheet();return;}
+  if(k==='help'){openHelpSheet();return;}
+  if(k==='retail'){openRetailSheet();return;}
+  if(k==='publish'){openPublishSheet();return;}
+  if(k==='editnotes'){openEditNotesSheet();return;}
+  if(k==='qcgo'){openQCSheet();return;}
+  if(k==='recipe'){openRecipeSheet();return;}
+  if(k==='dialin'){openDialinSheet();return;}
+  if(k==='igasset'){openIGSheet();return;}
+  if(k==='socialpost'){openSocialPostSheet();return;}
+  if(k==='pnl'){openPnlSheet();return;}
+  if(k==='fintx'){openFinTxSheet();return;}
+  if(k==='bills'){openBillsSheet();return;}
+  if(k==='invoice'){openInvoiceSheet();return;}
+  if(k==='announce'){openAnnounceSheet();return;}
+  if(k==='payroll'){openPayrollSheet();return;}
+  if(k==='calc'){openCalcSheet();return;}
+  if(k==='cmarket'){openCMarketSheet();return;}
+  if(k==='infocards'){openInfoCardsSheet();return;}
+  if(k==='brewcard'){openBrewCardSheet();return;}
+  if(k==='social4'){openSocialSplitSheet();return;}
+  if(k==='menus'){openMenusSheet();return;}
+  if(k==='livecup'){openLiveCupSheet();return;}
+  if(k==='subs'){openSubsSheet();return;}
+  if(k==='wholesale'){openWholesaleSheet();return;}
+  if(k==='team'){openTeamSheet();return;}
+  if(k==='addacc'){openAddAccountSheet();return;}
+  if(k==='roster'){openRosterSheet();return;}
+  if(k==='signout'){
+    if(!confirm('Sign out? The app returns to the public shop menu.'))return;
+    (async function(){try{await sb.auth.signOut();}catch(e){}toast('Signed out');await boot();})();
+    return;
+  }
+  var si=$('tsearch');if(si)si.focus();toast('Type in the search box above');
+}
+/* 分類抽屜：主頁大 icon 卡點進來——磁貼 HTML 由 renderTools 按當下權限組好存在 TOOLCATS_LIVE */
+var TOOLCATS_LIVE=[];
+function openToolCatSheet(key){
+  var c=null;TOOLCATS_LIVE.forEach(function(x){if(x.key===key)c=x;});
+  if(!c)return;
+  openDrawerHTML('<div class="t" style="font-size:19px;display:flex;align-items:center;gap:10px"><span class="catic" style="--dept:'+c.color+';width:36px;height:36px;border-radius:12px">'+tsvg(c.icon)+'</span><span>'+c.title+'</span></div>'
+    +'<div class="tgrid" style="--dept:'+c.color+';margin-top:14px">'+c.inner+'</div>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  $('d-cl').addEventListener('click',closeDrawer);
+  document.querySelectorAll('#drawer [data-t]').forEach(function(b){b.addEventListener('click',function(){runTool(b.dataset.t);});});
+  /* id 型寫入磁貼（權限沒產出就不在 DOM，if 保護照舊） */
+  var no=$('t-neworder');if(no)no.addEventListener('click',openNewOrderSheet);
+  var tr=$('t-roast');if(tr)tr.addEventListener('click',function(){openRoastSheet(null);});
+  var ts=$('t-stk');if(ts)ts.addEventListener('click',openStocktakeSheet);
+  var tv=$('t-recv');if(tv)tv.addEventListener('click',openReceiveSheet);
+  var tt=$('t-task');if(tt)tt.addEventListener('click',function(){openTaskAdd(null);});
+  var tlb=$('t-label');if(tlb)tlb.addEventListener('click',openLabelSheet);
+}
 function renderTools(){
   $('deck').style.display='none';
   $('hcnt').textContent='find and make';
@@ -11320,39 +11397,48 @@ function renderTools(){
      Production=Roast 琥珀 / QC&Recipe=QC 藍 / Shelf=紫 / Orders=Orders 玫瑰 / Finance=Transaction 橄欖。
      Marketing、Team 卡片端無對應 → 各給一個不撞色的新色；App=中性灰 */
   var DEPT={green:'var(--green)',roast:'var(--roast)',qc:'var(--qc)',mkt:'var(--mkt)',ord:'var(--orders)',cust:'var(--cust)',fin:'var(--fin)',day:'var(--day)',team:'var(--team)',print:'var(--print)',set:'var(--set)'};
-  function _sec(title,color,inner){return '<div class="gsec" style="color:'+color+'"><span class="gdot"></span>'+title+'</div><div class="tgrid" style="--dept:'+color+'">'+inner+'</div>';}
+  /* 2026-07-21 老闆點名：分類改大 icon 卡、點開抽屜看磁貼——磁貼 HTML 存 TOOLCATS_LIVE，
+     這裡只回傳大 icon 卡；權限閘照舊在呼叫端（沒過閘＝整類不進來） */
+  function _sec(title,color,icon,inner){
+    var key='cat'+TOOLCATS_LIVE.length;
+    TOOLCATS_LIVE.push({key:key,title:title,color:color,icon:icon,inner:inner});
+    return '<button class="catcard" data-cat="'+key+'" style="--dept:'+color+'"><span class="catic">'+tsvg(icon)+'</span><span class="catl">'+title+'</span></button>';
+  }
+  TOOLCATS_LIVE=[];
   /* Green/Marketing 整區 lead 以上才見（2026-07-14 老闆權限矩陣：staff 八站不含這兩區） */
-  var _groups=(isLead()?_sec('Green Bean',DEPT.green,
+  var _groups=(isLead()?_sec('Green Bean',DEPT.green,'stock',
       (_mk?_mkTile('t-recv','Receive green','delivery in','receive')+_mkTile('t-stk','Stocktake','weigh greens','tasks'):'')
       +_tiles([['Green stock','full list','greens','stock'],['ID book','all S# &amp; B# numbers','idbook','menu'],['Sample analyse','green cupping','sampleana','qc',1],['Buy log','green purchases','buylog','order',1],['C Market','futures · landed cost','cmarket','statement']])):'')
-    +_sec('Roasted Bean',DEPT.roast,
+    +_sec('Roasted Bean',DEPT.roast,'flame',
       (_mk?_mkTile('t-roast','Log roast','green in','flame'):'')
       /* Delete a coffee＋Clean up 磁貼已移除（2026-07-18 老闆點名）——openDeleteCoffeeSheet/openCleanupSheet 函式保留，復活加回磁貼一行即可 */
       +_tiles([['Roastery Stock','intake · freshness · deduct','batches','dispatch',_mk?1:0],['Crows Nest','transfer pool · Sunday invoice','transfer','dispatch',_mk?1:0],['Coffee Info','flavour · dossier','retail','market']]))
-    +_sec('QC &amp; Recipe',DEPT.qc,
+    +_sec('QC &amp; Recipe',DEPT.qc,'qc',
       _tiles([['QC','cup and judge','qcgo','qc'],['Live cupping','blind · together','livecup','qc'],['Blend Recipe','blends · dial-in','recipe','recipe'],['A68 Dial in','espresso shots','dialin','espresso',1]]))
     /* 2026-07-12 統整：Coffee Info/Post to socials/IG asset/Announce 四顆收進 Publish 一鍵上架面板 */
-    +(isLead()?_sec('Marketing',DEPT.mkt,
+    +(isLead()?_sec('Marketing',DEPT.mkt,'mega',
       _tiles([['Publish','QC → every channel','publish','mega',1],['Edit Notes','flavour on passed beans','editnotes','book',1]])):'')
-    +_sec('Orders',DEPT.ord,
+    +_sec('Orders',DEPT.ord,'order',
       (_mk?_mkTile('t-neworder','New order','right here','plus'):'')
       +_tiles([['Orders','recent list','orders','order']].concat(ROLE==='director'?[['Subscriptions','fortnightly beans · plans','subs','reorder',1],['Wholesale','discount % · accounts','wholesale','statement',1]]:[])))
-    +_sec('Customers',DEPT.cust,
+    +_sec('Customers',DEPT.cust,'user',
       _tiles([['Customers','book','customers','user'],['Contacts','suppliers · partners','contacts','team',_mk?1:0],['Post Label','recipient sticker · brother','addrlabel','tag',_mk?1:0]]))
-    +(rsMoney()?_sec('Finance',DEPT.fin,
+    +(rsMoney()?_sec('Finance',DEPT.fin,'statement',
       _tiles([['P&amp;L','money overview','pnl','statement'],['Transactions','order payments · paid &amp; unpaid','fintx','order',1],['Bills','scanned from Gmail · tap paid','bills','statement',1],['Invoice','GST PDF','invoice','invoice',1],['Payroll','wages · weeks','payroll','user',_mk?1:0],['Calculator','cost · margins','calc','plus']])):'')
-    +_sec('Daily task',DEPT.day,
+    +_sec('Daily task',DEPT.day,'today',
       (_mk?_mkTile('t-task','New task',(isLead()?'assign · right here':'for the team'),'plus'):'')
       +_tiles([['Upcoming','30 days · bookings · parcels','upcoming','today']]))
-    +_sec('Team',DEPT.team,
+    +_sec('Team',DEPT.team,'team',
       _tiles([['Timesheet',(isLead()?'roster · hours'+(rsMoney()?' · pay':''):'your shifts · days off'),'roster','today',_mk?1:0],['Team notes','notes · problems','notes','recipe',_mk?1:0],['Activity','who did what · when','activity','refresh']].concat(isLead()?[['Team','who is on · assign','team','team',1]]:[]).concat(ROLE==='director'?[['Add account','new sign-in','addacc','user',1]]:[])))
-    +_sec('Print',DEPT.print,
+    +_sec('Print',DEPT.print,'tag',
       (_mk?_mkTile('t-label','Labels','bag / tin','tag'):'')
       +_tiles([['Menus','menu PDFs · in-store','menus','menu'],['Brew Card','A4 · pour-over guide','brewcard','recipe'],['Folding Info Card','A4 · 4 fold cards','infocards','image']].concat(isLead()?[['Social Images','4-up · pick a coffee','social4','camera']]:[]).concat([['Files','agreement · manuals','files','book']])))
-    +_sec('Setting',DEPT.set,
+    +_sec('Setting',DEPT.set,'gear',
       _tiles([['How it works','gestures and cards','help','qc'],['Sign out','back to the shop menu','signout','chev']]));
+  /* 大 icon 分類格升到最上（2026-07-21）；Notifications/Appearance 原樣移到下面。全包在 #tgroups＝搜尋顯隱照舊 */
   m.innerHTML='<input class="search" id="tsearch" type="search" placeholder="Search beans, customers, orders…">'
     +'<div id="thits"></div><div id="tgroups">'
+    +'<div class="catgrid">'+_groups+'</div>'
     +'<div class="gsec">Notifications</div><div class="tgrid">'
     +'<button class="tool" id="t-notif">Enable here<small id="t-notif-s">'+(pushReady?(Notification.permission==='granted'?'enabled on this phone ✓':'new orders ding this phone'):'not supported here')+'</small></button>'
     +'<button class="tool" id="t-ptest">Send test<small>rings every subscribed phone</small></button>'
@@ -11361,7 +11447,6 @@ function renderTools(){
     +'<div class="gsec">Appearance</div><div class="pm-seg">'
     +[['auto','Auto'],['light','Light'],['dark','Dark']].map(function(x){return '<button data-th="'+x[0]+'"'+(themeGet()===x[0]?' class="on"':'')+'>'+x[1]+'</button>';}).join('')
     +'</div>'
-    +_groups
     +'</div>';
   var inp=$('tsearch');
   function lookup(){
@@ -11411,12 +11496,8 @@ function renderTools(){
     });});
   }
   inp.addEventListener('input',lookup);
-  var no=$('t-neworder');if(no)no.addEventListener('click',openNewOrderSheet);
-  var tr=$('t-roast');if(tr)tr.addEventListener('click',function(){openRoastSheet(null);});
-  var ts=$('t-stk');if(ts)ts.addEventListener('click',openStocktakeSheet);
-  var tv=$('t-recv');if(tv)tv.addEventListener('click',openReceiveSheet);
-  var tt=$('t-task');if(tt)tt.addEventListener('click',function(){openTaskAdd(null);});
-  var tlb=$('t-label');if(tlb)tlb.addEventListener('click',openLabelSheet);
+  /* 磁貼綁定已搬進 openToolCatSheet（磁貼現在住抽屜）；主頁只綁分類卡 */
+  m.querySelectorAll('[data-cat]').forEach(function(b){b.addEventListener('click',function(){openToolCatSheet(b.dataset.cat);});});
   m.querySelectorAll('[data-th]').forEach(function(b){b.addEventListener('click',function(){applyTheme(b.dataset.th);renderTools();});});
   var tn=$('t-notif');if(tn)tn.addEventListener('click',function(){enablePush(tn);});
   var tp=$('t-ptest');if(tp)tp.addEventListener('click',async function(){
@@ -11426,56 +11507,6 @@ function renderTools(){
     catch(e){alert('Test failed: '+(e&&e.message||e));}
     tp.disabled=false;
   });
-  m.querySelectorAll('[data-t]').forEach(function(b){b.addEventListener('click',function(){
-    var k=b.dataset.t;
-    if(k==='files'){openFilesSheet();return;}
-    if(k==='notes'){openNotesSheet();return;}
-    if(k==='activity'){openActivitySheet();return;}
-    if(k==='upcoming'){openUpcomingSheet();return;}
-    if(k==='orders'){openOrdersSheet();return;}
-    if(k==='greens'){openGreensSheet();return;}
-    if(k==='idbook'){openIdBookSheet();return;}
-    if(k==='batches'){openBatchesSheet();return;}
-    if(k==='transfer'){openTransferSheet();return;}
-    if(k==='sampleana'){openSampleSheet();return;}
-    if(k==='buylog'){openBuyLogSheet();return;}
-    if(k==='customers'){openCustomersSheet();return;}
-    if(k==='addrlabel'){openAddrLabelSheet();return;}
-    if(k==='contacts'){openContactsSheet();return;}
-    if(k==='help'){openHelpSheet();return;}
-    if(k==='retail'){openRetailSheet();return;}
-    if(k==='publish'){openPublishSheet();return;}
-    if(k==='editnotes'){openEditNotesSheet();return;}
-    if(k==='qcgo'){openQCSheet();return;}
-    if(k==='recipe'){openRecipeSheet();return;}
-    if(k==='dialin'){openDialinSheet();return;}
-    if(k==='igasset'){openIGSheet();return;}
-    if(k==='socialpost'){openSocialPostSheet();return;}
-    if(k==='pnl'){openPnlSheet();return;}
-    if(k==='fintx'){openFinTxSheet();return;}
-    if(k==='bills'){openBillsSheet();return;}
-    if(k==='invoice'){openInvoiceSheet();return;}
-    if(k==='announce'){openAnnounceSheet();return;}
-    if(k==='payroll'){openPayrollSheet();return;}
-    if(k==='calc'){openCalcSheet();return;}
-    if(k==='cmarket'){openCMarketSheet();return;}
-    if(k==='infocards'){openInfoCardsSheet();return;}
-    if(k==='brewcard'){openBrewCardSheet();return;}
-    if(k==='social4'){openSocialSplitSheet();return;}
-    if(k==='menus'){openMenusSheet();return;}
-    if(k==='livecup'){openLiveCupSheet();return;}
-    if(k==='subs'){openSubsSheet();return;}
-    if(k==='wholesale'){openWholesaleSheet();return;}
-    if(k==='team'){openTeamSheet();return;}
-    if(k==='addacc'){openAddAccountSheet();return;}
-    if(k==='roster'){openRosterSheet();return;}
-    if(k==='signout'){
-      if(!confirm('Sign out? The app returns to the public shop menu.'))return;
-      (async function(){try{await sb.auth.signOut();}catch(e){}toast('Signed out');await boot();})();
-      return;
-    }
-    inp.focus();toast('Type in the search box above');
-  });});
 }
 /* ===== Recipe（Production 類的新入口）：拼配配方 blends ＋近期 dial-in =====
    自 classic openBlending 移植：有寫入權（lead/director）可直接編配方，其他人維持唯讀。

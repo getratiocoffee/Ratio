@@ -80,6 +80,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-21 之十五（Tools 分類大 icon 化＋分類抽屜 ✅ 待 push；同輪：Roastery Stock 改名、Crows Nest ↓ 移除＋✕→✎）
+- **老闆點名三連**：①UI 全部「Coffee Stock」→「Roastery Stock」（10 處含 Tools 磁貼名）②Crows Nest 列上 ↓ 一鍵退回鈕移除（退回收斂到行詳情 Return to stock）＋列上 ✕ 改 ✎ ③**Tools 主要分類改大 icon、點開抽屜看磁貼**（A 案＋抽屜；老闆選定）
+- **Tools 改造實作**：`runTool(k)`＝原 data-t if 鏈抽成全域函式（40 個 key 對照零改）；`_sec(title,color,icon,inner)` 改回傳 `.catcard` 大 icon 卡（52px `.catic` 吃 --dept 色）、磁貼 HTML 存 `TOOLCATS_LIVE`；`openToolCatSheet(key)` 開分類抽屜＝標題帶色 icon＋tgrid 磁貼＋Close，**注入後才綁** data-t→runTool＋六顆 id 磁貼（t-recv/t-stk/t-roast/t-neworder/t-task/t-label——綁定時機是最大陷阱，磁貼已不在主頁 DOM）；主頁順序＝搜尋→catgrid→Notifications→Appearance（全在 #tgroups 內＝lookup 顯隱照舊）；TOOL_ICONS 新增 `gear`（Setting 用）；CSS 新增 .catgrid/.catcard/.catic/.catl
+- **不動**：搜尋 lookup（與磁貼 DOM 本就解耦）、DONE_TOOLS 紅字、Appearance 換主題、DEPT 色票、各 openXxxSheet。工具抽屜關閉回 Tools 大 icon 主頁（單例覆蓋、不返回分類抽屜——刻意簡單）
+- **驗證**：jscheck ✓；ruby 預覽假資料（攔 fetch＋注入骨架+ROLE 模擬）——11 分類卡齊/色對、Roasted Bean 抽屜 batches/transfer/retail＋t-roast、磁貼點擊覆蓋開 Roastery Stock 抽屜、Green Bean t-recv/t-stk 在、搜尋隱藏恢復 ✓、staff 視角 Green/Marketing/Finance 消失（剩 8 卡）✓、console 零錯誤＋主頁與抽屜截圖 ✓。serve 複本已 cp
+
 ## 〇、補記 — 2026-07-21 之十四（Publish 商品圖 4 張只上 2 張 → sync-to-square v31 ✅ 待 push 前端）
 - **老闆回報**：Publish Dark Knight 四張商品圖（cover·radar·origin·QR）Square 只出現兩張。**根因＝v30 的 Promise.allSettled 並行 attachImage**——Square 每掛一張圖 item version +1，四張同時打同一 item 撞樂觀鎖被退件（誰搶到誰活）；失敗只寫在回傳 `image:"partial (2/4)"` 欄位，前端沒看、照樣 toast「On the shelf ✓」＝靜默漏圖。佐證：v30 push 只跑 ~3s（v29 序列上圖要十幾秒）
 - **修復**：①**sync-to-square v31 已部署**——圖片改回**序列** attach＋每張失敗重試一次（~2s/張遠低於 160s；v30 其他並行 prep 全保留＝不會回到 503 超時）；cleanupOldCardImages 也改回序列（並行刪同 item 圖同樣撞鎖→舊圖清不掉）②前端 pushToSquare 接回傳檢查 `image` 欄位，`partial|failed` 開頭就 alert 明講「Push again to retry the images」——不再靜默
