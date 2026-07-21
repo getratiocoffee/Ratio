@@ -3328,8 +3328,8 @@ function paintRetailPresets(){
         +'<div class="pm-seg" style="margin-top:5px">'+[100,150,200,250].map(function(g){return '<button data-rpg="'+i+':'+g+'"'+(r.g===g?' class="on"':'')+'>'+g+'g</button>';}).join('')+'</div>'
         +'<div style="border-top:1px solid var(--line);margin-top:11px">'
         +priceRow('Bag price',''+r.g+'g','data-rp',r.p)
-        +priceRow('500g','blank = not offered','data-rp5',r.p5)
-        +priceRow('1kg','blank = not offered','data-rp1',r.p1)
+        +priceRow('500g','blank = skip','data-rp5',r.p5)
+        +priceRow('1kg','blank = skip','data-rp1',r.p1)
         +'</div></div>';
     }).join(''):'<div class="empty">No coffees passed QC yet<br>Pass one in QC first, then set its prices here</div>')
     +(rows.length?'<button class="act" id="rp-save">Save prices</button>':'')

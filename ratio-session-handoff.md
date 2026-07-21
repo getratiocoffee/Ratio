@@ -84,6 +84,7 @@
 - **老闆定稿（v2 糾正第一版）**：不是全產線豆——是「**過完 QC 的豆子清單**，一次設定**所有克數價錢**」。Publish 抽屜頂「Set retail prices…」（isLead）→ `openRetailPresets`＋`paintRetailPresets`（RPP 全域）：清單＝**有 QC pass 批次**的豆（rstRows filter qcState pass）；每豆一卡＝**Bag size seg（100/150/200/250）＋Bag $＋500g $＋1kg $**（同 List 抽屜四件套）。
 - **存三包記憶**（read-modify-write）：rtl_price／rtl_g／rtl_sizes{g500,g1000}——整卡全空＝該豆不動；500g/1kg 清空＝**拿掉該規格**；別豆記憶原封。seg 切換先 grabInputs 收值再重繪（打到一半的價不掉）。key 同上架（listNameFor）。**上架流程零改動**：openListSheet 本來就讀這三包預填。
 - **驗證**：jscheck ✓；假資料——只列 QC pass 3 卡（Finca Natural pending **不列**）✓、Ethiopia 預填 bag22/200g seg/500g40 ✓、seg 切 150 保輸入值 ✓、Save 三 payload：price{24 改/28 新/Keep Me 保}、g{150,200}、sizes{Ethiopia 清空 500g **被拿掉**、Dark Blend g1000:95 新、Keep Me 保}、全空 Finca 不寫 ✓、console 零錯誤＋截圖 ✓。serve 複本已 cp。
+- **排版 v2（老闆點名好懂）**：每卡改「BAG SIZE 小標＋seg」→ 分隔線 → **每規格一行**（左＝規格名「Bag price · 250g（跟 seg 動態）/500g/1kg · blank = skip」、右＝$ 輸入 118px 右對齊）。驗證：seg 200→250 標籤跟著變＋輸入值 24 保留＋rtl_g payload 250 ✓、截圖 ✓。
 
 ## 〇、補記 — 2026-07-21 之五（退回要回原烘焙日批次 🐛 修好＋錯帳已搬正 ✅ 待 commit）
 - **老闆抓蟲**：↓ 退回 13.3kg Dark Knight（06/07 烘）被補進 13/07 批。根因：`trfBackBatch` 只在 `rstBatches`（remaining>0）找同日期——豆全轉去店面後原批 remaining 0 被過濾，fallback 進最舊現存批。
