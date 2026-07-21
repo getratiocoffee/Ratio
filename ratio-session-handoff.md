@@ -80,6 +80,12 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-21 之七（push 卡死在 Pushing… → callFn 加 2 分鐘逾時 ✅ 待 commit）
+- **老闆回報**：Update listing 卡在 Pushing…。查 edge log：sync-to-square 只有 2 筆 OPTIONS（preflight 過）、**POST 從未完成**＝大 payload（4 張商品圖 base64 幾 MB）上傳半路悶掉；`callFn` 裸 fetch **無逾時** → 按鈕永遠 Pushing…。非當日改動造成（push 管線當日零改動）。
+- **修法**：callFn 加 AbortController **120s 逾時**——超時 abort＋throw「Timed out after 2 min — check your connection and try again」→ push handler 既有 catch 會 alert＋按鈕復原可重試。
+- **驗證**：jscheck ✓；stub 正常路徑 callFn 照常回資料 ✓（abort 路徑＝標準模式，原生 fetch 尊重 signal）。**遺留觀察**：若老闆重試仍卡，就不是網路——查 payload 尺寸（renderSocialImages 4 張 JPEG）是否異常暴肥、或 Supabase gateway body 上限；替代解＝List 抽屜圖模式切 Colour（單卡最小）先推價。
+- **順帶學到**：Retail prices 設定「是否 wholesale 自動調」＝會，但要按 Update listing 推上 product_sync 後才生效（批發＝上架價×帳號折扣%）；「1kg 沒出現在購物車」同因——rtl_sizes 只是預設倉庫，push 才建 Square variation。
+
 ## 〇、補記 — 2026-07-21 之六（Retail prices 預設抽屜 ✅ 待 commit；v2 老闆糾正定稿）
 - **老闆定稿（v2 糾正第一版）**：不是全產線豆——是「**過完 QC 的豆子清單**，一次設定**所有克數價錢**」。Publish 抽屜頂「Set retail prices…」（isLead）→ `openRetailPresets`＋`paintRetailPresets`（RPP 全域）：清單＝**有 QC pass 批次**的豆（rstRows filter qcState pass）；每豆一卡＝**Bag size seg（100/150/200/250）＋Bag $＋500g $＋1kg $**（同 List 抽屜四件套）。
 - **存三包記憶**（read-modify-write）：rtl_price／rtl_g／rtl_sizes{g500,g1000}——整卡全空＝該豆不動；500g/1kg 清空＝**拿掉該規格**；別豆記憶原封。seg 切換先 grabInputs 收值再重繪（打到一半的價不掉）。key 同上架（listNameFor）。**上架流程零改動**：openListSheet 本來就讀這三包預填。
