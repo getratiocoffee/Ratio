@@ -569,6 +569,12 @@ async function callFn(name,payload,roOk){
   if(!roOk&&!canWrite()){roToast();throw new Error('Read-only');}
   var g=await sb.auth.getSession();var sess=g&&g.data&&g.data.session;
   if(!sess)throw new Error('Signed out');
+  /* token 快過期先換新（2026-07-21 老闆 push 撞 unauthorized）：PWA 掛久/手機休眠回來
+     access_token（1 小時）可能已過期——邊緣函式驗不過回 401。差 60 秒內到期就主動刷新 */
+  if(sess.expires_at&&sess.expires_at*1000<Date.now()+60000){
+    try{var rf=await sb.auth.refreshSession();if(rf&&rf.data&&rf.data.session)sess=rf.data.session;}catch(e){}
+    if(!sess||!sess.access_token)throw new Error('Signed out — reload the app and sign in again');
+  }
   /* 逾時保護（2026-07-21 老闆 push 卡死在 Pushing…）：大 payload（4 張商品圖 base64）上傳悶掉時
      裸 fetch 會永遠掛著——2 分鐘沒回就斷線報錯，讓使用者能重試而不是乾等 */
   var ctl=new AbortController();
