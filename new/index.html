@@ -5267,8 +5267,7 @@ async function openTransferSheet(){
           +'</span></span>'
           +'<span style="display:flex;align-items:center;gap:6px;flex:0 0 auto">'
           +'<span style="font-weight:700;font-size:14px;margin-right:2px">'+t.kg+' kg</span>'
-          +(ed?'<button class="chip" data-trm="'+i+'" style="margin:0;padding:4px 11px;color:var(--muted)" aria-label="remove line">✕</button>'
-            +'<button class="chip" data-tdn="'+i+'" style="margin:0;padding:4px 12px;font-size:15px" aria-label="send back to roastery">↓</button>':'')
+          +(ed?'<button class="chip" data-trm="'+i+'" style="margin:0;padding:4px 11px;color:var(--muted)" aria-label="remove line">✕</button>':'')
           +'</span></div>';
       }).join('');
       shopRows.push({k:'g:'+g.k,html:head+body+'</div>'});
@@ -5289,8 +5288,7 @@ async function openTransferSheet(){
         +'</span></span>'
         +'<span style="display:flex;align-items:center;gap:6px;flex:0 0 auto">'
         +'<span style="font-weight:700;font-size:14.5px;margin-right:2px">'+t.kg+' kg</span>'
-        +(ed?'<button class="chip" data-trm="'+i+'" style="margin:0;padding:4px 11px;color:var(--muted)" aria-label="remove line">✕</button>'
-          +'<button class="chip" data-tdn="'+i+'" style="margin:0;padding:4px 12px;font-size:15px" aria-label="send back to roastery">↓</button>':'')
+        +(ed?'<button class="chip" data-trm="'+i+'" style="margin:0;padding:4px 11px;color:var(--muted)" aria-label="remove line">✕</button>':'')
         +'</span></div>'
         /* 第二行獨立全寬（2026-07-21：手機窄欄擠爆——膠囊＋批次資訊移下來） */
         +'<div class="s" data-tline="'+i+'" style="color:var(--muted);font-size:12px;margin-top:5px;padding-left:2px;cursor:pointer">'
@@ -5304,7 +5302,7 @@ async function openTransferSheet(){
   }
   /* ── 中間方向圖例 ── */
   h+='<div style="display:flex;align-items:center;gap:10px;margin:16px 0 2px;color:var(--muted);font-size:12px">'
-    +'<span style="flex:1;border-top:1px solid var(--line)"></span>↑ to shop · ↓ back to roastery<span style="flex:1;border-top:1px solid var(--line)"></span></div>'
+    +'<span style="flex:1;border-top:1px solid var(--line)"></span>↑ to shop<span style="flex:1;border-top:1px solid var(--line)"></span></div>'
     /* ── 下層 ROASTERY ── */
     +'<div class="dlab" style="display:flex;justify-content:space-between;align-items:baseline"><span>Roastery Stock</span><span style="font-weight:700;color:var(--ink);text-transform:none;letter-spacing:0">'+trfRoasteryKg()+' kg</span></div>';
   if(!rrows.length)h+='<div class="empty" style="padding:14px 0">Nothing sellable in Roastery Stock</div>';
@@ -5334,8 +5332,8 @@ async function openTransferSheet(){
   document.querySelectorAll('#drawer [data-tgx]').forEach(function(el){el.addEventListener('click',function(){
     TRFO.open=(TRFO.open===el.dataset.tgx)?null:el.dataset.tgx;openTransferSheet();
   });});
-  /* 上層明細：↓＝直接退回（誤按再 ↑ 轉回即可）；✕＝刪除鍵（2026-07-20 老闆點名）＝開行詳情選 Used/Return；點行文字同 */
-  document.querySelectorAll('#drawer [data-tdn]').forEach(function(el){el.addEventListener('click',function(ev){ev.stopPropagation();transferReturn(pool[+el.dataset.tdn]);});});
+  /* 上層明細：✕＝刪除鍵（2026-07-20 老闆點名）＝開行詳情選 Used/Return；點行文字同。
+     ↓ 一鍵退回鈕已移除（2026-07-21 老闆點名）——退回走行詳情的 Return to stock */
   document.querySelectorAll('#drawer [data-trm]').forEach(function(el){el.addEventListener('click',function(ev){ev.stopPropagation();openTransferLine(pool[+el.dataset.trm]);});});
   document.querySelectorAll('#drawer [data-tline]').forEach(function(el){el.addEventListener('click',function(){if(ed)openTransferLine(pool[+el.dataset.tline]);});});
   /* 下層：↑ 或點行＝預選該豆開轉入抽屜（批次＋kg 確認那步保留） */
