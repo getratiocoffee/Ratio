@@ -433,6 +433,11 @@ body.appview nav button{font-size:13px;padding:10px 2px}
 .lamp.now{background:var(--danger);box-shadow:0 0 0 3px rgba(216,117,108,.18)}
 .lamp.dg{background:var(--fin)}
 .beans-none{font-size:12.5px;font-weight:600;color:var(--muted);padding:4px 2px 2px}
+/* 店面買三送一跑馬燈（2026-07-21）：無縫循環＝內容兩份、位移一半 */
+.pmq{overflow:hidden;background:var(--accent);color:#fff;border-radius:12px;margin:0 0 14px;font-weight:700;font-size:13px;letter-spacing:.6px;white-space:nowrap}
+.pmq>div{display:inline-flex;padding:9px 0;animation:pmqx 16s linear infinite}
+@keyframes pmqx{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.pmq>div{animation:none}}
 </style></head><body class="appview">
 <div class="bglogo"></div>
 <div class="sbar"></div>
@@ -3301,7 +3306,7 @@ var PUB={open:null};
    清單＝有 QC pass 批次的豆；每豆一卡＝Bag size seg＋bag 價＋500g＋1kg（同 List 抽屜四件）；
    存 rtl_price/rtl_g/rtl_sizes 價格記憶 → List on Square 全部自動預填（openListSheet 零改動）。
    key 照上架同規則（listNameFor）；整卡全空＝該豆不動；500g/1kg 清空＝拿掉該規格 */
-var RPP={rows:null};
+var RPP={rows:null,open:null}; /* open＝展開中的豆 key（收進抽屜、一次一組——2026-07-21 老闆點名） */
 async function openRetailPresets(){
   if(!isLead()){roToast();return;}
   openDrawerHTML('<div class="t" style="font-size:19px">Retail prices</div><div class="empty">Loading…</div>');
@@ -3331,7 +3336,8 @@ function paintRetailPresets(){
   var h='<div class="t" style="font-size:19px">Retail prices</div>'
     +'<div class="s" style="margin-top:2px">coffees that passed QC — set bag size and every price once; List on Square picks them up · untouched coffees keep their old prices</div>'
     +(rows.length?rows.map(function(r,i){
-      /* 排版 v2（2026-07-21 老闆點名好懂）：每規格一行「左＝規格、右＝價錢」；袋裝行標籤跟著選的克數走 */
+      /* 收進抽屜（2026-07-21 老闆點名）：收合行＝豆名＋現價摘要；點展開才編輯，一次一組 */
+      var open=RPP.open===r.key;
       function priceRow(lbl,sub,attr,val){
         return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px">'
           +'<span style="min-width:0"><span class="t" style="font-size:13.5px">'+lbl+'</span>'
@@ -3339,16 +3345,25 @@ function paintRetailPresets(){
           +'<input class="din" '+attr+'="'+i+'" inputmode="decimal" placeholder="$ —" value="'+esc(val)+'" style="width:118px;margin:0;text-align:right;flex:0 0 auto">'
           +'</div>';
       }
-      return '<div style="border:1px solid var(--line2);border-radius:14px;padding:11px 13px;margin-top:10px">'
-        +'<div style="margin-bottom:2px"><span class="t" style="font-size:15px">'+esc(r.name)+'</span>'
-        +(r.proc?' <span style="color:var(--muted);font-size:12px">'+esc(r.proc)+'</span>':'')+'</div>'
-        +'<div class="s" style="color:var(--muted);font-size:11.5px;margin-top:7px;letter-spacing:.4px">BAG SIZE</div>'
-        +'<div class="pm-seg" style="margin-top:5px">'+[100,150,200,250].map(function(g){return '<button data-rpg="'+i+':'+g+'"'+(r.g===g?' class="on"':'')+'>'+g+'g</button>';}).join('')+'</div>'
-        +'<div style="border-top:1px solid var(--line);margin-top:11px">'
-        +priceRow('Bag price',''+r.g+'g','data-rp',r.p)
-        +priceRow('500g','blank = skip','data-rp5',r.p5)
-        +priceRow('1kg','blank = skip','data-rp1',r.p1)
-        +'</div></div>';
+      var sum=(parseFloat(r.p)>0?('$'+r.p+' · '+r.g+'g'):'no price')
+        +(parseFloat(r.p5)>0||parseFloat(r.p1)>0?' +':'');
+      var head='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer" data-rpo="'+i+'">'
+        +'<span style="min-width:0"><span class="t" style="font-size:14.5px">'+esc(r.name)+'</span>'
+        +(r.proc?' <span style="color:var(--muted);font-size:12px">'+esc(r.proc)+'</span>':'')+'</span>'
+        +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto">'
+        +'<span class="s" style="color:'+(parseFloat(r.p)>0?'var(--ink)':'var(--muted)')+';font-weight:600">'+sum+'</span>'
+        +'<span style="color:var(--muted);font-size:12px">'+(open?'▾':'▸')+'</span>'
+        +'</span></div>';
+      var bodyH=open
+        ?'<div class="s" style="color:var(--muted);font-size:11.5px;margin-top:9px;letter-spacing:.4px">BAG SIZE</div>'
+          +'<div class="pm-seg" style="margin-top:5px">'+[100,150,200,250].map(function(g){return '<button data-rpg="'+i+':'+g+'"'+(r.g===g?' class="on"':'')+'>'+g+'g</button>';}).join('')+'</div>'
+          +'<div style="border-top:1px solid var(--line);margin-top:11px">'
+          +priceRow('Bag price',''+r.g+'g','data-rp',r.p)
+          +priceRow('500g','blank = skip','data-rp5',r.p5)
+          +priceRow('1kg','blank = skip','data-rp1',r.p1)
+          +'</div>'
+        :'';
+      return '<div style="border:1px solid var(--line2);border-radius:14px;padding:11px 13px;margin-top:8px">'+head+bodyH+'</div>';
     }).join(''):'<div class="empty">No coffees passed QC yet<br>Pass one in QC first, then set its prices here</div>')
     +(rows.length?'<button class="act" id="rp-save">Save prices</button>':'')
     +'<button class="dclose" id="rp-back">‹ Back</button>'
@@ -3365,6 +3380,13 @@ function paintRetailPresets(){
   }
   document.querySelectorAll('#drawer [data-rpg]').forEach(function(el){el.addEventListener('click',function(){
     var pr=el.dataset.rpg.split(':');grabInputs();RPP.rows[+pr[0]].g=+pr[1];paintRetailPresets();
+  });});
+  /* 收合行點開/收（手風琴一次一組）：先 grabInputs 收值再重繪——打到一半的價不掉 */
+  document.querySelectorAll('#drawer [data-rpo]').forEach(function(el){el.addEventListener('click',function(){
+    var r=RPP.rows[+el.dataset.rpo];if(!r)return;
+    grabInputs();
+    RPP.open=(RPP.open===r.key)?null:r.key;
+    paintRetailPresets();
   });});
   if($('rp-save'))$('rp-save').addEventListener('click',async function(){
     var btn=this;btn.disabled=true;btn.textContent='Saving…';
@@ -12642,6 +12664,13 @@ function openSignInSheet(){
   $('si-email').addEventListener('keydown',function(e){if(e.key==='Enter')go();});
   $('d-cl').addEventListener('click',closeDrawer);
 }
+/* 買三送一跑馬燈（2026-07-21 老闆點名）：零售店面頂部循環公告；批發模式不出（優惠只給 retail） */
+function promoMarqueeHTML(){
+  if(WS_MODE)return '';
+  var msg='BUY ANY 3, GET 1 FREE · cheapest bag free at checkout ☕';
+  var seg='<span style="padding:0 26px">'+msg+'</span><span style="padding:0 26px">'+msg+'</span>';
+  return '<div class="pmq" aria-label="Buy any 3 get 1 free"><div>'+seg+seg+'</div></div>';
+}
 /* 沒登入＝店面：豆單直接開門見山（員工從底部小連結登入） */
 async function renderPublicMenu(){
   document.body.classList.remove('appview');
@@ -12650,7 +12679,8 @@ async function renderPublicMenu(){
   var m=$('main');
   m.innerHTML='<div class="empty">Loading the shelf…</div>';
   SHOP_BEANS=await loadShopMenu();
-  m.innerHTML='<div id="shopbody"></div>'
+  m.innerHTML=promoMarqueeHTML()
+    +'<div id="shopbody"></div>'
     +'<div class="note" style="margin-top:16px"><a href="/?apply" style="color:var(--accent)">Run a cafe? Apply for a wholesale account →</a></div>'
     +'<div class="note" style="margin-top:6px"><a href="/?fb=store" style="color:var(--accent)">Tried it? Tell us what you think →</a></div>'
     +'<button class="more" id="pm-staff">Wholesale &amp; staff sign in</button>';
@@ -12685,6 +12715,7 @@ async function renderCustomerPortal(sess){
       ?'Wholesale account'
       :('Ratio Coffee · on the shelf today'+(email?' · '+esc(email):'')))+'</div>'
     +'<button class="more" id="cp-fb" style="color:var(--inv-t)">Leave feedback</button></div>'
+    +promoMarqueeHTML() /* 批發模式回空——優惠只給 retail */
     +'<div id="shopbody"></div>'
     +(orders.length?'<div class="note" style="margin-top:16px">Your orders</div>'+orders.map(function(o,ox){
       var paid=o.payment_status==='paid';

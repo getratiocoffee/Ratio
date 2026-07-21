@@ -80,6 +80,14 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-21 之十二（Retail prices 每豆收抽屜 ✅ 待 push）
+- **老闆點名**：Set retail prices 每豆收進抽屜。`RPP.open` 手風琴（一次一組）：收合行＝豆名＋現價摘要（「$24 · 200g +」，+＝有 500g/1kg 加購；沒價 muted「no price」）＋▸；點展開＝BAG SIZE seg＋三行價（排版 v2 原樣）。展開/收合/切組都先 grabInputs——**打到一半的價換組不掉**、收合摘要即時反映、Save 用 rows 記憶值（收合組照存）。
+- **驗證**：jscheck ✓；假資料——初始全收合 0 input/摘要對 ✓、展開只一組 ✓、Ethiopia 改 24 切 Dark Blend→摘要變 $24＋Save payload 24 ✓、console 零錯誤＋截圖 ✓。serve 複本已 cp。
+
+## 〇、補記 — 2026-07-21 之十一（店面買三送一跑馬燈 ✅ 待 push）
+- **老闆點名**：?shop 頂部跑馬燈「BUY ANY 3, GET 1 FREE · cheapest bag free at checkout ☕」。`promoMarqueeHTML()`（**WS_MODE 回空**＝批發不出）＋CSS `.pmq`（accent 底白字圓角、內容兩份 translateX(-50%) 無縫循環 16s、prefers-reduced-motion 靜止）；插 renderPublicMenu＋renderCustomerPortal 兩入口 shopbody 前。驗證：零售顯示＋pmqx 動畫 ✓、批發空 ✓、console 零錯誤＋截圖 ✓。serve 複本已 cp。
+- **老闆確認過**：買三送一只給 retail——批發管線（wholesale edge＋quick_pay）天生不吃這優惠，無需改動。
+
 ## 〇、補記 — 2026-07-21 之十（?shop 買三送一 ✅＋⚠ public-shop verify_jwt 事故與 apikey hotfix）
 - **老闆點名網店同優惠**：規則同 Square POS＝非訂閱滿 4 袋送最便宜 1 袋、一單一次。①前端 `cartBogo()`（訂閱 isSubName 排除、qty 展開取 min）＋openCartSheet 折扣行/折後 Total/3 袋促購行 ②**public-shop v15 已部署**：checkout 建 priceOfVar（livePrice＋sizesOfItem 全 variations）＋subVids 排除訂閱 → bagPrices≥4 → `order.discounts` fixed 折最便宜（Square 付款頁顯示折扣行；SUBTOTAL_PHASE surcharge 在折後算）；SUB_RE 提頂層、GET 菜單順手濾掉訂閱商品列（subs[] 專屬）。
 - **⚠ 事故＋修復**：MCP deploy 工具把 public-shop `verify_jwt` false→**true**（工具預設、無參數可關）——匿名 GET/POST 全 401、**網店對訪客掛掉**。Supabase/GitHub Dashboard 皆登出無法代跑改回。**Hotfix＝前端兩處 public-shop fetch 加 `apikey: SUPABASE_KEY` header**（實測 publishable key 過 verify_jwt 閘 200）——**要 push 部署 Vercel 才恢復**。⚠ 之後任何 MCP redeploy public-shop 都會維持 verify_jwt true——前端已帶 apikey 無妨；若要改回 false 需老闆登 Supabase Dashboard（Edge Functions→public-shop→Details）。
