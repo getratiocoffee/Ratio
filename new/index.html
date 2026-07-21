@@ -5267,7 +5267,7 @@ async function openTransferSheet(){
           +'</span></span>'
           +'<span style="display:flex;align-items:center;gap:6px;flex:0 0 auto">'
           +'<span style="font-weight:700;font-size:14px;margin-right:2px">'+t.kg+' kg</span>'
-          +(ed?'<button class="chip" data-trm="'+i+'" style="margin:0;padding:4px 11px;color:var(--muted)" aria-label="remove line">✕</button>':'')
+          +(ed?'<button class="chip" data-trm="'+i+'" style="margin:0;padding:4px 11px;color:var(--muted)" aria-label="edit line">✎</button>':'')
           +'</span></div>';
       }).join('');
       shopRows.push({k:'g:'+g.k,html:head+body+'</div>'});
@@ -5288,7 +5288,7 @@ async function openTransferSheet(){
         +'</span></span>'
         +'<span style="display:flex;align-items:center;gap:6px;flex:0 0 auto">'
         +'<span style="font-weight:700;font-size:14.5px;margin-right:2px">'+t.kg+' kg</span>'
-        +(ed?'<button class="chip" data-trm="'+i+'" style="margin:0;padding:4px 11px;color:var(--muted)" aria-label="remove line">✕</button>':'')
+        +(ed?'<button class="chip" data-trm="'+i+'" style="margin:0;padding:4px 11px;color:var(--muted)" aria-label="edit line">✎</button>':'')
         +'</span></div>'
         /* 第二行獨立全寬（2026-07-21：手機窄欄擠爆——膠囊＋批次資訊移下來） */
         +'<div class="s" data-tline="'+i+'" style="color:var(--muted);font-size:12px;margin-top:5px;padding-left:2px;cursor:pointer">'
@@ -5332,7 +5332,7 @@ async function openTransferSheet(){
   document.querySelectorAll('#drawer [data-tgx]').forEach(function(el){el.addEventListener('click',function(){
     TRFO.open=(TRFO.open===el.dataset.tgx)?null:el.dataset.tgx;openTransferSheet();
   });});
-  /* 上層明細：✕＝刪除鍵（2026-07-20 老闆點名）＝開行詳情選 Used/Return；點行文字同。
+  /* 上層明細：✎（2026-07-21 老闆點名 ✕ 改筆）＝開行詳情選 Fix kg/Used/Return；點行文字同。
      ↓ 一鍵退回鈕已移除（2026-07-21 老闆點名）——退回走行詳情的 Return to stock */
   document.querySelectorAll('#drawer [data-trm]').forEach(function(el){el.addEventListener('click',function(ev){ev.stopPropagation();openTransferLine(pool[+el.dataset.trm]);});});
   document.querySelectorAll('#drawer [data-tline]').forEach(function(el){el.addEventListener('click',function(){if(ed)openTransferLine(pool[+el.dataset.tline]);});});
