@@ -720,15 +720,19 @@ function shopKgOf(r){
   });
   return Math.round(kg*1000)/1000;
 }
-/* QC 認的「還有貨」＝烘豆室 remaining 或 Crows Nest 店面任一有量
-   （2026-07-22 老闆點名：整批轉店面的批次不能從 QC 消失——豆子還在，只是換地方） */
-function qcHasStock(r){return Number(r&&r.remaining_kg)>0||shopKgOf(r)>0;}
-/* 手上的豆（待杯測）：pending_cupping、沒判定、**還有庫存（含店面）**、不在 QC 佇列——Today Cup 卡與 QC 頁共用。
-   2026-07-12：加 remaining>0＝QC 跟 Coffee Stock 同一個真相（被拼配/出貨扣光或沒填重量的批次不再掛在 QC）
-   2026-07-22：有貨判定擴到 qcHasStock＝店面的貨也算 */
+/* 這批的貨在哪：'hand'＝烘豆室還有、'shop'＝只剩 Crows Nest、'gone'＝都沒了（已賣/拼掉）。
+   只影響顯示與排序，**不影響是否列入 QC**（2026-07-22 老闆定調：Log roast 進來的一律要過 QC） */
+function qcStockWhere(r){
+  if(Number(r&&r.remaining_kg)>0)return 'hand';
+  return shopKgOf(r)>0?'shop':'gone';
+}
+/* 手上的豆（待杯測）：pending_cupping、沒判定、不在 QC 佇列——Today Cup 卡與 QC 頁共用。
+   2026-07-12：曾加 remaining>0（QC 與庫存同一真相）→ **2026-07-22 老闆定調拿掉**：
+   庫存不再當門檻，因為扣光就消失＝豆子可以沒過 QC 就溜走。現在一批 Log roast 進來就掛在
+   QC 上直到親手判定（pass/downgrade），沒貨的只是標記提醒、排到後面，不會被濾掉 */
 function toCupList(){
   var inQC={};QCQ.forEach(function(x){inQC[String(x.r.id)]=1;});
-  return (DB.roasts||[]).filter(function(r){return r.status==='pending_cupping'&&!r.qc&&qcHasStock(r)&&!inQC[String(r.id)];});
+  return (DB.roasts||[]).filter(function(r){return r.status==='pending_cupping'&&!r.qc&&!inQC[String(r.id)];});
 }
 function matchRoast(s){
   var nm=String(s.sample_id||'').trim().toLowerCase();if(!nm&&!s.bean_id)return null;
@@ -741,7 +745,7 @@ function matchRoast(s){
     return true;});
   if(!cands.length)return null;
   /* 有貨的批次優先配（同名一批吃光一批有貨 → sample 掛到有貨那批判定）；全沒貨才退回原候選，交給 QCQ 的有貨判定擋掉 */
-  var withStock=cands.filter(qcHasStock);
+  var withStock=cands.filter(function(r){return qcStockWhere(r)!=='gone';});
   var pool=withStock.length?withStock:cands;
   if(s.roast_date){var ex=pool.find(function(r){return (r.roast_date||'')===s.roast_date;});if(ex)return ex;}
   return pool[0];
@@ -754,11 +758,12 @@ function buildItems(){
     var k=s.bean_id?('id:'+String(s.bean_id)):((s.sample_id||'')+'·'+(s.process||'')).toLowerCase();
     if(seen[k])return;seen[k]=1;
     /* 逐鍋 QC（2026-07-14 老闆定調「過 QC 都要手動，不能 assume」——同日連動退役的配套）：
-       這支豆所有未判定、有庫存的鍋全部進佇列，一鍋一列各自親手判；配對條件照 matchRoast
-       （ID 優先、名字退路帶處理法雙鍵、舊資料沒 process 容忍），排序舊→新先烘先判 */
+       這支豆所有未判定的鍋全部進佇列，一鍋一列各自親手判；配對條件照 matchRoast
+       （ID 優先、名字退路帶處理法雙鍵、舊資料沒 process 容忍），排序舊→新先烘先判。
+       2026-07-22：庫存不再當門檻（同 toCupList）——扣光的鍋也要留著判，不然就溜過 QC 了 */
     var nmL=String(s.sample_id||'').trim().toLowerCase();
     var pend=(nmL||s.bean_id)?(DB.roasts||[]).filter(function(x){
-      if(x.qc||!qcHasStock(x))return false;
+      if(x.qc)return false;
       if(s.bean_id&&x.bean_id)return String(x.bean_id)===String(s.bean_id);
       if(String(x.bean_name||'').trim().toLowerCase()!==nmL)return false;
       if(s.process&&x.process&&procKey(x.process)!==procKey(s.process))return false;
@@ -7791,13 +7796,19 @@ function openQCSheet(){
       shop:shopKgOf(r),hand:0});}
     var g=cupGroups[cgi[k]];g.n++;g.green+=Number(r.green_kg)||0;g.rows.push(r);g.hand+=Number(r.remaining_kg)||0;
   });
+  /* 排序：手上有貨（現在就能杯）→ 只剩店面（要去拿）→ 都沒了（補判定），組內新→舊。
+     庫存不再是列不列的門檻，但仍決定「先做哪個」 */
+  var cupRank=function(g){return g.hand>0?0:(g.shop>0?1:2);};
+  cupGroups.sort(function(a,b){return cupRank(a)-cupRank(b)||String(b.date||'').localeCompare(String(a.date||''));});
   var cupSec=cupGroups.length
     ?'<div class="dlab">In hand — tap to cup</div>'
       +cupGroups.map(function(g){
         /* 還沒 cup 的醒目：New 泡泡＋淡 accent 底 highlight（同舊整頁 qc-new） */
-        /* 人不在烘豆室找得到豆子：這批已整批送店面（手上 0）就標 at Crows Nest，樣品要去店裡拿 */
-        var atShop=g.shop>0&&!(g.hand>0)?' · <span style="color:var(--ws)">at Crows Nest '+g.shop+' kg</span>':'';
-        return '<div class="hit" data-tocup="'+esc(g.first.id)+'" style="cursor:pointer;border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,transparent)"><span style="min-width:0"><div class="t">'+esc(g.name||'—')+(g.proc?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(g.proc)+'</span>':'')+' <span class="qc-new">New</span></div><div class="s">'+(rNos(g.rows)?rNos(g.rows)+' · ':'')+(g.date?'roasted '+fmtD(g.date):'roast batch')+(g.n>1?' · '+g.n+' roasts':'')+(g.green>0?' · '+(Math.round(g.green*10)/10)+' kg green':'')+atShop+'</div></span><span class="k">cup</span></div>';
+        /* 貨在哪要講清楚：只剩店面＝樣品去 Crows Nest 拿；都沒了＝豆子用完，判定純補紀錄 */
+        var where=g.hand>0?''
+          :(g.shop>0?' · <span style="color:var(--ws)">at Crows Nest '+g.shop+' kg</span>'
+                    :' · <span style="color:var(--muted)">no stock left — judge to close it off</span>');
+        return '<div class="hit" data-tocup="'+esc(g.first.id)+'" style="cursor:pointer'+(g.hand>0||g.shop>0?';border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,transparent)':'')+'"><span style="min-width:0"><div class="t">'+esc(g.name||'—')+(g.proc?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(g.proc)+'</span>':'')+' <span class="qc-new">New</span></div><div class="s">'+(rNos(g.rows)?rNos(g.rows)+' · ':'')+(g.date?'roasted '+fmtD(g.date):'roast batch')+(g.n>1?' · '+g.n+' roasts':'')+(g.green>0?' · '+(Math.round(g.green*10)/10)+' kg green':'')+where+'</div></span><span class="k">cup</span></div>';
       }).join('')
     :'';
   /* 待判定（QCQ）：點某筆 → 就地展開判定區（View/Edit・Stock・Roast Date・Lock・Pass/Downgrade） */
@@ -7808,7 +7819,10 @@ function openQCSheet(){
       +queue.map(function(q){
         var f=(q.s.features||[]).slice(0,3).join(', ');
         var op=q.r.id===selQC;
-        var qShop=shopKgOf(q.r),qAtShop=qShop>0&&!(Number(q.r.remaining_kg)>0)?' · <span style="color:var(--ws)">at Crows Nest '+qShop+' kg</span>':'';
+        var qWh=qcStockWhere(q.r),qShop=qWh==='shop'?shopKgOf(q.r):0;
+        var qAtShop=qWh==='hand'?''
+          :(qWh==='shop'?' · <span style="color:var(--ws)">at Crows Nest '+qShop+' kg</span>'
+                        :' · <span style="color:var(--muted)">no stock left</span>');
         var head='<div class="hit" data-q="'+esc(q.r.id)+'" style="cursor:pointer'+(op?';border-color:var(--accent);border-bottom-left-radius:0;border-bottom-right-radius:0':'')+'"><span style="min-width:0"><div class="t">'+esc(q.s.sample_id||'—')+(q.s.process?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(q.s.process)+'</span>':'')+'</div><div class="s">'+(rNo(q.r)?rNo(q.r)+' · ':'')+(q.r.roast_date?'roasted '+fmtD(q.r.roast_date)+' · ':'')+esc(f||'')+qAtShop+'</div></span><span class="k">'+(op?'▾':'judge ›')+'</span></div>';
         if(!op)return head;
         var body='<div style="border:1px solid var(--accent);border-top:none;border-radius:0 0 12px 12px;padding:11px 13px;margin:-8px 0 8px">'
