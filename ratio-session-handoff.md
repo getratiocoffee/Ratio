@@ -80,6 +80,15 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-22 之三（QC 納入 Crows Nest 店面的貨 ✅ 待 push）
+- **起因**：老闆問「May Project 怎麼沒有在 QC」。**查下來不是 bug**——該批（7/19 烘 8.6kg、blend）在 **7/21 08:15 被 Yi 整批轉去 Crows Nest 並已結單開發票 INV-20260721-005（$50/kg）**，烘豆室 remaining_kg 歸 0，QC 的「只收有貨批次」規則（2026-07-12 定）就把它濾掉了。可杯測空窗只有 7/20 一天
+  - ⚠ 順帶發現：**這批沒過 QC 就進店面**（roasts.qc=null、status=pending_cupping）；同日轉走的 Dreamer 8.85kg、Alo Bona Village 10kg 也一樣。7/10 那筆 activity_log「qc pass · May Project」是更早的批次，不是這批
+  - samples 表**完全沒有 May Project**（QCQ 從 samples 出發＝本來就進不了「待判定」；有貨時會出現在 toCupList「待杯測」）
+- **老闆定調**：店面的貨也要進 QC。**新 `shopKgOf(r)`**——由 `DB.transfers`（loadAll 只載 pool/settled＝店面現有，used/returned 不載）以**豆名＋烘焙日＋處理法**配對加總 kg；**新 `qcHasStock(r)`＝`remaining_kg>0 || shopKgOf(r)>0`**，取代原本三處的 `remaining_kg>0`：`toCupList`／QCQ 的 pend filter／`matchRoast` 的 withStock
+- **UI**：QC 兩區（In hand／To judge）列尾標 **`at Crows Nest N kg`**（var(--ws) 藍；**只在手上 0 才標**＝人才知道樣品要去店裡拿）。cupGroups 的 shop 值整組算一次（同豆同日同處理法配到同一筆 transfer，逐鍋加會重複計）
+- **驗證**：jscheck ✓；**真檔抽 shopKgOf/qcHasStock/toCupList/procKey ＋真資料**跑判定表——May Project 店面 8.6→進 ✓、Dreamer 8.85→進 ✓、Dark Knight 7/06 店面 10→進 ✓、**Alo Bona Village 的 10kg 是 status='used' 不載→不進 ✓**、Danche v1 有貨那鍋進/沒貨那鍋不進 ✓、Sugar Daddy qc=pass→不進 ✓；375 寬預覽截圖 In hand 三列（兩列帶 at Crows Nest、手上有貨那列不標）✓、console 零錯誤。serve 複本已 cp
+- **設計筆記**：qcVerdict 只寫 `roasts.qc` 不碰庫存 → 讓 remaining=0 的批次進判定無副作用。日期配對讓同豆不同鍋不會互相沾（Dark Knight 7/06 的 transfer 只配 7/06 的鍋）
+
 ## 〇、補記 — 2026-07-22 之二（買三送一收回成「只有網店」✅ Square 後台已改，零程式碼變更）
 - **老闆點名**：買三送一只要留在 ?shop。**查下來前端／edge 本來就只有網店有**（cartBogo 只在零售車＝?shop＋客戶門戶；批發車 openWsCartSheet 不吃；跑馬燈 WS_MODE 回空），唯一外溢的是 **Square Dashboard 折扣**（7/21 之九改成 All locations 那次，把 Crows Nest POS 也納進來了）
 - **⚠ 架構重點（別再搞混）**：**?shop 的買三送一是 public-shop edge v15 自己算的**（checkout 組 `order.discounts` fixed 折最便宜袋），**跟 Square Dashboard 折扣毫無關係**——所以動 Square 後台不會影響 ?shop
