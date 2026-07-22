@@ -707,11 +707,28 @@ function todayShifts(){
   var sh=(DB.roster&&Array.isArray(DB.roster.shifts))?DB.roster.shifts:[];
   return sh.filter(function(s){return s.day===dk&&s.name&&String(s.name).trim();}).sort(function(a,b){return String(a.start||'')<String(b.start||'')?-1:1;});
 }
-/* 手上的豆（待杯測）：pending_cupping、沒判定、**還有庫存**、不在 QC 佇列——Today Cup 卡與 QC 頁共用。
-   2026-07-12：加 remaining>0＝QC 跟 Coffee Stock 同一個真相（被拼配/出貨扣光或沒填重量的批次不再掛在 QC） */
+/* 這批還在 Crows Nest 店面的 kg（DB.transfers 只載 pool/settled＝店面現有；used/returned 不算）。
+   配對＝豆名＋烘焙日＋處理法（兩邊都記了才比，舊資料沒記容忍）——同 matchRoast 的雙鍵精神 */
+function shopKgOf(r){
+  var nm=String((r&&r.bean_name)||'').trim().toLowerCase();if(!nm)return 0;
+  var rd=String((r&&r.roast_date)||''),kg=0;
+  (DB.transfers||[]).forEach(function(t){
+    if(String(t.name||'').trim().toLowerCase()!==nm)return;
+    if(rd&&t.roast_date&&String(t.roast_date)!==rd)return;
+    if(r.process&&t.process&&procKey(t.process)!==procKey(r.process))return;
+    kg+=Number(t.kg)||0;
+  });
+  return Math.round(kg*1000)/1000;
+}
+/* QC 認的「還有貨」＝烘豆室 remaining 或 Crows Nest 店面任一有量
+   （2026-07-22 老闆點名：整批轉店面的批次不能從 QC 消失——豆子還在，只是換地方） */
+function qcHasStock(r){return Number(r&&r.remaining_kg)>0||shopKgOf(r)>0;}
+/* 手上的豆（待杯測）：pending_cupping、沒判定、**還有庫存（含店面）**、不在 QC 佇列——Today Cup 卡與 QC 頁共用。
+   2026-07-12：加 remaining>0＝QC 跟 Coffee Stock 同一個真相（被拼配/出貨扣光或沒填重量的批次不再掛在 QC）
+   2026-07-22：有貨判定擴到 qcHasStock＝店面的貨也算 */
 function toCupList(){
   var inQC={};QCQ.forEach(function(x){inQC[String(x.r.id)]=1;});
-  return (DB.roasts||[]).filter(function(r){return r.status==='pending_cupping'&&!r.qc&&Number(r.remaining_kg)>0&&!inQC[String(r.id)];});
+  return (DB.roasts||[]).filter(function(r){return r.status==='pending_cupping'&&!r.qc&&qcHasStock(r)&&!inQC[String(r.id)];});
 }
 function matchRoast(s){
   var nm=String(s.sample_id||'').trim().toLowerCase();if(!nm&&!s.bean_id)return null;
@@ -723,8 +740,8 @@ function matchRoast(s){
     if(s.process&&r.process&&procKey(r.process)!==procKey(s.process))return false;
     return true;});
   if(!cands.length)return null;
-  /* 有貨的批次優先配（同名一批吃光一批有貨 → sample 掛到有貨那批判定）；全沒貨才退回原候選，交給 QCQ 的 >0 擋掉 */
-  var withStock=cands.filter(function(r){return Number(r.remaining_kg)>0;});
+  /* 有貨的批次優先配（同名一批吃光一批有貨 → sample 掛到有貨那批判定）；全沒貨才退回原候選，交給 QCQ 的有貨判定擋掉 */
+  var withStock=cands.filter(qcHasStock);
   var pool=withStock.length?withStock:cands;
   if(s.roast_date){var ex=pool.find(function(r){return (r.roast_date||'')===s.roast_date;});if(ex)return ex;}
   return pool[0];
@@ -741,7 +758,7 @@ function buildItems(){
        （ID 優先、名字退路帶處理法雙鍵、舊資料沒 process 容忍），排序舊→新先烘先判 */
     var nmL=String(s.sample_id||'').trim().toLowerCase();
     var pend=(nmL||s.bean_id)?(DB.roasts||[]).filter(function(x){
-      if(x.qc||!(Number(x.remaining_kg)>0))return false;
+      if(x.qc||!qcHasStock(x))return false;
       if(s.bean_id&&x.bean_id)return String(x.bean_id)===String(s.bean_id);
       if(String(x.bean_name||'').trim().toLowerCase()!==nmL)return false;
       if(s.process&&x.process&&procKey(x.process)!==procKey(s.process))return false;
@@ -7769,14 +7786,18 @@ function openQCSheet(){
     var b=(DB.beans||[]).find(function(x){return String(x.id)===String(r.bean_id);});
     var proc=r.process||(b&&b.process)||'';
     var k=String(r.bean_name||'').trim().toLowerCase()+'|'+String(proc).trim().toLowerCase()+'|'+String(r.roast_date||'');
-    if(cgi[k]==null){cgi[k]=cupGroups.length;cupGroups.push({first:r,name:r.bean_name,proc:proc,date:r.roast_date,green:0,n:0,rows:[]});}
-    var g=cupGroups[cgi[k]];g.n++;g.green+=Number(r.green_kg)||0;g.rows.push(r);
+    if(cgi[k]==null){cgi[k]=cupGroups.length;cupGroups.push({first:r,name:r.bean_name,proc:proc,date:r.roast_date,green:0,n:0,rows:[],
+      /* 同組＝同豆同處理法同烘焙日 → 配到的 transfer 一樣，整組算一次（逐鍋加會重複計） */
+      shop:shopKgOf(r),hand:0});}
+    var g=cupGroups[cgi[k]];g.n++;g.green+=Number(r.green_kg)||0;g.rows.push(r);g.hand+=Number(r.remaining_kg)||0;
   });
   var cupSec=cupGroups.length
     ?'<div class="dlab">In hand — tap to cup</div>'
       +cupGroups.map(function(g){
         /* 還沒 cup 的醒目：New 泡泡＋淡 accent 底 highlight（同舊整頁 qc-new） */
-        return '<div class="hit" data-tocup="'+esc(g.first.id)+'" style="cursor:pointer;border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,transparent)"><span style="min-width:0"><div class="t">'+esc(g.name||'—')+(g.proc?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(g.proc)+'</span>':'')+' <span class="qc-new">New</span></div><div class="s">'+(rNos(g.rows)?rNos(g.rows)+' · ':'')+(g.date?'roasted '+fmtD(g.date):'roast batch')+(g.n>1?' · '+g.n+' roasts':'')+(g.green>0?' · '+(Math.round(g.green*10)/10)+' kg green':'')+'</div></span><span class="k">cup</span></div>';
+        /* 人不在烘豆室找得到豆子：這批已整批送店面（手上 0）就標 at Crows Nest，樣品要去店裡拿 */
+        var atShop=g.shop>0&&!(g.hand>0)?' · <span style="color:var(--ws)">at Crows Nest '+g.shop+' kg</span>':'';
+        return '<div class="hit" data-tocup="'+esc(g.first.id)+'" style="cursor:pointer;border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,transparent)"><span style="min-width:0"><div class="t">'+esc(g.name||'—')+(g.proc?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(g.proc)+'</span>':'')+' <span class="qc-new">New</span></div><div class="s">'+(rNos(g.rows)?rNos(g.rows)+' · ':'')+(g.date?'roasted '+fmtD(g.date):'roast batch')+(g.n>1?' · '+g.n+' roasts':'')+(g.green>0?' · '+(Math.round(g.green*10)/10)+' kg green':'')+atShop+'</div></span><span class="k">cup</span></div>';
       }).join('')
     :'';
   /* 待判定（QCQ）：點某筆 → 就地展開判定區（View/Edit・Stock・Roast Date・Lock・Pass/Downgrade） */
@@ -7787,7 +7808,8 @@ function openQCSheet(){
       +queue.map(function(q){
         var f=(q.s.features||[]).slice(0,3).join(', ');
         var op=q.r.id===selQC;
-        var head='<div class="hit" data-q="'+esc(q.r.id)+'" style="cursor:pointer'+(op?';border-color:var(--accent);border-bottom-left-radius:0;border-bottom-right-radius:0':'')+'"><span style="min-width:0"><div class="t">'+esc(q.s.sample_id||'—')+(q.s.process?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(q.s.process)+'</span>':'')+'</div><div class="s">'+(rNo(q.r)?rNo(q.r)+' · ':'')+(q.r.roast_date?'roasted '+fmtD(q.r.roast_date)+' · ':'')+esc(f||'')+'</div></span><span class="k">'+(op?'▾':'judge ›')+'</span></div>';
+        var qShop=shopKgOf(q.r),qAtShop=qShop>0&&!(Number(q.r.remaining_kg)>0)?' · <span style="color:var(--ws)">at Crows Nest '+qShop+' kg</span>':'';
+        var head='<div class="hit" data-q="'+esc(q.r.id)+'" style="cursor:pointer'+(op?';border-color:var(--accent);border-bottom-left-radius:0;border-bottom-right-radius:0':'')+'"><span style="min-width:0"><div class="t">'+esc(q.s.sample_id||'—')+(q.s.process?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(q.s.process)+'</span>':'')+'</div><div class="s">'+(rNo(q.r)?rNo(q.r)+' · ':'')+(q.r.roast_date?'roasted '+fmtD(q.r.roast_date)+' · ':'')+esc(f||'')+qAtShop+'</div></span><span class="k">'+(op?'▾':'judge ›')+'</span></div>';
         if(!op)return head;
         var body='<div style="border:1px solid var(--accent);border-top:none;border-radius:0 0 12px 12px;padding:11px 13px;margin:-8px 0 8px">'
           +'<div style="display:flex;gap:7px">'
