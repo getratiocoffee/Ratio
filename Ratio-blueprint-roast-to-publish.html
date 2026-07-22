@@ -90,7 +90,7 @@ h2{font-family:Georgia,"Songti TC",serif;font-size:21px;font-weight:600;margin:0
 <div class="page">
 
 <h1>Ratio Coffee — 豆子走向藍圖</h1>
-<p class="sub">一顆生豆從進鍋到客人手上，中間會經過哪些地方、帳記在哪 · 2026-07-22 版</p>
+<p class="sub">一顆生豆從進鍋到客人手上，中間會經過哪些地方、帳記在哪 · 2026-07-22 夜間版（七個漏洞補到剩一個，那一個按一下 ★ 就好）</p>
 
 <div class="flow">
 <svg viewBox="0 0 800 1010" style="width:100%;min-width:660px;max-width:800px" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="豆子走向流程圖">
@@ -220,18 +220,18 @@ h2{font-family:Georgia,"Songti TC",serif;font-size:21px;font-weight:600;margin:0
 <hr class="rule">
 
 <h2>豆子現在在哪</h2>
-<p class="sub">2026-07-22 的快照，數字不會自己更新</p>
+<p class="sub">2026-07-22 夜間的快照，數字不會自己更新</p>
 <div class="snap">
 <table>
 <tr><td>生豆庫（23 支）</td><td>1778.7 kg</td></tr>
-<tr><td>烘豆室熟豆（8 鍋還有貨）</td><td>73.55 kg</td></tr>
+<tr><td>烘豆室熟豆（8 鍋還有貨）</td><td>61.55 kg</td></tr>
 <tr><td>Crows Nest 店面</td><td>76.45 kg</td></tr>
 <tr><td>app 訂單已出貨（累計）</td><td>18.6 kg</td></tr>
 <tr><td>待出貨</td><td>12.65 kg</td></tr>
 <tr><td>店面退回烘豆室（累計）</td><td>111.6 kg</td></tr>
 <tr class="warn"><td>店面用掉但從沒開過發票</td><td>52.65 kg</td></tr>
 </table>
-<p class="sub" style="margin-top:12px">烘焙紀錄總共 74 鍋：判過 pass 的 28 鍋、<b>從沒判定的 46 鍋</b>（其中 18 鍋已經沒貨，收在 QC 底部的 Unjudged history）。</p>
+<p class="sub" style="margin-top:12px">烘焙紀錄總共 74 鍋：判過 pass 的 37 鍋、<b>從沒判定的 35 鍋</b>（其中 10 鍋已經沒貨，收在 QC 底部的 Unjudged history）。</p>
 </div>
 
 <hr class="rule">
@@ -262,16 +262,16 @@ h2{font-family:Georgia,"Songti TC",serif;font-size:21px;font-weight:600;margin:0
 </div>
 
 <div class="holes">
-<h2>目前會漏的地方</h2>
-<p class="sub">2026-07-22 體檢，編號對應上圖紅圈</p>
+<h2>七個漏洞：六個補好了</h2>
+<p class="sub">2026-07-22 體檢＋當晚修補，編號對應上圖紅圈</p>
 <ol>
-<li class="fixed"><b>店面按 Used 會蒸發</b>——還沒開發票就按 Used 的行，全 app 都看不到，貨卻早就從烘豆室扣掉了，也從沒跟店面收過錢。線上已經有 6 筆共 52.65 kg。<br><span style="color:var(--green);font-weight:700">已修</span>：Crows Nest 底部新增「Used and returned」抽屜撈得回來、可 Undo 回去計費；按 Used 沒發票號會先警告。既有那 6 筆等你自己決定怎麼處理。</li>
-<li><b>出貨扣豆扣不到店面的貨</b>——出貨只從烘豆室扣，但在賣的豆大半貨在 Crows Nest，所以每張單都跳「短少」，而店面那邊的帳也不會因為賣掉而減少。</li>
-<li><b>賣得到但沒貨</b>——網店的售罄戳章只看「有沒有手動下架」，跟庫存無關。現在 Danche v2、Alo Village 兩個處理法兩邊都 0 kg 還掛在架上。</li>
-<li><b>賣完的豆會掉出 Publish</b>——Publish 只列有貨的豆，庫存一歸零那支豆連同它的下架按鈕一起消失，但 Square 還在賣，找不到地方關掉。</li>
-<li><b>★ 搬不了家</b>——★（在賣的版本）只有「推上 Square」那一刻會蓋。一旦上架，新烘的批次永遠拿不到星，所以菜單的風味詞停在第一批，烘焙日卻是最新那鍋＝新烘焙日配舊風味。</li>
-<li><b>Coffee Info 查不到賣完的豆</b>——程式少查了一個欄位，「賣完的豆的履歷」那一區從來沒有東西。同一個原因讓 Cleanup 的舊杯測清理永遠說「All clean」。</li>
-<li><b>在賣、有貨，但 Publish 管不到</b>——沒有 ★ 的豆不會出現在 Publish，也不會長出上架卡，店面菜單直接跳過它。Hakuna Matata 現在就是這個狀態。</li>
+<li class="fixed"><b>店面按 Used 會蒸發</b>——還沒開發票就按 Used 的行，全 app 都看不到，貨卻早就從烘豆室扣掉了，也從沒跟店面收過錢。線上已經有 6 筆共 52.65 kg。<br><span style="color:var(--green);font-weight:700">已修</span>：Crows Nest 底部新增「Used and returned」抽屜撈得回來、可 Undo 回去計費；按 Used 沒發票號會先警告。<b>既有那 6 筆還等你決定怎麼處理。</b></li>
+<li class="fixed"><b>出貨扣豆扣不到店面的貨</b>——出貨只從烘豆室扣，但在賣的豆大半貨在 Crows Nest，所以每張單都跳「短少」，店面的帳也不會因為賣掉而減少。<br><span style="color:var(--green);font-weight:700">已修</span>：烘豆室不夠時會問你一句「要從 Crows Nest 拿嗎？店面有 N kg」。答應才動店面的帳，而且<b>只吃還沒開發票的那些</b>（已經賣給店面的一律不碰）。整包拿完的那筆會標 used 並把訂單號寫進發票欄，之後翻得到去哪了。</li>
+<li class="fixed"><b>賣得到但沒貨</b>——網店的售罄戳章只看「有沒有手動下架」，跟庫存無關。Danche v2 與 Alo Village 兩個處理法兩邊都 0 kg 還掛在架上。<br><span style="color:var(--green);font-weight:700">已修</span>：網店與批發菜單都加了真庫存守門（烘豆室＋Crows Nest 都是 0 就算售罄），客人看到 SOLD OUT、結帳也擋。萬一庫存查詢出錯，守門會自動退讓——寧可多賣一包，也不要整間店變空。</li>
+<li class="fixed"><b>賣完的豆會掉出 Publish</b>——Publish 只列有貨的豆，庫存一歸零那支豆連同下架按鈕一起消失，Square 卻還在賣。<br><span style="color:var(--green);font-weight:700">已修</span>：Square 上還掛著在賣的豆一律留在 Publish，沒貨的<b>排到最上面</b>、紅色 No stock 標籤，隨時按得到 Take off shelf。</li>
+<li class="fixed"><b>★ 搬不了家</b>——★（在賣的版本）本來只有「推上 Square」那一刻會蓋，新烘的批次永遠拿不到星，菜單風味詞停在第一批。<br><span style="color:var(--green);font-weight:700">已修</span>：QC 裡可以手動加星，換星前會問你一次「要把 ★ 移到這批嗎」。</li>
+<li class="fixed"><b>Coffee Info 查不到賣完的豆</b>——程式少查了一個欄位，「賣完的豆的履歷」那一區從來沒有東西。<br><span style="color:var(--green);font-weight:700">已修</span>：補上欄位，歷史區跟 Cleanup 的舊杯測清理都活過來了。</li>
+<li><b>在賣、有貨，但 Publish 管不到</b>——沒有 ★ 的豆不會出現在 Publish，店面菜單也直接跳過它。<b>Hakuna Matata 現在就是這樣：10.55 kg 躺著，客人看不到。</b><br>這是資料不是程式——<b>進 QC 給它一顆 ★ 就解決</b>。Publish 最上面現在會點名這種豆，不會再默默躺著。</li>
 </ol>
 </div>
 
@@ -287,7 +287,7 @@ h2{font-family:Georgia,"Songti TC",serif;font-size:21px;font-weight:600;margin:0
 </ol>
 </div>
 
-<p class="foot">Ratio Coffee 內部文件 · 2026-07-22 · 取代 07-14 版（舊版含 Crows Nest 之前的規則，git 歷史可撈）</p>
+<p class="foot">Ratio Coffee 內部文件 · 2026-07-22 夜間版（漏洞區已隨當晚修補更新）· 取代 07-14 版與同日白天版</p>
 
 </div>
 </body>
