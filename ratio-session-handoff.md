@@ -81,6 +81,19 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-22 之十四（批發帳號名冊＋每家自己的折扣 ✅ 前端待 push／DB＋edge 已上線）
+
+- **老闆要求**：「在 Customers 的介面裡面幫我多一個 icon 給我 wholesale account list」→ 追加「每一個 wholesale 有不同的折扣」
+- **磁貼**：Tools → **Customers 分類**多一顆 **Wholesale · account list**（`whacc` → `openWholesaleAccountsSheet`，新 icon `shopfront`；**isLead 以上**才出現，因為列出金額）。Orders 分類原本那顆同名的改叫 **Wholesale setup**（那支是折扣預設/條款/申請，不是名冊）
+- **名冊內容**（`whAccountRows()`）：誰算批發＝客戶檔 type 是 `shop`/`cafe`/`wholesale` **或** 下過 `channel='wholesale'` 的單（現在真資料三家都是 `shop`）。每列＝訂單數/最後下單/累計金額＋未收紅字＋右邊折扣標籤；底下一區列「有 wholesale 登入帳號但客戶名冊對不到名字」的孤兒帳號；director 另有一鍵跳 Wholesale setup。點一列進 `openCustomerDetail(r,fromWs=true)`，返回鍵文案跟著變
+- **每家自己的折扣（重點）**：
+  - **DB**：`customers.ws_pct numeric`（migration `customers_ws_pct`，check 0–90，**null＝沒特別談＝用全店預設**）。RLS 不用動（既有 staff update；批發客只讀得到自己那列）
+  - **UI**：客戶詳情頁（只在批發名冊那條路＋isLead）多一欄 `Wholesale discount` ＋ Save；**空白存檔＝寫 null＝回到全店預設**，0–90 以外擋下不送。存完寫 activity_log、順手更新 `DB.customers` 同一個物件（全 app 立即同步）
+  - **算價（唯一真相）＝edge `wholesale` v5 已部署**（version 8）。新增 `resolveCustomer(admin,email)`（把 checkout 原本那段 email→customers 抽出來，**menu 現在也用**——v4 的菜單根本不知道是誰在看）；優先序 **`該帳號 ws_pct` ＞ 個別豆 override ＞ 全店預設**；`discount_pct` 回傳該帳號實際折數（沒有客戶檔的呼叫者＝director 看 → 退回全店預設＝v4 行為）。原始碼備份 `handoff/edge/wholesale-v5.ts`
+- **影響範圍**：只管**批發客自助下單**（wholesale edge 的 menu＋checkout）。老闆自己在 app 開單是手打價、Square 網店零售價、訂閱價都不受影響
+- **驗證**：jscheck ✓；edge 煙霧測試 anon→401；本機 serve 假資料（攔 fetch＋`window.FAKE_ROWS` 依 URL 給假回應）——三態標籤（25% OFF／40% DEFAULT／0% OFF）、95 被擋不送出、存 30 → `PATCH customers?id=eq.c1 {"ws_pct":30}`＋activity_log、空白 → `{"ws_pct":null}`、staff 與 Customer book 那條路都沒有輸入欄、console 零錯誤＋375 截圖
+- ⚠ **還沒做的**：真批發帳號端到端（老闆設一家 25% → 用該帳號登入 `?shop` 看「Your pricing 25% off retail」與豆價＝零售 ×0.75）；全店預設現在是 **40%**（`app_state ws_discount {pct:40, overrides:{"sugar daddy":40}}`——那個 override 跟預設同值＝等於沒作用）
+
 ## 〇、補記 — 2026-07-22 之十三（第二批體檢：錢與訂單＋補洞：取消訂單作廢付款連結 ✅ 前端待 push／edge 已部署）
 
 ### 第二批體檢（老闆問「還有什麼漏洞」；第一批＝豆子走向見補記之十一）

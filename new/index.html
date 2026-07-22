@@ -682,7 +682,7 @@ function itemRows(o){
 async function loadAll(){
   var rs=await Promise.all([
     sb.from('orders').select('*').neq('status','Cancelled').order('order_no',{ascending:false}),
-    sb.from('customers').select('id,name,email,type'),
+    sb.from('customers').select('id,name,email,type,ws_pct'), /* ws_pct＝這家批發客談好的折扣％（null＝用全店預設；2026-07-22） */
     sb.from('tasks').select('*').eq('done',false).order('created_at',{ascending:false}),
     sb.from('dialins').select('id,coffee,target_id,created_at,grind,dose,yield,time_s,barista,note').order('created_at',{ascending:false}).limit(200),
     sb.from('product_sync').select('bean_id,target_id,status,process,variation_id').eq('channel','square'),
@@ -4456,15 +4456,41 @@ function openCustomerDetail(r,fromWs){
       return '<div class="dl"><span>#'+String(o.order_no||'—').padStart(4,'0')+' · '+(fmtD(o.created_at)||'—')+'</span>'
         +'<span>'+esc(o.status||'—')+' · '+money(o.total)+(o.payment_status==='paid'?'':' · <span class="red">unpaid</span>')+'</span></div>';
     }).join('')+(os.length>10?'<div class="s" style="margin-top:6px;text-align:center">'+(os.length-10)+' older not shown</div>':''):'')
+    /* 批發折扣（只在批發名冊那條路進來、且 lead 以上）——空白＝清成 null＝回到全店預設 */
+    +((fromWs&&isLead())?'<div class="dlab" style="margin-top:16px">Wholesale discount</div>'
+      +'<div class="s" style="margin-bottom:8px">off retail, for this account only — blank means the shop default'+(WS_DEF_PCT?' ('+WS_DEF_PCT+'%)':'')+'</div>'
+      +'<input class="din" id="cd-wsp" inputmode="decimal" value="'+(c.ws_pct!=null?esc(String(c.ws_pct)):'')+'" placeholder="'+(WS_DEF_PCT?('default '+WS_DEF_PCT):'e.g. 25')+'">'
+      +'<button class="act" id="cd-wsp-save">Save discount</button>':'')
     +'<button class="dclose" id="cd-back">‹ Back to '+(fromWs?'wholesale':'book')+'</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  var sv=$('cd-wsp-save');
+  if(sv)sv.addEventListener('click',async function(){
+    var t=String($('cd-wsp').value||'').trim(), v=null;
+    if(t){
+      v=parseFloat(t);
+      if(!(v>=0&&v<=90)){toast('Enter 0 to 90, or leave it blank for the shop default');return;}
+      v=Math.round(v*10)/10;
+    }
+    var btn=this;btn.disabled=true;btn.textContent='Saving…';
+    try{
+      var u=await sb.from('customers').update({ws_pct:v}).eq('id',c.id);
+      if(u.error)throw new Error(u.error.message);
+      c.ws_pct=v; /* DB.customers 裡就是這個物件——改它等於全 app 同步 */
+      logAct('set wholesale discount',c.name||'customer',v==null?'shop default':v+'% off');
+      toast(v==null?'Back to the shop default ✓':v+'% off retail ✓');
+      openCustomerDetail(r,fromWs);
+    }catch(e){btn.disabled=false;btn.textContent='Save discount';alert('Save failed: '+(e&&e.message||e));}
+  });
   $('cd-back').addEventListener('click',fromWs?openWholesaleAccountsSheet:openCustomersSheet);
   $('d-cl').addEventListener('click',closeDrawer);
 }
 /* ===== 批發帳號名冊（2026-07-22 老闆點名）：Customers 分類第二顆磁貼 =====
    誰算批發？客戶檔 type 是 shop/cafe/wholesale，或這人下過 channel='wholesale' 的單（whOrd 同一套判定）。
    數字全部從 DB.orders 現算（Cancelled 在 loadAll 就濾掉了）；沒收到的錢紅字提醒。
-   登入帳號（profiles role='wholesale'）用名字對上客戶檔標 login；對不上的另列——提醒那個帳號還沒建客戶檔 */
+   登入帳號（profiles role='wholesale'）用名字對上客戶檔標 login；對不上的另列——提醒那個帳號還沒建客戶檔。
+   折扣兩層（2026-07-22）：customers.ws_pct＝這家談好的折數（null＝沒特別談）＞ app_state ws_discount 的全店預設。
+   真正算價的是 wholesale edge（v5 同一套優先序），這裡只是設定與顯示 */
+var WS_DEF_PCT=null; /* 全店預設折扣快取——名冊抽屜開一次讀一次，詳情頁拿它當 placeholder */
 function isWhCustType(t){t=String(t||'').toLowerCase();return t==='wholesale'||t==='shop'||t==='cafe';}
 function whAccountRows(){
   var whIds={};
@@ -4490,17 +4516,22 @@ async function openWholesaleAccountsSheet(){
   rows.forEach(function(r){totDue+=r.due;totSpend+=r.tot;});
   var logins=[];
   try{var p=await sb.from('profiles').select('id,name,role').eq('role','wholesale').order('name');if(!p.error)logins=p.data||[];}catch(e){}
+  try{var dq=await sb.from('app_state').select('value').eq('key','ws_discount').maybeSingle();WS_DEF_PCT=(dq&&dq.data)?(Number((dq.data.value||{}).pct)||0):0;}catch(e){WS_DEF_PCT=null;}
   var loginName={};logins.forEach(function(p){loginName[String(p.name||'').trim().toLowerCase()]=1;});
   var orphan=logins.filter(function(p){return !rows.some(function(r){return String(r.c.name||'').trim().toLowerCase()===String(p.name||'').trim().toLowerCase();});});
   openDrawerHTML('<div class="t" style="font-size:19px">Wholesale accounts</div>'
     +'<div class="s" style="margin-top:2px">'+rows.length+' account'+(rows.length===1?'':'s')+' · most recent order first · '+money(totSpend)+' all time'
       +(totDue>0?' · <span class="red">'+money(totDue)+' unpaid</span>':'')+'</div>'
+    +'<div class="s" style="margin-top:2px">tap an account to set the discount you agreed with that cafe</div>'
     +(rows.length?rows.map(function(r,ix){
       var hasLogin=loginName[String(r.c.name||'').trim().toLowerCase()];
+      var own=(r.c.ws_pct!=null&&r.c.ws_pct!=='')?Number(r.c.ws_pct):null;
       return '<div class="hit" data-wa="'+ix+'"><span><div class="t">'+esc(r.c.name||'—')+'</div>'
         +'<div class="s">'+(r.n?(r.n+' order'+(r.n>1?'s':'')+' · last '+(fmtD(r.last)||'—')+' · '+money(r.tot)):'no orders yet')
-        +(r.due>0?' · <span class="red">'+money(r.due)+' unpaid</span>':'')+'</div></span>'
-        +'<span class="k">'+esc(r.c.type||'—')+(hasLogin?' · login':'')+'</span></div>';
+        +(r.due>0?' · <span class="red">'+money(r.due)+' unpaid</span>':'')+'</div>'
+        +'<div class="s">'+esc(r.c.type||'—')+(hasLogin?' · login':'')+'</div></span>'
+        +(own!=null?'<span class="k">'+own+'% off</span>'
+          :'<span class="k" style="opacity:.5">'+(WS_DEF_PCT?WS_DEF_PCT+'% default':'no rate')+'</span>')+'</div>';
     }).join(''):'<div class="empty">No wholesale accounts yet — set a customer type to shop, or take an order through the wholesale channel</div>')
     +(orphan.length?'<div class="dlab" style="margin-top:16px">Sign-ins without a customer file</div>'
       +'<div class="s" style="margin-bottom:8px">these accounts can order online, but nothing in the customer book matches the name</div>'
@@ -12165,7 +12196,9 @@ async function recipeSave(){
 }
 /* ===== Wholesale 設定（director only）：全店折扣％＋批發帳號切換 =====
    折扣存 app_state 'ws_discount' {pct:20}——單一 scalar，plain upsert 即可；
-   批發價一律 server 端（wholesale edge）用零售價 ×(1−pct/100) 現算，前端只是顯示 */
+   批發價一律 server 端（wholesale edge）用零售價 ×(1−pct/100) 現算，前端只是顯示。
+   2026-07-22 起這裡是「預設」：某家談好自己的折數就存 customers.ws_pct（Customers → Wholesale 名冊裡設），
+   edge v5 的優先序＝該帳號 ws_pct ＞ 個別豆 override ＞ 這裡的預設 */
 async function openWholesaleSheet(){
   openDrawerHTML('<div class="t" style="font-size:19px">Wholesale</div><div class="s" style="margin-top:6px">loading…</div>');
   var pct=0,bank=null,profs=[],apps=[],wsOv={};
@@ -12178,7 +12211,7 @@ async function openWholesaleSheet(){
     if(!aq.error)apps=aq.data||[];
   }catch(e){}
   openDrawerHTML('<div class="t" style="font-size:19px">Wholesale</div>'
-    +'<div class="s" style="margin-top:2px">one discount for every wholesale account — retail price changes flow through automatically</div>'
+    +'<div class="s" style="margin-top:2px">the default for accounts without their own rate — set a single cafe rate in Customers → Wholesale</div>'
     /* 申請區（?apply 進來的 pending）：這輪先人工流——老闆照現行方式開好帳號後按 Approved 收單 */
     +(apps.length?'<div class="dlab" style="margin-top:14px">Applications · '+apps.length+'</div>'
       +apps.map(function(a){
