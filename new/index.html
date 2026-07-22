@@ -5023,6 +5023,9 @@ function openBatchesSheet(){
     +'<div class="box"><div class="n">'+rows.length+'</div><div class="l">Coffee'+(rows.length===1?'':'s')+'</div></div></div>'
     +(dgTot>0?'<div class="s" style="margin-top:6px;text-align:center;color:var(--danger)">+'+dgTot+' kg downgraded (not counted in shelf total)</div>':'')
     +'<div class="pm-seg" style="margin-top:10px"><button id="rst-b" class="'+(isBlend?'on':'')+'">Blends</button><button id="rst-s" class="'+(isBlend?'':'on')+'">Single origins</button></div>'
+    /* Mix a blend（2026-07-22 老闆點名：要在庫存頁就能拿架上的單品調配）——帶著展開中的配方跳進
+       Log roast 的 Mix roasted，扣豆/檢查/快照全部共用那條路，不另開一套 */
+    +(canWrite()?'<button class="act" id="rst-mix" style="margin-top:10px">Mix a blend from stock</button>':'')
     /* Intake 鈕已移除（2026-07-17 老闆點名）：補繳熟豆走 Log roast 的 Intake 分頁、QC 的 Add a past batch 也還在 */
     /* 圖例＝血條新鮮度色（v3 定稿）：黃 aging · 綠 ready · 紅 fading · 灰 no date */
     +'<div class="s" style="margin-top:14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center">'
@@ -5086,6 +5089,12 @@ function openBatchesSheet(){
   openDrawerHTML(h);
   $('rst-b').addEventListener('click',function(){RST.seg='blend';RST.open=null;openBatchesSheet();});
   $('rst-s').addEventListener('click',function(){RST.seg='single';RST.open=null;openBatchesSheet();});
+  var mx=$('rst-mix');if(mx)mx.addEventListener('click',function(){
+    /* Blends 分頁展開著某支＝直接預選那個配方；否則進去自己挑 */
+    var pre='';
+    if(isBlend&&RST.open){var xo=rows.find(function(r){return r.key===RST.open;});if(xo)pre=xo.name;}
+    openRoastPreset('blend',pre,true);
+  });
   $('d-cl').addEventListener('click',closeDrawer);
   document.querySelectorAll('#drawer [data-rst]').forEach(function(el){el.addEventListener('click',function(){
     var x=rows[+el.dataset.rst];RST.open=(RST.open===x.key)?null:x.key;openBatchesSheet();
@@ -5110,11 +5119,16 @@ function openBatchesSheet(){
     openWeighIn(x.pending[+el.dataset.pdbat]);
   });});
 }
-/* 開 Log roast 並預選（血條行動鈕與聚合卡共用）——填進第一張沒選的卡（2026-07-16 卡片改版，blend 也卡片化） */
-async function openRoastPreset(mode,val){
+/* 開 Log roast 並預選（血條行動鈕與聚合卡共用）——填進第一張沒選的卡（2026-07-16 卡片改版，blend 也卡片化）。
+   mix=true（2026-07-22 Roastery Stock 的 Mix a blend 用）：直接落在 Mix roasted＝拿架上的單品熟豆調配，
+   免得老闆還要自己穿過 Roast today→Blend→Mix roasted 三層切換 */
+async function openRoastPreset(mode,val,mix){
   await openRoastSheet(null);
-  RO.mode=mode;
-  if(mode==='blend')roFillBlendBatch(val,null);else roFillBatch(val,null);
+  RO.mode=mode;RO.entry='roast';
+  if(mode==='blend'){
+    if(val)roFillBlendBatch(val,null);
+    if(mix)RO.bb.forEach(function(b){b.pre=false;});
+  }else roFillBatch(val,null);
   paintRoastSheet();
 }
 /* 快速扣血：選日期組（預設最舊）＋原因（瑕疵/調撥含去向/其他）——同日多鍋合併一組、組內依序扣、
