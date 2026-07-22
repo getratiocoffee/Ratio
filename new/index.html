@@ -4953,7 +4953,13 @@ function rstRows(isBlend){
   var rows=[],seen={};
   if(isBlend){
     (DB.blends||[]).forEach(function(b){
-      if(!b.name)return;seen[String(b.name).trim().toLowerCase()]=1;
+      if(!b.name)return;
+      /* 2026-07-22 老闆定調：0kg 的拼配也不列（補上 2026-07-14 對單品定的同一條規則）——
+         架上沒貨通常是整批轉去 Crows Nest 之後歸零，這頁只管「烘豆室現在有什麼」；
+         配方本身去 Blend Recipe 看、轉出去的去 Crows Nest 看，資訊沒有不見 */
+      var hasB=rstStockKg(b.name,true)>0||rstDgBatches(b.name,true).length>0||rstPendingBatches(b.name,true).length>0;
+      if(!hasB)return;
+      seen[String(b.name).trim().toLowerCase()]=1;
       rows.push({name:b.name,isBlend:true,target:b.target_kg,low:b.low_stock_kg,ref:b});
     });
   }else{
@@ -5033,7 +5039,8 @@ function openBatchesSheet(){
     +'<span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#3F9A66;vertical-align:-1px"></span> ready</span>'
     +'<span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--danger);vertical-align:-1px"></span> fading</span>'
     +'<span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--line2);vertical-align:-1px"></span> no date</span></div>';
-  if(!rows.length)h+='<div class="empty">Nothing here yet<br>Use Intake above or log the roasted-out kg when roasting</div>';
+  /* 空狀態文案（2026-07-22 更新）：舊版還在叫人用 Intake 鈕，那顆 2026-07-17 就移除了 */
+  if(!rows.length)h+='<div class="empty">Nothing on the shelf right now<br>Roasted stock lands here when you log a roast — anything sent to the shop is in Crows Nest</div>';
   rows.forEach(function(x,xi){
     var openRow=RST.open===x.key;
     var danger=x.hp.state!=='ok';
