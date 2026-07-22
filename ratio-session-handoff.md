@@ -80,6 +80,20 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-22 之六（Blend 用單品熟豆調配補完＋待秤重幽靈修復 ✅ 待 push）
+- **老闆要求**：①Log roast 烘完的豆子要進 Roastery stock ②Blend 要能從 single origin 抽豆做 blending、做完扣掉該量
+- **⚠ 關鍵發現：功能本來就有，是半殘的**。Blend 卡內 seg 的 **Mix roasted**（熟拼）早就會呼叫 `consumeBlendParts` 扣單品熟豆——但 ①使用者填的 `bb.amt` **submit 從來沒讀**（實扣永遠是總量×配方%，填了不算數）②不能挑批次（全自動 FIFO）③沒有事前檢查（不夠只在寫完後 alert，那時 blend 已 insert、成分扣了一半）。使用數據佐證沒被用起來：**intake blend 19 次**（純補登不扣）vs post-blend 5 次＝熟豆庫存長期只進不出
+- **老闆三個決定**：用量**照配方 % 自動算**（輸入格改唯讀）／**要能挑批次**／bug 一起修
+- **`roMixPlan(bb)` 成為單一真相**——畫面顯示、送出前檢查、實際扣除三處共用同一份數字。**⚠ 順手修掉既有矛盾**：UI 攤分用 `pct/Σpct`（正規化）、`consumeBlendParts` 卻用 `pct/100`（固定分母），配方不是剛好 100%（如 70+35=105）時**畫面 6.67 實扣 7.0**——用量既然改唯讀「這就是會扣的量」，兩套算式就是說謊。統一走 Σpct 正規化、round 到 0.01（同畫面精度），殘差用底部對帳行 `takes 5.00 + 2.50 + 2.50 = 10.00 kg` 誠實揭露
+- **UI**：成分行改**唯讀 `<b>`**（不用 readonly input——iOS 上仍會吸焦點跳游標，看起來像壞掉的輸入格）＋下面一排 **chip 挑批次**（同 Send to shop／Deduct 的語言，帶 `rstFreshColor` 新鮮度色點；option 塞不進色點所以不用 select）。只有 **2 組以上才給 chip**（1 組不用選、0 組沒得選）；換行不橫捲（橫捲會被卡片邊緣裁掉）。降級組標 `dg`／同日混標 `incl. dg`，排最前呼應「降級豆是配方首選」。不足的成分用量轉紅＋小字 `short N`
+- **新函式**：`roMixCmp`（扣除順序比較器）／`blendPartBatches`（成分批次陣列，配對規則單一來源，`blendPartPool` 改成它的包裝）／`blendPartGroups`（chip 來源，同日併組＋降級標記）／`roMixPlan`／`roMixHintText`／`roMixSumText`／`roMixRepaint`（就地刷新不重繪抽屜）。狀態 `bb.pick[pi]`＝烘焙日 key（''＝Auto）；`RO.bb` 不落草稿（`saveRoastDraft` 只存單品）＝零相容問題
+- **`consumeBlendParts` 改簽名** `(parts,needs,picks)`：need 由呼叫端傳（同源）、指定批提到最前面優先扣、**不夠仍溢出**（成品已 insert，硬停會留「成品有貨成分沒扣」的爛帳，且不足在送出前已 confirm 過）。回傳 `{short,used}`，**`used` 寫進 `logAct`＝熟豆扣減唯一軌跡**（熟豆沒有 stock_moves，那表是生豆專用）。recipe 快照多記 `roasted_kg`/`from`＝這鍋吃了哪幾批，日後可回溯
+- **送出前第 ④ 關**：Mix roasted 熟豆庫存 confirm（**跨卡累計**＝同支豆被兩張卡吃也抓得到；指定批比該批、auto 比全池），文案同 ①③ 的「Submit anyway?」慣例
+- **🐛 待秤重幽靈修復**：抽 **`rstIsPending(r)`** 三處共用（`rstPendingBatches`／Cleanup C／`rstRows` 孤兒），判準從「還有沒有剩」改成「**有沒有秤過**」（`roasted_kg==null`）。原本任何被扣光的批（出貨/拼配/轉店面/清零）都退化成假待秤，**點下去 `openWeighIn` 憑空造熟豆庫存**，而 Cleanup 那顆 ✕「delete mislog」**更會連生豆一起退還**＝也造生豆。實測當時 14 筆待秤**全部是假的**、真沒秤過的 0 筆。另給 `openWeighIn` 加重複秤重確認當第二道防線
+- **驗證**：jscheck ✓、舊函式殘留 0、新增英文字串無撇號 ✓；**真檔抽 15 個函式跑 async 假資料測試**（mock sb 只記 PATCH＋擋 fetch）七項全過——待秤判定真假分辨 ✓、**Σ=105% 配方實扣 6.67＝畫面 6.67（舊版會扣 7.0）** ✓、Auto 降級優先→舊到新 ✓、指定批只動該批其餘零 PATCH ✓、指定批不夠先歸零再溢出＋used 軌跡 ✓、全池不足回報 short ✓、分組降級標記與排序 ✓；375 寬截圖：chip 選中黑底＋新鮮度點、不足成分紅字、對帳行 ✓、console 零錯誤。serve 複本已 cp
+- **⏭ 老闆驗收**：push 後用真的 Dark Knight（Danche v1／La Molienda／Hakuna Matata 熟豆都在架上）走一遍 Mix roasted，確認扣的批次與量符合預期
+- **設計筆記**：`bb.amt` 欄位保留但停止寫入（`roValidBlends` 的相容判斷留著）；pre-blend／intake 兩條路完全沒動（成分格用 `data-gc`/`data-gp`，與 post 的 `data-bc`/`data-bp` 分離）
+
 ## 〇、補記 — 2026-07-22 之五（QC 拿掉庫存門檻＝Log roast 進來的一律要判定 ✅ 待 push）
 - **老闆定調（否決時間門檻）**：「所有從 Log roast 進來的都要經過 QC」。之三只把店面的貨補回來還不夠——**扣光的批次仍會從 QC 消失＝沒判定就溜走**（實測未判定且已無貨者 15 筆）
 - **改法**：`toCupList` 與 QCQ 的 pend filter **拿掉有貨條件**（2026-07-12 立的 `remaining>0` 正式收回）——一批 Log roast 進來就掛在 QC，**只有親手判定（pass/downgrade）才離開**。`qcHasStock` 換成 **`qcStockWhere(r)` 三態**：`hand`（烘豆室有）／`shop`（只剩 Crows Nest）／`gone`（都沒了），**只管顯示與排序，不再當門檻**
