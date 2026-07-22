@@ -5519,10 +5519,13 @@ async function openTransferSheet(){
   }).join('');
   /* Submit 只在有 new 行時亮（rsMoney/lead；2026-07-18 口徑） */
   if(newN&&(rsMoney()||isLead()))h+='<div style="display:flex;align-items:stretch;margin-top:12px"><button class="act" id="trf-settle" style="flex:1;margin-top:0;white-space:nowrap">Submit '+newN+' new — invoice</button></div>';
-  h+='<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
+  /* used/returned 的唯一入口（2026-07-22 補洞，見 openTransferGone 註解） */
+  h+='<button class="chip" id="trf-gone" style="width:100%;margin:12px 0 0">Used and returned…</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
   openDrawerHTML(h);
   $('d-cl').addEventListener('click',closeDrawer);
   $('trf-hist-btn').addEventListener('click',openTransferHistory);
+  $('trf-gone').addEventListener('click',openTransferGone);
   if($('trf-settle'))$('trf-settle').addEventListener('click',openTransferSettle);
   /* 上層聚合行：點開/收（手風琴——一次一組） */
   document.querySelectorAll('#drawer [data-tgx]').forEach(function(el){el.addEventListener('click',function(){
@@ -5589,6 +5592,62 @@ async function openTransferSheet(){
       document.addEventListener('pointercancel',up);
     });
   });
+}
+/* Used & returned（2026-07-22 補洞）：used/returned 是軟刪——前端只載 pool/settled、
+   🧾 History 又只撈有發票號的，所以「還沒結單就按 Used」的行從此兩邊都看不到（實測 6 筆共 52.65 kg
+   就這樣蒸發，貨早在轉出時就從烘豆室扣掉了）。這個抽屜是它們唯一的去處：撈得回來、還能 Undo。 */
+async function openTransferGone(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Used and returned</div><div class="empty">Loading…</div>');
+  var rows=[];
+  try{
+    var q=await sb.from('transfers').select('id,status,name,process,is_blend,kg,roast_date,invoice_no,created_at')
+      .in('status',['used','returned']).order('created_at',{ascending:false}).limit(200);
+    if(q.error)throw new Error(q.error.message);
+    rows=q.data||[];
+  }catch(e){
+    openDrawerHTML('<div class="t" style="font-size:19px">Used and returned</div><div class="empty">Could not load: '+esc(e&&e.message||e)+'</div>'
+      +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+    $('d-cl').addEventListener('click',openTransferSheet);return;
+  }
+  var ed=canWrite();
+  var noInv=rows.filter(function(t){return t.status==='used'&&!t.invoice_no;});
+  var noInvKg=Math.round(noInv.reduce(function(s,t){return s+(Number(t.kg)||0);},0)*100)/100;
+  var line=function(t,ix){
+    var warn=t.status==='used'&&!t.invoice_no;
+    return '<div class="hit" style="align-items:center"><span style="min-width:0">'
+      +'<div class="t">'+esc(t.name||'—')+(t.process?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(t.process)+'</span>':'')+'</div>'
+      +'<div class="s">'+[(t.roast_date?'roasted '+fmtD(t.roast_date):null),
+        (t.invoice_no?'invoice '+esc(t.invoice_no):(warn?'<span class="red">never invoiced</span>':'no invoice')),
+        (t.created_at?fmtD(String(t.created_at).slice(0,10)):null)].filter(Boolean).join(' · ')+'</div></span>'
+      +'<span style="display:flex;align-items:center;gap:8px;flex:0 0 auto"><span style="font-weight:700">'+(Number(t.kg)||0)+' kg</span>'
+      +(ed&&t.status==='used'?'<button class="chip" data-tundo="'+ix+'" style="margin:0;padding:4px 10px;font-size:12px">Undo</button>':'')+'</span></div>';
+  };
+  var usedRows=rows.filter(function(t){return t.status==='used';});
+  var retRows=rows.filter(function(t){return t.status==='returned';});
+  var h='<div class="t" style="font-size:19px">Used and returned</div>'
+    +'<div class="s" style="margin-top:2px">lines that left the shop list — used up at the shop, or sent back to the roastery</div>'
+    +(noInv.length?'<div class="s" style="margin-top:10px;color:var(--danger)">⚠ '+noInv.length+' used line'+(noInv.length===1?'':'s')+' ('+noInvKg+' kg) never made it onto an invoice — the shop was never charged for them. Undo puts a line back on the shop list so it can be invoiced.</div>':'')
+    +'<div class="dlab">Used at the shop'+(usedRows.length?' · '+usedRows.length:'')+'</div>'
+    +(usedRows.length?usedRows.map(function(t){return line(t,rows.indexOf(t));}).join(''):'<div class="sempty">Nothing here</div>')
+    +'<div class="dlab">Returned to the roastery'+(retRows.length?' · '+retRows.length:'')+'</div>'
+    +(retRows.length?retRows.map(function(t){return line(t,rows.indexOf(t));}).join(''):'<div class="sempty">Nothing here</div>')
+    +'<button class="dclose" id="tg-back">‹ Back to '+esc(TRF_DEST)+'</button>'
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>';
+  openDrawerHTML(h);
+  $('tg-back').addEventListener('click',openTransferSheet);
+  $('d-cl').addEventListener('click',closeDrawer);
+  /* Undo＝把 used 行放回店面清單（pool＝未結單，之後照常進發票）；退回的行不給 Undo——
+     那批豆的 kg 已經補回烘豆室批次，再放回店面會兩邊都有 */
+  document.querySelectorAll('#drawer [data-tundo]').forEach(function(el){el.addEventListener('click',async function(){
+    var t=rows[+el.dataset.tundo];if(!t)return;
+    if(!confirm('Put '+(Number(t.kg)||0)+' kg of '+t.name+' back on the shop list?'+(t.invoice_no?'\n\nThis line is already on invoice '+t.invoice_no+' — it goes back as a new unbilled line.':'')))return;
+    el.disabled=true;el.textContent='…';
+    var u=await sb.from('transfers').update({status:'pool',invoice_no:null,price_per_kg:null,settled_at:null,arrived_at:null}).eq('id',t.id);
+    if(u.error){el.disabled=false;el.textContent='Undo';alert('Failed: '+u.error.message);return;}
+    logAct('transfer undo used',t.name,(Number(t.kg)||0)+' kg → back on '+TRF_DEST);
+    toast('Back on the shop list ✓');
+    await reload();openTransferGone();
+  });});
 }
 /* 歷次 submit 的單（2026-07-18 老闆點名 🧾 icon 入口）：settled 按發票號分組、點組展開明細行 */
 var TRFH={open:null};
@@ -5781,6 +5840,9 @@ function openTransferLine(t){
 async function transferUsed(t){
   if(!canWrite()){roToast();return;}
   if(!t||!t.id)return;
+  /* 還沒結單就標 Used＝這批永遠不會進發票，店面等於白拿（2026-07-22 補洞：實測已經發生 6 筆）。
+     不擋（店面確實會有自用/報廢），但要講清楚，而且 Used and returned 抽屜撈得回來 */
+  if(!t.invoice_no&&!confirm('"'+t.name+'" has not been invoiced yet.\n\nMarking it used means the shop is never charged for these '+(Number(t.kg)||0)+' kg. Submit the invoice first if it was sold.\n\nMark used anyway?'))return;
   var d=await sb.from('transfers').update({status:'used'}).eq('id',t.id);
   if(d.error){alert('Failed: '+d.error.message);return;}
   DB.transfers=(DB.transfers||[]).filter(function(x){return String(x.id)!==String(t.id);});

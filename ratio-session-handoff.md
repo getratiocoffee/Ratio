@@ -81,6 +81,26 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-22 之十一（生產線體檢＋補洞 A：Used 不再蒸發 ✅ 待 push）
+
+### 體檢結果（老闆問「log roast → publish 有沒有漏洞把豆子變孤兒」；完整報告在 `~/.claude/plans/qc-crows-nest-roastery-scalable-eclipse.md`）
+**7 個洞已經真的在漏**（都有線上資料佐證），按嚴重度：
+1. **店面按 Used ＝ 52.65 kg 蒸發**（`transferUsed` 只改 status；前端只載 pool/settled、History 只撈有發票號的）→ 本輪已修，見下
+2. **出貨扣豆扣不到 Crows Nest**（`deductOrderStock` 只吃 `rstBatches`）——`activity_log` 有實證 `#29 · short: 3 item(s)`；拼配吃成分同病
+3. **賣得到但沒貨**：售罄戳章只看 `product_sync.status==='paused'`（public-shop v17:216），跟庫存無關 → Danche v2／Alo Village ×2 現在兩地 0kg 還在賣
+4. **賣完的豆掉出 Publish 就沒有下架鈕**（`setShelfSold` 全檔只有 Publish 一個呼叫點）
+5. **★ 搬不了家**：`flavour_locked=true` 全檔只有 `pushListToSquare` 內的 `starSample(s,true)` 會寫，而 Publish 又固定餵「已鎖那筆」給 List 抽屜 → 菜單風味永遠停在第一批，烘焙日卻走另一條路（edge 掃最新 roasts）
+6. **Coffee Info 杯測母體恆空**：loadAll 的 samples `.select()` 沒有 `supplier` 欄，但 :2578／:3959 用 `s.supplier==='Ratio Coffee'` 過濾 → History 區與 Cleanup B 區形同死碼
+7. **`Hakuna Matata` synced＋有貨但沒 ★** → Publish 列不出、List 卡不長（只給非 synced）、店面菜單 QC gate 跳過
+另有一批結構性破洞（刪發票洗掉 used/returned、settled 行 Return 發票照收錢、改烘焙日不同步 transfers、`confirmDeleteCoffee` 名字級大掃除、熟豆沒有 stock_moves 帳本…）詳見報告。**修補順序 A→H 已與老闆確認**。
+
+### 本輪只做 A（Used 不再蒸發）
+- **`openTransferGone()`**（放 `openTransferHistory` 之前）＝used/returned 的唯一入口：查 `status in (used,returned)` limit 200，分「Used at the shop」「Returned to the roastery」兩區；沒發票號的行標紅字 `never invoiced`，頂部總計警告（實測「2 used lines (16.65 kg) never made it onto an invoice」）。**used 行可 Undo**（status 回 `pool`＋清 invoice/price/settled/arrived）＝放回店面清單重新計費；**returned 不給 Undo**（那批 kg 已補回烘豆室批次，再放回店面會兩邊都有）
+- 入口：Crows Nest 主畫面底部「Used and returned…」chip（Submit 下方、Close 上方）
+- **`transferUsed` 加防呆**：沒有 `invoice_no` 的行先 confirm「shop is never charged for these N kg」——不擋（店面確實有自用/報廢），但講清楚
+- 驗證：jscheck ✓；serve `trftest.html`（擋 fetch＋假回應＋側錄請求）——清單三 used／一 returned 分區正確、紅字警告數字對、returned 無 Undo 鈕、Undo 送 `PATCH transfers?id=eq.T1 {status:pool,invoice_no:null,…}`、沒發票號的 Used 多跳一次 confirm／有發票號的不跳、console 零錯誤、375px 截圖排版乾淨。serve 複本已 cp
+- ⚠ **線上那 6 筆 52.65 kg 還在原地**（April Project 6／Dark Knight 10／Dancer 10／Sugar Daddy 10／Alo Bona Village 6.65＋10）——部署後老闆進「Used and returned」自己決定哪些要 Undo 回去計費、哪些真的是店面自用
+
 ## 〇、補記 — 2026-07-22 之十（QC↔庫存↔Publish 三處對齊同一套帳 ✅ 待 push）
 - **老闆要的**（原話）：「QC 從 Crows Nest 和 roastery stock 的 list 截取過來做品控，過了以後在 publish 內顯示；如果 publish 裡面沒有那隻豆子了，就要從 QC 那邊拿下來」＋前一輪的「同一個日期的話把它合併」
 - **⚠ QC 母體規則（單一真相，改前先讀決策時間軸）**：`toCupList`（約 776 行）上方註解記了四次翻案——07-12 有庫存門檻／07-14「過 QC 都要手動」＝同日連動退役／07-22 早拿掉門檻（怕沒過 QC 就溜走）／**07-22 晚老闆定調現行版**：門檻回來但改兩地口徑 `qcStockWhere(r)!=='gone'`（烘豆室 or Crows Nest 有貨），同日合併也回來且**判定整組一起**。早上那個顧慮改由 Unjudged history 摺疊區承接
