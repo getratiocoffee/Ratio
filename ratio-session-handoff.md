@@ -93,6 +93,7 @@
 - **為什麼 Publish 要一起改**：線上實測 synced 的豆**大半烘豆室 0kg、貨全在 Crows Nest**（Dancer 9.75／Dreamer 10.05／Sugar Daddy 9.6／April Project 5.1／Kiama AA 6／Alo Bona Village 3／Kii AB 1）——原本只吃 rstRows＝這 7 支在賣的豆整批不在 Publish 面板上。⚠ **rstRows 本身沒動**（Roastery Stock ＝「烘豆室現在有什麼」，07-22 定調 0kg 不列）
 - **QC 分頁數字改成組數**（同日多鍋算一張，與清單所見一致）；抽屜副標同步
 - **驗證**（jscheck ✓、serve `qctest.html` 假資料、擋 fetch 並側錄 PostgREST 請求）：同日 3 鍋＋同日已 pass 1 鍋 → 卡片「3 roasts」、Pass 送 `PATCH roasts?id=in.(R1,R2,R3)`＋activity_log ref「Kii AB · 2026-07-20 · 3 roasts」（已 pass 的 R7 沒被碰）✓；不同日不合併 ✓；沒貨的鍋不進主清單、落到 `UNJUDGED HISTORY · N`（預設收合、展開可判、判完消失）✓；待杯測段同樣濾掉沒貨的 ✓；Roast Date 整組改送 `in.(R1,R2,R3)` ✓；Publish 出現只在店面的 Dancer 標「at Crows Nest 9.75 kg」、兩邊都有貨標「roastery 8 kg · at Crows Nest 3 kg」、沒鎖 ★ 的不列 ✓；console 零錯誤＋截圖。serve 複本已 cp
+- **追加：Beans 監控室（`renderBeans`）的 In QC 也接同一份帳**（老闆看 production line 截圖說「這裡的訊息沒同步」）：原本用 `live`（只算烘豆室、逐鍋列，同日多鍋重複出現）→ 改成 **QCQ ∪ toCupList 再 qcDayGroups**，一列一組帶「N roasts」、沒貨的不列、貨在店面的顯示 `at Crows Nest N kg`；`live` 的 pending 分支改 return（不重複列），其餘三段（Ready/On shelf/Blend pool）維持 live。**紅燈卡的 `data-brid` 改帶組 key**（＝新的 selQC 單位；不改的話點卡展開會失準——這是同日合併帶來的連動，別漏）。驗證：假資料 In QC 3 列（07-14 一鍋／07-20「3 roasts」／待杯測 Gatitu）、沒貨的 07-19 不在（在 Unjudged history）、已 pass 的落 Ready to shelf、點卡直達 View/Edit 且 selQC=組 key ✓
 - **線上預期值**（部署後對照）：QC 分頁 **Blends 13 / Single origins 9**（原 19／27）；Publish 應多出上面那 7 支
 
 ## 〇、補記 — 2026-07-22 之九（訂單顯示送貨地址 ✅ 待 push）

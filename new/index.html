@@ -12596,11 +12596,26 @@ function renderBeans(){
     if(act==='pub')extra=' data-bkey="'+esc(String(r.bean_name||'').trim().toLowerCase()+'|'+(r.kind==='blend'?'':procKey(r.process)))+'"';
     return '<div class="beans-row"'+(act?' data-bact="'+act+'" data-bkind="'+(r.kind==='blend'?'1':'0')+'"'+extra+' style="cursor:pointer"':'')+'><div class="beans-nm"><b>'+esc(r.bean_name||'?')+'</b><span>'+esc(sub)+'</span></div><div class="beans-lamps"><span class="lamp '+l1+'"></span><span class="lamp '+l2+'"></span><span class="lamp '+l3+'"></span></div></div>';
   };
-  var gQC=[], gReady=[], gShelf=[], gBlend=[];
+  /* In QC 段＝**跟 QC 抽屜同一份母體**（2026-07-22 老闆點名「這裡的訊息沒同步」）：
+     來源 QCQ ∪ toCupList（兩者都已濾掉兩地皆無貨的鍋）＋同日合併，這樣張數與 QC 分頁一致；
+     live 只算烘豆室，會漏掉「貨在 Crows Nest」的待判鍋，所以這段不能用 live。
+     其餘三段（Ready/On shelf/Blend pool）維持 live＝烘豆室現場的批次流 */
+  var qcG=qcDayGroups((QCQ||[]).map(function(q){return {r:q.r,s:q.s};})
+    .concat(toCupList().map(function(r){return {r:r,s:null};})));
+  var rowG=function(g){
+    var r0=g.rows[0];
+    var kg=g.rows.every(function(r){return r.remaining_kg==null;})?'not weighed yet'
+      :(g.hand>0?(Math.round(g.hand*100)/100)+' kg left'
+                :(g.shop>0?'at Crows Nest '+g.shop+' kg':'no stock left'));
+    var sub=[(r0.kind==='blend'?'blend':''),g.proc,g.date,kg,(g.n>1?g.n+' roasts':'')].filter(Boolean).join(' · ');
+    /* data-brid 帶**組 key**（＝QC 的 selQC 值，2026-07-22 QC 改成組判定後的新單位） */
+    return '<div class="beans-row" data-bact="qc" data-bkind="'+(r0.kind==='blend'?'1':'0')+'" data-brid="'+esc(String(g.key))+'" style="cursor:pointer"><div class="beans-nm"><b>'+esc(g.name||'?')+'</b><span>'+esc(sub)+'</span></div><div class="beans-lamps"><span class="lamp now"></span><span class="lamp "></span><span class="lamp "></span></div></div>';
+  };
+  var gQC=qcG.map(rowG), gReady=[], gShelf=[], gBlend=[];
   live.forEach(function(r){
     var st=qcState(r);
-    if(st==='pending')gQC.push(row(r,'now','','','qc'));
-    else if(st==='downgrade')gBlend.push(row(r,'now','now','now',''));
+    if(st==='pending')return; /* 待判的全交給上面的 qcG（含店面貨那些，這裡不重複列） */
+    if(st==='downgrade')gBlend.push(row(r,'now','now','now',''));
     else if(onShelf(r))gShelf.push(row(r,'ok','ok','ok',''));
     else gReady.push(row(r,'ok','now','','pub'));
   });
@@ -12617,8 +12632,9 @@ function renderBeans(){
   document.querySelectorAll('#main [data-bact]').forEach(function(el){el.addEventListener('click',function(){
     if(el.dataset.bact==='qc'){
       QCSEG=el.dataset.bkind==='1'?'blend':'single';selQC=el.dataset.brid||null;
-      var cq=QCQ.find(function(q){return String(q.r.id)===String(el.dataset.brid||'');});
-      if(cq){openRecupSheet(cq);return;}
+      /* brid＝組 key：有杯測紀錄就直達 View/Edit（回 QC 時該組已預選展開），沒有就退 QC 抽屜按 cup */
+      var cg=qcG.find(function(g){return String(g.key)===String(el.dataset.brid||'');});
+      if(cg&&cg.s){openRecupSheet({s:cg.s,r:cg.rows[0],rows:cg.rows});return;}
       openQCSheet();return;
     }
     if(el.dataset.bact==='pub'){PUB.open=el.dataset.bkey||null;openPublishSheet();return;}
