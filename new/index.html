@@ -297,6 +297,7 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 #scanov .scannote{color:#fff;opacity:.85;font-size:14px;text-align:center;margin-top:16px;max-width:420px}
 #scanov .scancancel{margin-top:16px;border:1.5px solid rgba(255,255,255,.6);background:rgba(255,255,255,.08);color:#fff;border-radius:12px;padding:13px 28px;min-height:48px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer}
 .dlab{font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-top:14px}
+.addrb{margin-top:8px;padding:12px 14px;border:1.5px solid var(--line2);border-radius:12px;background:var(--surface);font-size:15px;line-height:1.55;color:var(--ink);user-select:text;-webkit-user-select:text}
 .cx-row{display:flex;align-items:center;gap:10px;margin-top:8px}
 .cx-lab{flex:1;min-width:0;font-size:14px;color:var(--ink)}
 .cx-in{width:96px;flex:0 0 auto;border:1.5px solid var(--line2);border-radius:10px;padding:10px 10px;font-size:15px;font-family:inherit;background:var(--surface);color:var(--ink);outline:none;text-align:right}
@@ -610,6 +611,52 @@ async function callFn(name,payload,roOk){
 function custById(id){return DB.customers.find(function(c){return c.id===id;})||null;}
 /* 批發單判定：訂單走 wholesale 通道，或客戶本身是 wholesale 型 → 歸到 Wholesale 站（否則照常 Orders/Transaction） */
 function whOrd(o,c){return (o&&o.channel==='wholesale')||(c&&String(c.type||'').toLowerCase()==='wholesale');}
+/* 送貨地址（出貨要用）：訂單自帶 shipping_address 優先（Square 結帳帶進來的），沒有就退客戶檔 customers.address。
+   兩種形狀都吃——Square 的 address_line_1/locality/administrative_district_level_1/postal_code
+   與手填的 line1/suburb/postcode。回 {lines,src,name,phone,pickup} */
+function ordAddr(o){
+  var c=custById(o&&o.customer_id);
+  var sa=(o&&o.shipping_address&&typeof o.shipping_address==='object')?o.shipping_address:null;
+  var a=sa?((sa.address&&typeof sa.address==='object')?sa.address:sa):null;
+  var src=a?'order':'';
+  if(!a&&c&&c.address&&typeof c.address==='object'){a=c.address;src='customer';}
+  var lines=[];
+  if(a){
+    [a.address_line_1||a.line1,a.address_line_2||a.line2].forEach(function(s){s=String(s||'').trim();if(s)lines.push(s);});
+    var city=[String(a.locality||a.suburb||'').trim(),String(a.administrative_district_level_1||a.state||'').trim(),String(a.postal_code||a.postcode||'').trim()].filter(Boolean).join(' ');
+    if(city)lines.push(city);
+    var ctry=String(a.country||'').trim();
+    if(ctry&&ctry.toUpperCase()!=='AU')lines.push(ctry);
+  }
+  if(!lines.length)src='';
+  return {lines:lines,src:src,
+    name:String((sa&&sa.name)||(c&&c.name)||'').trim(),
+    phone:String((sa&&sa.phone)||(c&&c.phone)||'').trim(),
+    pickup:!!(sa&&/PICKUP/i.test(String(sa.fulfillment||'')))};
+}
+/* 地址區塊（Dispatch/訂單詳情共用）：整段可複製去貼運單；沒地址就明說要去要 */
+function addrBlockHTML(o,id){
+  var A=ordAddr(o);
+  if(A.pickup)return '<div class="dlab">Ship to</div><div class="s" style="margin-top:6px">Pickup — no delivery address</div>';
+  if(!A.lines.length)return '<div class="dlab">Ship to</div><div class="s" style="margin-top:6px"><span class="red">No address on this order</span> — ask the customer, then save it on their contact card</div>';
+  return '<div class="dlab">Ship to'+(A.src==='customer'?' · from contact card':'')+'</div>'
+    +'<div class="addrb" id="'+id+'">'+[A.name].concat(A.lines).filter(Boolean).map(esc).join('<br>')+(A.phone?'<br>'+esc(A.phone):'')+'</div>'
+    +'<button class="dclose" data-copyaddr="'+id+'">Copy address</button>';
+}
+/* 地址複製鈕綁定：畫完抽屜後叫一次 */
+function wireAddrCopy(){
+  document.querySelectorAll('#drawer [data-copyaddr]').forEach(function(btn){
+    btn.addEventListener('click',async function(){
+      var el=$(btn.dataset.copyaddr);if(!el)return;
+      var t=(el.innerText||el.textContent||'').trim();var ok=false;
+      try{await navigator.clipboard.writeText(t);ok=true;}catch(e){
+        try{var ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();ok=document.execCommand('copy');document.body.removeChild(ta);}catch(e2){}
+      }
+      btn.textContent=ok?'Copied ✓':'Copy failed — long-press the address instead';
+      setTimeout(function(){btn.textContent='Copy address';},1600);
+    });
+  });
+}
 /* 品項的處理法（同名多處理法是不同商品）：先用 Square variation id 對 product_sync，
    對不到再退名字比對——但同名只有唯一一列有 process 才敢給（多列＝分不清，寧可不標） */
 function procOfItem(it){
@@ -1507,6 +1554,7 @@ function openDispatch(i){
   var o=i.ref;
   openDrawerHTML('<div class="t" style="font-size:19px">Dispatch '+i.t.replace('Ship ','')+'</div>'
     +(o.payment_status!=='paid'?'<div class="s" style="margin-top:6px"><span class="red">⚠ This order is unpaid</span></div>':'')
+    +addrBlockHTML(o,'dp-addr')
     +'<div class="dlab">Tracking number (optional)</div>'
     +'<div class="lbl-namewrap" style="margin-top:8px">'
     +'<input class="din" id="dp-track" style="margin-top:0" placeholder="e.g. AusPost tracking" value="'+esc(o.tracking_no||'')+'">'
@@ -1516,6 +1564,7 @@ function openDispatch(i){
     +'<button class="dclose" id="dp-silent">Dispatch without email</button>'
     +'<button class="dclose" id="dp-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>'
     +'<div class="note" style="margin-top:10px">Fresh info cards are drawn and attached for each coffee (takes a few seconds)</div>');
+  wireAddrCopy();
   async function go(mail){
     var track=($('dp-track').value||'').trim();
     var b=$('dp-mail');b.disabled=true;b.textContent=mail?'Drawing cards…':'Dispatching…';
@@ -6005,9 +6054,11 @@ function openOrderDetail(o,backTo){
     +(o.dispatched_at?'<div class="dl"><span>Dispatched</span><span>'+(fmtD(o.dispatched_at)||'—')+'</span></div>':'')
     +(o.tracking_no?'<div class="dl"><span>Tracking</span><span>'+esc(o.tracking_no)+'</span></div>':'')
     +'</div>'
+    +addrBlockHTML(o,'od-addr')
     +((rsMoney()||isLead())?'<button class="act" id="od-inv" style="margin-top:12px">Invoice PDF'+(o.payment_status==='paid'?'':' — send for payment')+'</button>':'')
     +'<button class="dclose" id="od-back">‹ Back to list</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  wireAddrCopy();
   $('od-back').addEventListener('click',backTo||openOrdersSheet); /* 來源清單（Transactions 也用這詳情） */
   $('d-cl').addEventListener('click',closeDrawer);
   if($('od-inv'))$('od-inv').addEventListener('click',function(){orderInvoicePDF(o,this);});
