@@ -80,6 +80,14 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-22 之八（Roastery Stock 沒貨的不再列 ✅ 待 push）
+- **老闆點名**：Roastery Stock 沒有貨的要從清單移除（通常是整批轉去 Crows Nest 之後歸零）
+- **查到的不對稱**：`rstRows` 的 **Singles 分頁 2026-07-14 就定調「0kg 不列」**（有 `rstStockKg>0||dg||pending` 過濾），但 **Blends 分頁是 `DB.blends` 全列、零過濾**——所以賣光/轉走的拼配一直掛在架上清單。補上同一條規則即可，不是新設計
+- **線上實測**：7 支配方只有 **Dark Knight 有貨（30kg）**，Dancer／Dreamer／April・May・June Project／Sugar Daddy 全是 0 → 改完 Blends 分頁 7 列剩 1 列
+- **順手**：空狀態文案還在寫「Use Intake above」，那顆 Intake 鈕 2026-07-17 就移除了 → 改成「Roasted stock lands here when you log a roast — anything sent to the shop is in Crows Nest」（指路，資訊沒有不見）
+- **驗證（e2e 真 app＋擋 fetch 假資料）**：4 個配方（僅 Dark Knight 有貨）→ Blends 分頁**只剩 Dark Knight** ✓、Dancer（轉店面歸零）／Dreamer／May Project 消失 ✓；3 支單品（Gatitu AA 已賣光）→ Singles **只剩 Danche v1／La Molienda** ✓，**且賣光的 Gatitu AA 沒有變成假待秤**（之六的 rstIsPending 修復同時生效）✓；jscheck ✓、console 零錯誤、截圖 ✓。serve 複本已 cp
+- **設計筆記**：這頁的定位是「烘豆室現在有什麼」——配方全貌去 **Blend Recipe**、轉出去的去 **Crows Nest**、賣光的歷史去 **Coffee Info**，三個去處都在，所以濾掉不會遺失資訊
+
 ## 〇、補記 — 2026-07-22 之七（Roastery Stock 直接發起拼配 ✅ 待 push）
 - **老闆要求**：「我需要在 roastery stock 裡面用現有的 single origin 製作 blend」——不想為了拼配跑去 Log roast
 - **查到的現況**：Roastery Stock 展開列的按鈕在 2026-07-16 被老闆點名全清（Cup it／★／Send back to QC／**Roast this**），`openRoastPreset` 從此變成**無呼叫端的死碼**。所以拼配唯一入口是 Tools→Roasted Bean→Log roast，而且要自己穿過三層切換（Roast today → Blend → **Mix roasted**，第三層預設在 Roast green）
