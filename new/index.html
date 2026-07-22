@@ -12571,23 +12571,28 @@ function renderBeans(){
   var inStock=beans.filter(function(b){return (+b.quantity||0)>0;});
   var greenKg=0, greenVal=0;
   inStock.forEach(function(b){var q=+b.quantity||0;greenKg+=q;if(b.cost_per_kg!=null&&b.cost_per_kg!=='')greenVal+=q*(+b.cost_per_kg||0);});
-  /* 統計：熟豆（pass/downgraded 全歷史計數） */
+  /* 生產線：活批次＝**現在還有的貨**（2026-07-22 老闆定調，三處同一套帳）——
+     烘豆室還有（remaining_kg null＝烘了未秤，也算在場）**或** Crows Nest 還有；
+     賣掉/拼掉/用完的不算。統計卡與下面四段同一份母體，數字才不會各說各話 */
+  var live=roasts.filter(function(r){return r.remaining_kg==null||+r.remaining_kg>0||shopKgOf(r)>0;});
+  live.sort(function(a,b){return String(b.roast_date||'').localeCompare(String(a.roast_date||''));});
+  /* 統計：熟豆（口徑同 live＝現有的貨，不含移除掉的） */
   var passN=0, dgN=0;
-  roasts.forEach(function(r){var s=qcState(r);if(s==='pass')passN++;else if(s==='downgrade')dgN++;});
+  live.forEach(function(r){var s=qcState(r);if(s==='pass')passN++;else if(s==='downgrade')dgN++;});
   var valLine=rsMoney()?'<div class="beans-sub"><b>$'+Math.round(greenVal).toLocaleString('en-US')+'</b> stock value</div>':'';
   var cards='<div class="beans-stats">'
     +'<div class="beans-card"><div class="beans-ct">Green beans</div><div class="beans-big">'+inStock.length+'<small>coffees</small></div><div class="beans-sub"><b>'+(Math.round(greenKg*10)/10)+' kg</b> in stock</div>'+valLine+'</div>'
-    +'<div class="beans-card"><div class="beans-ct">Roasted</div><div class="beans-big">'+roasts.length+'<small>roasts</small></div><div class="beans-sub"><span class="beans-dot" style="background:var(--green)"></span><b>'+passN+'</b> passed</div><div class="beans-sub"><span class="beans-dot" style="background:var(--fin)"></span><b>'+dgN+'</b> downgraded</div></div>'
+    +'<div class="beans-card"><div class="beans-ct">Roasted</div><div class="beans-big">'+live.length+'<small>roasts</small></div><div class="beans-sub"><span class="beans-dot" style="background:var(--green)"></span><b>'+passN+'</b> passed</div><div class="beans-sub"><span class="beans-dot" style="background:var(--fin)"></span><b>'+dgN+'</b> downgraded</div></div>'
     +'</div>';
-  /* 生產線：活批次＝還有貨（remaining_kg null＝烘了未秤，也算在場） */
-  var live=roasts.filter(function(r){return r.remaining_kg==null||+r.remaining_kg>0;});
-  live.sort(function(a,b){return String(b.roast_date||'').localeCompare(String(a.roast_date||''));});
   var onShelf=function(r){var nm=String(r.bean_name||'').trim().toLowerCase(),pk=procKey(r.process);return syncs.some(function(s){return s.status==='synced'&&String(s.bean_id||'').trim().toLowerCase()===nm&&procKey(s.process)===pk;});};
   /* 燈重定義（2026-07-16 老闆定案）：左＝Cupping（紅＝還沒杯測）、中＝Shelf（紅＝還沒上架）、
      右＝全部完成才綠；三顆全紅＝downgraded（點擊行為晚點再議）。
      紅燈可點＝點卡跳到出問題的地方：左紅→QC、中紅→Publish。 */
   var row=function(r,l1,l2,l3,act){
-    var kg=(r.remaining_kg==null)?'not weighed yet':((Math.round(+r.remaining_kg*100)/100)+' kg left');
+    /* 貨在哪講清楚：烘豆室沒了但店面還有＝標 Crows Nest（母體納入店面後這行才不會顯示 0 kg left） */
+    var kg=(r.remaining_kg==null)?'not weighed yet'
+      :(+r.remaining_kg>0?((Math.round(+r.remaining_kg*100)/100)+' kg left')
+                         :('at Crows Nest '+shopKgOf(r)+' kg'));
     var sub=[(r.kind==='blend'?'blend':''),r.process,r.roast_date,kg].filter(Boolean).join(' · ');
     /* 2026-07-17 老闆加碼：紅燈卡不只開抽屜、還要直達那支豆——
        qc 帶批次 id（selQC 預選展開判定）、pub 帶 Publish 卡 key（PUB.open 預先展開；key 組法照 paintPublishSheet：名字|procKey，拼配尾巴空） */
