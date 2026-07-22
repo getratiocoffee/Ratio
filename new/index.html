@@ -10572,8 +10572,13 @@ function paintAddrLabel(){
     +'<input class="din" id="al-l3" placeholder="Suburb State Postcode" value="'+esc(ADDR.l3)+'" style="margin-top:6px">'
     +'<div class="s" id="al-msg" style="margin-top:10px;color:var(--muted)"></div>'
     +'<button class="act" id="al-gen">Generate .lbx</button>'
+    /* 寄件人（2026-07-23 老闆給的範本）：不用填東西，一鍵出 Ratio 的回郵地址貼紙 */
+    +'<div class="dlab" style="margin-top:16px">Sender — us</div>'
+    +'<div class="s" style="margin-bottom:8px;white-space:pre-line">'+esc(RATIO_SENDER)+'</div>'
+    +'<button class="dclose" id="al-send">Sender label — Ratio</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);
+  $('al-send').addEventListener('click',generateSenderLbx);
   $('al-cust').addEventListener('change',function(){
     ADDR.cust=this.value;
     var c=ADDR_CONTACTS.find(function(x){return String(x.id)===String(ADDR.cust);});
@@ -10585,34 +10590,53 @@ function paintAddrLabel(){
   });
   $('al-gen').addEventListener('click',generateAddrLbx);
 }
+/* 寄件人＝Ratio 自己（2026-07-23 老闆給的 sender.lbx 範本，內容照抄他排好的那張）。
+   地址要改就改這裡——兩個範本紙寬字型完全一樣，只有文字不同 */
+var RATIO_SENDER='From: Ratio Coffee\nAddress:\nShop 2, 473 Pacific Highway\nCrows Nest NSW 2065';
+/* .lbx＝zip 裡一個 label.xml。範本是單一文字框：整段換掉 pt:data，
+   stringItem 串縮成單段 charLen=全文長（FIXEDFRAME shrink=true——字太多 Brother 自己縮）。
+   收件人與寄件人兩張標籤共用這支（2026-07-23 抽出） */
+async function buildLbxFile(tplPath,newText,fileName){
+  if(!window.JSZip){try{await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');}catch(e){}}
+  if(!window.JSZip)throw new Error('Zip library still loading, try again');
+  var zip=await JSZip.loadAsync(await fetchAsset(tplPath));
+  var xml=await zip.file('label.xml').async('string');
+  xml=xml.replace(/<pt:data>[\s\S]*?<\/pt:data>/,'<pt:data>'+xmlEsc(newText)+'</pt:data>');
+  var si=xml.match(/<text:stringItem charLen="\d+">[\s\S]*?<\/text:stringItem>/);
+  if(si){
+    var one=si[0].replace(/charLen="\d+"/,'charLen="'+newText.length+'"');
+    xml=xml.replace(/<text:stringItem charLen="\d+">[\s\S]*?<\/text:stringItem>(\s*<text:stringItem charLen="\d+">[\s\S]*?<\/text:stringItem>)*/,one);
+  }
+  zip.file('label.xml',xml);
+  var blob=await zip.generateAsync({type:'blob',mimeType:'application/octet-stream',compression:'DEFLATE'});
+  var url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=fileName;document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(url);a.remove();},1500);
+}
 async function generateAddrLbx(){
   var msg=$('al-msg'),btn=$('al-gen');
   function say(t,err){if(msg){msg.textContent=t;msg.style.color=err?'var(--danger)':'var(--muted)';}}
   try{
     if(!(ADDR.name||'').trim()){say('Fill in the recipient name',1);return;}
-    if(!window.JSZip){try{await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');}catch(e){}}
-    if(!window.JSZip){say('Zip library still loading, try again',1);return;}
     btn.disabled=true;say('Building .lbx…');
-    var zip=await JSZip.loadAsync(await fetchAsset('/address.lbx'));
-    var xml=await zip.file('label.xml').async('string');
-    /* 範本＝單一文字框：整段換「To: 名字\nAddress:\n行們」；stringItem 串縮成單段 charLen=全文長
-      （FIXEDFRAME shrink=true——字太多 Brother 自己縮，不用 lblFitBlock） */
     var newText='To: '+(ADDR.name||'').trim()
       +'\nAddress:\n'+[(ADDR.l1||'').trim(),(ADDR.l2||'').trim(),(ADDR.l3||'').trim()].filter(Boolean).join('\n');
-    xml=xml.replace(/<pt:data>[\s\S]*?<\/pt:data>/,'<pt:data>'+xmlEsc(newText)+'</pt:data>');
-    var si=xml.match(/<text:stringItem charLen="\d+">[\s\S]*?<\/text:stringItem>/);
-    if(si){
-      var one=si[0].replace(/charLen="\d+"/,'charLen="'+newText.length+'"');
-      xml=xml.replace(/<text:stringItem charLen="\d+">[\s\S]*?<\/text:stringItem>(\s*<text:stringItem charLen="\d+">[\s\S]*?<\/text:stringItem>)*/,one);
-    }
     var nm=(ADDR.name||'address').replace(/[^A-Za-z0-9 _\-]/g,'').trim().replace(/\s+/g,'_')||'address';
-    zip.file('label.xml',xml);
-    var blob=await zip.generateAsync({type:'blob',mimeType:'application/octet-stream',compression:'DEFLATE'});
-    var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='POST_'+nm+'.lbx';document.body.appendChild(a);a.click();
-    setTimeout(function(){URL.revokeObjectURL(url);a.remove();},1500);
+    await buildLbxFile('/address.lbx',newText,'POST_'+nm+'.lbx');
     btn.disabled=false;say('Done — POST_'+nm+'.lbx downloaded');
     logAct('post label generated',ADDR.name);
   }catch(e){btn.disabled=false;say('Generate failed: '+(e&&e.message||e),1);}
+}
+/* 寄件人貼紙：不用填任何東西，一鍵出一張 Ratio 的回郵地址 */
+async function generateSenderLbx(){
+  var msg=$('al-msg'),btn=$('al-send');
+  function say(t,err){if(msg){msg.textContent=t;msg.style.color=err?'var(--danger)':'var(--muted)';}}
+  try{
+    if(btn)btn.disabled=true;say('Building sender label…');
+    await buildLbxFile('/sender.lbx',RATIO_SENDER,'SENDER_Ratio.lbx');
+    if(btn)btn.disabled=false;say('Done — SENDER_Ratio.lbx downloaded');
+    logAct('sender label generated','Ratio Coffee');
+  }catch(e){if(btn)btn.disabled=false;say('Generate failed: '+(e&&e.message||e),1);}
 }
 
 /* ===== Tools ===== */
