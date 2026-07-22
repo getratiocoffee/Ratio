@@ -756,36 +756,89 @@ function todayShifts(){
   var sh=(DB.roster&&Array.isArray(DB.roster.shifts))?DB.roster.shifts:[];
   return sh.filter(function(s){return s.day===dk&&s.name&&String(s.name).trim();}).sort(function(a,b){return String(a.start||'')<String(b.start||'')?-1:1;});
 }
-/* 這批還在 Crows Nest 店面的 kg（DB.transfers 只載 pool/settled＝店面現有；used/returned 不算）。
-   配對＝豆名＋烘焙日＋處理法（兩邊都記了才比，舊資料沒記容忍）——同 matchRoast 的雙鍵精神 */
-function shopKgOf(r){
-  var nm=String((r&&r.bean_name)||'').trim().toLowerCase();if(!nm)return 0;
-  var rd=String((r&&r.roast_date)||''),kg=0;
-  (DB.transfers||[]).forEach(function(t){
-    if(String(t.name||'').trim().toLowerCase()!==nm)return;
-    if(rd&&t.roast_date&&String(t.roast_date)!==rd)return;
-    if(r.process&&t.process&&procKey(t.process)!==procKey(r.process))return;
-    kg+=Number(t.kg)||0;
-  });
-  return Math.round(kg*1000)/1000;
-}
-/* 豆層級的店面存量（shopKgOf 的兄弟）：不比烘焙日，只比豆名＋處理法雙鍵——
-   Publish 母體要問的是「這支豆在 Crows Nest 還賣不賣得到」，不是某一鍋 */
-function shopKgOfName(nm,proc){
-  var k=String(nm||'').trim().toLowerCase();if(!k)return 0;
-  var kg=0;
-  (DB.transfers||[]).forEach(function(t){
-    if(String(t.name||'').trim().toLowerCase()!==k)return;
-    if(proc&&t.process&&procKey(t.process)!==procKey(proc))return;
-    kg+=Number(t.kg)||0;
-  });
-  return Math.round(kg*1000)/1000;
-}
+/* ===== STOCK：庫存單一窗口（2026-07-23 老闆定調「統一從一個地方領取 Crows Nest & roastery」）=====
+   以前「這支豆還有多少貨」散在十幾個函式裡各問各的，比對條件各寫一次，差一個條件就是一個 bug。
+   2026-07-23 實例：Dark Knight 07/06 那天烘 5 鍋、烘豆室都 0，店面有那天的 3.3 kg——
+   舊 shopKgOf 是「豆名＋烘焙日」層級卻被當成「這一鍋」用，5 鍋各自認領同一批 3.3 kg，
+   Beans 頁列成 5 行、每行都寫 at Crows Nest 3.3 kg（線上共 18 行是這樣重複出來的）。
+
+   ⚠ 鐵律：**Crows Nest 的貨掛在「豆名＋處理法＋烘焙日」上，不屬於任何單一鍋。**
+   要顯示 at Crows Nest N kg，只能用 day 或 bean 層級；batch 層級永遠只回烘豆室的量。
+
+   三個層級，其他地方一律不要自己翻 DB.roasts / DB.transfers 問庫存：
+     STOCK.batch(r)                  這一鍋      {hand}
+     STOCK.day(name,proc,date)       這支豆這天  {hand,shop,total,rows}
+     STOCK.bean(name,proc,isBlend)   這支豆全部  {hand,shop,total,batches,dg,pending}
+   刻意**不做快取**：roasts/transfers 都是幾十筆的小表，每次現算才不會有「資料改了、
+   快取沒更新」這種最難查的錯——老闆要的就是安全。
+   ⚠ server 端另有一份同口徑的實作（public-shop v18 / wholesale v6 的 stockByName，bean 層級）——
+   跑在 Deno 沒辦法共用程式，**改規則要兩邊一起改** */
+var STOCK=(function(){
+  var nk=function(s){return String(s||'').trim().toLowerCase();};
+  var dk=function(s){return String(s||'').slice(0,10);};
+  var round=function(x){return Math.round(x*1000)/1000;};
+  var byDate=function(a,b){return String(a.roast_date||'9999')<String(b.roast_date||'9999')?-1:1;};
+  /* 處理法比對兩套，刻意不同（沿用改造前的行為，別「順手統一」）：
+     transfers 容忍空值（舊轉店面資料 13/18 筆沒填 process，硬比會讓店面的貨整批消失）；
+     roasts 照 rstProcMatch＝undefined 不比、有給就嚴格比 */
+  var procLoose=function(a,b){return b===undefined||!procKey(a||'')||!procKey(b||'')||procKey(a)===procKey(b);};
+  var procTight=function(a,b){return b===undefined||procKey(a||'')===procKey(b||'');};
+  var sum=function(arr,f){var s=0;arr.forEach(function(x){s+=Number(f(x))||0;});return round(s);};
+  function shopRows(name,proc,date){
+    var n=nk(name);
+    return (DB.transfers||[]).filter(function(t){
+      return nk(t.name)===n&&Number(t.kg)>0&&procLoose(t.process,proc)
+        &&(date===undefined||!t.roast_date||dk(t.roast_date)===dk(date));
+    });
+  }
+  function roastRows(name,proc,date){
+    var n=nk(name);
+    return (DB.roasts||[]).filter(function(r){
+      return nk(r.bean_name)===n&&procTight(r.process,proc)
+        &&(date===undefined||dk(r.roast_date)===dk(date));
+    });
+  }
+  return {
+    /* 這一鍋：只有烘豆室的量。店面的貨不屬於任何一鍋——別在這裡加 shop */
+    batch:function(r){return {hand:round(Number(r&&r.remaining_kg)||0)};},
+    /* 這支豆這一天：Beans 的分組列、QC 的同日卡、店面對帳用這個 */
+    day:function(name,proc,date){
+      var rows=roastRows(name,proc,date);
+      var hand=sum(rows,function(r){return r.remaining_kg;});
+      var shop=sum(shopRows(name,proc,date),function(t){return t.kg;});
+      return {hand:hand,shop:shop,total:round(hand+shop),rows:rows};
+    },
+    /* 這支豆全部：Publish 母體、血條、拼配可用量用這個。
+       isBlend 給值就只算該類（拼配/單品），不給＝兩類都算 */
+    bean:function(name,proc,isBlend){
+      var rows=roastRows(name,proc,undefined).filter(function(r){
+        return isBlend==null?true:(isBlend?r.kind==='blend':r.kind!=='blend');
+      });
+      var batches=[],dg=[],pending=[];
+      rows.forEach(function(r){
+        var live=Number(r.remaining_kg)>0;
+        if(live&&qcState(r)==='downgrade')dg.push(r);
+        else if(live)batches.push(r);
+        if(rstIsPending(r))pending.push(r);
+      });
+      batches.sort(byDate);dg.sort(byDate);pending.sort(byDate);
+      var hand=sum(batches,function(r){return r.remaining_kg;});
+      var shop=sum(shopRows(name,proc,undefined),function(t){return t.kg;});
+      return {hand:hand,shop:shop,total:round(hand+shop),batches:batches,dg:dg,pending:pending};
+    }
+  };
+})();
+/* 這批那天在 Crows Nest 還有多少（日層級——名字帶 Day 提醒它不是「這一鍋」的量） */
+function shopKgOfDay(r){return STOCK.day(r&&r.bean_name,r&&r.process,r&&r.roast_date).shop;}
+/* 豆層級的店面存量：Publish 問的是「這支豆在 Crows Nest 還賣不賣得到」，不比烘焙日 */
+function shopKgOfName(nm,proc){return STOCK.bean(nm,proc).shop;}
 /* ===== 出貨扣豆的第二層：Crows Nest 未計費的貨（2026-07-22 補洞②）=====
    `pool` 且沒有 invoice_no ＝豆子放在店面但還沒跟店面收錢＝帳上仍是我們的貨，出貨扣得到。
    `settled` 或已開發票的**一律不碰**——那批店面已經買斷，動它等於改別人的帳。
    為什麼需要這層：現在在賣的豆幾乎全部烘豆室 0kg、貨在 Crows Nest（Dancer/Dreamer/Sugar Daddy…），
    舊版 deductOrderStock 只翻 rstBatches，出貨就靜默短缺（activity_log 的 `#29 short: 3 item(s)` 就是） */
+/* ⚠ 這支刻意**不走 STOCK**：STOCK 回的是「店面現有」（pool＋settled 都算），
+   出貨要吃的卻是更窄的一池——只有 pool 且沒開過發票的才動得。條件不同就別硬併 */
 function shopPoolRows(name,isBlend,process){
   var key=String(name||'').trim().toLowerCase();if(!key)return [];
   return (DB.transfers||[]).filter(function(t){
@@ -824,7 +877,7 @@ async function takeFromShopPool(rows,kg,orderRef){
    2026-07-22 晚起也是**列不列進 QC 的門檻**（gone 不列，見 toCupList 的決策時間軸） */
 function qcStockWhere(r){
   if(Number(r&&r.remaining_kg)>0)return 'hand';
-  return shopKgOf(r)>0?'shop':'gone';
+  return shopKgOfDay(r)>0?'shop':'gone';
 }
 /* 手上的豆（待杯測）：pending_cupping、沒判定、**兩地任一還有貨**、不在 QC 佇列——Today Cup 卡與 QC 頁共用。
    ⚠ 這條規則翻過三次，決策時間軸留著防止再翻回去：
@@ -7417,24 +7470,13 @@ function rstProcMatch(r,process){
   if(process===undefined)return true;
   return String(r.process||'').trim().toLowerCase()===String(process||'').trim().toLowerCase();
 }
-function rstBatches(name,isBlend,process){
-  var key=String(name||'').trim().toLowerCase();
-  return (DB.roasts||[]).filter(function(r){
-    return (isBlend?r.kind==='blend':r.kind!=='blend')&&Number(r.remaining_kg)>0&&qcState(r)!=='downgrade'&&String(r.bean_name||'').trim().toLowerCase()===key&&rstProcMatch(r,process);
-  }).sort(function(a,b){return String(a.roast_date||'9999')<String(b.roast_date||'9999')?-1:1;});
-}
-function rstStockKg(name,isBlend,process){
-  var s=0;rstBatches(name,isBlend,process).forEach(function(r){s+=Number(r.remaining_kg)||0;});
-  return Math.round(s*1000)/1000;
-}
+/* 以下三個池子（可賣／降級／待秤）與血條總量，2026-07-23 起一律轉問 STOCK.bean——
+   比對規則只留在 STOCK 一處，這裡只負責挑池子。對外形狀（陣列、排序、kg）完全不變 */
+function rstBatches(name,isBlend,process){return STOCK.bean(name,process,!!isBlend).batches;}
+function rstStockKg(name,isBlend,process){return STOCK.bean(name,process,!!isBlend).hand;}
 /* downgrade 批次池（2026-07-13 老闆定調：降級豆不隱形——Coffee Stock 帶標記顯示、拼配優先吃）。
    與 rstBatches 同形狀但只撈 qc='downgrade'；刻意分池＝不進血條/總量/出貨 FIFO（那些只算可正常出貨的豆） */
-function rstDgBatches(name,isBlend,process){
-  var key=String(name||'').trim().toLowerCase();
-  return (DB.roasts||[]).filter(function(r){
-    return (isBlend?r.kind==='blend':r.kind!=='blend')&&Number(r.remaining_kg)>0&&qcState(r)==='downgrade'&&String(r.bean_name||'').trim().toLowerCase()===key&&rstProcMatch(r,process);
-  }).sort(function(a,b){return String(a.roast_date||'9999')<String(b.roast_date||'9999')?-1:1;});
-}
+function rstDgBatches(name,isBlend,process){return STOCK.bean(name,process,!!isBlend).dg;}
 /* 「待秤重」的唯一判定（2026-07-22 修 bug，三處共用杜絕漂移）＝烘了(green_kg>0)但**從沒秤過熟豆**。
    ⚠ 舊版只看 !(remaining_kg>0)：任何被扣到 0 的批（出貨/拼配/轉店面/手動清零）都會退化成待秤幽靈
    （實測當時 14 筆全是假的），點下去 openWeighIn 把 remaining_kg 灌回正值＝憑空造熟豆庫存；
@@ -7445,12 +7487,7 @@ function rstIsPending(r){
 }
 /* 待入庫批次（2026-07-13 老闆點名：連結 roast log→coffee stock）。刻意分池：不進血條/總量/出貨，
    Coffee Stock 帶琥珀標「待秤」、點行 openWeighIn 補熟豆＝入庫。qc 打退的不算（那是另一回事）。 */
-function rstPendingBatches(name,isBlend,process){
-  var key=String(name||'').trim().toLowerCase();
-  return (DB.roasts||[]).filter(function(r){
-    return (isBlend?r.kind==='blend':r.kind!=='blend')&&rstIsPending(r)&&String(r.bean_name||'').trim().toLowerCase()===key&&rstProcMatch(r,process);
-  }).sort(function(a,b){return String(a.roast_date||'9999')<String(b.roast_date||'9999')?-1:1;});
-}
+function rstPendingBatches(name,isBlend,process){return STOCK.bean(name,process,!!isBlend).pending;}
 /* 分段血條（2026-07-12 v3 定稿：顏色＝該批新鮮度，跨豆一致）：黃=aging(<21d 養豆) 綠=ready(21-42d)
    紅=fading(>42d) 灰=無日期；閾值同 shelfFreshness；段間 1px 縫。低/超量不再整條轉紅（紅已有新意義），
    警示留在 label 的 low!/over! 紅字。target 沒設＝以現量畫滿版。回傳 {bar,label,state} */
@@ -8361,7 +8398,7 @@ function qcDayGroups(list){
   (list||[]).forEach(function(q){
     var r=q.r,proc=String(r.process||(q.s&&q.s.process)||'').trim();
     var k=String(r.bean_name||'').trim().toLowerCase()+'|'+procKey(proc)+'|'+String(r.roast_date||'');
-    if(idx[k]==null){idx[k]=out.length;out.push({key:String(r.id),s:q.s||null,name:r.bean_name||(q.s&&q.s.sample_id)||'',proc:proc,date:r.roast_date||null,rows:[],hand:0,shop:shopKgOf(r),n:0});}
+    if(idx[k]==null){idx[k]=out.length;out.push({key:String(r.id),s:q.s||null,name:r.bean_name||(q.s&&q.s.sample_id)||'',proc:proc,date:r.roast_date||null,rows:[],hand:0,shop:shopKgOfDay(r),n:0});}
     var g=out[idx[k]];
     g.rows.push(r);g.n++;g.hand+=Number(r.remaining_kg)||0;
     if(!g.s&&q.s)g.s=q.s;
@@ -8395,7 +8432,7 @@ function openQCSheet(){
     var k=String(r.bean_name||'').trim().toLowerCase()+'|'+String(proc).trim().toLowerCase()+'|'+String(r.roast_date||'');
     if(cgi[k]==null){cgi[k]=cupGroups.length;cupGroups.push({first:r,name:r.bean_name,proc:proc,date:r.roast_date,green:0,n:0,rows:[],
       /* 同組＝同豆同處理法同烘焙日 → 配到的 transfer 一樣，整組算一次（逐鍋加會重複計） */
-      shop:shopKgOf(r),hand:0});}
+      shop:shopKgOfDay(r),hand:0});}
     var g=cupGroups[cgi[k]];g.n++;g.green+=Number(r.green_kg)||0;g.rows.push(r);g.hand+=Number(r.remaining_kg)||0;
   });
   /* 排序：手上有貨（現在就能杯）→ 只剩店面（要去拿）→ 都沒了（補判定），組內新→舊。
@@ -12964,7 +13001,22 @@ function renderBeans(){
   /* 生產線：活批次＝**現在還有的貨**（2026-07-22 老闆定調，三處同一套帳）——
      烘豆室還有（remaining_kg null＝烘了未秤，也算在場）**或** Crows Nest 還有；
      賣掉/拼掉/用完的不算。統計卡與下面四段同一份母體，數字才不會各說各話 */
-  var live=roasts.filter(function(r){return r.remaining_kg==null||+r.remaining_kg>0||shopKgOf(r)>0;});
+  /* 「現在還有的貨」拆兩種來源（2026-07-23 修重複）：
+     ① 烘豆室還有的鍋——逐鍋算，那是真的一鍋一鍋在架上（含 remaining_kg null＝烘了未秤）
+     ② 烘豆室空了、但 Crows Nest 那天還有貨——**整組只算一次**。
+        店面的貨掛在「豆＋處理法＋烘焙日」上不屬於任何一鍋（見 STOCK 鐵律），
+        舊版讓同日每一鍋各認領一次：Dark Knight 07/06 五鍋都 0 kg、店面只有 3.3 kg，
+        卻被列成 5 行、每行都寫 at Crows Nest 3.3 kg（線上共 18 行是這樣多出來的） */
+  var dayKeyOf=function(r){return String(r.bean_name||'').trim().toLowerCase()+'|'+procKey(r.process||'')+'|'+String(r.roast_date||'');};
+  var handRoasts=roasts.filter(function(r){return r.remaining_kg==null||+r.remaining_kg>0;});
+  var handKeys={};handRoasts.forEach(function(r){handKeys[dayKeyOf(r)]=1;});
+  var shopReps={};
+  roasts.forEach(function(r){
+    var k=dayKeyOf(r);
+    if(handKeys[k]||shopReps[k])return;
+    if(STOCK.day(r.bean_name,r.process,r.roast_date).shop>0)shopReps[k]=r; /* 一組一個代表鍋 */
+  });
+  var live=handRoasts.concat(Object.keys(shopReps).map(function(k){return shopReps[k];}));
   live.sort(function(a,b){return String(b.roast_date||'').localeCompare(String(a.roast_date||''));});
   /* 統計：熟豆（口徑同 live＝現有的貨，不含移除掉的） */
   var passN=0, dgN=0;
@@ -12976,44 +13028,44 @@ function renderBeans(){
     +'</div>';
   var onShelf=function(r){var nm=String(r.bean_name||'').trim().toLowerCase(),pk=procKey(r.process);return syncs.some(function(s){return s.status==='synced'&&String(s.bean_id||'').trim().toLowerCase()===nm&&procKey(s.process)===pk;});};
   /* 燈重定義（2026-07-16 老闆定案）：左＝Cupping（紅＝還沒杯測）、中＝Shelf（紅＝還沒上架）、
-     右＝全部完成才綠；三顆全紅＝downgraded（點擊行為晚點再議）。
-     紅燈可點＝點卡跳到出問題的地方：左紅→QC、中紅→Publish。 */
-  var row=function(r,l1,l2,l3,act){
-    /* 貨在哪講清楚：烘豆室沒了但店面還有＝標 Crows Nest（母體納入店面後這行才不會顯示 0 kg left） */
-    var kg=(r.remaining_kg==null)?'not weighed yet'
-      :(+r.remaining_kg>0?((Math.round(+r.remaining_kg*100)/100)+' kg left')
-                         :('at Crows Nest '+shopKgOf(r)+' kg'));
-    var sub=[(r.kind==='blend'?'blend':''),r.process,r.roast_date,kg].filter(Boolean).join(' · ');
-    /* 2026-07-17 老闆加碼：紅燈卡不只開抽屜、還要直達那支豆——
-       qc 帶批次 id（selQC 預選展開判定）、pub 帶 Publish 卡 key（PUB.open 預先展開；key 組法照 paintPublishSheet：名字|procKey，拼配尾巴空） */
-    var extra='';
-    if(act==='qc')extra=' data-brid="'+esc(String(r.id))+'"';
-    if(act==='pub')extra=' data-bkey="'+esc(String(r.bean_name||'').trim().toLowerCase()+'|'+(r.kind==='blend'?'':procKey(r.process)))+'"';
-    return '<div class="beans-row"'+(act?' data-bact="'+act+'" data-bkind="'+(r.kind==='blend'?'1':'0')+'"'+extra+' style="cursor:pointer"':'')+'><div class="beans-nm"><b>'+esc(r.bean_name||'?')+'</b><span>'+esc(sub)+'</span></div><div class="beans-lamps"><span class="lamp '+l1+'"></span><span class="lamp '+l2+'"></span><span class="lamp '+l3+'"></span></div></div>';
-  };
+     右＝全部完成才綠；三顆全紅＝downgraded。紅燈可點＝點卡跳到出問題的地方：左紅→QC、中紅→Publish。
+     ⚠ 逐鍋版的 row() 2026-07-23 拿掉了——四段現在全部走下面的 rowG（同日一列），
+     一鍋一列會讓同日多鍋在畫面上重複（QC 早就合併了，其餘三段那天才跟上） */
   /* In QC 段＝**跟 QC 抽屜同一份母體**（2026-07-22 老闆點名「這裡的訊息沒同步」）：
      來源 QCQ ∪ toCupList（兩者都已濾掉兩地皆無貨的鍋）＋同日合併，這樣張數與 QC 分頁一致；
      live 只算烘豆室，會漏掉「貨在 Crows Nest」的待判鍋，所以這段不能用 live。
      其餘三段（Ready/On shelf/Blend pool）維持 live＝烘豆室現場的批次流 */
   var qcG=qcDayGroups((QCQ||[]).map(function(q){return {r:q.r,s:q.s};})
     .concat(toCupList().map(function(r){return {r:r,s:null};})));
-  var rowG=function(g){
+  /* 四段共用的組列（2026-07-23：Ready/On shelf/Blend pool 也改成同日一列，跟 In QC 同一種語言）。
+     lamps＝三顆燈；act＝點擊去哪（qc/pub/空） */
+  var rowG=function(g,lamps,act){
     var r0=g.rows[0];
     var kg=g.rows.every(function(r){return r.remaining_kg==null;})?'not weighed yet'
       :(g.hand>0?(Math.round(g.hand*100)/100)+' kg left'
                 :(g.shop>0?'at Crows Nest '+g.shop+' kg':'no stock left'));
     var sub=[(r0.kind==='blend'?'blend':''),g.proc,g.date,kg,(g.n>1?g.n+' roasts':'')].filter(Boolean).join(' · ');
-    /* data-brid 帶**組 key**（＝QC 的 selQC 值，2026-07-22 QC 改成組判定後的新單位） */
-    return '<div class="beans-row" data-bact="qc" data-bkind="'+(r0.kind==='blend'?'1':'0')+'" data-brid="'+esc(String(g.key))+'" style="cursor:pointer"><div class="beans-nm"><b>'+esc(g.name||'?')+'</b><span>'+esc(sub)+'</span></div><div class="beans-lamps"><span class="lamp now"></span><span class="lamp "></span><span class="lamp "></span></div></div>';
+    var extra='';
+    /* qc：data-brid 帶**組 key**（＝QC 的 selQC 值）；pub：data-bkey 照 paintPublishSheet 的 名字|procKey */
+    if(act==='qc')extra=' data-brid="'+esc(String(g.key))+'"';
+    if(act==='pub')extra=' data-bkey="'+esc(String(g.name||'').trim().toLowerCase()+'|'+(r0.kind==='blend'?'':procKey(g.proc)))+'"';
+    return '<div class="beans-row"'+(act?' data-bact="'+act+'" data-bkind="'+(r0.kind==='blend'?'1':'0')+'"'+extra+' style="cursor:pointer"':'')
+      +'><div class="beans-nm"><b>'+esc(g.name||'?')+'</b><span>'+esc(sub)+'</span></div>'
+      +'<div class="beans-lamps"><span class="lamp '+lamps[0]+'"></span><span class="lamp '+lamps[1]+'"></span><span class="lamp '+lamps[2]+'"></span></div></div>';
   };
-  var gQC=qcG.map(rowG), gReady=[], gShelf=[], gBlend=[];
+  var groupsOf=function(arr){return qcDayGroups(arr.map(function(r){return {r:r,s:null};}));};
+  var gQC=qcG.map(function(g){return rowG(g,['now','',''],'qc');});
+  var readyR=[],shelfR=[],blendR=[];
   live.forEach(function(r){
     var st=qcState(r);
     if(st==='pending')return; /* 待判的全交給上面的 qcG（含店面貨那些，這裡不重複列） */
-    if(st==='downgrade')gBlend.push(row(r,'now','now','now',''));
-    else if(onShelf(r))gShelf.push(row(r,'ok','ok','ok',''));
-    else gReady.push(row(r,'ok','now','','pub'));
+    if(st==='downgrade')blendR.push(r);
+    else if(onShelf(r))shelfR.push(r);
+    else readyR.push(r);
   });
+  var gReady=groupsOf(readyR).map(function(g){return rowG(g,['ok','now',''],'pub');});
+  var gShelf=groupsOf(shelfR).map(function(g){return rowG(g,['ok','ok','ok'],'');});
+  var gBlend=groupsOf(blendR).map(function(g){return rowG(g,['now','now','now'],'');});
   var sec=function(t,arr){return '<div class="beans-sec">'+t+'<span class="n">'+arr.length+'</span></div>'+(arr.length?arr.join(''):'<div class="beans-none">Nothing here right now.</div>');};
   var canRoast=(ROLE==='director'||ROLE==='roaster'||ROLE==='staff');
   var lhead='<div class="beans-lhead"><span class="beans-lt">Production line</span>'+(canRoast?'<button class="beans-add" id="beans-roast">＋ Log roast</button>':'')+'</div>'

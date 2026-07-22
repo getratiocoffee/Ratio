@@ -81,6 +81,32 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-23 之十六（庫存單一窗口 STOCK＋Beans 重複修掉 ✅ 待 push）
+
+- **起因**：老闆說 Beans（production line）有豆子重複。查出來是**同一批店面的貨被同日的每一鍋各認領一次**——
+  `shopKgOf(r)` 其實是「豆名＋處理法＋烘焙日」層級，卻被當成「這一鍋」用。
+  線上實況：Dark Knight 07/06 五鍋都 0 kg、店面只有 3.3 kg，卻列成 5 行、每行都寫 at Crows Nest 3.3 kg；
+  全站 **9 支豆／12 個同日組被拆成 30 行，多出 18 行**（On shelf 14、Ready to shelf 4）。統計卡也跟著灌水。
+- **老闆定調（原話）**：「是否統一從一個地方領取 crows nest & roastery 會比較安全」→ 本輪照做。
+- **新增 `STOCK` 單一窗口**（放在原 shopKgOf 位置）：**三個層級講清楚，其他地方不要自己翻 DB.roasts/DB.transfers**
+  - `STOCK.batch(r)` 這一鍋 `{hand}`／`STOCK.day(name,proc,date)` 這支豆這天 `{hand,shop,total,rows}`／`STOCK.bean(name,proc,isBlend)` 這支豆全部 `{hand,shop,total,batches,dg,pending}`
+  - ⚠ **鐵律**：Crows Nest 的貨掛在「豆名＋處理法＋烘焙日」上，**不屬於任何單一鍋**。要顯示 at Crows Nest 只能用 day / bean 層級
+  - **刻意不做快取**（roasts 74 筆、transfers 18 筆的小表，現算才不會有「資料改了快取沒更新」這種最難查的錯）
+  - 處理法比對**刻意留兩套**（別順手統一）：transfers 容忍空值（舊資料 13/18 筆沒填 process，硬比會讓店面的貨整批消失）；roasts 照 `rstProcMatch`＝undefined 不比、有給就嚴格比
+- **既有函式改成薄包裝**（呼叫端全不動）：`rstBatches`／`rstStockKg`／`rstDgBatches`／`rstPendingBatches`／`shopKgOfName` → 轉問 STOCK.bean；`shopKgOf` **改名 `shopKgOfDay`**（5 個呼叫點）讓名字說出層級。`shopPoolRows`（出貨吃未計費 pool）**刻意不併**——條件比 STOCK 窄，註解寫明
+- **Beans 頁**：`live` 拆兩種來源＝烘豆室有貨的鍋（逐鍋）＋只在店面有貨的日組（**一組一個代表鍋**）；
+  Ready/On shelf/Blend pool 三段改用 `qcDayGroups` 分組、`rowG(g,lamps,act)` 參數化與 In QC 共用（逐鍋版 `row()` 整支移除）
+- **統計卡**（老闆核可）：ROASTED 的 roasts 數＝烘豆室鍋數＋只在店面的日組數，passed/downgraded 同口徑。線上預估 42 → 30 出頭
+- **驗證**：jscheck ✓；假資料（真資料形狀的縮影）——
+  三層級：同日五鍋 `batch().hand` 各自 0、`day().shop` 只算一次 3.3、`bean().shop` 也 3.3 ✓；
+  舊資料容忍：transfer 沒填 process 仍對得到 Kii AB 1 kg ✓；
+  包裝函式：`rstStockKg('Danche v1',false,'Red Honey')`=17.95（2 鍋）、給錯處理法=0、拼配層級 undefined 不比 ✓；
+  Beans：**Dark Knight 07/06 五行→1 行**、Kii AB 兩行→1 行、Danche v1 兩鍋真有貨→1 行寫「2 roasts」、
+  In QC 仍撈得到待判的 Hakuna Matata、統計卡 5 roasts（舊算法會是 9）✓；
+  回歸：Publish 兩地 kg 一支豆算一次、Roastery Stock 母體不變（0kg 不列）、出貨未計費池只吃 pool 無發票號 ✓；
+  點擊屬性 `data-bkey=danche v1|red honey` 正確；375px 截圖、console 零錯誤
+- ⚠ **server 端另有一份同口徑實作**（public-shop v18／wholesale v6 的 `stockByName`，bean 層級）——跑在 Deno 沒法共用程式，**改規則要兩邊一起改**（STOCK 註解裡有標）
+
 ## 〇、補記 — 2026-07-22 之十五（第一批體檢補洞 B/C/D/F ✅ 前端待 push／兩支 edge 已部署）
 
 老闆問「log roast 到上架的漏洞是否都補上了」→ 逐項查完（七個補了兩個半），他說「交給你」，本輪把剩下的做掉。
