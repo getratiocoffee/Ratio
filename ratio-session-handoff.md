@@ -92,6 +92,17 @@
   - **算價（唯一真相）＝edge `wholesale` v5 已部署**（version 8）。新增 `resolveCustomer(admin,email)`（把 checkout 原本那段 email→customers 抽出來，**menu 現在也用**——v4 的菜單根本不知道是誰在看）；優先序 **`該帳號 ws_pct` ＞ 個別豆 override ＞ 全店預設**；`discount_pct` 回傳該帳號實際折數（沒有客戶檔的呼叫者＝director 看 → 退回全店預設＝v4 行為）。原始碼備份 `handoff/edge/wholesale-v5.ts`
 - **影響範圍**：只管**批發客自助下單**（wholesale edge 的 menu＋checkout）。老闆自己在 app 開單是手打價、Square 網店零售價、訂閱價都不受影響
 - **驗證**：jscheck ✓；edge 煙霧測試 anon→401；本機 serve 假資料（攔 fetch＋`window.FAKE_ROWS` 依 URL 給假回應）——三態標籤（25% OFF／40% DEFAULT／0% OFF）、95 被擋不送出、存 30 → `PATCH customers?id=eq.c1 {"ws_pct":30}`＋activity_log、空白 → `{"ws_pct":null}`、staff 與 Customer book 那條路都沒有輸入欄、console 零錯誤＋375 截圖
+### 追加同輪：批發開戶那條線斷在哪，以及補起來（老闆問「有沒有 joanne 的客戶」查出來的）
+- **查到的事實**：`customers` 裡沒有 Joanne/Joanna。`wholesale_applications` 有兩張 **status=approved 卻沒有客戶檔**的申請——**Joanna**（2026-07-22 11:10；email `joannatsai000@@gmail.con` 兩個 @＋`.con`，其餘欄位全空）與 **B85 artisan bakery**（Kim／`orders@b85.com.au`／0420443621／Shop 7 180-186 Argyle St Camden，2026-07-17）。`role='wholesale'` 的登入只有 steven yang（Thirty 7even）與 Wu（老闆自己的信箱）
+- **斷點**：①`?apply` 的 email 驗證是 `/^\S+@\S+\.\S+$/`——`\S` 吃得下 `@`，所以 `x@@gmail.con` 過關 ②Wholesale setup 的 **Approved 鈕以前只 update status**，客戶檔／登入帳號全靠人工 ③app 裡**沒有「新增客戶」的入口**（只能從 New order／Subscriptions 順便建）＝人工那步很容易忘。三個加起來＝按了 approved 就人間蒸發
+- **補起來（本輪）**：
+  - `ensureShopCustomer(o)`（共用）：先用 email `ilike` 查有沒有既有客戶檔，有就接上不重建；沒有才 insert `type='shop'`（address 存 `{line1,suburb,postcode}`＝店家那種形狀）＋寫 activity_log
+  - **Approved 鈕現在會順手建客戶檔**（confirm 文案講明「登入還是要去 Supabase Auth 開」）
+  - 名冊多一顆 **＋ New wholesale account**（`openNewWsAccountSheet(pre)`）：名稱/email/電話/地址/折扣％一次填完
+  - 名冊多一區 **Approved, but not in the book**（讀 status='approved' ∖ 已在名冊的），每筆一顆 **Add** 把申請資料預填進表單——**Joanna 與 B85 就是靠這個補建**（email 打錯的當場改）
+  - email 收緊：`/^[^\s@]+@[^\s@]+\.[^\s@.]{2,}$/` 擋掉 `@@`；`.con/.cmo/gmial/hotmial` 這種收尾**不硬擋、問一句**
+- **驗證**：jscheck ✓；假資料——名冊正確把已建檔的 Happy Sip 排除、Joanna＋B85 列進 stray 區、Add 預填（含壞 email）、`@@` 擋下、`.con` 跳 typo 確認、改對後 insert payload `{name,type:'shop',email,phone,address,ws_pct:20}`＋activity_log、存完名冊立刻多一列 20% OFF、console 零錯誤＋375 截圖。⚠ 存檔後刻意**不呼叫 render()**——會把晨報彈窗叫回來蓋掉抽屜（測試時踩到）
+- ⚠ **老闆要做**：Joanna 正確 email 要她本人確認（猜 `joannatsai000@gmail.com` 但沒證據）；建完客戶檔後**登入帳號仍要在 Supabase Auth 開**（我不能代開），開完在 Wholesale setup 把角色切 wholesale
 - ⚠ **還沒做的**：真批發帳號端到端（老闆設一家 25% → 用該帳號登入 `?shop` 看「Your pricing 25% off retail」與豆價＝零售 ×0.75）；全店預設現在是 **40%**（`app_state ws_discount {pct:40, overrides:{"sugar daddy":40}}`——那個 override 跟預設同值＝等於沒作用）
 
 ## 〇、補記 — 2026-07-22 之十三（第二批體檢：錢與訂單＋補洞：取消訂單作廢付款連結 ✅ 前端待 push／edge 已部署）

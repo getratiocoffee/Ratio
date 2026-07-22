@@ -4492,6 +4492,67 @@ function openCustomerDetail(r,fromWs){
    真正算價的是 wholesale edge（v5 同一套優先序），這裡只是設定與顯示 */
 var WS_DEF_PCT=null; /* 全店預設折扣快取——名冊抽屜開一次讀一次，詳情頁拿它當 placeholder */
 function isWhCustType(t){t=String(t||'').toLowerCase();return t==='wholesale'||t==='shop'||t==='cafe';}
+/* 建一筆批發客戶檔（type='shop'）——申請單按 Approved 與名冊手動新增共用（2026-07-22 補斷點）。
+   email 是批發帳號的身分證（wholesale edge 用登入 email 去對客戶檔），所以先查同 email 的檔，
+   有就回既有那筆不重建——避免 Joanna/B85 那種「approved 了卻沒有客戶檔」與重複列並存 */
+async function ensureShopCustomer(o){
+  var email=String(o.email||'').trim();
+  if(email){
+    var q=await sb.from('customers').select('*').ilike('email',email);
+    if(!q.error&&(q.data||[]).length){
+      var ex=(q.data.filter(function(c){return c.type==='shop';})[0])||q.data[0];
+      if(!(DB.customers||[]).some(function(c){return c.id===ex.id;}))DB.customers.push(ex);
+      return {customer:ex,existed:true};
+    }
+  }
+  var addr=null;
+  if(o.line1||o.suburb||o.postcode)addr={line1:String(o.line1||'').trim(),suburb:String(o.suburb||'').trim(),postcode:String(o.postcode||'').trim()};
+  var rec={name:String(o.name||'').trim(),type:'shop',email:email||null,
+    phone:String(o.phone||'').trim()||null,address:addr};
+  if(o.ws_pct!=null)rec.ws_pct=o.ws_pct;
+  var ins=await sb.from('customers').insert(rec).select().single();
+  if(ins.error)throw new Error(ins.error.message);
+  DB.customers.push(ins.data);
+  logAct('added wholesale account',rec.name,email||null);
+  return {customer:ins.data,existed:false};
+}
+/* 手動新增批發帳號（名冊「＋ New」，或從 approved 卻沒建檔的申請單一鍵帶資料進來）。
+   pre＝預填 {name,email,phone,line1}——申請單那條路把打錯的 email 也帶進來讓老闆當場改 */
+function openNewWsAccountSheet(pre){
+  pre=pre||{};
+  openDrawerHTML('<div class="t" style="font-size:19px">New wholesale account</div>'
+    +'<div class="s" style="margin-top:2px">adds a shop-type customer file. Their sign-in is made separately in Supabase Auth, using the same email</div>'
+    +'<div class="dlab" style="margin-top:14px">Business name *</div><input class="din" id="nw-nm" placeholder="e.g. Joanna" value="'+esc(pre.name||'')+'">'
+    +'<div class="dlab">Email *</div><input class="din" id="nw-em" type="email" placeholder="orders@cafe.com.au" value="'+esc(pre.email||'')+'">'
+    +'<div class="dlab">Phone</div><input class="din" id="nw-ph" inputmode="tel" placeholder="0400 000 000" value="'+esc(pre.phone||'')+'">'
+    +'<div class="dlab">Delivery address</div><input class="din" id="nw-a1" placeholder="Address line" value="'+esc(pre.line1||'')+'">'
+    +'<div style="display:flex;gap:8px"><input class="din" id="nw-sb" placeholder="Suburb"><input class="din" id="nw-pc" placeholder="Postcode" style="flex:0 0 110px" inputmode="numeric"></div>'
+    +'<div class="dlab">Discount off retail (%)</div><input class="din" id="nw-pct" inputmode="decimal" placeholder="'+(WS_DEF_PCT?('blank = default '+WS_DEF_PCT):'blank = shop default')+'">'
+    +'<button class="act" id="nw-save">Add account</button>'
+    +'<button class="dclose" id="nw-back">‹ Back to wholesale</button>');
+  $('nw-back').addEventListener('click',openWholesaleAccountsSheet);
+  $('nw-save').addEventListener('click',async function(){
+    var nm=String($('nw-nm').value||'').trim(), em=String($('nw-em').value||'').trim();
+    if(!nm){toast('Business name first');return;}
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@.]{2,}$/.test(em)){toast('A valid email — it is how their sign-in finds this account');return;}
+    /* 常見打錯的收尾（Joanna 那張申請就是 .con）——不硬擋，問一句 */
+    if(/(\.con|\.cmo|\.coom|gmial|gmai\.com|hotmial|yaho\.com)$/i.test(em)&&!confirm('That email looks like a typo:\n\n'+em+'\n\nUse it anyway?'))return;
+    var pt=String($('nw-pct').value||'').trim(), pv=null;
+    if(pt){
+      pv=parseFloat(pt);
+      if(!(pv>=0&&pv<=90)){toast('Discount 0 to 90, or leave it blank');return;}
+      pv=Math.round(pv*10)/10;
+    }
+    var btn=this;btn.disabled=true;btn.textContent='Adding…';
+    try{
+      var res=await ensureShopCustomer({name:nm,email:em,phone:$('nw-ph').value,
+        line1:$('nw-a1').value,suburb:$('nw-sb').value,postcode:$('nw-pc').value,ws_pct:pv});
+      toast(res.existed?'That email already has a customer file — opening it':'Account added ✓');
+      buildItems(); /* 只重算今日流資料，不 render——render 會把晨報彈窗叫回來蓋掉這個抽屜 */
+      openWholesaleAccountsSheet();
+    }catch(e){btn.disabled=false;btn.textContent='Add account';alert('Could not add: '+(e&&e.message||e));}
+  });
+}
 function whAccountRows(){
   var whIds={};
   (DB.orders||[]).forEach(function(o){if(o.channel==='wholesale'&&o.customer_id)whIds[String(o.customer_id)]=1;});
@@ -4517,12 +4578,26 @@ async function openWholesaleAccountsSheet(){
   var logins=[];
   try{var p=await sb.from('profiles').select('id,name,role').eq('role','wholesale').order('name');if(!p.error)logins=p.data||[];}catch(e){}
   try{var dq=await sb.from('app_state').select('value').eq('key','ws_discount').maybeSingle();WS_DEF_PCT=(dq&&dq.data)?(Number((dq.data.value||{}).pct)||0):0;}catch(e){WS_DEF_PCT=null;}
+  /* 按了 Approved 卻沒有客戶檔的申請（2026-07-22 抓到 Joanna 與 B85 兩張卡在這）——一鍵補建 */
+  var stray=[];
+  try{
+    var aq=await sb.from('wholesale_applications').select('*').eq('status','approved');
+    var known={};
+    (DB.customers||[]).forEach(function(c){
+      if(c.email)known[String(c.email).trim().toLowerCase()]=1;
+      if(c.name)known[String(c.name).trim().toLowerCase()]=1;
+    });
+    stray=(aq.data||[]).filter(function(a){
+      return !known[String(a.email||'').trim().toLowerCase()]&&!known[String(a.business||'').trim().toLowerCase()];
+    });
+  }catch(e){}
   var loginName={};logins.forEach(function(p){loginName[String(p.name||'').trim().toLowerCase()]=1;});
   var orphan=logins.filter(function(p){return !rows.some(function(r){return String(r.c.name||'').trim().toLowerCase()===String(p.name||'').trim().toLowerCase();});});
   openDrawerHTML('<div class="t" style="font-size:19px">Wholesale accounts</div>'
     +'<div class="s" style="margin-top:2px">'+rows.length+' account'+(rows.length===1?'':'s')+' · most recent order first · '+money(totSpend)+' all time'
       +(totDue>0?' · <span class="red">'+money(totDue)+' unpaid</span>':'')+'</div>'
     +'<div class="s" style="margin-top:2px">tap an account to set the discount you agreed with that cafe</div>'
+    +(isLead()?'<button class="qact" id="wa-new" style="margin-top:10px">＋ New wholesale account</button>':'')
     +(rows.length?rows.map(function(r,ix){
       var hasLogin=loginName[String(r.c.name||'').trim().toLowerCase()];
       var own=(r.c.ws_pct!=null&&r.c.ws_pct!=='')?Number(r.c.ws_pct):null;
@@ -4533,12 +4608,23 @@ async function openWholesaleAccountsSheet(){
         +(own!=null?'<span class="k">'+own+'% off</span>'
           :'<span class="k" style="opacity:.5">'+(WS_DEF_PCT?WS_DEF_PCT+'% default':'no rate')+'</span>')+'</div>';
     }).join(''):'<div class="empty">No wholesale accounts yet — set a customer type to shop, or take an order through the wholesale channel</div>')
+    +((stray.length&&isLead())?'<div class="dlab" style="margin-top:16px">Approved, but not in the book · '+stray.length+'</div>'
+      +'<div class="s" style="margin-bottom:8px">their application was approved and then nothing was made — tap Add to finish it</div>'
+      +stray.map(function(a,ix){
+        return '<div class="dl"><span><b>'+esc(a.business||'—')+'</b><br><span class="s">'+esc([a.email,a.phone].filter(Boolean).join(' · ')||'no contact details')+'</span></span>'
+          +'<button class="qact" style="flex:0 0 auto;padding:9px 12px" data-wsadd="'+ix+'">Add</button></div>';
+      }).join(''):'')
     +(orphan.length?'<div class="dlab" style="margin-top:16px">Sign-ins without a customer file</div>'
       +'<div class="s" style="margin-bottom:8px">these accounts can order online, but nothing in the customer book matches the name</div>'
       +orphan.map(function(p){return '<div class="dl"><span>'+esc(p.name||'—')+'</span><span class="s">wholesale login</span></div>';}).join(''):'')
     +(ROLE==='director'?'<button class="act" id="wa-set" style="margin-top:16px">Discount, terms and applications</button>':'')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   document.querySelectorAll('#drawer [data-wa]').forEach(function(el){el.addEventListener('click',function(){openCustomerDetail(rows[+el.dataset.wa],true);});});
+  var wn=$('wa-new');if(wn)wn.addEventListener('click',function(){openNewWsAccountSheet();});
+  document.querySelectorAll('#drawer [data-wsadd]').forEach(function(el){el.addEventListener('click',function(){
+    var a=stray[+el.dataset.wsadd];
+    openNewWsAccountSheet({name:a.business,email:a.email,phone:a.phone,line1:a.address});
+  });});
   var ws=$('wa-set');if(ws)ws.addEventListener('click',openWholesaleSheet);
   $('d-cl').addEventListener('click',closeDrawer);
 }
@@ -12254,15 +12340,27 @@ async function openWholesaleSheet(){
         +'<button class="qact" style="flex:0 0 auto;padding:9px 12px" data-wsp="'+esc(p.id)+'" data-wsr="'+(p.role==='wholesale'?'customer':'wholesale')+'">'+(p.role==='wholesale'?'Back to customer':'Make wholesale')+'</button></div>';
     }).join(''):'<div class="empty" style="padding:20px">No customer accounts yet — add the user in Supabase Auth first, then flip it here</div>')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
-  /* 申請兩鈕：Approved（帳號已手動開好，收單）／Dismiss（婉拒）——都只標狀態，資料留表可查 */
+  /* 申請兩鈕：Approved／Dismiss（婉拒）。
+     2026-07-22 補斷點：Approved 以前只標狀態，客戶檔要另外手工建——結果 Joanna 與 B85 兩張都
+     approved 了卻不在名冊裡。現在 Approved 順手建 shop 客戶檔（同 email 已有檔就接上不重建）。
+     登入帳號仍要老闆在 Supabase Auth 開（那步這裡碰不到），toast 會提醒 */
   document.querySelectorAll('#drawer [data-wsapp]').forEach(function(b){b.addEventListener('click',async function(){
     var parts=String(b.dataset.wsapp).split('|'),aid=parts[0],st2=parts[1];
+    var ap=apps.filter(function(x){return String(x.id)===String(aid);})[0]||null;
     if(st2==='dismissed'&&!confirm('Dismiss this application?'))return;
+    if(st2==='approved'&&!confirm('Approve '+((ap&&ap.business)||'this application')+'?\n\nThey get a customer file in the book (shop type). Their sign-in still has to be created in Supabase Auth with the same email.'))return;
     b.disabled=true;
+    var made=null;
+    if(st2==='approved'&&ap){
+      try{made=await ensureShopCustomer({name:ap.business,email:ap.email,phone:ap.phone,line1:ap.address});}
+      catch(e){b.disabled=false;alert('Could not add them to the customer book: '+(e&&e.message||e));return;}
+    }
     var u=await sb.from('wholesale_applications').update({status:st2}).eq('id',aid);
     if(u.error){b.disabled=false;alert('Update failed: '+u.error.message);return;}
     DB.wsapps=(DB.wsapps||[]).filter(function(a){return String(a.id)!==String(aid);});
-    toast(st2==='approved'?'Marked approved ✓':'Dismissed');
+    toast(st2!=='approved'?'Dismissed'
+      :(made&&made.existed)?'Approved — they were already in the book ✓'
+      :'Approved — added to the book. Now make their sign-in in Supabase Auth');
     openWholesaleSheet();
   });});
   $('ws-save').addEventListener('click',async function(){
