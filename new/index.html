@@ -1461,9 +1461,12 @@ function openDetails(id){
   var i=item(id);if(!i)return;
   openDrawerHTML('<span class="tag" style="color:'+(STCOLOR[i.st]||'var(--muted)')+'">● '+esc(i.st)+(i.hot?' <span style="color:var(--accent)">· now</span>':'')+'</span><div class="t" style="font-size:19px">'+i.t+'</div>'
     +'<div style="margin-top:10px">'+i.det.map(function(r){return '<div class="dl"><span>'+esc(r[0])+'</span><span'+(r[2]==='item'?' class="dv-l"':'')+'>'+esc(r[1])+'</span></div>';}).join('')+'</div>'
+    /* 訂單類卡片（收單/打包/出貨）連送貨地址一起看——打包當下就知道要寄哪 */
+    +((i.ref&&['accept','pack','ship'].indexOf(i.kind)>=0)?addrBlockHTML(i.ref,'dt-addr'):'')
     +'<button class="act" id="d-main">'+esc(i.act)+'</button>'
     +(i.det2?'<button class="dclose" id="d-sec">'+esc(i.det2)+'</button>':'')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  wireAddrCopy();
   $('d-main').addEventListener('click',function(){closeDrawer();runAction(id,null);});
   var s=$('d-sec');
   if(s)s.addEventListener('click',async function(){

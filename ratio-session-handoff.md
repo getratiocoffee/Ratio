@@ -90,6 +90,7 @@
   - 三種空狀態：來源是客戶檔 → 標題加「· from contact card」；PICKUP → 「Pickup — no delivery address」；真的沒有 → 紅字「No address on this order — ask the customer, then save it on their contact card」
 - **實際效果**：現在兩張待處理單都會有地址——#0037（wholesale, Thirty 7even Dining）走客戶檔、#0033 走訂單自帶
 - **驗證**：jscheck ✓；e2e 假資料（擋 fetch，serve `addrtest.html`）四情境——Square 單 3 行地址＋電話／wholesale 單標「FROM CONTACT CARD」／無地址紅字／PICKUP 文案，Dispatch 與 Order detail 兩抽屜都對 ✓；**Copy address 真滑鼠點擊 → 「Copied ✓」再自動復原**（程式 .click() 沒有 user gesture 會失敗＝瀏覽器規則，非 bug）；console 零錯誤＋截圖 ✓。serve 複本已 cp
+- **追加（同輪，老闆截圖點名「這裡需要顯示地址」＝今日流卡片點開的 `openDetails`）**：地址區塊也掛進 **openDetails**（det 那組 dl 之後、主按鈕之前），限 `kind` 是 **accept／pack／ship** 三種訂單卡；收款卡（paid）刻意不出（那是對帳不是出貨）。驗證：jscheck ✓；e2e 四張卡——Pack #0033 出訂單自帶地址／Ship #0037 出「FROM CONTACT CARD」／Accept #0038 紅字沒地址／收款卡沒有地址區塊 ✓，console 零錯誤＋截圖
 - **留給未來**：批發下單流程仍不收地址（客戶檔沒地址的新批發客會是紅字）。要補就是 wholesale edge checkout 帶 `customers.address` 進 `shipping_address`＋結帳頁可改——老闆說先只做顯示，這條沒做
 
 ## 〇、補記 — 2026-07-22 之八（Roastery Stock 沒貨的不再列 ✅ 待 push）
