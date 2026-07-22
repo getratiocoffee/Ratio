@@ -80,6 +80,18 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-22 之七（Roastery Stock 直接發起拼配 ✅ 待 push）
+- **老闆要求**：「我需要在 roastery stock 裡面用現有的 single origin 製作 blend」——不想為了拼配跑去 Log roast
+- **查到的現況**：Roastery Stock 展開列的按鈕在 2026-07-16 被老闆點名全清（Cup it／★／Send back to QC／**Roast this**），`openRoastPreset` 從此變成**無呼叫端的死碼**。所以拼配唯一入口是 Tools→Roasted Bean→Log roast，而且要自己穿過三層切換（Roast today → Blend → **Mix roasted**，第三層預設在 Roast green）
+- **做法**：Roastery Stock 的 seg 下方加一顆 `.act`「**Mix a blend from stock**」（canWrite 才出）。點了帶**展開中的配方名**跳進 Log roast，`openRoastPreset(mode,val,mix)` 復活並加第三參數：強制 `entry='roast'`、`RO.bb[].pre=false`＝**直接落在 Mix roasted**。扣豆／事前檢查／recipe 快照全部共用之六那條路，不另開一套
+- **驗證（端到端，非純函式）**：造一份 e2e 頁——**在 supabase-js 之前注入 `window.fetch` 全擋**＋灌假 DB（Dark Knight 配方＋Danche v1 兩批/La Molienda/Hakuna Matata 熟豆），boot 後直開 Roastery Stock：
+  - 按鈕出現在 seg 下方 ✓；點下去 → Log roast 開啟且 **Roast today / Blend / Mix roasted 三層都已就位、配方預選 Dark Knight** ✓（`RO.mode='blend'`、`entry='roast'`、`bb[0]={name:'Dark Knight',pre:false}`）
+  - 填總量 10 → 用量 `5.00 / 2.50 / 2.50`、對帳行 `takes 5.00 + 2.50 + 2.50 = 10.00 kg` ✓
+  - 點 19/07 chip → 選中態切換、提示轉 `from 19/07 batch · 9 kg`、`bb.pick={0:'2026-07-19'}` ✓
+  - 總量拉到 40 → 用量轉紅＋`short 11 on 19/07 batch`；**submit 前跳 confirm 列出三支不足並指明批次，按取消＝`sb.from` 零呼叫（零寫入）** ✓ ← 最關鍵的迴歸（舊版是寫完才 alert）
+  - console 零錯誤。serve 複本已 cp
+- **設計筆記**：Singles 分頁也顯示這顆鈕（拼配本來就是用單品做 blend，從哪個分頁看到都合理）；Blends 分頁沒展開任何一支時進去自己挑配方
+
 ## 〇、補記 — 2026-07-22 之六（Blend 用單品熟豆調配補完＋待秤重幽靈修復 ✅ 待 push）
 - **老闆要求**：①Log roast 烘完的豆子要進 Roastery stock ②Blend 要能從 single origin 抽豆做 blending、做完扣掉該量
 - **⚠ 關鍵發現：功能本來就有，是半殘的**。Blend 卡內 seg 的 **Mix roasted**（熟拼）早就會呼叫 `consumeBlendParts` 扣單品熟豆——但 ①使用者填的 `bb.amt` **submit 從來沒讀**（實扣永遠是總量×配方%，填了不算數）②不能挑批次（全自動 FIFO）③沒有事前檢查（不夠只在寫完後 alert，那時 blend 已 insert、成分扣了一半）。使用數據佐證沒被用起來：**intake blend 19 次**（純補登不扣）vs post-blend 5 次＝熟豆庫存長期只進不出
