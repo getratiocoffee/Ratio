@@ -80,6 +80,14 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-22 之二（買三送一收回成「只有網店」✅ Square 後台已改，零程式碼變更）
+- **老闆點名**：買三送一只要留在 ?shop。**查下來前端／edge 本來就只有網店有**（cartBogo 只在零售車＝?shop＋客戶門戶；批發車 openWsCartSheet 不吃；跑馬燈 WS_MODE 回空），唯一外溢的是 **Square Dashboard 折扣**（7/21 之九改成 All locations 那次，把 Crows Nest POS 也納進來了）
+- **⚠ 架構重點（別再搞混）**：**?shop 的買三送一是 public-shop edge v15 自己算的**（checkout 組 `order.discounts` fixed 折最便宜袋），**跟 Square Dashboard 折扣毫無關係**——所以動 Square 後台不會影響 ?shop
+  - **實帳驗證 #0033**（Square 訂單頁）：4 袋×$25=$100 → Discount「Buy 3 get 1 free — cheapest bag」−$25（**名字＝edge 程式碼字串，證明是我們加的那筆**）→ Subtotal $75 ＋ Standard Shipping $10 ＝ **Total $85** ✓。Square 自動折扣**沒有**重複套在 payment link 訂單上（無雙重折扣、無漏財）
+- **改法**：折扣「Buy Any 4, Get Cheapest Free」→ **Apply automatic discount** 區塊取消勾選 **Square Point of Sale and other integrations**，保留 **Online ordering**；Save 後重載確認持久 ✓（該列變灰未勾）
+  - 留意：**Locations 仍是 All locations**（Crows Nest＋Online Store）——自動套用已關，POS 不會再自己打折；若老闆連「收銀員手動選折扣」都不要，再去 Locations 取消 Crows Nest
+- **通路全景**（三條，別再混為一談）：①**?shop**（source「Ratio App」）＝edge 自算 ✅有優惠 ②**Square Online**（source「Square Online」，仍在活躍收單：7/4、7/6、7/7、7/11 都有 $85 單）＝靠 Dashboard「Online ordering」勾 ✅有優惠 ③**Crows Nest POS**＝本次關掉 ❌沒優惠
+
 ## 〇、補記 — 2026-07-22（?shop 新單「app 沒出現」排查＋訂單品項顯示處理法＋明細一項一行 ✅ 待 push）
 - **老闆報案**：今天 ?shop 有 order 但 app 看不到。**查下來系統全對**——#0033（09:43 雪梨，Peihan Shuai，4 品項 $85，paid，status New）在 DB 完整；square-webhook 今日全 200、push-send 有發；loadAll 抓 New、director 在 roles 名單、貪睡表沒它。**真因＝畫面沒刷新**：maybeAutoRefresh 只綁 visibilitychange（切走再回來且 >60s），PWA 一直開著就永遠舊資料
   - **修**：`setInterval(maybeAutoRefresh,180000)`＝前景每 3 分鐘也刷（同條件：抽屜開著不打斷、未登入不動）
