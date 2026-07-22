@@ -81,6 +81,14 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-22 之十二（豆子走向藍圖改版 ✅ 待 push）
+- **老闆要求**：「幫我做一個藍圖，我要看一下我豆子的走向」→ 定案：**靜態單檔 HTML（同舊藍圖形式）＋把體檢漏洞標在對應的站上**
+- **舊版哪裡過時**（`Ratio-blueprint-roast-to-publish.html` 2026-07-14 版，commit `0ce2f1d`）：**整個 Crows Nest 轉店面站不在圖上**（現在 76.45kg 的貨在那）、QC 規則改過三輪、「右滑 Pass ＋自動鎖風味」2026-07-16 就拆開了、沒有 Mix roasted／訂閱／批發
+- **改法：整檔重寫同一個檔名**（單一真相，舊版 `git show 0ce2f1d:Ratio-blueprint-roast-to-publish.html` 撈）。沿用舊版 CSS 皮（紙白玫瑰＋暗色雙軌＋`@media print`），新增 `--blue` 色票（店面站）、`.holes`（紅色編號清單）、`.snap`（現況快照表）、`.ledger`（帳本對照表）
+- **內容六區**：①SVG 流程圖（viewBox 800×1010，主幹生豆→Log roast→roasts→Roastery Stock，左分支 Crows Nest 狀態鏈 pool/settled/used/returned＋退回虛線、右分支 杯測 QC→Publish→通路→出貨＋扣豆虛線、左上 Mix roasted 迴圈、右上 To weigh、左下 Coffee Info 旁支；紅圈①–⑦釘在對應框）②現況快照數字 ③每一站的帳記在哪（表名／欄位／何時變）④「哪一種記法會扣東西」三色卡（扣生豆／什麼都不扣／吃熟豆）⑤七個漏洞清單（①已標「已修」）⑥鐵律六條（取代舊版五條）
+- **驗證**：桌機 1100px 與**手機 375px** 各看一次——頁面本身不橫向溢出、流程圖區塊自己橫捲（SVG 660 > 容器 327）、「手機請左右滑動」提示只在 ≤720px 出現、表格與卡片寬度正常；暗色配色可讀；文字內容逐段核對過（`get_page_text`）。⚠ Browser pane 的截圖工具在長頁捲動後會吐空白/錯位圖（工具 bug，非頁面問題），驗證改用 DOM 量測＋文字比對
+- **線上網址**（push 後）：`https://ratio-theta.vercel.app/Ratio-blueprint-roast-to-publish.html`——vercel.json 只 rewrite `/`，根目錄靜態檔照常提供，老闆手機可直接開/加書籤
+
 ## 〇、補記 — 2026-07-22 之十一（生產線體檢＋補洞 A：Used 不再蒸發 ✅ 待 push）
 
 ### 體檢結果（老闆問「log roast → publish 有沒有漏洞把豆子變孤兒」；完整報告在 `~/.claude/plans/qc-crows-nest-roastery-scalable-eclipse.md`）
