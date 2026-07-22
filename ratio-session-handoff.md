@@ -80,6 +80,15 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-22（?shop 新單「app 沒出現」排查＋訂單品項顯示處理法＋明細一項一行 ✅ 待 push）
+- **老闆報案**：今天 ?shop 有 order 但 app 看不到。**查下來系統全對**——#0033（09:43 雪梨，Peihan Shuai，4 品項 $85，paid，status New）在 DB 完整；square-webhook 今日全 200、push-send 有發；loadAll 抓 New、director 在 roles 名單、貪睡表沒它。**真因＝畫面沒刷新**：maybeAutoRefresh 只綁 visibilitychange（切走再回來且 >60s），PWA 一直開著就永遠舊資料
+  - **修**：`setInterval(maybeAutoRefresh,180000)`＝前景每 3 分鐘也刷（同條件：抽屜開著不打斷、未登入不動）
+- **品項顯示處理法**（老闆要知道是哪一隻豆；同名多處理法是不同商品）：新 `procOfItem(it)`——**先用 `it.square_variation_id` 對 `product_sync.variation_id`**（loadAll 該查詢已補 select variation_id），對不到才退名字比對、且**同名只有唯一一列有 process 才敢給**（多列＝寧可留空不猜）。拼配豆 process 本來就 null＝不顯示
+  - 格式共用：`itemText(it)`＝「150g Kii AB (Washed) ×2」→ `itemsLine`（一行逗號串）與 `itemRows`（明細每項一列）都吃它；打包抽屜 pk-row 也改用 itemText（順帶有了處理法）
+- **明細一項一行**（老闆點名 Pack details 的 items）：Accept/Pack/Ship 三卡的 det 由 `[['Items',itemsLine]]` 改 `itemRows(o).concat([...])`＝每項一列、左欄只第一列寫 Items。第三格 `'item'` 是渲染旗標→值套 `.dl span.dv-l{flex:1;text-align:left}` **靠左排齊**（比對過靠右版：右對齊左緣鋸齒難掃，靠左明顯好讀）；det 渲染兩處（今日流抽屜＋搜尋抽屜）同步改
+- **驗證**：jscheck ✓；假資料實測 itemRows 輸出（含空訂單 →「Items —」、Delivery fee 假品項不炸）✓；**從真檔案抽 procOfItem/itemText/itemsLine/itemRows/esc ＋真 CSS 生預覽頁**（scratchpad/serve/packtest.html），375 寬看板 A/B 對照選定靠左版，卡片明細＋打包清單兩塊截圖確認 ✓。serve 複本已 cp
+- **commit**：`b873cad`（處理法＋自動刷新）、`e0481ea`（一項一行）——**待老闆 GitHub Desktop push**
+
 ## 〇、補記 — 2026-07-21 之十八（桌機版面鎖手機格式 ✅ 待 push）
 - **老闆點名**（桌機開 coffeeratio.com.au 版面被拉散）：內容主體 .wrap 與 nav 本就 520 置中——漏的是貼螢幕邊的四個：①`.shoptabs` 照 nav 慣例補 max-width:520+margin auto+左右 1.5px 框 ②`header` padding 左右改 `max(18px,calc(50% - 238px))`＝內容縮到 520（購物車不再貼螢幕角；手機 max() 取 18px 無感）③`.shoparr` 輪播箭頭 ≥760px 貼內容邊（calc(50% ± 302px)）④`.deck` 判定板同 520 置中。手機端全部零影響
 - **驗證**：jscheck ✓、桌機寬預覽——shoptabs 置中帶框/箭頭貼邊/整體如置中手機 ✓、console 零錯誤。serve 複本已 cp
