@@ -80,6 +80,18 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-22 之九（訂單顯示送貨地址 ✅ 待 push）
+- **老闆點名**：「進來的 order 要提供地址」→ 確認後是**看訂單時要看得到地址**（不是叫客人填）
+- **查到的現況**：`orders.shipping_address`（jsonb）**Square 單有**（webhook 帶進來，例 #0033 Peihan 完整門牌），**wholesale／manual 單全 null**（wholesale edge v4 的 checkout 根本沒收地址）；而新殼 `new/index.html` 整檔 grep `shipping_address` **零筆**——地址進得來但畫面從來沒印過，出貨得跑 Square 後台查
+- **做法（前端純顯示，零資料寫入）**：
+  - `ordAddr(o)`（whOrd 下方）：**訂單自帶 shipping_address 優先，沒有退 `customers.address`**（回傳 src 標記來源）。**兩種形狀都吃**——Square 形 `address_line_1/address_line_2/locality/administrative_district_level_1/postal_code/country` 與手填形 `line1/suburb/postcode`；country 是 AU 就不印；`fulfillment:'PICKUP'` 回 pickup 旗標
+  - `addrBlockHTML(o,id)`＋`wireAddrCopy()`：Ship to 區塊（`.addrb` 新 CSS，可選取）＋「Copy address」（clipboard API 失敗退 execCommand 隱形 textarea）
+  - 掛兩處：**openDispatch**（unpaid 警告下、tracking 上——出貨當下第一眼）、**openOrderDetail**（Placed/Tracking 那組 dl 之後）
+  - 三種空狀態：來源是客戶檔 → 標題加「· from contact card」；PICKUP → 「Pickup — no delivery address」；真的沒有 → 紅字「No address on this order — ask the customer, then save it on their contact card」
+- **實際效果**：現在兩張待處理單都會有地址——#0037（wholesale, Thirty 7even Dining）走客戶檔、#0033 走訂單自帶
+- **驗證**：jscheck ✓；e2e 假資料（擋 fetch，serve `addrtest.html`）四情境——Square 單 3 行地址＋電話／wholesale 單標「FROM CONTACT CARD」／無地址紅字／PICKUP 文案，Dispatch 與 Order detail 兩抽屜都對 ✓；**Copy address 真滑鼠點擊 → 「Copied ✓」再自動復原**（程式 .click() 沒有 user gesture 會失敗＝瀏覽器規則，非 bug）；console 零錯誤＋截圖 ✓。serve 複本已 cp
+- **留給未來**：批發下單流程仍不收地址（客戶檔沒地址的新批發客會是紅字）。要補就是 wholesale edge checkout 帶 `customers.address` 進 `shipping_address`＋結帳頁可改——老闆說先只做顯示，這條沒做
+
 ## 〇、補記 — 2026-07-22 之八（Roastery Stock 沒貨的不再列 ✅ 待 push）
 - **老闆點名**：Roastery Stock 沒有貨的要從清單移除（通常是整批轉去 Crows Nest 之後歸零）
 - **查到的不對稱**：`rstRows` 的 **Singles 分頁 2026-07-14 就定調「0kg 不列」**（有 `rstStockKg>0||dg||pending` 過濾），但 **Blends 分頁是 `DB.blends` 全列、零過濾**——所以賣光/轉走的拼配一直掛在架上清單。補上同一條規則即可，不是新設計
