@@ -3777,6 +3777,9 @@ function paintPublishSheet(sl,acts){
         +'<button class="dclose" data-pubact="email" '+(noCup?'disabled style="opacity:.5"':'')+'>Email customers — new coffee</button>'
         +'<button class="dclose" data-pubact="social">Post to FB + IG</button>'
         +'<button class="dclose" data-pubact="ig" '+(noCup?'disabled style="opacity:.5"':'')+'>IG asset — cards &amp; captions</button>'
+        /* Re-cup（2026-07-23 老闆點名）：把在賣的這支豆送回杯測台重新品控——只更新分數與風味，
+           不動 QC 判定、★ 與在賣狀態，做完回到 Publish */
+        +(noCup?'':'<button class="dclose" data-pubact="recup" style="margin-top:6px">Re-cup — score this coffee again</button>')
         +'</div>';
     }
     return h+'</div>';
@@ -3812,6 +3815,12 @@ function paintPublishSheet(sl,acts){
     var x=rows.find(function(r){return r.key===PUB.open;});if(!x)return;
     var act=el.dataset.pubact;
     if(act==='list'){openListSheet({ref:x.s});return;}
+    if(act==='recup'){
+      /* 對應的在庫鍋只為了顯示烘焙日／批號；賣完沒鍋就用 ★ 那筆自己組一個（re-cup 存檔不依賴 roasts） */
+      var rr=null;try{rr=matchRoast(x.s);}catch(e){}
+      if(!rr)rr={bean_name:x.nm,process:(x.s&&x.s.process)||null,bean_id:(x.s&&x.s.bean_id)||null,roast_date:(x.s&&x.s.roast_date)||null};
+      openRecupSheet({r:rr,s:x.s,back:'publish'});return;
+    }
     if(act==='sold'){
       el.disabled=true;el.textContent='Working…';
       /* proc 用 x.proc（列鍵，與 syncFor 判狀態同一把鑰匙）；成功後必 reload——
@@ -6872,7 +6881,8 @@ async function openRecupSheet(q){
   var dk=dotKeyFor(q.r.bean_name||q.s.sample_id,dots,q.r.process||q.s.process);
   CUP={r:q.r,editId:q.s.id,scores:sc,dot:dk,dot0:dk,
     feats:(q.s.features||[]).slice(0,3),comment:String(q.s.comment||''),
-    process:q.s.process||''};
+    process:q.s.process||'',
+    back:q.back||null}; /* 存完回哪：'publish'＝從 Publish 卡的 Re-cup 進來（2026-07-23），null＝QC 台 */
   paintCupSheet();
 }
 /* comment 留白時的規則組句（老闆拍板：本機組句不呼叫 AI）：風味詞＋高分感官，總長 ≤30 字元 */
@@ -6994,7 +7004,8 @@ async function saveCupSheet(){
       if(uq.error)throw new Error(uq.error.message);
       if(CUP.dot!==CUP.dot0){try{await saveDotFor(name,CUP.dot,CUP.process);}catch(e){toast('Saved, but colour failed');}}
       toast('Cupping updated ✓');
-      await reload();backToQC(); /* 回 QC 抽屜或統一台 */
+      await reload();
+      if(CUP.back==='publish')openPublishSheet();else backToQC(); /* 從 Publish 進來就回 Publish，否則回 QC 台 */
     }catch(e){
       if(btn0){btn0.disabled=false;btn0.textContent='Update cupping';}
       alert('Update failed: '+(e&&e.message||e));
