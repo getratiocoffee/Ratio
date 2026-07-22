@@ -686,7 +686,9 @@ async function loadAll(){
     sb.from('tasks').select('*').eq('done',false).order('created_at',{ascending:false}),
     sb.from('dialins').select('id,coffee,target_id,created_at,grind,dose,yield,time_s,barista,note').order('created_at',{ascending:false}).limit(200),
     sb.from('product_sync').select('bean_id,target_id,status,process,variation_id').eq('channel','square'),
-    sb.from('samples').select('id,sample_id,bean_id,process,roast_date,cupping_date,features,flavour_locked,fragrance,acidity,sweetness,body,aftertaste,comment,cupper').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
+    /* supplier 一定要 select（2026-07-22 修）：查詢已經 .eq 過，但 Coffee Info 的 pushCand（:2594）與
+       Cleanup B 區（:3975）事後又用 s.supplier==='Ratio Coffee' 過濾——欄位沒帶回來＝永遠 undefined＝母體恆空 */
+    sb.from('samples').select('id,sample_id,bean_id,supplier,process,roast_date,cupping_date,features,flavour_locked,fragrance,acidity,sweetness,body,aftertaste,comment,cupper').eq('supplier','Ratio Coffee').order('cupping_date',{ascending:false}).order('created_at',{ascending:false}),
     sb.from('roasts').select('id,bean_name,bean_id,roast_date,qc,green_kg,status,kind,remaining_kg,roasted_kg,process').order('roast_date',{ascending:false}),
     sb.from('beans').select('id,green_no,name,process,quantity,low_stock_kg,country,region,station,variety,harvest,altitude,cost_per_kg,supplier,roast_target_kg,roast_low_kg'),
     sb.from('feedback').select('*').is('reply',null).order('created_at',{ascending:false}),
@@ -778,6 +780,45 @@ function shopKgOfName(nm,proc){
     kg+=Number(t.kg)||0;
   });
   return Math.round(kg*1000)/1000;
+}
+/* ===== 出貨扣豆的第二層：Crows Nest 未計費的貨（2026-07-22 補洞②）=====
+   `pool` 且沒有 invoice_no ＝豆子放在店面但還沒跟店面收錢＝帳上仍是我們的貨，出貨扣得到。
+   `settled` 或已開發票的**一律不碰**——那批店面已經買斷，動它等於改別人的帳。
+   為什麼需要這層：現在在賣的豆幾乎全部烘豆室 0kg、貨在 Crows Nest（Dancer/Dreamer/Sugar Daddy…），
+   舊版 deductOrderStock 只翻 rstBatches，出貨就靜默短缺（activity_log 的 `#29 short: 3 item(s)` 就是） */
+function shopPoolRows(name,isBlend,process){
+  var key=String(name||'').trim().toLowerCase();if(!key)return [];
+  return (DB.transfers||[]).filter(function(t){
+    return t.status==='pool'&&!String(t.invoice_no||'').trim()
+      &&String(t.name||'').trim().toLowerCase()===key
+      &&(!!t.is_blend===!!isBlend)
+      &&(isBlend||process==null||!t.process||procKey(t.process)===procKey(process))
+      &&Number(t.kg)>0;
+  }).sort(function(a,b){return String(a.created_at||'')<String(b.created_at||'')?-1:1;}); /* 舊的先出 */
+}
+function shopPoolKg(name,isBlend,process){
+  var s=0;shopPoolRows(name,isBlend,process).forEach(function(t){s+=Number(t.kg)||0;});
+  return Math.round(s*1000)/1000;
+}
+/* 從店面的未計費貨扣 kg：整行扣完＝標 used 並把訂單號寫進 invoice_no（去向可追，
+   也不會被「Used and returned」誤標成 never invoiced）；只扣一部分就單純改 kg。回實際扣到的 kg */
+async function takeFromShopPool(rows,kg,orderRef){
+  var left=kg;
+  for(var i=0;i<rows.length&&left>0.0001;i++){
+    var t=rows[i],have=Number(t.kg)||0,take=Math.min(have,left);
+    var rest=Math.round((have-take)*1000)/1000;
+    try{
+      var u=await sb.from('transfers').update(rest>0.0001?{kg:rest}:{kg:0,status:'used',invoice_no:orderRef}).eq('id',t.id);
+      if(u.error)continue;
+      left-=take;
+      if(rest>0.0001)t.kg=rest;
+      else{
+        t.kg=0;t.status='used';t.invoice_no=orderRef;
+        DB.transfers=(DB.transfers||[]).filter(function(x){return String(x.id)!==String(t.id);}); /* 只載 pool/settled，扣光的行就此離開清單 */
+      }
+    }catch(e){}
+  }
+  return Math.round((kg-left)*1000)/1000;
 }
 /* 這批的貨在哪：'hand'＝烘豆室還有、'shop'＝只剩 Crows Nest、'gone'＝都沒了（已賣/拼掉）。
    2026-07-22 晚起也是**列不列進 QC 的門檻**（gone 不列，見 toCupList 的決策時間軸） */
@@ -1563,7 +1604,7 @@ function itemBeanRef(it){
 }
 async function deductOrderStock(o){
   if(o.stock_deducted_at)return {skipped:true,short:[]};
-  var short=[],tookAny=false;
+  var short=[],tookAny=false,fromShop=[];
   var items=Array.isArray(o.items)?o.items:[];
   for(var ii=0;ii<items.length;ii++){
     var it=items[ii];
@@ -1587,7 +1628,29 @@ async function deductOrderStock(o){
         b.remaining_kg=nr;left-=take;tookAny=true;
       }catch(e){}
     }
-    if(left>0.0001)short.push(nm+': short '+(Math.round(left*100)/100)+' kg (needed '+(Math.round(kg*100)/100)+' kg)');
+    /* 烘豆室不夠：先看 Crows Nest 有沒有未計費的貨，有就留到迴圈後一次問（洞② 2026-07-22） */
+    if(left>0.0001){
+      var shopHave=shopPoolKg(ref.name,ref.isBlend,ref.isBlend?undefined:ref.proc);
+      if(shopHave>0.0001)fromShop.push({ref:ref,nm:nm,need:left,have:shopHave,want:kg});
+      else short.push(nm+': short '+(Math.round(left*100)/100)+' kg (needed '+(Math.round(kg*100)/100)+' kg)');
+    }
+  }
+  /* 一次問清楚再動店面的帳——豆子實體在店裡，只有老闆知道這單是不是從店面出的 */
+  if(fromShop.length){
+    var ref2='#'+String(o.order_no||o.id).padStart(4,'0');
+    var lines=fromShop.map(function(x){return '· '+x.nm+' — need '+(Math.round(x.need*100)/100)+' kg, Crows Nest holds '+(Math.round(x.have*100)/100)+' kg';});
+    var takeIt=confirm('The roastery ran out for:\n\n'+lines.join('\n')
+      +'\n\nTake it from the Crows Nest shelf? Those bags are not invoiced to the shop yet, so the stock is still ours.'
+      +'\n\nCancel leaves the shop stock alone and reports it short.');
+    for(var fs=0;fs<fromShop.length;fs++){
+      var x=fromShop[fs],got=0;
+      if(takeIt){
+        try{got=await takeFromShopPool(shopPoolRows(x.ref.name,x.ref.isBlend,x.ref.isBlend?undefined:x.ref.proc),x.need,ref2);}catch(e){}
+        if(got>0.0001){tookAny=true;logAct('took from Crows Nest',x.nm,(Math.round(got*100)/100)+' kg for '+ref2);}
+      }
+      var stillShort=Math.round((x.need-got)*1000)/1000;
+      if(stillShort>0.0001)short.push(x.nm+': short '+(Math.round(stillShort*100)/100)+' kg (needed '+(Math.round(x.want*100)/100)+' kg'+(takeIt?'':'; Crows Nest has '+(Math.round(x.have*100)/100)+' kg')+')');
+    }
   }
   var now=new Date().toISOString();
   try{var m=await sb.from('orders').update({stock_deducted_at:now}).eq('id',o.id);if(!m.error)o.stock_deducted_at=now;}catch(e){}
@@ -3600,6 +3663,14 @@ function paintPublishSheet(sl,acts){
     if(!(Number(t.kg)>0))return;
     addRow(t.name,t.is_blend?undefined:(t.process||''));
   });
+  /* 第四輪（洞④ 2026-07-22）：Square 上還掛著在賣、但兩地都 0kg 的豆。
+     不補這輪它們就整個掉出 Publish＝沒有任何地方按得到「Take off shelf」，客人卻買得下去
+     （2026-07-22 實況：Alo Village ×2 與 Danche v2 就是這樣還在賣） */
+  (DB.syncs||[]).forEach(function(x){
+    if(x.status!=='synced')return;
+    var nm=String(x.bean_id||'').trim();if(!nm)return;
+    addRow(nm,rtlIsBlend(nm)?undefined:(x.process||''));
+  });
   rows.forEach(function(x){
     var sy=syncFor(x.nm,x.proc);
     x.sync=sy?sy.status:null;
@@ -3609,8 +3680,11 @@ function paintPublishSheet(sl,acts){
     x.roasteryKg=rstStockKg(x.nm,x.proc===undefined,x.proc);
     x.shopKg=shopKgOfName(x.nm,x.proc);
   });
-  /* 排序：鎖了還沒上架的最上（該上了）→ 已上架 */
+  /* 排序：在賣卻沒貨的最上（最急，要下架）→ 鎖了還沒上架的（該上了）→ 已上架 */
+  var noStockOnSale=function(x){return x.sync==='synced'&&x.roasteryKg<=0&&x.shopKg<=0;};
   rows.sort(function(a,b){
+    var oa=noStockOnSale(a)?0:1,ob=noStockOnSale(b)?0:1;
+    if(oa!==ob)return oa-ob;
     var ra=a.sync?1:0,rb=b.sync?1:0;
     return ra!==rb?ra-rb:a.nm.localeCompare(b.nm);
   });
@@ -3618,13 +3692,15 @@ function paintPublishSheet(sl,acts){
   var pill=function(txt,bg){return '<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;background:'+bg+';color:#fff">'+txt+'</span>';};
   var body=rows.length?rows.map(function(x,ix){
     /* 清單全是有星的豆＝膠囊固定 ★ On shelf；shop 狀態在 chans 行 */
-    var qcPill=pill('★ On shelf','var(--accent)');
+    var dry=noStockOnSale(x); /* 在賣卻兩地都沒貨＝洞④ 的那種 */
+    var qcPill=dry?pill('No stock','var(--danger)'):pill('★ On shelf','var(--accent)');
     var shop=x.sync==='synced'?'On shelf':(x.sync==='paused'?'Off shelf':'—');
     var chans='Shop (Square + Ratio): <b>'+shop+'</b> · FB/IG: <b>'+ago(x.fb)+'</b> · Email: <b>'+ago(x.em)+'</b>';
     /* 貨在哪（2026-07-22 母體納入店面後才分得清）：兩邊都有就都列 */
     var whereBits=[];
     if(x.roasteryKg>0)whereBits.push('roastery '+x.roasteryKg+' kg');
     if(x.shopKg>0)whereBits.push('<span style="color:var(--ws)">at Crows Nest '+x.shopKg+' kg</span>');
+    if(dry)whereBits.push('<span class="red">nothing left anywhere — customers can still buy it</span>');
     var open=PUB.open===x.key; /* key＝nm|proc——同名兩處理法的卡開合互不干擾 */
     var h='<div style="border:1px solid '+(open?'var(--accent)':'var(--line)')+';border-radius:12px;padding:11px 13px;margin-top:8px">'
       +'<div data-pub="'+ix+'" style="cursor:pointer">'
@@ -3652,9 +3728,25 @@ function paintPublishSheet(sl,acts){
     }
     return h+'</div>';
   }).join(''):'<div class="empty">No ★ coffees on shelf yet<br>Pass a coffee in QC, then List it on Square — pushing adds the ★</div>';
+  /* 洞⑦（2026-07-22）：synced 卻沒 ★ 的豆在這張清單裡是隱形的——沒 ★ 就沒有風味資料，
+     公開菜單的 QC 閘也會把它濾掉＝上架了但客人看不到（實況：Hakuna Matata 10.55 kg）。
+     母體門檻不動（Publish＝★ 清單），改在底下點名，老闆知道要去 QC 加星 */
+  var noStar={};
+  (DB.syncs||[]).forEach(function(x){
+    if(x.status!=='synced')return;
+    var nm=String(x.bean_id||'').trim();if(!nm||isSubName(nm))return;
+    var pr=rtlIsBlend(nm)?undefined:(x.process||'');
+    var s=shelfSampleFor(nm,pr);
+    if(s&&s.flavour_locked)return;
+    noStar[nm.toLowerCase()]=nm;
+  });
+  var noStarNames=Object.keys(noStar).map(function(k){return noStar[k];});
   openDrawerHTML('<div class="t" style="font-size:19px">Publish</div>'
     +'<div class="s" style="margin-top:2px">your ★ on-shelf coffees → every channel · shop listing = Square + Ratio site together</div>'
     +(isLead()?'<button class="dclose" id="rp-open" style="margin-top:10px">Set retail prices…</button>':'')
+    +(noStarNames.length?'<div class="s" style="margin-top:10px;padding:9px 11px;background:var(--tint);border-radius:10px">'
+      +'<span class="red">'+noStarNames.length+' on Square without a ★</span> — '+esc(noStarNames.join(', '))
+      +'<br>no ★ means no flavour notes, so the shop menu hides them. Star the batch in QC.</div>':'')
     +body
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);

@@ -81,6 +81,21 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-22 之十五（第一批體檢補洞 B/C/D/F ✅ 前端待 push／兩支 edge 已部署）
+
+老闆問「log roast 到上架的漏洞是否都補上了」→ 逐項查完（七個補了兩個半），他說「交給你」，本輪把剩下的做掉。
+**七個洞現況**：①Used 蒸發 ✅(之十一)｜②扣豆不含店面 ✅本輪｜③沒貨還在賣 ✅本輪｜④賣完掉出 Publish ✅本輪｜⑤★ 換批 ✅(早前 starSample/lockedMate 已做)｜⑥Coffee Info supplier ✅本輪｜⑦Hakuna Matata 沒 ★ ＝資料問題，本輪改成**在 Publish 頂端點名**（老闆自己按 ★）
+**還沒動**：第二批 G（刪咖啡雙鍵＋transfers）／H（熟豆 stock_moves）；第三批四項
+
+- **⑥ 一行**：`loadAll` 的 samples `.select()` 補上 `supplier`。查詢本來就 `.eq('supplier','Ratio Coffee')`，但欄位沒帶回來，而 `:2594`（Coffee Info 候選）與 `:3975`（Cleanup B 區）事後又用 `s.supplier==='Ratio Coffee'` 過濾＝永遠 undefined＝母體恆空。驗證：假資料下 Coffee Info 的 `HISTORY — SOLD THROUGH` 區長出東西了（以前恆空）
+- **② 出貨扣豆納入 Crows Nest**（`deductOrderStock`）：烘豆室批次扣完還不夠時，看 **`shopPoolRows`＝status='pool' 且沒有 invoice_no 的行**（＝豆放在店面但還沒跟店面收錢＝帳上仍是我們的貨）。**settled／已開發票的一律不碰**（店面買斷了）。一次 confirm 列出所有短缺豆與店面存量，同意才動；`takeFromShopPool` 舊的先出，部分扣改 kg、整行扣光改 `status='used'` 並把訂單號寫進 `invoice_no`（去向可追，也不會被「Used and returned」誤標 never invoiced）。取消＝完全不動店面帳，short 訊息補上「Crows Nest has N kg」
+- **④ Publish 不再讓豆子掉出去**：`paintPublishSheet` 母體加**第四輪**＝`product_sync` status='synced' 的豆（不管有沒有貨）。在賣卻兩地 0kg 的排最上、紅色 `No stock` 膠囊＋紅字「nothing left anywhere — customers can still buy it」＝終於有地方按 Take off shelf。另加⑦：頂端一條提示列出 **synced 卻沒 ★** 的豆（母體門檻不動，只是點名）
+- **③ 沒貨的豆自動 Sold out（兩支 edge 都部署了）**：
+  - **public-shop v18**（線上 version 19）＋ **wholesale v6**（線上 version 9）：新 `stockByName()` ＝ roasts(remaining_kg，downgrade 不算) ＋ transfers(pool/settled)，**按豆名（不按處理法）**——roasts/transfers 的 process 不一定填，對不到 key 會把賣得動的豆藏起來，寧可寬鬆。**fail-open**：任一查詢出錯就整個關掉守門＝退回舊行為（寧可多賣也不要把整間店清空）。訂閱豁免（沒有烘焙批次可算）
+  - 0kg → `sold_out:true` ＋ variations 不進 `allowedVarIds`＝結帳擋。public-shop 的**舊單品直購路徑**（`{bean,qty}`）沒經過 allowedVarIds，另外補了一次庫存檢查
+- **驗證**：jscheck ✓；**線上真資料**——`GET public-shop` 回 14 支：Alo Village ×2、Danche v2 正確變 SOLD OUT（就是體檢抓到那三支），有貨的 9 支照常買、訂閱 2 個照常、零誤殺；結帳三條路全擋（兩個 variation → `unknown item in cart`、舊路徑 → `this coffee is sold out`，沒有產生任何 Square 連結）；兩支 edge anon→401。**假資料前端**——Publish 三態（沒貨在賣排最上＋NO STOCK／只在店面／烘豆室）＋無★提示；扣豆五情境（取消不動帳且 short 帶店面存量／同意扣 1kg→`PATCH transfers {kg:8.75}`／整行扣光→`{kg:0,status:used,invoice_no:'#0042'}` 且離開清單／settled 行不問也不碰／烘豆室夠時完全不問）；console 零錯誤
+- ⚠ **老闆要做**：Hakuna Matata（10.55 kg、synced、沒 ★）進 QC 加星，不然網店看不到它；Alo Village ×2 與 Danche v2 現在客人買不到了，但 Square 後台仍掛著在賣——進 Publish 按 Take off shelf 收乾淨
+
 ## 〇、補記 — 2026-07-22 之十四（批發帳號名冊＋每家自己的折扣 ✅ 前端待 push／DB＋edge 已上線）
 
 - **老闆要求**：「在 Customers 的介面裡面幫我多一個 icon 給我 wholesale account list」→ 追加「每一個 wholesale 有不同的折扣」

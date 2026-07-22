@@ -1,4 +1,4 @@
-// wholesale v5 — self-service ordering for wholesale accounts (JWT required).
+// wholesale v6 — self-service ordering for wholesale accounts (JWT required).
 // POST {action:'menu'}     -> { ok, discount_pct, moq:{threshold,delivery_fee}, bank, beans:[...] }
 //                             beans same shape as public-shop GET, but price/sizes[].price are
 //                             wholesale (retail × (1−pct/100)); sizes[].retail keeps the shelf price.
@@ -24,7 +24,13 @@
 //     into resolveCustomer() so the MENU knows who is looking too (v4 priced the menu blind).
 //     discount_pct in the menu response is the account rate when there is one. A caller with no
 //     customer row (the director looking at the lane) falls back to the shop-wide default = v4 behaviour.
+// v6: real stock decides sold out, same gate public-shop v18 got (2026-07-22, hole ③). A bean with
+//     nothing left in the roastery AND nothing at Crows Nest comes back sold_out:true and its
+//     variations leave allowedVarIds, so a wholesale cart line for it is rejected. Keyed by bean
+//     NAME only and fail-open on a query error — see public-shop v18 for the reasoning.
 import { createClient } from "npm:@supabase/supabase-js@2";
+
+const SUB_RE = /^subscription\s*[—-]/i;
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -91,9 +97,43 @@ async function resolveCustomer(admin: ReturnType<typeof createClient>, email: st
 
 // catalog walk (public-shop v8: synced + paused) + varInfo: EVERY variation of a listed item -> label/price/bean.
 // Paused (sold-out) items ride along for display; their variations are NOT added to allowedVarIds.
+// v6: kg on hand per bean name (roastery batches + Crows Nest shelf). null = query failed -> gate off.
+async function stockByName(admin: ReturnType<typeof createClient>, names: string[]): Promise<Map<string, number> | null> {
+  if (!names.length) return new Map();
+  try {
+    const [rq, tq] = await Promise.all([
+      admin.from("roasts").select("bean_name,remaining_kg,qc").in("bean_name", names),
+      admin.from("transfers").select("name,kg,status").in("status", ["pool", "settled"]),
+    ]);
+    if (rq.error || tq.error) return null;
+    const kg = new Map<string, number>();
+    const add = (n: unknown, v: unknown) => {
+      const k = String(n || "").trim().toLowerCase();
+      const num = Number(v);
+      if (!k || !isFinite(num) || num <= 0) return;
+      kg.set(k, (kg.get(k) || 0) + num);
+    };
+    (rq.data || []).forEach((r: { bean_name?: string; remaining_kg?: number; qc?: string | null }) => {
+      if (r.qc && r.qc !== "pass") return;
+      add(r.bean_name, r.remaining_kg);
+    });
+    (tq.data || []).forEach((t: { name?: string; kg?: number }) => add(t.name, t.kg));
+    return kg;
+  } catch (_e) {
+    return null;
+  }
+}
+
 async function catalogForSynced(admin: ReturnType<typeof createClient>) {
   const { data: sync } = await admin.from("product_sync").select("bean_id,variation_id,price,grams,status").eq("channel", "square").in("status", ["synced", "paused"]);
   const rows = sync || [];
+  const stock = await stockByName(admin, [...new Set(rows.map((r: { bean_id: string }) => r.bean_id).filter(Boolean))]);
+  const outOfStock = (bean: unknown) => {
+    if (!stock) return false;
+    const b = String(bean || "");
+    if (SUB_RE.test(b)) return false;
+    return (stock.get(b.trim().toLowerCase()) || 0) <= 0;
+  };
   const varIds = rows.map((r: { variation_id: string | null }) => r.variation_id).filter(Boolean);
   const itemOfVar = new Map<string, string>();
   const livePrice = new Map<string, number>();
@@ -113,10 +153,11 @@ async function catalogForSynced(admin: ReturnType<typeof createClient>) {
       const itemId = o.item_variation_data?.item_id;
       if (itemId) itemOfVar.set(o.id, itemId);
     });
-    // items whose sync row is paused — visible on the menu but not purchasable
+    // paused OR nothing left anywhere (v6) — visible on the menu but not purchasable
     const pausedItemIds = new Set<string>();
-    rows.forEach((r: { variation_id: string | null; status: string }) => {
-      if (r.status !== "paused" || !r.variation_id) return;
+    rows.forEach((r: { variation_id: string | null; status: string; bean_id: string }) => {
+      if (!r.variation_id) return;
+      if (r.status !== "paused" && !outOfStock(r.bean_id)) return;
       const iid = itemOfVar.get(r.variation_id);
       if (iid) pausedItemIds.add(iid);
     });
@@ -140,7 +181,7 @@ async function catalogForSynced(admin: ReturnType<typeof createClient>) {
     const it = itemOfVar.get(r.variation_id);
     if (it) beanOfItem.set(it, r.bean_id);
   });
-  return { rows, itemOfVar, livePrice, imageIdsOfItem, sizesOfItem, allowedVarIds, varInfo, beanOfItem };
+  return { rows, itemOfVar, livePrice, imageIdsOfItem, sizesOfItem, allowedVarIds, varInfo, beanOfItem, outOfStock };
 }
 
 async function readState(admin: ReturnType<typeof createClient>, keys: string[]) {
@@ -221,7 +262,7 @@ Deno.serve(async (req) => {
 
     if (action === "menu") {
       // same shelf as the public shop (QC gate: flavour-locked samples), wholesale prices applied
-      const { rows, itemOfVar, livePrice, imageIdsOfItem, sizesOfItem } = await catalogForSynced(admin);
+      const { rows, itemOfVar, livePrice, imageIdsOfItem, sizesOfItem, outOfStock } = await catalogForSynced(admin);
       if (!rows.length) return json({ ok: true, discount_pct: shownPct, moq: { threshold: MOQ_THRESHOLD, delivery_fee: DELIVERY_FEE }, bank: bankOut, beans: [] });
       const names = rows.map((r: { bean_id: string }) => r.bean_id);
       const { data: smps } = await admin.from("samples")
@@ -293,7 +334,7 @@ Deno.serve(async (req) => {
           grams: r.grams || 250,
           image: (r.variation_id && imgOf.get(r.variation_id)) || null,
           sizes: wsSizes,
-          sold_out: r.status === "paused",
+          sold_out: r.status === "paused" || outOfStock(r.bean_id), // v6: empty shelves count as sold out
         };
       }).filter(Boolean);
       return json({ ok: true, discount_pct: shownPct, moq: { threshold: MOQ_THRESHOLD, delivery_fee: DELIVERY_FEE }, bank: bankOut, beans });
