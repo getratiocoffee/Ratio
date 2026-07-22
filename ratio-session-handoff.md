@@ -80,6 +80,14 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-22 之四（Off shelf 的豆子在 ?shop 顯示 Sold out ✅ **public-shop v18 已部署**，前端零改動）
+- **老闆點名**：off shelf 的要放 sold out。**前端本來就全做好了**（shopCardsHTML 的 `so=!!b.sold_out`：圖 grayscale .35＋opacity .55、SOLD OUT 膠章、價格轉灰、購買列換成「Sold out — the next roast is on its way」、`data-vid` 清空＝加不進車）——**缺的是 edge 那端**：v14~v16 的 GET 直接 `if (r.status==='paused') return null`＝下架豆整支從菜單消失，`sold_out` 永遠 false（v8 的售罄邏輯在改版時掉了）
+- **public-shop v18（版本號 18＝程式碼 v17）**：①`const off = r.status==='paused'` → **`sold_out: off`**（不再 return null）②**`if (off && !r.variation_id) return null`**＝從沒上 Square／斷鏈的下架列仍隱藏（沒 variation_id 就沒 live price／sizes／圖可顯示）③`beans.sort((a,b)=>Number(!!a.sold_out)-Number(!!b.sold_out))`＝**售罄沉底**，輪播第一張永遠是買得到的（stable sort，在售順序不變）
+- **結帳保護本來就有**（`allowedVarIds` 排除 paused item 的所有 variations），這次實測確認：售罄豆單獨送 checkout→`unknown item in cart` ✓、混在正常豆裡→**整單擋** ✓
+- **驗證（全部線上實測）**：GET 菜單 14 豆（原 13＋June Project）、June Project `sold_out:true` 且排最後、sizes=1 imgs=4 ✓；**La Molienda／Mwendi Wega AB 兩支 paused 但 variation_id=null → 正確不顯示** ✓；回歸——4 袋 checkout `total 75 / bogo_off 25`（買三送一完好）✓、`?card=` 無效 token 404 ✓、訂閱仍只在 subs 不在 beans ✓；**Chrome 線上 ?shop 截圖**：SOLD OUT 膠章、圖淡化、無購買鈕、Details 仍可點 ✓
+- **⏭ 老闆若要 La Molienda／Mwendi Wega AB 也顯示 Sold out**：得先在 Publish 把它們 List 上 Square（拿到 variation_id）再 Take off shelf
+- **順帶發現**：`SURCHARGE_PCT` 目前實測回 **0**（checkout 回應 `surcharge_pct:0`）＝卡費沒轉嫁客人；這也解釋了 #0033 帳上沒有 surcharge 行。若非刻意，去 Edge Function Secrets 改回 2.2
+
 ## 〇、補記 — 2026-07-22 之三（QC 納入 Crows Nest 店面的貨 ✅ 待 push）
 - **起因**：老闆問「May Project 怎麼沒有在 QC」。**查下來不是 bug**——該批（7/19 烘 8.6kg、blend）在 **7/21 08:15 被 Yi 整批轉去 Crows Nest 並已結單開發票 INV-20260721-005（$50/kg）**，烘豆室 remaining_kg 歸 0，QC 的「只收有貨批次」規則（2026-07-12 定）就把它濾掉了。可杯測空窗只有 7/20 一天
   - ⚠ 順帶發現：**這批沒過 QC 就進店面**（roasts.qc=null、status=pending_cupping）；同日轉走的 Dreamer 8.85kg、Alo Bona Village 10kg 也一樣。7/10 那筆 activity_log「qc pass · May Project」是更早的批次，不是這批
