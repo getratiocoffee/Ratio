@@ -25,6 +25,7 @@
 2. **老闆工作方式（重要）**：一步一個工具、他看得到我在做什麼；**不要一次腦補一大串連續動作**（假裝呼叫工具／假造結果）。上個 session 模型跳針、捏造假的 System 訊息與「去 git push」假指令，老闆當場喊停。保持一步一交付、每步真的驗證落地。
 
 ## ⚡ 當前狀態速覽（2026-07-12 更新，新 session 先讀這段）
+- **🔑 QC 母體規則（2026-07-22 晚老闆定調，改 QC 前必讀）**：QC 只列「**烘豆室 or Crows Nest 還有貨**」的鍋（`qcStockWhere!=='gone'`），同豆同處理法同烘焙日**合併一張卡、判定整組一起**；沒貨又沒判的收在 QC 底部 `Unjudged history` 摺疊區。Publish 母體同口徑（rstRows ∪ transfers）∩ ★ flavour_locked。**這條規則翻過四次**，決策時間軸在 `toCupList` 上方註解，要改先讀（見補記之十）
 - **🏁 閹割階段三完成（2026-07-12）**：**classic.html 已整檔刪除**（缺口清單 12 項全數移植或收掉，見補記之八）。**單一 app＝新殼**；classic 舊實作要查用 `git show 786f556:classic.html`
 - **新殼 `/new`**（new/index.html，根 `/` 同它）＝唯一 app：**今日流 v3（2026-07-10 大改，見補記）**＝briefing 每日彈窗（班表＋公告板＋今日事件，喇叭隨開）＋My day/Everything 視角＋lead 派工（Assign 模式＋進度行）＋站別分組摺疊＋兩段式滑卡（左滑露 Later 再點才睡）＋Closing checklist（下午例行打勾記名）＋activity_log 操作記名（Tools→Activity 時間軸）＋Upcoming 30 天事件流；QC 拇指工作台＋Tools；紙白玫瑰＋炭紙自動夜版、PWA＋Web Push、角色過濾
 - **⚠ Edge 實際線上版本（2026-07-11）**：sync-to-square **v22**（+ensure_sub_items 訂閱商品建置）/ square-webhook **v20**（+訂閱自動登記）/ public-shop **v11**（+subs[] 訂閱卡資料）/ send-email v23——下行速覽版號已舊，以此為準
@@ -79,6 +80,20 @@
 2. ~~Tools「Team」抽屜~~ ✅ 已完工（2026-07-08 派工層內建：Tools→Team director 區＝改名＋角色 chips＋Lead 開關）——老闆開完帳號進去把 8 人切 staff、**點 Yi 的 Make lead**（老闆拍板的主管）
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
+
+## 〇、補記 — 2026-07-22 之十（QC↔庫存↔Publish 三處對齊同一套帳 ✅ 待 push）
+- **老闆要的**（原話）：「QC 從 Crows Nest 和 roastery stock 的 list 截取過來做品控，過了以後在 publish 內顯示；如果 publish 裡面沒有那隻豆子了，就要從 QC 那邊拿下來」＋前一輪的「同一個日期的話把它合併」
+- **⚠ QC 母體規則（單一真相，改前先讀決策時間軸）**：`toCupList`（約 776 行）上方註解記了四次翻案——07-12 有庫存門檻／07-14「過 QC 都要手動」＝同日連動退役／07-22 早拿掉門檻（怕沒過 QC 就溜走）／**07-22 晚老闆定調現行版**：門檻回來但改兩地口徑 `qcStockWhere(r)!=='gone'`（烘豆室 or Crows Nest 有貨），同日合併也回來且**判定整組一起**。早上那個顧慮改由 Unjudged history 摺疊區承接
+- **改了什麼**（new/index.html 五處）：
+  1. `shopKgOfName(nm,proc)`（shopKgOf 旁）＝豆層級店面存量（不比烘焙日）；`qcStockWhere` 註解改成「也是列不列進 QC 的門檻」
+  2. `toCupList` ＋ `buildItems` 的 QCQ filter 各加 `qcStockWhere!=='gone'`；新增 `qcGoneList()`（沒貨又沒判的鍋）
+  3. **`qcDayGroups(list)`**（openQCSheet 前）＝同日分組（key＝豆名｜處理法｜烘焙日，店面量整組算一次），To judge 與 Unjudged history 共用；`qcCardHTML` 一張卡一組，副標 bits join（空欄位不留孤兒「·」）
+  4. `qcVerdict` 第一參數改吃單筆**或陣列** → `.in('id',ids)`；`attachQcSwipe` 吃組（滑一次整組）；`openRoastDateSheet` 有 `q.rows` 就整組改日期；`openQcStockSheet` 仍只動代表鍋（加量要指名哪一鍋，標題帶批號）＋`q.s` 可能 null 的防護
+  5. `paintPublishSheet` 母體抽成 `addRow(nm,pr)`，rstRows 兩輪後**補第三輪 DB.transfers**（只在店面有貨的豆）；每張卡加「貨在哪」灰字（`roastery N kg · at Crows Nest N kg`）
+- **為什麼 Publish 要一起改**：線上實測 synced 的豆**大半烘豆室 0kg、貨全在 Crows Nest**（Dancer 9.75／Dreamer 10.05／Sugar Daddy 9.6／April Project 5.1／Kiama AA 6／Alo Bona Village 3／Kii AB 1）——原本只吃 rstRows＝這 7 支在賣的豆整批不在 Publish 面板上。⚠ **rstRows 本身沒動**（Roastery Stock ＝「烘豆室現在有什麼」，07-22 定調 0kg 不列）
+- **QC 分頁數字改成組數**（同日多鍋算一張，與清單所見一致）；抽屜副標同步
+- **驗證**（jscheck ✓、serve `qctest.html` 假資料、擋 fetch 並側錄 PostgREST 請求）：同日 3 鍋＋同日已 pass 1 鍋 → 卡片「3 roasts」、Pass 送 `PATCH roasts?id=in.(R1,R2,R3)`＋activity_log ref「Kii AB · 2026-07-20 · 3 roasts」（已 pass 的 R7 沒被碰）✓；不同日不合併 ✓；沒貨的鍋不進主清單、落到 `UNJUDGED HISTORY · N`（預設收合、展開可判、判完消失）✓；待杯測段同樣濾掉沒貨的 ✓；Roast Date 整組改送 `in.(R1,R2,R3)` ✓；Publish 出現只在店面的 Dancer 標「at Crows Nest 9.75 kg」、兩邊都有貨標「roastery 8 kg · at Crows Nest 3 kg」、沒鎖 ★ 的不列 ✓；console 零錯誤＋截圖。serve 複本已 cp
+- **線上預期值**（部署後對照）：QC 分頁 **Blends 13 / Single origins 9**（原 19／27）；Publish 應多出上面那 7 支
 
 ## 〇、補記 — 2026-07-22 之九（訂單顯示送貨地址 ✅ 待 push）
 - **老闆點名**：「進來的 order 要提供地址」→ 確認後是**看訂單時要看得到地址**（不是叫客人填）

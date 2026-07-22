@@ -767,19 +767,39 @@ function shopKgOf(r){
   });
   return Math.round(kg*1000)/1000;
 }
+/* 豆層級的店面存量（shopKgOf 的兄弟）：不比烘焙日，只比豆名＋處理法雙鍵——
+   Publish 母體要問的是「這支豆在 Crows Nest 還賣不賣得到」，不是某一鍋 */
+function shopKgOfName(nm,proc){
+  var k=String(nm||'').trim().toLowerCase();if(!k)return 0;
+  var kg=0;
+  (DB.transfers||[]).forEach(function(t){
+    if(String(t.name||'').trim().toLowerCase()!==k)return;
+    if(proc&&t.process&&procKey(t.process)!==procKey(proc))return;
+    kg+=Number(t.kg)||0;
+  });
+  return Math.round(kg*1000)/1000;
+}
 /* 這批的貨在哪：'hand'＝烘豆室還有、'shop'＝只剩 Crows Nest、'gone'＝都沒了（已賣/拼掉）。
-   只影響顯示與排序，**不影響是否列入 QC**（2026-07-22 老闆定調：Log roast 進來的一律要過 QC） */
+   2026-07-22 晚起也是**列不列進 QC 的門檻**（gone 不列，見 toCupList 的決策時間軸） */
 function qcStockWhere(r){
   if(Number(r&&r.remaining_kg)>0)return 'hand';
   return shopKgOf(r)>0?'shop':'gone';
 }
-/* 手上的豆（待杯測）：pending_cupping、沒判定、不在 QC 佇列——Today Cup 卡與 QC 頁共用。
-   2026-07-12：曾加 remaining>0（QC 與庫存同一真相）→ **2026-07-22 老闆定調拿掉**：
-   庫存不再當門檻，因為扣光就消失＝豆子可以沒過 QC 就溜走。現在一批 Log roast 進來就掛在
-   QC 上直到親手判定（pass/downgrade），沒貨的只是標記提醒、排到後面，不會被濾掉 */
+/* 手上的豆（待杯測）：pending_cupping、沒判定、**兩地任一還有貨**、不在 QC 佇列——Today Cup 卡與 QC 頁共用。
+   ⚠ 這條規則翻過三次，決策時間軸留著防止再翻回去：
+     2026-07-12 加 remaining>0（QC 與庫存同一真相）
+     2026-07-14 老闆定調「過 QC 都要手動、不能 assume」＝同日連動退役（與門檻無關，改的是判定顆粒）
+     2026-07-22 早 拿掉庫存門檻——怕扣光就消失＝豆子沒過 QC 就溜走
+     2026-07-22 晚 **加回來，但改成兩地口徑**（qcStockWhere!=='gone'＝烘豆室或 Crows Nest 還有貨）：
+       老闆定調 QC/Roastery Stock/Publish 三處同一套帳，賣不到的豆不需要品控（46 張待判裡 18 張是幽靈）。
+       早上那個顧慮改由 QC 抽屜底部的「Unjudged history」摺疊區承接——沒貨的仍補得到判定，只是不佔主清單 */
 function toCupList(){
   var inQC={};QCQ.forEach(function(x){inQC[String(x.r.id)]=1;});
-  return (DB.roasts||[]).filter(function(r){return r.status==='pending_cupping'&&!r.qc&&!inQC[String(r.id)];});
+  return (DB.roasts||[]).filter(function(r){return r.status==='pending_cupping'&&!r.qc&&qcStockWhere(r)!=='gone'&&!inQC[String(r.id)];});
+}
+/* 沒貨又沒判的鍋（Unjudged history 用）：條件同上但只收 gone */
+function qcGoneList(){
+  return (DB.roasts||[]).filter(function(r){return !r.qc&&qcStockWhere(r)==='gone';});
 }
 function matchRoast(s){
   var nm=String(s.sample_id||'').trim().toLowerCase();if(!nm&&!s.bean_id)return null;
@@ -804,13 +824,14 @@ function buildItems(){
   DB.samples.forEach(function(s){
     var k=s.bean_id?('id:'+String(s.bean_id)):((s.sample_id||'')+'·'+(s.process||'')).toLowerCase();
     if(seen[k])return;seen[k]=1;
-    /* 逐鍋 QC（2026-07-14 老闆定調「過 QC 都要手動，不能 assume」——同日連動退役的配套）：
-       這支豆所有未判定的鍋全部進佇列，一鍋一列各自親手判；配對條件照 matchRoast
+    /* 這支豆所有未判定又還有貨的鍋全部進佇列；配對條件照 matchRoast
        （ID 優先、名字退路帶處理法雙鍵、舊資料沒 process 容忍），排序舊→新先烘先判。
-       2026-07-22：庫存不再當門檻（同 toCupList）——扣光的鍋也要留著判，不然就溜過 QC 了 */
+       2026-07-22 晚：①庫存門檻回來了（qcStockWhere!=='gone'，兩地口徑，決策時間軸見 toCupList）
+       ②畫面按同日合併成一張卡、判定整組一起（老闆拍板，覆蓋 07-14「逐鍋親手判」）——
+       但 QCQ 本身仍是一鍋一筆，合併只發生在 openQCSheet 的顯示層 */
     var nmL=String(s.sample_id||'').trim().toLowerCase();
     var pend=(nmL||s.bean_id)?(DB.roasts||[]).filter(function(x){
-      if(x.qc)return false;
+      if(x.qc||qcStockWhere(x)==='gone')return false;
       if(s.bean_id&&x.bean_id)return String(x.bean_id)===String(s.bean_id);
       if(String(x.bean_name||'').trim().toLowerCase()!==nmL)return false;
       if(s.process&&x.process&&procKey(x.process)!==procKey(s.process))return false;
@@ -1382,18 +1403,22 @@ function syncFor(nm,proc){
     return x.process==null||proc===undefined||procKey(x.process)===procKey(proc);
   })||null;
 }
+/* 判定寫入（唯一出口）。第一參數吃單筆 roast 或一整組（陣列）——
+   2026-07-22 老闆拍板同日一起判：一張卡＝同豆同處理法同烘焙日的所有**未判**鍋，按一次全判掉
+   （覆蓋 07-14「一次只判這一鍋」；已 pass/downgrade 的鍋根本不進組，不會被重寫）。 */
 async function qcVerdict(r,v,btn,cardId,s){
   if(!canWrite()){roToast();return;}
-  var vNm=(s&&s.sample_id)||r.bean_name||'this batch';
+  var rows=Array.isArray(r)?r.filter(Boolean):[r];
+  if(!rows.length)return;
+  var r0=rows[0],n=rows.length;
+  var vNm=(s&&s.sample_id)||r0.bean_name||'this batch';
   /* downgrade 警訊（老闆點名，防左滑誤觸）：取消＝什麼都不寫 */
-  if(v==='downgrade'&&!confirm('Downgrade '+vNm+'? It will not be sold as this bean.'))return;
+  if(v==='downgrade'&&!confirm('Downgrade '+vNm+(n>1?' ('+n+' roasts)':'')+'? It will not be sold as this bean.'))return;
   if(btn){btn.disabled=true;btn.textContent='Saving…';}
-  var u=await sb.from('roasts').update({qc:v}).eq('id',r.id);
+  var u=await sb.from('roasts').update({qc:v}).in('id',rows.map(function(x){return x.id;}));
   if(u.error){if(btn){btn.disabled=false;}alert('QC failed: '+u.error.message);return;}
-  r.qc=v;
-  /* 同日連動已退役（2026-07-14 老闆定調「任何豆子要過 QC 都要手動，不能 assume」，
-     覆蓋 07-12 的同日合併）：一次只判這一鍋——同豆同日其他鍋判完會依序再冒出待判定，逐鍋親手判 */
-  logAct('qc '+v,r.bean_name||('roast '+r.id)+(r.roast_date?' · '+r.roast_date:''));
+  rows.forEach(function(x){x.qc=v;});
+  logAct('qc '+v,(r0.bean_name||('roast '+r0.id))+(r0.roast_date?' · '+r0.roast_date:'')+(n>1?' · '+n+' roasts':''));
   /* 三態簡化（2026-07-16 老闆拍板）：pass 不再自動鎖——★（原鎖風味）由上架 push 自動蓋
      或手動點，QC 歸 QC、賣哪個版本歸 ★，兩件事分開 */
   toast(v==='pass'
@@ -3534,30 +3559,39 @@ async function openPublishSheet(){
 }
 function paintPublishSheet(sl,acts){
   var _mk=isLead();
-  /* 母體＝Coffee Stock 裡「風味已鎖」的豆（老闆定調 2026-07-13 二次更正：Publish 清單只索取
-     flavour_locked 的豆，沒鎖的根本不列——鎖了才會在這裡出現，與 public-shop QC gate 同口徑）。
-     重用 rstRows（單品＋拼配兩分頁去重）＝母體仍與 Coffee Stock 同源；
-     賣光沒庫存的豆不在 Coffee Stock、也就不在這裡＝標售罄/下架改去 Coffee Info 詳情；
-     沒鎖的豆去 Coffee Stock 看（synced 未鎖會掛 No lock 膠囊提醒去鎖） */
+  /* 母體＝「風味已鎖（★）」＋**烘豆室或 Crows Nest 還有貨**的豆（門檻仍是鎖，老闆定調 2026-07-13
+     二次更正；沒鎖的去 Coffee Stock 看，synced 未鎖會掛 No lock 膠囊提醒去鎖）。
+     2026-07-22 老闆定調三處同一套帳（QC／Roastery Stock／Publish）：原本只吃 rstRows＝只算烘豆室，
+     結果貨全在店面的 7 支在賣的豆（Dancer/Dreamer/Sugar Daddy…）整批消失在 Publish 上。
+     ⚠ rstRows 本身不動（Roastery Stock 頁＝「烘豆室現在有什麼」，2026-07-22 定調 0kg 不列），
+     店面的貨只在這一層用第三輪補進來。兩邊都沒貨＝自然掉出清單（＝老闆說的「publish 沒有就從 QC 拿下來」的另一半） */
   var rows=[],seen={};
+  var addRow=function(nm,pr){
+    nm=String(nm||'').trim();if(!nm||isSubName(nm))return;
+    /* 2026-07-13 處理法分開下半場：單品按 name+process 分行（Alo Village 兩處理法各一行）；
+       拼配沒 process＝名字級照舊 */
+    var lk=nm.toLowerCase()+'|'+(pr===undefined?'':procKey(pr));
+    if(seen[lk])return;seen[lk]=1;
+    var s=shelfSampleFor(nm,pr); /* 鎖優先——同名多處理法各找各的鎖 */
+    if(!s||!s.flavour_locked)return;
+    rows.push({nm:nm,proc:pr,key:lk,s:s});
+  };
   [false,true].forEach(function(isBl){
-    rstRows(isBl).forEach(function(r){
-      var nm=String(r.name||'').trim();if(!nm||isSubName(nm))return;
-      /* 2026-07-13 處理法分開下半場：單品按 name+process 分行（Alo Village 兩處理法各一行）；
-         拼配沒 process＝名字級照舊 */
-      var pr=isBl?undefined:(r.proc||'');
-      var lk=nm.toLowerCase()+'|'+(pr===undefined?'':procKey(pr));
-      if(seen[lk])return;seen[lk]=1;
-      var s=shelfSampleFor(nm,pr); /* 鎖優先——同名多處理法各找各的鎖 */
-      if(!s||!s.flavour_locked)return;
-      rows.push({nm:nm,proc:pr,key:lk,s:s});
-    });
+    rstRows(isBl).forEach(function(r){addRow(r.name,isBl?undefined:(r.proc||''));});
+  });
+  /* 第三輪：只在 Crows Nest 有貨的豆（transfers pool/settled；拼配沒處理法＝名字級，同 openTransferSheet 的 key 規則） */
+  (DB.transfers||[]).forEach(function(t){
+    if(!(Number(t.kg)>0))return;
+    addRow(t.name,t.is_blend?undefined:(t.process||''));
   });
   rows.forEach(function(x){
     var sy=syncFor(x.nm,x.proc);
     x.sync=sy?sy.status:null;
     x.fb=acts['posted socials|'+x.nm.toLowerCase()]||null;
     x.em=acts['announced coffee|'+x.nm.toLowerCase()]||null;
+    /* 貨在哪：拼配名字級（proc undefined），單品帶處理法 */
+    x.roasteryKg=rstStockKg(x.nm,x.proc===undefined,x.proc);
+    x.shopKg=shopKgOfName(x.nm,x.proc);
   });
   /* 排序：鎖了還沒上架的最上（該上了）→ 已上架 */
   rows.sort(function(a,b){
@@ -3571,6 +3605,10 @@ function paintPublishSheet(sl,acts){
     var qcPill=pill('★ On shelf','var(--accent)');
     var shop=x.sync==='synced'?'On shelf':(x.sync==='paused'?'Off shelf':'—');
     var chans='Shop (Square + Ratio): <b>'+shop+'</b> · FB/IG: <b>'+ago(x.fb)+'</b> · Email: <b>'+ago(x.em)+'</b>';
+    /* 貨在哪（2026-07-22 母體納入店面後才分得清）：兩邊都有就都列 */
+    var whereBits=[];
+    if(x.roasteryKg>0)whereBits.push('roastery '+x.roasteryKg+' kg');
+    if(x.shopKg>0)whereBits.push('<span style="color:var(--ws)">at Crows Nest '+x.shopKg+' kg</span>');
     var open=PUB.open===x.key; /* key＝nm|proc——同名兩處理法的卡開合互不干擾 */
     var h='<div style="border:1px solid '+(open?'var(--accent)':'var(--line)')+';border-radius:12px;padding:11px 13px;margin-top:8px">'
       +'<div data-pub="'+ix+'" style="cursor:pointer">'
@@ -3579,6 +3617,7 @@ function paintPublishSheet(sl,acts){
       +(x.s&&x.s.process?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+esc(x.s.process)+'</span>':'')
       +(bNoFor(x.nm,x.proc)?' <span style="color:var(--muted);font-weight:400;font-size:12px">'+bNoFor(x.nm,x.proc)+'</span>':'')+'</span>'+qcPill+'</div>'
       +'<div class="s" style="margin-top:4px">'+chans+'</div>'
+      +(whereBits.length?'<div class="s" style="margin-top:2px">'+whereBits.join(' · ')+'</div>':'')
       +'</div>';
     if(open&&_mk){
       var noCup=!x.s;
@@ -7957,15 +7996,33 @@ function attachQcSwipe(el,q){
     if(x0==null)return;
     if(Math.abs(dx)>10)_drag=Date.now();
     var w=el.offsetWidth;
-    if(locked&&dx>w*0.35){reset(false);qcVerdict(q.r,'pass',null,'qc:'+q.r.id,q.s);return;}
-    if(locked&&dx<-w*0.35){reset(false);qcVerdict(q.r,'downgrade',null,'qc:'+q.r.id,q.s);return;}
+    /* q＝同日組（qcDayGroups）：滑一次＝整組判掉（2026-07-22 老闆拍板） */
+    if(locked&&dx>w*0.35){reset(false);qcVerdict(q.rows,'pass',null,'qc:'+q.key,q.s);return;}
+    if(locked&&dx<-w*0.35){reset(false);qcVerdict(q.rows,'downgrade',null,'qc:'+q.key,q.s);return;}
     reset(true);
   });
 }
 /* ===== QC 工作台（2026-07-12 改成抽屜 popup，拿掉底部固定判定台）=====
-   分單品/拼配分頁（QCSEG）；In hand 待杯測（同日合併，點開 Cup）＋待判定清單（點某筆就地展開判定區）。
+   分單品/拼配分頁（QCSEG）；In hand 待杯測（同日合併，點開 Cup）＋待判定清單（同日合併，點開判定區）。
    舊 renderQC（整頁＋.deck banner）退役——qcnav()＝相容別名，全部導向 openQCSheet 抽屜 */
+/* 同日分組（To judge 與 Unjudged history 共用）：key＝豆名｜處理法｜烘焙日，
+   輸入 [{s,r}]（s 可為 null＝沒杯測紀錄的歷史鍋）。來源已濾掉判過的，所以組內必為未判鍋。
+   店面量整組算一次（同豆同處理法同烘焙日配到的 transfer 一樣，逐鍋加會重複計，同 cupGroups） */
+function qcDayGroups(list){
+  var out=[],idx={};
+  (list||[]).forEach(function(q){
+    var r=q.r,proc=String(r.process||(q.s&&q.s.process)||'').trim();
+    var k=String(r.bean_name||'').trim().toLowerCase()+'|'+procKey(proc)+'|'+String(r.roast_date||'');
+    if(idx[k]==null){idx[k]=out.length;out.push({key:String(r.id),s:q.s||null,name:r.bean_name||(q.s&&q.s.sample_id)||'',proc:proc,date:r.roast_date||null,rows:[],hand:0,shop:shopKgOf(r),n:0});}
+    var g=out[idx[k]];
+    g.rows.push(r);g.n++;g.hand+=Number(r.remaining_kg)||0;
+    if(!g.s&&q.s)g.s=q.s;
+  });
+  out.forEach(function(g){g.hand=Math.round(g.hand*1000)/1000;});
+  return out;
+}
 var QCSEG='single';
+var QCGONE=false; /* Unjudged history 摺疊區開合（同 selQC 層級，不必進 app_state） */
 function qcnav(){openQCSheet();}
 function openQCSheet(){
   NAV_SRC=null; /* 親自進 QC 抽屜＝子抽屜返回照舊回這裡 */
@@ -7974,8 +8031,12 @@ function openQCSheet(){
   var tocupAll=toCupList();
   var tocup=tocupAll.filter(function(r){return isBl(r.kind)===blend;});
   var queue=QCQ.filter(function(q){return isBl(q.r.kind)===blend;});
-  var nS=tocupAll.filter(function(r){return !isBl(r.kind);}).length+QCQ.filter(function(q){return !isBl(q.r.kind);}).length;
-  var nB=tocupAll.filter(function(r){return isBl(r.kind);}).length+QCQ.filter(function(q){return isBl(q.r.kind);}).length;
+  /* 分頁數字＝合併後的張數（同日多鍋算一張，與清單所見一致） */
+  var qcCount=function(bl){
+    return qcDayGroups(tocupAll.filter(function(r){return isBl(r.kind)===bl;}).map(function(r){return {r:r,s:null};})).length
+      +qcDayGroups(QCQ.filter(function(q){return isBl(q.r.kind)===bl;})).length;
+  };
+  var nS=qcCount(false),nB=qcCount(true);
   var segHTML='<div class="pm-seg" style="margin-top:10px"><button id="qc-seg-s" class="'+(blend?'':'on')+'">Single origins'+(nS?' · '+nS:'')+'</button>'
     +'<button id="qc-seg-b" class="'+(blend?'on':'')+'">Blends'+(nB?' · '+nB:'')+'</button></div>';
   /* In hand（待杯測）：同一支豆同一天烘的幾鍋合併一列，點 → 開 Cup 抽屜 */
@@ -8004,38 +8065,55 @@ function openQCSheet(){
         return '<div class="hit" data-tocup="'+esc(g.first.id)+'" style="cursor:pointer'+(g.hand>0||g.shop>0?';border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,transparent)':'')+'"><span style="min-width:0"><div class="t">'+esc(g.name||'—')+(g.proc?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(g.proc)+'</span>':'')+' <span class="qc-new">New</span></div><div class="s">'+(rNos(g.rows)?rNos(g.rows)+' · ':'')+(g.date?'roasted '+fmtD(g.date):'roast batch')+(g.n>1?' · '+g.n+' roasts':'')+(g.green>0?' · '+(Math.round(g.green*10)/10)+' kg green':'')+where+'</div></span><span class="k">cup</span></div>';
       }).join('')
     :'';
-  /* 待判定（QCQ）：點某筆 → 就地展開判定區（View/Edit・Stock・Roast Date・Lock・Pass/Downgrade） */
-  if(selQC!=null&&!queue.find(function(q){return q.r.id===selQC;}))selQC=null;
-  var qSec='';
-  if(queue.length){
-    qSec='<div class="dlab">To judge — tap to open'+(canWrite()?' · swipe → pass · ← downgrade':'')+'</div>'
-      +queue.map(function(q){
-        var f=(q.s.features||[]).slice(0,3).join(', ');
-        var op=q.r.id===selQC;
-        var qWh=qcStockWhere(q.r),qShop=qWh==='shop'?shopKgOf(q.r):0;
-        var qAtShop=qWh==='hand'?''
-          :(qWh==='shop'?' · <span style="color:var(--ws)">at Crows Nest '+qShop+' kg</span>'
-                        :' · <span style="color:var(--muted)">no stock left</span>');
-        var head='<div class="hit" data-q="'+esc(q.r.id)+'" style="cursor:pointer'+(op?';border-color:var(--accent);border-bottom-left-radius:0;border-bottom-right-radius:0':'')+'"><span style="min-width:0"><div class="t">'+esc(q.s.sample_id||'—')+(q.s.process?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(q.s.process)+'</span>':'')+'</div><div class="s">'+(rNo(q.r)?rNo(q.r)+' · ':'')+(q.r.roast_date?'roasted '+fmtD(q.r.roast_date)+' · ':'')+esc(f||'')+qAtShop+'</div></span><span class="k">'+(op?'▾':'judge ›')+'</span></div>';
-        if(!op)return head;
-        var body='<div style="border:1px solid var(--accent);border-top:none;border-radius:0 0 12px 12px;padding:11px 13px;margin:-8px 0 8px">'
-          +'<div style="display:flex;gap:7px">'
-          +'<button class="chip" data-qact="recup" style="flex:1;margin:0">View/Edit</button>'
-          +'<button class="chip" data-qact="stock" style="flex:1;margin:0">Edit/Add Stock</button>'
-          +'<button class="chip" data-qact="date" style="flex:1;margin:0">Roast Date</button></div>'
-          +(q.s.flavour_locked
-            ?'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:9px 0 4px">★ this batch is the selling version</div>'
-            :'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:9px 0 4px">pass = OK to sell · ★ is added when you list it on Square</div>')
-          +'<div style="display:flex;gap:8px;margin-top:6px"><button class="act" data-qact="pass" style="flex:1;margin:0">Pass</button><button class="act" data-qact="down" style="flex:1;margin:0;background:var(--danger)">Downgrade</button></div>'
-          +'</div>';
-        return head+body;
-      }).join('');
+  /* 待判定（QCQ）：同一天烘的幾鍋合併一張卡（2026-07-22 老闆拍板），點卡 → 就地展開判定區
+     （View/Edit・Stock・Roast Date・Pass/Downgrade）；判定一次套用整組 */
+  var qGroups=qcDayGroups(queue);
+  /* 沒貨又沒判的歷史鍋：不佔主清單，收進底部摺疊區（qcGoneList 已濾 gone＋未判） */
+  var goneGroups=qcDayGroups(qcGoneList().filter(function(r){return isBl(r.kind)===blend;}).map(function(r){
+    return {r:r,s:(DB.samples||[]).find(function(s){
+      if(r.bean_id&&s.bean_id)return String(s.bean_id)===String(r.bean_id);
+      return String(s.sample_id||'').trim().toLowerCase()===String(r.bean_name||'').trim().toLowerCase();
+    })||null};
+  }));
+  if(selQC!=null&&!qGroups.concat(goneGroups).find(function(g){return g.key===selQC;}))selQC=null;
+  /* 一張判定卡（主清單與歷史區共用）：head＝豆名/處理法/批號/日期/幾鍋/貨在哪，展開＝判定區 */
+  function qcCardHTML(g){
+    var f=((g.s&&g.s.features)||[]).slice(0,3).join(', ');
+    var op=g.key===selQC;
+    /* 副標一律用 bits join——空欄位（沒風味詞/沒日期）不會留下孤兒「·」 */
+    var bits=[];
+    if(rNos(g.rows))bits.push(rNos(g.rows));
+    if(g.date)bits.push('roasted '+fmtD(g.date));
+    if(g.n>1)bits.push(g.n+' roasts');
+    if(f)bits.push(esc(f));
+    if(!(g.hand>0))bits.push(g.shop>0?'<span style="color:var(--ws)">at Crows Nest '+g.shop+' kg</span>':'<span style="color:var(--muted)">no stock left</span>');
+    var head='<div class="hit" data-q="'+esc(g.key)+'" style="cursor:pointer'+(op?';border-color:var(--accent);border-bottom-left-radius:0;border-bottom-right-radius:0':'')+'"><span style="min-width:0"><div class="t">'+esc((g.s&&g.s.sample_id)||g.name||'—')+(g.proc?' <span style="color:var(--muted);font-weight:400;font-size:12.5px">'+esc(g.proc)+'</span>':'')+'</div><div class="s">'+bits.join(' · ')+'</div></span><span class="k">'+(op?'▾':'judge ›')+'</span></div>';
+    if(!op)return head;
+    return head+'<div style="border:1px solid var(--accent);border-top:none;border-radius:0 0 12px 12px;padding:11px 13px;margin:-8px 0 8px">'
+      +'<div style="display:flex;gap:7px">'
+      +'<button class="chip" data-qact="recup" style="flex:1;margin:0"'+(g.s?'':' disabled')+'>View/Edit</button>'
+      +'<button class="chip" data-qact="stock" style="flex:1;margin:0">Edit/Add Stock</button>'
+      +'<button class="chip" data-qact="date" style="flex:1;margin:0">Roast Date</button></div>'
+      +(g.s&&g.s.flavour_locked
+        ?'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:9px 0 4px">★ this batch is the selling version</div>'
+        :'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:9px 0 4px">pass = OK to sell · ★ is added when you list it on Square</div>')
+      +(g.n>1?'<div style="text-align:center;font-size:12.5px;color:var(--muted);margin:0 0 4px">applies to all '+g.n+' roasts of that day</div>':'')
+      +'<div style="display:flex;gap:8px;margin-top:6px"><button class="act" data-qact="pass" style="flex:1;margin:0">Pass</button><button class="act" data-qact="down" style="flex:1;margin:0;background:var(--danger)">Downgrade</button></div>'
+      +'</div>';
   }
+  var qSec=qGroups.length
+    ?'<div class="dlab">To judge — tap to open'+(canWrite()?' · swipe → pass · ← downgrade':'')+'</div>'+qGroups.map(qcCardHTML).join('')
+    :'';
+  /* Unjudged history（2026-07-22 老闆拍板）：沒貨的不佔主清單但補得回判定，預設收合 */
+  var gSec=goneGroups.length
+    ?'<button class="grphead" id="qc-gone" style="margin-top:12px"><span class="garr">'+(QCGONE?'▾':'▸')+'</span><span>Unjudged history · '+goneGroups.length+'</span></button>'
+      +(QCGONE?goneGroups.map(qcCardHTML).join(''):'')
+    :'';
   openDrawerHTML('<div class="t" style="font-size:19px">QC</div>'
-    +'<div class="s" style="margin-top:2px">cup and judge · '+(QCQ.length?QCQ.length+' waiting':(tocupAll.length?tocupAll.length+' to cup':'all judged'))+'</div>'
+    +'<div class="s" style="margin-top:2px">cup and judge · '+((nS+nB)?(nS+nB)+' waiting':'all judged')+'</div>'
     +segHTML
-    +cupSec+qSec
-    +((!cupGroups.length&&!queue.length)?'<div class="empty" style="margin-top:14px">'+(blend?'No blends in QC':'No single origins in QC')+'</div>':'')
+    +cupSec+qSec+gSec
+    +((!cupGroups.length&&!qGroups.length)?'<div class="empty" style="margin-top:14px">'+(blend?'No blends in QC':'No single origins in QC')+'</div>':'')
     +'<div style="display:flex;gap:8px;margin-top:12px"><button class="chip" id="qc-add" style="flex:1;margin:0">＋ Add a past batch</button><button class="chip" id="qc-shelf" style="flex:1;margin:0">Shelf · on sale now</button></div>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   var d=$('drawer');
@@ -8043,27 +8121,31 @@ function openQCSheet(){
   var sbb=$('qc-seg-b');if(sbb)sbb.addEventListener('click',function(){if(QCSEG!=='blend'){QCSEG='blend';selQC=null;openQCSheet();}});
   var ad=$('qc-add');if(ad)ad.addEventListener('click',openBackfillSheet);
   var sh=$('qc-shelf');if(sh)sh.addEventListener('click',openRetailSheet);
+  var gb=$('qc-gone');if(gb)gb.addEventListener('click',function(){QCGONE=!QCGONE;openQCSheet();});
   $('d-cl').addEventListener('click',closeDrawer);
   d.querySelectorAll('[data-tocup]').forEach(function(el){el.addEventListener('click',function(){
     var r=(DB.roasts||[]).find(function(x){return String(x.id)===String(el.dataset.tocup);});
     if(r)openCupSheet({ref:r});
   });});
+  var allG=qGroups.concat(goneGroups);
   d.querySelectorAll('[data-q]').forEach(function(el){
-    var qq=queue.find(function(x){return String(x.r.id)===el.dataset.q;});
-    if(qq)attachQcSwipe(el,qq); /* 右滑＝快速 pass */
+    var gg=allG.find(function(x){return x.key===el.dataset.q;});
+    if(gg)attachQcSwipe(el,gg); /* 右滑＝整組快速 pass */
     el.addEventListener('click',function(){
       if(Date.now()-_drag<300)return; /* 剛滑完別誤觸展開 */
       selQC=(selQC===el.dataset.q)?null:el.dataset.q;openQCSheet();
     });
   });
-  var cq=queue.find(function(x){return String(x.r.id)===String(selQC);});
+  var cq=allG.find(function(x){return x.key===String(selQC);});
+  /* 子抽屜吃 {s,r,rows}：recup/stock 對代表鍋（杯測紀錄組內共用、加量只能加一鍋），
+     date 整組一起改（同日＝同批，只改一鍋會把組拆散） */
   if(cq)d.querySelectorAll('[data-qact]').forEach(function(el){el.addEventListener('click',function(){
-    var a=el.dataset.qact;
-    if(a==='recup')return openRecupSheet(cq);
-    if(a==='stock')return openQcStockSheet(cq);
-    if(a==='date')return openRoastDateSheet(cq);
-    if(a==='pass')return qcVerdict(cq.r,'pass',null,'qc:'+cq.r.id,cq.s);
-    if(a==='down')return qcVerdict(cq.r,'downgrade',null,'qc:'+cq.r.id,cq.s);
+    var a=el.dataset.qact,q1={s:cq.s,r:cq.rows[0],rows:cq.rows};
+    if(a==='recup')return cq.s?openRecupSheet(q1):toast('No cupping record on this batch');
+    if(a==='stock')return openQcStockSheet(q1);
+    if(a==='date')return openRoastDateSheet(q1);
+    if(a==='pass')return qcVerdict(cq.rows,'pass',null,'qc:'+cq.key,cq.s);
+    if(a==='down')return qcVerdict(cq.rows,'downgrade',null,'qc:'+cq.key,cq.s);
   });});
 }
 /* QC 補庫存（老闆點名，取代 Menu Card 鈕）：judging 當下對這批加庫存量＋帶日期——
@@ -8071,7 +8153,8 @@ function openQCSheet(){
    不動 beans、不寫 stock_moves（同 Add a past batch 語意）。扣血請去 Coffee 磁貼的「−」。 */
 function openQcStockSheet(q){
   var cur=Number(q.r.remaining_kg)||0;
-  openDrawerHTML('<div class="t" style="font-size:19px">Edit/Add Stock · '+esc(q.s.sample_id||q.r.bean_name||'—')+(rNo(q.r)?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+rNo(q.r)+'</span>':'')+'</div>'
+  openDrawerHTML('<div class="t" style="font-size:19px">Edit/Add Stock · '+esc((q.s&&q.s.sample_id)||q.r.bean_name||'—')+(rNo(q.r)?' <span style="color:var(--muted);font-weight:400;font-size:13px">'+rNo(q.r)+'</span>':'')+'</div>'
+    /* 同日多鍋時這裡只動代表鍋（加量要指名加到哪一鍋）——標題的批號就是在講這件事 */
     +'<div class="s" style="margin-top:2px">adds roasted stock to this batch — green stock is not touched</div>'
     +'<div class="dl" style="margin-top:12px"><span>Batch stock now</span><span><b>'+cur+' kg</b>'+(q.r.roasted_kg!=null?' <span style="color:var(--muted)">· roasted '+(Number(q.r.roasted_kg)||0)+' kg</span>':'')+'</span></div>'
     +'<div class="dlab">Add to stock (kg)</div><input class="din" id="qs-add" inputmode="decimal" placeholder="e.g. 2.5">'
@@ -8098,9 +8181,9 @@ function openQcStockSheet(q){
       var u=await sb.from('roasts').update(upd).eq('id',q.r.id);
       if(u.error)throw new Error(u.error.message);
       /* 日期有改→杯測紀錄跟著走（同 openRoastDateSheet：matchRoast 靠日期優先配對） */
-      if(date&&date!==q.r.roast_date&&q.s.id&&q.s.roast_date){try{await sb.from('samples').update({roast_date:date}).eq('id',q.s.id);q.s.roast_date=date;}catch(e){}}
+      if(date&&date!==q.r.roast_date&&q.s&&q.s.id&&q.s.roast_date){try{await sb.from('samples').update({roast_date:date}).eq('id',q.s.id);q.s.roast_date=date;}catch(e){}}
       Object.assign(q.r,upd);
-      logAct('added stock',q.r.bean_name||q.s.sample_id,(add>0?'+'+add+' kg':'date only'));
+      logAct('added stock',q.r.bean_name||(q.s&&q.s.sample_id),(add>0?'+'+add+' kg':'date only'));
       toast(add>0?'Stock +'+add+' kg ✓':'Date updated ✓');
       buildItems();backToQC(); /* 回 QC 抽屜或統一台 */
     }catch(e){
@@ -8111,9 +8194,11 @@ function openQcStockSheet(q){
   $('d-cl').addEventListener('click',backToQC);
 }
 /* 編輯烘豆日期（老闆點名）：修批次日期——新鮮度、資訊卡、貨架排序全跟著走 */
+/* 改烘焙日：q.rows 有值就整組一起改（同日＝同批，只改一鍋會把 QC 卡拆散）；q.s 可能沒有（歷史鍋） */
 function openRoastDateSheet(q){
-  openDrawerHTML('<div class="t" style="font-size:19px">Roast date · '+esc(q.s.sample_id||'—')+'</div>'
-    +'<div class="s" style="margin-top:2px">fixes this batch — freshness, cards and shelf order follow</div>'
+  var rows=(q.rows&&q.rows.length)?q.rows:[q.r];
+  openDrawerHTML('<div class="t" style="font-size:19px">Roast date · '+esc((q.s&&q.s.sample_id)||q.r.bean_name||'—')+'</div>'
+    +'<div class="s" style="margin-top:2px">fixes this batch — freshness, cards and shelf order follow'+(rows.length>1?' · applies to all '+rows.length+' roasts of that day':'')+'</div>'
     +'<div class="dlab">Roast date</div><input class="din" id="rd-date" type="date" value="'+esc(q.r.roast_date||'')+'">'
     +'<button class="act" id="rd-save">Save date</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Cancel</button>');
@@ -8122,11 +8207,11 @@ function openRoastDateSheet(q){
     if(!v){toast('Pick a date first');return;}
     var btn=this;btn.disabled=true;btn.textContent='Saving…';
     try{
-      var u=await sb.from('roasts').update({roast_date:v}).eq('id',q.r.id);
+      var u=await sb.from('roasts').update({roast_date:v}).in('id',rows.map(function(x){return x.id;}));
       if(u.error)throw new Error(u.error.message);
       /* 杯測紀錄若有掛日期就跟著改（matchRoast 靠日期優先配對） */
-      if(q.s.id&&q.s.roast_date){try{await sb.from('samples').update({roast_date:v}).eq('id',q.s.id);}catch(e){}}
-      q.r.roast_date=v;if(q.s.roast_date)q.s.roast_date=v;
+      if(q.s&&q.s.id&&q.s.roast_date){try{await sb.from('samples').update({roast_date:v}).eq('id',q.s.id);}catch(e){}}
+      rows.forEach(function(x){x.roast_date=v;});if(q.s&&q.s.roast_date)q.s.roast_date=v;
       toast('Roast date updated ✓');
       buildItems();backToQC(); /* 回 QC 抽屜或統一台 */
     }catch(e){
