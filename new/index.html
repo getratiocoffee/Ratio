@@ -1223,6 +1223,20 @@ async function runAction(id,btn){
     alert((i.act||'Action')+' failed: '+(e&&e.message||e));
   }
 }
+/* 取消／拒絕訂單時作廢 Square 付款連結（2026-07-22 補洞）——舊流程只改 orders.status，
+   Square 那條連結還活著，客人事後點下去照樣付得成、錢進來卻沒有有效訂單對應（線上實測 3 條）。
+   已付款的單不碰：那是退款的事，退款一律去 Square 後台做。
+   回 true＝不用作廢或已作廢；false＝連結還在，呼叫端要在畫面上講出來（不靜默吞掉）。
+   走獨立的 void-payment-link edge（刻意不塞進 sync-to-square：那支管上架/訂閱扣款，動它風險大） */
+async function voidPayLink(o){
+  if(!o||!o.payment_link||o.payment_status==='paid')return true;
+  try{
+    await callFn('void-payment-link',{order_id:o.id});
+    o.payment_link=null;o.payment_link_id=null;
+    logAct('voided payment link','#'+String(o.order_no||o.id).padStart(4,'0'),null);
+    return true;
+  }catch(e){console.error('void link',e);return false;}
+}
 async function acceptOrder(i,btn){
   var o=i.ref;
   if(btn){btn.disabled=true;btn.textContent='Accepting…';}
@@ -1500,15 +1514,17 @@ function openDetails(id){
       if(!confirm('Decline and email the customer a cancellation notice?'))return;
       try{var u=await sb.from('orders').update({status:'Cancelled'}).eq('id',i.ref.id);if(u.error)throw new Error(u.error.message);
         logAct('declined order',i.t);
+        var vd1=await voidPayLink(i.ref);
         try{await callFn('send-email',{action:'order_cancelled',order_id:i.ref.id});}catch(e){}
-        toast('Declined');await reload();}catch(e){alert('Decline failed: '+(e&&e.message||e));}
+        toast(vd1?'Declined':'Declined — payment link is still live, void it in Square');await reload();}catch(e){alert('Decline failed: '+(e&&e.message||e));}
     }else if(i.det2==='Cancel order'){
-      var warn=i.ref.payment_status==='paid'?'\n\nThis order is PAID - the email will mention a refund.':'';
+      var warn=i.ref.payment_status==='paid'?'\n\nThis order is PAID - the email will mention a refund, but the money is NOT refunded automatically. Refund it in Square.':'';
       if(!confirm('Cancel this order and email the customer?'+warn))return;
       try{var u2=await sb.from('orders').update({status:'Cancelled'}).eq('id',i.ref.id);if(u2.error)throw new Error(u2.error.message);
         logAct('cancelled order',i.t);
+        var vd2=await voidPayLink(i.ref);
         try{await callFn('send-email',{action:'order_cancelled',order_id:i.ref.id});}catch(e){}
-        toast('Cancelled');await reload();}catch(e){alert('Cancel failed: '+(e&&e.message||e));}
+        toast(vd2?'Cancelled':'Cancelled — payment link is still live, void it in Square');await reload();}catch(e){alert('Cancel failed: '+(e&&e.message||e));}
     }else if(i.det2==='Send reminder email'){
       try{await callFn('send-email',{action:'payment_reminder',order_id:i.ref.id});toast('Reminder sent ✓');}
       catch(e){alert('Reminder failed: '+(e&&e.message||e));}
@@ -4425,7 +4441,7 @@ function openCustomersSheet(){
   document.querySelectorAll('#drawer [data-c]').forEach(function(el){el.addEventListener('click',function(){openCustomerDetail(rows[+el.dataset.c]);});});
   $('d-cl').addEventListener('click',closeDrawer);
 }
-function openCustomerDetail(r){
+function openCustomerDetail(r,fromWs){
   var c=r.c;
   var os=(DB.orders||[]).filter(function(o){return o.customer_id===c.id;})
     .sort(function(a,b){return String(b.created_at||'').localeCompare(String(a.created_at||''));});
@@ -4440,9 +4456,59 @@ function openCustomerDetail(r){
       return '<div class="dl"><span>#'+String(o.order_no||'—').padStart(4,'0')+' · '+(fmtD(o.created_at)||'—')+'</span>'
         +'<span>'+esc(o.status||'—')+' · '+money(o.total)+(o.payment_status==='paid'?'':' · <span class="red">unpaid</span>')+'</span></div>';
     }).join('')+(os.length>10?'<div class="s" style="margin-top:6px;text-align:center">'+(os.length-10)+' older not shown</div>':''):'')
-    +'<button class="dclose" id="cd-back">‹ Back to book</button>'
+    +'<button class="dclose" id="cd-back">‹ Back to '+(fromWs?'wholesale':'book')+'</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
-  $('cd-back').addEventListener('click',openCustomersSheet);
+  $('cd-back').addEventListener('click',fromWs?openWholesaleAccountsSheet:openCustomersSheet);
+  $('d-cl').addEventListener('click',closeDrawer);
+}
+/* ===== 批發帳號名冊（2026-07-22 老闆點名）：Customers 分類第二顆磁貼 =====
+   誰算批發？客戶檔 type 是 shop/cafe/wholesale，或這人下過 channel='wholesale' 的單（whOrd 同一套判定）。
+   數字全部從 DB.orders 現算（Cancelled 在 loadAll 就濾掉了）；沒收到的錢紅字提醒。
+   登入帳號（profiles role='wholesale'）用名字對上客戶檔標 login；對不上的另列——提醒那個帳號還沒建客戶檔 */
+function isWhCustType(t){t=String(t||'').toLowerCase();return t==='wholesale'||t==='shop'||t==='cafe';}
+function whAccountRows(){
+  var whIds={};
+  (DB.orders||[]).forEach(function(o){if(o.channel==='wholesale'&&o.customer_id)whIds[String(o.customer_id)]=1;});
+  return (DB.customers||[]).filter(function(c){return isWhCustType(c.type)||whIds[String(c.id)];})
+    .map(function(c){
+      var os=(DB.orders||[]).filter(function(o){return o.customer_id===c.id;});
+      var last=null,tot=0,due=0,dueN=0;
+      os.forEach(function(o){
+        tot+=Number(o.total)||0;
+        if(o.payment_status!=='paid'){due+=Number(o.total)||0;dueN++;}
+        if(!last||String(o.created_at||'')>last)last=String(o.created_at||'');
+      });
+      return {c:c,n:os.length,last:last,tot:tot,due:due,dueN:dueN};
+    }).sort(function(a,b){
+      if(!!a.last!==!!b.last)return a.last?-1:1;
+      return String(b.last||'').localeCompare(String(a.last||''))||String(a.c.name||'').localeCompare(String(b.c.name||''));
+    });
+}
+async function openWholesaleAccountsSheet(){
+  openDrawerHTML('<div class="t" style="font-size:19px">Wholesale accounts</div><div class="s" style="margin-top:6px">loading…</div>');
+  var rows=whAccountRows(),totDue=0,totSpend=0;
+  rows.forEach(function(r){totDue+=r.due;totSpend+=r.tot;});
+  var logins=[];
+  try{var p=await sb.from('profiles').select('id,name,role').eq('role','wholesale').order('name');if(!p.error)logins=p.data||[];}catch(e){}
+  var loginName={};logins.forEach(function(p){loginName[String(p.name||'').trim().toLowerCase()]=1;});
+  var orphan=logins.filter(function(p){return !rows.some(function(r){return String(r.c.name||'').trim().toLowerCase()===String(p.name||'').trim().toLowerCase();});});
+  openDrawerHTML('<div class="t" style="font-size:19px">Wholesale accounts</div>'
+    +'<div class="s" style="margin-top:2px">'+rows.length+' account'+(rows.length===1?'':'s')+' · most recent order first · '+money(totSpend)+' all time'
+      +(totDue>0?' · <span class="red">'+money(totDue)+' unpaid</span>':'')+'</div>'
+    +(rows.length?rows.map(function(r,ix){
+      var hasLogin=loginName[String(r.c.name||'').trim().toLowerCase()];
+      return '<div class="hit" data-wa="'+ix+'"><span><div class="t">'+esc(r.c.name||'—')+'</div>'
+        +'<div class="s">'+(r.n?(r.n+' order'+(r.n>1?'s':'')+' · last '+(fmtD(r.last)||'—')+' · '+money(r.tot)):'no orders yet')
+        +(r.due>0?' · <span class="red">'+money(r.due)+' unpaid</span>':'')+'</div></span>'
+        +'<span class="k">'+esc(r.c.type||'—')+(hasLogin?' · login':'')+'</span></div>';
+    }).join(''):'<div class="empty">No wholesale accounts yet — set a customer type to shop, or take an order through the wholesale channel</div>')
+    +(orphan.length?'<div class="dlab" style="margin-top:16px">Sign-ins without a customer file</div>'
+      +'<div class="s" style="margin-bottom:8px">these accounts can order online, but nothing in the customer book matches the name</div>'
+      +orphan.map(function(p){return '<div class="dl"><span>'+esc(p.name||'—')+'</span><span class="s">wholesale login</span></div>';}).join(''):'')
+    +(ROLE==='director'?'<button class="act" id="wa-set" style="margin-top:16px">Discount, terms and applications</button>':'')
+    +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
+  document.querySelectorAll('#drawer [data-wa]').forEach(function(el){el.addEventListener('click',function(){openCustomerDetail(rows[+el.dataset.wa],true);});});
+  var ws=$('wa-set');if(ws)ws.addEventListener('click',openWholesaleSheet);
   $('d-cl').addEventListener('click',closeDrawer);
 }
 /* ===== Subscriptions（豆子訂閱：大腦住 app——方案/價格/週期/下次出貨；收錢先借 Square 付款連結。
@@ -6159,6 +6225,11 @@ function openOrderDetail(o,backTo){
     +(o.tracking_no?'<div class="dl"><span>Tracking</span><span>'+esc(o.tracking_no)+'</span></div>':'')
     +'</div>'
     +addrBlockHTML(o,'od-addr')
+    /* 取消了卻還留著活連結的舊單（2026-07-22 補洞前取消的）：這裡補一顆手動作廢，
+       客人再點那條連結也付不了。已付款的不出——那要退款，去 Square 做 */
+    +((o.status==='Cancelled'&&o.payment_link&&o.payment_status!=='paid'&&canWrite())
+      ?'<div class="s" style="margin-top:12px;color:var(--danger)">⚠ This cancelled order still has a live payment link — the customer could still pay it.</div>'
+        +'<button class="act" id="od-void" style="margin-top:8px;background:var(--danger)">Void payment link</button>':'')
     +((rsMoney()||isLead())?'<button class="act" id="od-inv" style="margin-top:12px">Invoice PDF'+(o.payment_status==='paid'?'':' — send for payment')+'</button>':'')
     +'<button class="dclose" id="od-back">‹ Back to list</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
@@ -6166,6 +6237,12 @@ function openOrderDetail(o,backTo){
   $('od-back').addEventListener('click',backTo||openOrdersSheet); /* 來源清單（Transactions 也用這詳情） */
   $('d-cl').addEventListener('click',closeDrawer);
   if($('od-inv'))$('od-inv').addEventListener('click',function(){orderInvoicePDF(o,this);});
+  if($('od-void'))$('od-void').addEventListener('click',async function(){
+    var b=this;b.disabled=true;b.textContent='Voiding…';
+    var ok=await voidPayLink(o);
+    if(ok){toast('Payment link voided ✓');await reload();openOrderDetail(o,backTo);}
+    else{b.disabled=false;b.textContent='Void payment link';alert('Could not void it — open the order in Square and delete the payment link there.');}
+  });
 }
 /* ===== 收生豆（照 classic receivePurchase 規則但免採購單：併現有批次或開新豆＋stock_moves 'receive'）===== */
 var RCV=null;
@@ -11732,6 +11809,7 @@ var TOOL_ICONS={
   refresh:'<path d="M12 4V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-9z"/>',
   tag:'<path d="M3 12 12 3h7a2 2 0 0 1 2 2v7l-9 9zm13-5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/>',
   menu:'<path d="M4 4h16v3H4zm0 5h16v3H4zm0 5h11v3H4z"/>',
+  shopfront:'<path d="M5 3h14l2 6H3l2-6zm-1 8h16v9a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1v-9z"/>', /* 批發帳號＝咖啡店門面 */
   chev:'<path d="M9 5l7 7-7 7-1.4-1.4L13 12 7.6 6.4z"/>',
   dot:'<path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/>',
   gear:'<path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.06 7.06 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/>'
@@ -11753,6 +11831,7 @@ function runTool(k){
   if(k==='sampleana'){openSampleSheet();return;}
   if(k==='buylog'){openBuyLogSheet();return;}
   if(k==='customers'){openCustomersSheet();return;}
+  if(k==='whacc'){openWholesaleAccountsSheet();return;}
   if(k==='addrlabel'){openAddrLabelSheet();return;}
   if(k==='contacts'){openContactsSheet();return;}
   if(k==='help'){openHelpSheet();return;}
@@ -11846,9 +11925,11 @@ function renderTools(){
       _tiles([['Publish','QC → every channel','publish','mega',1],['Edit Notes','flavour on passed beans','editnotes','book',1]])):'')
     +_sec('Orders',DEPT.ord,'order',
       (_mk?_mkTile('t-neworder','New order','right here','plus'):'')
-      +_tiles([['Orders','recent list','orders','order']].concat(ROLE==='director'?[['Subscriptions','fortnightly beans · plans','subs','reorder',1],['Wholesale','discount % · accounts','wholesale','statement',1]]:[])))
+      +_tiles([['Orders','recent list','orders','order']].concat(ROLE==='director'?[['Subscriptions','fortnightly beans · plans','subs','reorder',1],['Wholesale setup','discount % · terms','wholesale','statement',1]]:[])))
     +_sec('Customers',DEPT.cust,'user',
-      _tiles([['Customers','book','customers','user'],['Contacts','suppliers · partners','contacts','team',_mk?1:0],['Post Label','recipient sticker · brother','addrlabel','tag',_mk?1:0]]))
+      _tiles([['Customers','book','customers','user']]
+        .concat(isLead()?[['Wholesale','account list','whacc','shopfront']]:[])
+        .concat([['Contacts','suppliers · partners','contacts','team',_mk?1:0],['Post Label','recipient sticker · brother','addrlabel','tag',_mk?1:0]])))
     +(rsMoney()?_sec('Finance',DEPT.fin,'statement',
       _tiles([['P&amp;L','money overview','pnl','statement'],['Transactions','order payments · paid &amp; unpaid','fintx','order',1],['Bills','scanned from Gmail · tap paid','bills','statement',1],['Invoice','GST PDF','invoice','invoice',1],['Payroll','wages · weeks','payroll','user',_mk?1:0],['Calculator','cost · margins','calc','plus']])):'')
     +_sec('Daily task',DEPT.day,'today',

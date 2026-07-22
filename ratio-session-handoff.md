@@ -81,6 +81,28 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-22 之十三（第二批體檢：錢與訂單＋補洞：取消訂單作廢付款連結 ✅ 前端待 push／edge 已部署）
+
+### 第二批體檢（老闆問「還有什麼漏洞」；第一批＝豆子走向見補記之十一）
+線上真資料查到的：
+1. **取消卻已收款不退**：#0015（$30）、#0020（$25）status=Cancelled 但 payment_status=paid。`openDetails` 的 Cancel 分支只 update status＋寄 order_cancelled 信，**沒有任何退款動作**，而 confirm 文案還寫「the email will mention a refund」＝信說會退、系統不退
+2. **取消的單付款連結還活著**：#0026／#0027／#0028（Dani）三張 Cancelled 仍有 payment_link_id。`sync-to-square` 全部 action 裡**沒有作廢連結這件事**——客人事後點舊連結照樣付得成 → 本輪已修
+3. **已出貨未收款**：#0002 Thirty 7even Dining $640，Dispatched＋pending_payment 撐 16 天，只有一張催收卡沒有升級
+4. **早期出貨沒扣庫存**：#0001／#0002／#0021 Dispatched 但 stock_deducted_at 空（欄位後加的）
+5. **訂單號跳 20+ 個**（1,2,15,20,21,26-29,33,37）——待老闆確認是不是手動刪的測試單
+6. **subscriptions 表 0 筆**，但 Square 上兩個訂閱商品是 synced
+7. 結構性：`acceptOrder` 建付款連結失敗只 `console.error`，訂單照樣變 Confirmed＝客人永遠收不到連結而畫面正常
+- 查過沒問題：客戶 email 無重複、product_sync 無重複列、豆名＋處理法無撞名
+- ⚠ **還沒查的一塊：客人端（?shop 結帳／批發權限／公開頁個資）**——兩次派背景 agent 都 stalled 失敗，之後要自己查
+
+### 本輪修的：取消訂單自動作廢付款連結
+- **新 edge `void-payment-link` v1 已部署**（獨立函式，**刻意不塞進 sync-to-square**——那支 600 行管上架/訂閱扣款/建連結，動它風險大；這支只有一個動作、破壞力低）。行為：已付款→拒絕（叫你去 Square 退款）／沒連結→ok:false／有連結→`DELETE /v2/online-checkout/payment-links/{id}` 後清 orders.payment_link+payment_link_id，並寫 activity_log。權限白名單 director/staff/retail/roaster（wholesale/customer 擋掉）——因為取消訂單本來就開放給店裡的人。原始碼備份在 `handoff/edge/void-payment-link-v1.ts`
+- **前端 `voidPayLink(o)`**（acceptOrder 上方）：包一層呼叫，成功回 true、失敗回 false **不靜默吞**——Cancel/Decline 的 toast 會變成「Cancelled — payment link is still live, void it in Square」
+- **openDetails 的 Cancel/Decline** 兩條路都串進去；Cancel 已付款訂單的 confirm 文案改成明講「**the money is NOT refunded automatically. Refund it in Square.**」
+- **openOrderDetail 補救按鈕**：Cancelled＋未付＋還有連結＋canWrite → 紅字警告＋「Void payment link」（給既有那三張用）
+- **驗證**：jscheck ✓；edge 煙霧測試 anon→401（閘門有效、沒寫入）；e2e 假資料（本 session 自己的 serve :8126，另一個 chat 佔用 8124/8125）——未付有連結→呼叫 `void-payment-link {order_id}` 且本地 link 清空／已付款→**完全不呼叫**、連結保留／沒連結→不呼叫；按鈕出現條件四情境全對（Cancelled未付有連結出現、Cancelled已付不出、Cancelled沒連結不出、New有連結不出）；console 只有測試殼的 sw.js 404
+- ⚠ **線上那三條連結還在**：部署後老闆進 Transactions/Orders 點開 #0026/#0027/#0028 按「Void payment link」即可
+
 ## 〇、補記 — 2026-07-22 之十二（豆子走向藍圖改版 ✅ 待 push）
 - **老闆要求**：「幫我做一個藍圖，我要看一下我豆子的走向」→ 定案：**靜態單檔 HTML（同舊藍圖形式）＋把體檢漏洞標在對應的站上**
 - **舊版哪裡過時**（`Ratio-blueprint-roast-to-publish.html` 2026-07-14 版，commit `0ce2f1d`）：**整個 Crows Nest 轉店面站不在圖上**（現在 76.45kg 的貨在那）、QC 規則改過三輪、「右滑 Pass ＋自動鎖風味」2026-07-16 就拆開了、沒有 Mix roasted／訂閱／批發
