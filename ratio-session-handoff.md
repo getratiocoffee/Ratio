@@ -80,6 +80,14 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-22 之五（QC 拿掉庫存門檻＝Log roast 進來的一律要判定 ✅ 待 push）
+- **老闆定調（否決時間門檻）**：「所有從 Log roast 進來的都要經過 QC」。之三只把店面的貨補回來還不夠——**扣光的批次仍會從 QC 消失＝沒判定就溜走**（實測未判定且已無貨者 15 筆）
+- **改法**：`toCupList` 與 QCQ 的 pend filter **拿掉有貨條件**（2026-07-12 立的 `remaining>0` 正式收回）——一批 Log roast 進來就掛在 QC，**只有親手判定（pass/downgrade）才離開**。`qcHasStock` 換成 **`qcStockWhere(r)` 三態**：`hand`（烘豆室有）／`shop`（只剩 Crows Nest）／`gone`（都沒了），**只管顯示與排序，不再當門檻**
+- **UI**：In hand 依可行動性排序 `hand→shop→gone`（組內新→舊）；`hand` 照舊高亮無標記、`shop` 標藍字 `at Crows Nest N kg`、**`gone` 不高亮＋灰字 `no stock left — judge to close it off`**（判定＝補登記錄）。To judge 區同三態（gone 標 `no stock left`）。matchRoast 的 withStock 仍優先非 gone 的鍋（配對邏輯不變）
+- **衝擊數字（push 後老闆會看到）**：待杯測 **8 → 43 筆**（+20 只剩店面、+15 已無貨），最舊到 2026-06-01。老闆已知並接受＝要的是「不漏」而非清單短
+- **驗證**：jscheck ✓、`qcHasStock` 殘留 0；真檔抽函式跑真資料——沒貨的 El Vergel／Finca Milan **現在留在清單**（以前被濾掉）✓、qc=pass 的 Sugar Daddy 與已 cupped 的 Danche v3 仍正確排除 ✓、排序 hand→shop→gone ✓；375 寬截圖五列三態（有貨高亮／兩列 at Crows Nest／El Vergel 白底灰字）✓、console 零錯誤。serve 複本已 cp
+- **設計筆記**：qcVerdict 只寫 `roasts.qc`，所以沒貨的批次判定不會動到任何庫存帳；「判定才離開」讓 QC 變成**待辦清單**而不是庫存鏡子——這是與 2026-07-12「QC 與 Coffee Stock 同一真相」的**刻意分家**
+
 ## 〇、補記 — 2026-07-22 之四（Off shelf 的豆子在 ?shop 顯示 Sold out ✅ **public-shop v18 已部署**，前端零改動）
 - **老闆點名**：off shelf 的要放 sold out。**前端本來就全做好了**（shopCardsHTML 的 `so=!!b.sold_out`：圖 grayscale .35＋opacity .55、SOLD OUT 膠章、價格轉灰、購買列換成「Sold out — the next roast is on its way」、`data-vid` 清空＝加不進車）——**缺的是 edge 那端**：v14~v16 的 GET 直接 `if (r.status==='paused') return null`＝下架豆整支從菜單消失，`sold_out` 永遠 false（v8 的售罄邏輯在改版時掉了）
 - **public-shop v18（版本號 18＝程式碼 v17）**：①`const off = r.status==='paused'` → **`sold_out: off`**（不再 return null）②**`if (off && !r.variation_id) return null`**＝從沒上 Square／斷鏈的下架列仍隱藏（沒 variation_id 就沒 live price／sizes／圖可顯示）③`beans.sort((a,b)=>Number(!!a.sold_out)-Number(!!b.sold_out))`＝**售罄沉底**，輪播第一張永遠是買得到的（stable sort，在售順序不變）
