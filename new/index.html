@@ -211,6 +211,7 @@ nav button.on{background:var(--inv);border-color:var(--inv);color:var(--inv-t)}
 .dl{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:15px}
 .dl span:first-child{color:var(--muted)}
 .dl span.red{color:var(--danger)}
+.dl span.dv-l{flex:1;text-align:left} /* 清單型的值（品項一項一行）靠左排齊，比靠右好掃描 */
 .dclose{display:block;width:100%;border:1px solid var(--line2);background:var(--bg);color:var(--ink);border-radius:10px;padding:11px 14px;min-height:44px;font-size:15px;font-weight:700;font-family:inherit;margin-top:16px;cursor:pointer}
 .pk-row{display:block;width:100%;text-align:left;border:1.5px solid var(--line2);background:var(--surface);color:var(--ink);border-radius:10px;padding:11px 14px;min-height:44px;font-size:15px;font-weight:600;font-family:inherit;margin-top:9px;cursor:pointer}
 .pk-row.on{border-color:var(--accent);color:var(--accent)}
@@ -620,7 +621,16 @@ function procOfItem(it){
   }
   return (m&&m.process)||'';
 }
-function itemsLine(o){return (Array.isArray(o.items)?o.items:[]).map(function(it){var p=procOfItem(it);return (it.grams?it.grams+'g ':'')+(it.name||'')+(p?' ('+p+')':'')+(it.qty>1?(' ×'+it.qty):'');}).join(', ');}
+/* 一個品項一段文字（重量·豆名·處理法·數量）——itemsLine 串成一行、itemRows 展成明細每項一列 */
+function itemText(it){var p=procOfItem(it);return (it.grams?it.grams+'g ':'')+(it.name||'')+(p?' ('+p+')':'')+(it.qty>1?(' ×'+it.qty):'');}
+function itemsLine(o){return (Array.isArray(o.items)?o.items:[]).map(itemText).join(', ');}
+/* 卡片明細的品項列：一項一行，左欄只有第一列寫 Items 其餘留白；
+   第三格 'item' 是給渲染看的旗標＝值靠左排齊（.dv-l），清單才好掃描 */
+function itemRows(o){
+  var ts=(Array.isArray(o.items)?o.items:[]).map(itemText);
+  if(!ts.length)return [['Items','—']];
+  return ts.map(function(t,ix){return [ix?'':'Items',t,'item'];});
+}
 
 async function loadAll(){
   var rs=await Promise.all([
@@ -804,7 +814,7 @@ function buildItems(){
     var c=custById(o.customer_id);
     out.push({id:'acc:'+o.id,st:whOrd(o,c)?'Wholesale':'Orders',hot:1,t:'#'+String(o.order_no||'—').padStart(4,'0')+' · '+((c&&c.name)||'Walk-in'),
       s:esc(itemsLine(o))+' · '+money(o.total)+(c&&c.email?'':' · <span class=red>no email</span>'),
-      act:'Accept',det:[['Items',itemsLine(o)||'—'],['Total',money(o.total)],['Payment',o.payment_method==='bank_transfer'?'Bank transfer':'Platform'],['Placed',fmtD(o.created_at)]],
+      act:'Accept',det:itemRows(o).concat([['Total',money(o.total)],['Payment',o.payment_method==='bank_transfer'?'Bank transfer':'Platform'],['Placed',fmtD(o.created_at)]]),
       det2:'Decline order',roles:['director','retail','staff'],kind:'accept',ref:o});
   });
   /* QC 導航卡（qcnav「Cupping & QC — N waiting」）已移除（2026-07-17 老闆指示）——
@@ -821,14 +831,14 @@ function buildItems(){
     var c=custById(o.customer_id);
     out.push({id:'pack:'+o.id,st:whOrd(o,c)?'Wholesale':'Orders',hot:0,t:'Pack #'+String(o.order_no||'—').padStart(4,'0')+' · '+((c&&c.name)||'Walk-in'),
       s:esc(itemsLine(o))+(o.payment_status!=='paid'?' · <span class=red>unpaid</span>':''),
-      act:'Pack…',det:[['Items',itemsLine(o)||'—'],['Status',o.status],['Payment',o.payment_status==='paid'?'paid':'awaiting']],
+      act:'Pack…',det:itemRows(o).concat([['Status',o.status],['Payment',o.payment_status==='paid'?'paid':'awaiting']]),
       det2:'Cancel order',roles:['director','retail','staff'],kind:'pack',ref:o});
   });
   shipQ.forEach(function(o){
     var c=custById(o.customer_id);
     out.push({id:'ship:'+o.id,st:whOrd(o,c)?'Wholesale':'Orders',hot:1,t:'Ship #'+String(o.order_no||'—').padStart(4,'0')+' · '+((c&&c.name)||'Walk-in'),
       s:esc(itemsLine(o))+(o.payment_status!=='paid'?' · <span class=red>unpaid</span>':''),
-      act:'Dispatch…',det:[['Items',itemsLine(o)||'—'],['Payment',o.payment_status==='paid'?'paid':'awaiting']],
+      act:'Dispatch…',det:itemRows(o).concat([['Payment',o.payment_status==='paid'?'paid':'awaiting']]),
       det2:'Cancel order',roles:['director','retail','staff'],kind:'ship',ref:o});
   });
   payQ.forEach(function(o){
@@ -1381,7 +1391,7 @@ function backToInfo(){openRetailSheet();}
 function openDetails(id){
   var i=item(id);if(!i)return;
   openDrawerHTML('<span class="tag" style="color:'+(STCOLOR[i.st]||'var(--muted)')+'">● '+esc(i.st)+(i.hot?' <span style="color:var(--accent)">· now</span>':'')+'</span><div class="t" style="font-size:19px">'+i.t+'</div>'
-    +'<div style="margin-top:10px">'+i.det.map(function(r){return '<div class="dl"><span>'+esc(r[0])+'</span><span>'+esc(r[1])+'</span></div>';}).join('')+'</div>'
+    +'<div style="margin-top:10px">'+i.det.map(function(r){return '<div class="dl"><span>'+esc(r[0])+'</span><span'+(r[2]==='item'?' class="dv-l"':'')+'>'+esc(r[1])+'</span></div>';}).join('')+'</div>'
     +'<button class="act" id="d-main">'+esc(i.act)+'</button>'
     +(i.det2?'<button class="dclose" id="d-sec">'+esc(i.det2)+'</button>':'')
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
@@ -1824,7 +1834,7 @@ function openPackSheet(i){
       +'<div class="s" style="margin-top:2px">tap each item as it goes in the box</div>'
       +packIdx.map(function(ix){
         var it=items[ix],on=!!ps[String(ix)];
-        return '<button class="pk-row'+(on?' on':'')+'" data-pk="'+ix+'">'+(on?'✓ ':'')+esc((it.grams?it.grams+'g ':'')+(it.name||'')+(it.qty>1?' ×'+it.qty:''))+'</button>';
+        return '<button class="pk-row'+(on?' on':'')+'" data-pk="'+ix+'">'+(on?'✓ ':'')+esc(itemText(it))+'</button>';
       }).join('')
       +'<button class="act" id="pk-ready"'+(allOn()?'':' disabled')+'>All packed — move to Ready</button>'
       +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
@@ -11530,7 +11540,7 @@ function renderTools(){
     $('thits').querySelectorAll('[data-h]').forEach(function(el){el.addEventListener('click',function(){
       var x=hits[+el.dataset.h];
       openDrawerHTML('<span class="tag warn">'+x.k+'</span><div class="t" style="font-size:19px">'+esc(x.t)+'</div>'
-        +'<div style="margin-top:10px">'+x.det.map(function(r){return '<div class="dl"><span>'+esc(r[0])+'</span><span>'+esc(r[1])+'</span></div>';}).join('')+'</div>'
+        +'<div style="margin-top:10px">'+x.det.map(function(r){return '<div class="dl"><span>'+esc(r[0])+'</span><span'+(r[2]==='item'?' class="dv-l"':'')+'>'+esc(r[1])+'</span></div>';}).join('')+'</div>'
         +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
       $('d-cl').addEventListener('click',closeDrawer);
     });});
