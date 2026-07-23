@@ -10651,7 +10651,7 @@ function paintAddrLabel(){
     /* 寄件人（2026-07-23 老闆給的範本）：不用填東西，一鍵出 Ratio 的回郵地址貼紙 */
     +'<div class="dlab" style="margin-top:16px">Sender — us</div>'
     +'<div class="s" style="margin-bottom:8px;white-space:pre-line">'+esc(RATIO_SENDER)+'</div>'
-    +'<button class="dclose" id="al-send">Sender label — Ratio</button>'
+    +'<button class="act" id="al-send" style="margin-top:8px">Sender label — Ratio</button>'
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);
   $('al-send').addEventListener('click',generateSenderLbx);
