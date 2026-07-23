@@ -81,6 +81,32 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-23 之十八（邀請信開帳號：客戶自己設密碼 ✅ 前端待 push／**invite-account v1 已部署**）
+
+### 起因
+老闆問「Joanna 已經是 wholesale，她的密碼是什麼」→ 查出兩件事：①她只在 `customers`（type=shop、ws_pct 40，07-22 建）**auth.users 裡沒有帳號**②密碼是單向 hash，**任何人任何地方都查不回明文**，只能重設。老闆選「邀請信」路線＝對方自己設密碼、老闆全程不經手。
+
+### 後端：新 edge function `invite-account` v1（已部署，verify_jwt=true）
+- **刻意不動 send-email**（那支扛訂單信/薪資單，為了這件事去改它不划算）。新支只做一件事。
+- 授權同 send-email 形狀：**service-role bearer 或 director JWT**，其他一律 401（anon key 實測 401、零寄出）。
+- Body `{email,name?}` 或 `{user_id}`（Team 卡只有 id、email 在 auth.users 前端讀不到）。
+- 判斷：先試 `generateLink type=recovery` → 失敗（帳號不存在）改 `type=invite`（**invite 會順手建 auth user**，`handle_new_user` trigger 接著建 profile、role 預設 customer）。回 `{ok,to,mode}`。
+- **信走 Resend**（同 FROM/同 wrap 版型）——`generateLink` 只產連結不寄信，所以**完全繞開 Supabase 內建 SMTP 的限流**。
+- 連結落點 `APP_URL/?setpw`。
+
+### 前端（new/index.html，四處）
+1. `sb` 建好後立刻抄 `AUTH_HASH`＋算 `PW_MODE`——detectSessionInUrl 會**非同步吃掉 hash**，晚一步就讀不到 type。判準兩個：`?setpw` 或 hash 帶 `type=recovery|invite`（**白名單沒設好、連結掉回首頁也攔得住**）。
+2. `showSetPasswordOverlay()`＋`pwWaitSession()`（監聽 onAuthStateChange＋直接問，最多等 6 秒）：版型重用 fb-card（同 ?apply）；8 字以上＋兩次一致 → `sb.auth.updateUser({password})` → 成功卡 Continue → 清 URL、`PW_MODE=false`、重 boot。
+3. `boot()` 最前面 `if(PW_MODE){await showSetPasswordOverlay();return;}`——不然連結帶進來的真 session 會被三層路由直接丟進客戶門戶，密碼永遠沒設成。
+4. Add account 抽屜改頭：主鈕 **Email them a set-password link**（callFn `invite-account`），舊的手打密碼收進「Or set a password myself」摺疊區（沒刪）；Team 每張帳號卡底加 **Send password link**（`data-tmp`，走 user_id；director 卡也有＝老闆自己忘記密碼也能用）。
+
+### 驗證（本機 8127 假資料，零真信零真 DB 寫入）
+jscheck ✓／`?setpw` 無 token → 6 秒後「link expired」卡 ✓／stub session 後三態全對（太短、不一致、成功寫入 `beans12345`＋Continue 鈕）✓／Add account 摺疊切換 ✓／Team 兩張卡都長出 chip ✓／console 零錯誤／edge anon → 401 ✓
+
+### ⚠ 等老闆做（兩件，第一件才是真的會擋人）
+1. **Supabase → Authentication → URL Configuration**：Site URL 確認是 `https://ratio-theta.vercel.app`，Redirect URLs 加 `https://ratio-theta.vercel.app/?setpw`（沒加＝連結掉回首頁，靠 hash 防呆仍會跳設密碼頁，但加了才乾淨）。
+2. push 後真寄一封給自己試（Team → 自己那張卡 → Send password link），確認信進得了收件匣、連結點得開。**Joanna 那封等試過再寄**。
+
 ## 〇、補記 — 2026-07-23 之十七（Publish 不再讓沒★的豆隱形＋Publish 卡加 Re-cup ✅ 待 push）
 
 ### 起因：老闆問「為什麼看不到 May Project」→ 追出雞生蛋死結

@@ -472,6 +472,13 @@ body.appview nav button{font-size:13px;padding:10px 2px}
 const SUPABASE_URL='https://kjhudxzvidhynpabnalp.supabase.co';
 const SUPABASE_KEY='sb_publishable_vt7hUK07u-veHOb4mXGGhQ_wX06qDeQ';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+/* ===== 設密碼模式（2026-07-23 邀請信）=====
+   邀請信/重設信的連結先進 Supabase 驗證，再帶著 token 轉回這裡（?setpw）。
+   hash 要在最開頭就先抄一份——supabase-js 的 detectSessionInUrl 會非同步吃掉它，晚一步就讀不到。
+   兩個判準都留：?setpw 是我們指定的落點；萬一 Supabase 後台的 Redirect URL 白名單沒放行、
+   連結掉回首頁，hash 裡的 type=recovery/invite 一樣攔得住。 */
+var AUTH_HASH='';try{AUTH_HASH=location.hash||'';}catch(e){}
+var PW_MODE=false;try{PW_MODE=new URLSearchParams(location.search).has('setpw')||/type=(recovery|invite)/.test(AUTH_HASH);}catch(e){}
 /* ── Read-only 護欄：只有 manager（lead）與 director 能寫；其他角色整個 /new 唯讀 ──
    總閘門＝在 sb.from 源頭包一層 Proxy：select 等讀取照舊，insert/update/upsert/delete 一律擋，
    回傳一個「解析成 {error} 的可鏈式 thenable」讓現有 await/.then 不會炸、只是靜默失敗。
@@ -11995,11 +12002,38 @@ function openAddAccountSheet(){
     +'<div class="s" style="margin-top:2px">creates a sign-in — when it appears under Accounts, set the role there</div>'
     +'<div class="dlab">Name</div><input class="din" id="aa-name" type="text" placeholder="Match the staff list if staff">'
     +'<div class="dlab">Email</div><input class="din" id="aa-email" type="email" placeholder="them@example.com">'
-    +'<div class="dlab">Password</div><input class="din" id="aa-pass" type="text" autocomplete="off" placeholder="6+ characters — share it with them">'
     +'<div class="s" id="aa-msg" style="margin-top:8px"></div>'
-    +'<button class="act" id="aa-go">Create account</button>'
+    +'<button class="act" id="aa-inv">Email them a set-password link</button>'
+    +'<div class="s" style="margin-top:6px;text-align:center">they pick their own password — nobody else ever sees it</div>'
+    +'<button class="chip" id="aa-manual" style="margin-top:16px">Or set a password myself</button>'
+    +'<div id="aa-pwbox" style="display:none">'
+      +'<div class="dlab">Password</div><input class="din" id="aa-pass" type="text" autocomplete="off" placeholder="6+ characters — share it with them">'
+      +'<button class="act" id="aa-go">Create account</button>'
+    +'</div>'
     +'<button class="dclose" id="aa-back" style="border:none;background:none;color:var(--muted)">‹ Back to Team</button>');
   $('aa-back').addEventListener('click',openTeamSheet);
+  $('aa-manual').addEventListener('click',function(){
+    var box=$('aa-pwbox'),on=box.style.display==='none';
+    box.style.display=on?'':'none';
+    $('aa-manual').textContent=on?'Never mind, send them a link instead':'Or set a password myself';
+  });
+  /* 邀請路（推薦）：帳號不存在就順手建、已存在就寄重設連結——兩種都由 invite-account 判斷 */
+  $('aa-inv').addEventListener('click',async function(){
+    var name=($('aa-name').value||'').trim();
+    var email=($('aa-email').value||'').trim();
+    var msg=$('aa-msg');
+    if(!/^\S+@\S+\.\S+$/.test(email)){msg.innerHTML='<span class="red">Enter a valid email address</span>';return;}
+    var b=$('aa-inv');b.disabled=true;b.textContent='Sending…';
+    try{
+      var d=await callFn('invite-account',{email:email,name:name});
+      logAct('invited account',name||email);
+      toast(d&&d.mode==='recovery'?'That address already had an account — password link sent ✓':'Invite sent ✓');
+      openTeamSheet();
+    }catch(e){
+      b.disabled=false;b.textContent='Email them a set-password link';
+      msg.innerHTML='<span class="red">Could not send: '+esc(e&&e.message||e)+'</span>';
+    }
+  });
   $('aa-go').addEventListener('click',async function(){
     var name=($('aa-name').value||'').trim();
     var email=($('aa-email').value||'').trim();
@@ -12046,6 +12080,7 @@ async function openTeamSheet(){
             :'<span class="tag">director</span>')
           +'</div>'
           +(canEdit?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+chips+'</div>':'')
+          +'<div style="margin-top:8px"><button class="chip" data-tmp="'+p.id+'">Send password link</button></div>'
           +'</div>';
       }).join(''):'<div class="empty" style="padding:16px 0">No accounts yet — add users in Supabase Auth first, they appear here</div>')
       +'<div class="s" style="margin-top:8px">Staff names must match the staff list word for word — roster, tasks and unavailability all match people by name.</div>'
@@ -12071,6 +12106,16 @@ async function openTeamSheet(){
     b.disabled=true;
     try{var u=await sb.from('profiles').update({lead:on}).eq('id',p[0]);if(u.error)throw new Error(u.error.message);toast(on?'Lead ✓':'Lead removed');openTeamSheet();}
     catch(e){b.disabled=false;alert('Change failed: '+(e&&e.message||e));}
+  });});
+  /* 重寄設密碼連結（2026-07-23）：email 在 auth.users 裡、前端讀不到，所以只丟 user_id 給邊緣函式 */
+  document.querySelectorAll('#drawer [data-tmp]').forEach(function(b){b.addEventListener('click',async function(){
+    if(!confirm('Email this person a link to set a new password? Their current password keeps working until they use it.'))return;
+    b.disabled=true;b.textContent='Sending…';
+    try{
+      var d=await callFn('invite-account',{user_id:b.dataset.tmp});
+      logAct('sent password link',(d&&d.to)||'');
+      toast('Sent to '+((d&&d.to)||'them')+' ✓');b.textContent='Sent ✓';
+    }catch(e){b.disabled=false;b.textContent='Send password link';alert('Could not send: '+(e&&e.message||e));}
   });});
   document.querySelectorAll('#drawer [data-tmn]').forEach(function(b){b.addEventListener('click',async function(){
     var p=b.dataset.tmn.split('|'),cur=p.slice(1).join('|');
@@ -12709,6 +12754,57 @@ function showApplyOverlay(){
   var q=false;try{q=new URLSearchParams(location.search).has('apply');}catch(e){}
   if(q)showApplyOverlay();
 })();
+/* ===== 設密碼頁：?setpw（邀請信/重設信落地，2026-07-23）=====
+   老闆按 invite → invite-account 邊緣函式產生一次性連結、走 Resend 寄出 → 對方點進來時
+   supabase-js 已把連結裡的 token 換成 session，所以這裡只要等 session 出現、再 updateUser 換密碼。
+   密碼從頭到尾只有本人知道；老闆那端沒有任何地方看得到。版型重用 fb-card 全套（同 ?apply）。 */
+function pwWaitSession(){
+  /* token 換 session 是非同步的（通常一瞬間）：兩路並行——監聽 auth 事件＋直接問一次，最多等 6 秒 */
+  return new Promise(function(resolve){
+    var done=false,sub=null;
+    function finish(s){if(done)return;done=true;try{if(sub&&sub.subscription)sub.subscription.unsubscribe();}catch(e){}resolve(s||null);}
+    try{sub=(sb.auth.onAuthStateChange(function(ev,s){if(s)finish(s);})||{}).data;}catch(e){}
+    sb.auth.getSession().then(function(g){var s=g&&g.data&&g.data.session;if(s)finish(s);});
+    setTimeout(function(){sb.auth.getSession().then(function(g){finish((g&&g.data&&g.data.session)||null);});},6000);
+  });
+}
+async function showSetPasswordOverlay(){
+  var old=document.getElementById('fb-ov');if(old)old.remove();
+  var ov=document.createElement('div');ov.id='fb-ov';
+  ov.innerHTML='<div class="fb-card"><div class="fb-title">Ratio Coffee</div><div class="fb-sub">Checking your link…</div></div>';
+  document.body.appendChild(ov);
+  var sess=await pwWaitSession();
+  if(!sess){
+    ov.innerHTML='<div class="fb-card"><div class="fb-title">Ratio Coffee</div>'
+      +'<div class="fb-sub">This link has expired or has already been used. Ask us for a fresh one and it will work straight away.</div></div>';
+    return;
+  }
+  var who=(sess.user&&sess.user.email)||'';
+  ov.innerHTML='<div class="fb-card">'
+    +'<div class="fb-title">Ratio Coffee</div>'
+    +'<div class="fb-sub">Choose a password for '+esc(who)+'. Only you will know it — we never see it.</div>'
+    +'<input id="pw-1" type="password" autocomplete="new-password" placeholder="New password — 8 characters or more" />'
+    +'<input id="pw-2" type="password" autocomplete="new-password" placeholder="Type it again" />'
+    +'<div class="fb-msg" id="pw-msg"></div>'
+    +'<button class="fb-send" id="pw-go">Save my password</button>'
+    +'</div>';
+  ov.querySelector('#pw-go').addEventListener('click',async function(){
+    var b=ov.querySelector('#pw-go'),msg=ov.querySelector('#pw-msg');
+    var a=ov.querySelector('#pw-1').value||'',c=ov.querySelector('#pw-2').value||'';
+    if(a.length<8){msg.textContent='Use 8 characters or more';msg.className='fb-msg err';return;}
+    if(a!==c){msg.textContent='The two passwords do not match';msg.className='fb-msg err';return;}
+    b.disabled=true;msg.textContent='Saving…';msg.className='fb-msg';
+    var r=await sb.auth.updateUser({password:a});
+    if(r.error){b.disabled=false;msg.textContent=r.error.message||'Could not save that password';msg.className='fb-msg err';return;}
+    ov.innerHTML='<div class="fb-card"><div class="fb-title">Ratio Coffee</div>'
+      +'<div class="fb-thanks">Password saved ✓<br><br>You are signed in — welcome. ☕</div>'
+      +'<button class="fb-send" id="pw-on">Continue</button></div>';
+    ov.querySelector('#pw-on').addEventListener('click',function(){
+      try{history.replaceState(null,'',location.pathname);}catch(e){}
+      PW_MODE=false;ov.remove();boot();
+    });
+  });
+}
 /* ===== 訂閱綁卡頁：?card=<bind_token>（免登入；Card on File 2026-07-21）
    卡號由 Square Web Payments SDK 在瀏覽器直接進 Square 金庫——我們只存卡代號。
    同一連結重複用＝換卡（覆蓋）。app_id 沒設（SQUARE_APPLICATION_ID secret）＝顯示 not ready */
@@ -13703,6 +13799,9 @@ async function renderCustomerPortal(sess){
 var BOOT_EPOCH=0; /* 每次 boot ++＝作廢所有還掛在 await 的舊視角渲染 */
 async function boot(){
   BOOT_EPOCH++;
+  /* 設密碼優先（2026-07-23）：邀請連結帶進來的是一個真 session，照常 boot 會直接把人丟進客戶門戶、
+     密碼永遠沒設成。先蓋設密碼頁，存好按 Continue 才走正常三層路由 */
+  if(PW_MODE){await showSetPasswordOverlay();return;}
   /* 付款完成回店面：清購物車＋致謝（Square redirect_url 帶 ?checkout=done 回來） */
   if(/[?&]checkout=done/.test(location.search)){
     try{localStorage.setItem('r2_cart','[]');}catch(e){}
