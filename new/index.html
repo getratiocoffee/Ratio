@@ -3705,8 +3705,18 @@ function paintPublishSheet(sl,acts){
     var lk=nm.toLowerCase()+'|'+(pr===undefined?'':procKey(pr));
     if(seen[lk])return;seen[lk]=1;
     var s=shelfSampleFor(nm,pr); /* 鎖優先——同名多處理法各找各的鎖 */
-    if(!s||!s.flavour_locked)return;
-    rows.push({nm:nm,proc:pr,key:lk,s:s});
+    if(!s)return; /* 連杯測都沒有＝Publish 幫不了（去 QC 杯測）；底下 noCupNames 會點名 */
+    /* 2026-07-23 老闆定調「豆子不能隱形」：沒 ★ 但還有貨的豆也要進來，才有地方打 ★——
+       否則沒★→進不了 Publish→開不了 List→打不了★＝雞生蛋死結（May Project 就卡在這）。
+       只收「還有貨、且不是打槍批」的沒★豆；賣光的舊杯測、downgrade 豆不冒充「該上架」 */
+    var locked=!!s.flavour_locked;
+    if(!locked){
+      var hasStock=rstStockKg(nm,pr===undefined,pr)>0||shopKgOfName(nm,pr)>0;
+      if(!hasStock)return;
+      var qr=null;try{qr=matchRoast(s);}catch(e){}
+      if(qr&&qcState(qr)==='downgrade')return;
+    }
+    rows.push({nm:nm,proc:pr,key:lk,s:s,needsStar:!locked});
   };
   [false,true].forEach(function(isBl){
     rstRows(isBl).forEach(function(r){addRow(r.name,isBl?undefined:(r.proc||''));});
@@ -3733,20 +3743,19 @@ function paintPublishSheet(sl,acts){
     x.roasteryKg=rstStockKg(x.nm,x.proc===undefined,x.proc);
     x.shopKg=shopKgOfName(x.nm,x.proc);
   });
-  /* 排序：在賣卻沒貨的最上（最急，要下架）→ 鎖了還沒上架的（該上了）→ 已上架 */
+  /* 排序（要你處理的往上）：在賣卻沒貨（最急，要下架）→ 有貨沒★（該打星）→ 鎖了還沒上架 → 已上架 */
   var noStockOnSale=function(x){return x.sync==='synced'&&x.roasteryKg<=0&&x.shopKg<=0;};
+  var tier=function(x){return noStockOnSale(x)?0:(x.needsStar?1:(x.sync?3:2));};
   rows.sort(function(a,b){
-    var oa=noStockOnSale(a)?0:1,ob=noStockOnSale(b)?0:1;
-    if(oa!==ob)return oa-ob;
-    var ra=a.sync?1:0,rb=b.sync?1:0;
-    return ra!==rb?ra-rb:a.nm.localeCompare(b.nm);
+    var ta=tier(a),tb=tier(b);
+    return ta!==tb?ta-tb:a.nm.localeCompare(b.nm);
   });
   function ago(ts){if(!ts)return '—';var d=daysSince(String(ts).slice(0,10));return d<=0?'today':(d+'d ago');}
   var pill=function(txt,bg){return '<span style="flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;background:'+bg+';color:#fff">'+txt+'</span>';};
   var body=rows.length?rows.map(function(x,ix){
-    /* 清單全是有星的豆＝膠囊固定 ★ On shelf；shop 狀態在 chans 行 */
+    /* 膠囊三態：在賣沒貨＝No stock（紅）／有貨沒★＝Needs ★（琥珀，該打星）／已★＝★ On shelf */
     var dry=noStockOnSale(x); /* 在賣卻兩地都沒貨＝洞④ 的那種 */
-    var qcPill=dry?pill('No stock','var(--danger)'):pill('★ On shelf','var(--accent)');
+    var qcPill=dry?pill('No stock','var(--danger)'):(x.needsStar?pill('Needs ★','#C29036'):pill('★ On shelf','var(--accent)'));
     var shop=x.sync==='synced'?'On shelf':(x.sync==='paused'?'Off shelf':'—');
     var chans='Shop (Square + Ratio): <b>'+shop+'</b> · FB/IG: <b>'+ago(x.fb)+'</b> · Email: <b>'+ago(x.em)+'</b>';
     /* 貨在哪（2026-07-22 母體納入店面後才分得清）：兩邊都有就都列 */
@@ -3769,40 +3778,43 @@ function paintPublishSheet(sl,acts){
       /* 上架訊息快速預覽（完整 caption 在 IG asset 裡可複製） */
       var feats=(x.s&&Array.isArray(x.s.features)?x.s.features.slice(0,3).join(', '):'');
       var msg=[];if(feats)msg.push('Cupping notes: '+feats);if(x.s&&(x.s.comment||'').trim())msg.push('“'+String(x.s.comment).trim()+'”');
+      /* 沒★的豆（needsStar）＝行銷類全藏（announceShelfBean 對沒★硬擋，出了也只被擋），
+         只給「Add ★」（只選定風味版本、不碰 Square）與「List」（打★＋上架一次到位）＋Re-cup */
+      var canPublish=!x.needsStar;
       h+='<div style="margin-top:8px">'
         +(msg.length?'<div class="s" style="margin-bottom:8px;padding:9px 11px;background:var(--tint);border-radius:10px">'+esc(msg.join(' · '))+'</div>':'')
+        +(x.needsStar?'<div class="s" style="margin-bottom:6px"><span style="color:#C29036">No ★ yet — Add ★ to fix its shop flavour, or List it to sell online (List adds the ★ too)</span></div>':'')
         +(noCup?'<div class="s" style="margin-bottom:6px"><span class="red">No cupping record — cup it first for listing, email and assets</span></div>':'')
+        +(x.needsStar?'<button class="dclose" data-pubact="star">Add ★ · selling version</button>':'')
         +'<button class="dclose" data-pubact="list" '+(noCup?'disabled style="opacity:.5"':'')+'>'+(x.sync?'Update listing (Square + Ratio shop)':'List on Square + Ratio shop')+'</button>'
         +(x.sync?'<button class="dclose" data-pubact="sold">'+(x.sync==='paused'?'Put back on sale':'Take off shelf')+'</button>':'')
-        +'<button class="dclose" data-pubact="email" '+(noCup?'disabled style="opacity:.5"':'')+'>Email customers — new coffee</button>'
-        +'<button class="dclose" data-pubact="social">Post to FB + IG</button>'
-        +'<button class="dclose" data-pubact="ig" '+(noCup?'disabled style="opacity:.5"':'')+'>IG asset — cards &amp; captions</button>'
-        /* Re-cup（2026-07-23 老闆點名）：把在賣的這支豆送回杯測台重新品控——只更新分數與風味，
+        +(canPublish?'<button class="dclose" data-pubact="email" '+(noCup?'disabled style="opacity:.5"':'')+'>Email customers — new coffee</button>'
+          +'<button class="dclose" data-pubact="social">Post to FB + IG</button>'
+          +'<button class="dclose" data-pubact="ig" '+(noCup?'disabled style="opacity:.5"':'')+'>IG asset — cards &amp; captions</button>':'')
+        /* Re-cup（2026-07-23 老闆點名）：把這支豆送回杯測台重新品控——只更新分數與風味，
            不動 QC 判定、★ 與在賣狀態，做完回到 Publish */
         +(noCup?'':'<button class="dclose" data-pubact="recup" style="margin-top:6px">Re-cup — score this coffee again</button>')
         +'</div>';
     }
     return h+'</div>';
-  }).join(''):'<div class="empty">No ★ coffees on shelf yet<br>Pass a coffee in QC, then List it on Square — pushing adds the ★</div>';
-  /* 洞⑦（2026-07-22）：synced 卻沒 ★ 的豆在這張清單裡是隱形的——沒 ★ 就沒有風味資料，
-     公開菜單的 QC 閘也會把它濾掉＝上架了但客人看不到（實況：Hakuna Matata 10.55 kg）。
-     母體門檻不動（Publish＝★ 清單），改在底下點名，老闆知道要去 QC 加星 */
-  var noStar={};
+  }).join(''):'<div class="empty">Nothing to publish yet<br>Roast and cup a coffee first — it shows up here once it has stock</div>';
+  /* 2026-07-23：有杯測沒★的豆現在直接進清單（needsStar，卡上就能 Add ★），不再靠這裡點名。
+     這段只剩最後一種 Publish 幫不了的：上了 Square 卻連杯測紀錄都沒有→要先去 QC 杯測 */
+  var noCupN={};
   (DB.syncs||[]).forEach(function(x){
     if(x.status!=='synced')return;
     var nm=String(x.bean_id||'').trim();if(!nm||isSubName(nm))return;
     var pr=rtlIsBlend(nm)?undefined:(x.process||'');
-    var s=shelfSampleFor(nm,pr);
-    if(s&&s.flavour_locked)return;
-    noStar[nm.toLowerCase()]=nm;
+    if(shelfSampleFor(nm,pr))return; /* 有杯測＝已進清單，不點名 */
+    noCupN[nm.toLowerCase()]=nm;
   });
-  var noStarNames=Object.keys(noStar).map(function(k){return noStar[k];});
+  var noCupNames=Object.keys(noCupN).map(function(k){return noCupN[k];});
   openDrawerHTML('<div class="t" style="font-size:19px">Publish</div>'
-    +'<div class="s" style="margin-top:2px">your ★ on-shelf coffees → every channel · shop listing = Square + Ratio site together</div>'
+    +'<div class="s" style="margin-top:2px">on-shelf coffees → every channel · ones marked <b>Needs ★</b> have stock but no ★ yet</div>'
     +(isLead()?'<button class="dclose" id="rp-open" style="margin-top:10px">Set retail prices…</button>':'')
-    +(noStarNames.length?'<div class="s" style="margin-top:10px;padding:9px 11px;background:var(--tint);border-radius:10px">'
-      +'<span class="red">'+noStarNames.length+' on Square without a ★</span> — '+esc(noStarNames.join(', '))
-      +'<br>no ★ means no flavour notes, so the shop menu hides them. Star the batch in QC.</div>':'')
+    +(noCupNames.length?'<div class="s" style="margin-top:10px;padding:9px 11px;background:var(--tint);border-radius:10px">'
+      +'<span class="red">'+noCupNames.length+' on Square without a cupping record</span> — '+esc(noCupNames.join(', '))
+      +'<br>no cupping means no flavour to show — cup them in QC first.</div>':'')
     +body
     +'<button class="dclose" id="d-cl" style="border:none;background:none;color:var(--muted)">Close</button>');
   $('d-cl').addEventListener('click',closeDrawer);
@@ -3814,6 +3826,15 @@ function paintPublishSheet(sl,acts){
     ev.stopPropagation();
     var x=rows.find(function(r){return r.key===PUB.open;});if(!x)return;
     var act=el.dataset.pubact;
+    if(act==='star'){
+      /* 只打 ★（選定對外風味版本）——不碰 Square，也不動 roasts。同名同處理法有別的★會先問換不換 */
+      el.disabled=true;el.textContent='Setting ★…';
+      try{var rst=await starSample(x.s,false);
+        if(rst&&rst.ok){toast('★ set ✓');await reload();openPublishSheet();}
+        else{el.disabled=false;el.textContent='Add ★ · selling version';}
+      }catch(e){alert('Could not set ★: '+(e&&e.message||e));openPublishSheet();}
+      return;
+    }
     if(act==='list'){openListSheet({ref:x.s});return;}
     if(act==='recup'){
       /* 對應的在庫鍋只為了顯示烘焙日／批號；賣完沒鍋就用 ★ 那筆自己組一個（re-cup 存檔不依賴 roasts） */

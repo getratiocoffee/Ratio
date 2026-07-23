@@ -81,6 +81,38 @@
 3. 員工端：staff 登入 → Timesheet 磁貼（唯讀）：Today｜This week｜Mine 三檔＋「My unavailability」（列自己的＋新增 start/end，自動帶自己名字）；staff 看不到任何錢。⚠ 注意 Timesheet 磁貼門檻現為 director/finance/**lead**——staff 唯讀版做好後門檻再放寬成全員
 4. 驗證（真帳號）：staff 查 staff_rates/pay_weeks＝空、N/A 只能自填（幫別人填被拒）、改 profiles 被拒、今日流角色過濾正常、**staff 收派工推播＋For you 卡置頂、Yi 能派工＋排班但查薪資空**
 
+## 〇、補記 — 2026-07-23 之十七（Publish 不再讓沒★的豆隱形＋Publish 卡加 Re-cup ✅ 待 push）
+
+### 起因：老闆問「為什麼看不到 May Project」→ 追出雞生蛋死結
+- **打 ★ 的唯一實際入口**＝Publish 卡 → List 抽屜的「★ Star this batch」toggle（`starSample` 全檔只有 List push 一處呼叫）。
+  Coffee Info 2026-07-16 已改只讀（打★鈕拿掉，註解寫「走 Publish/QC 主線」）；QC 判 pass **不自動打★**（QC 文案：「★ is added when you list it on Square」）。
+- 但 Publish 母體只收有★的豆（`addRow` 的 `if(!s||!s.flavour_locked)return`）→ **沒★→進不了 Publish→開不了 List→打不了★**。
+- **May Project 實況**：烘豆室 0、Crows Nest 7 kg（settled）、QC pass、有杯測、**沒★**、從沒上過 Square。
+  它在 Beans 的 Ready to shelf 看得到，但那張卡 `data-bact="pub"` 點下去跳 Publish **又列不出它＝撞牆**。
+  比 Hakuna Matata 更慘：那支至少 synced 會被底部「沒★」提示點名，May Project 非 synced **連提示都沒有**＝雙重隱形。
+- **老闆定調**：「豆子必須不能隱形，不然下一次我要選那隻豆子打星星的話就沒地方做。」
+
+### 本輪修的
+- **`addRow` 放寬**：`s` 為 null（連杯測都沒有）才擋；沒★的豆只要**還有貨（兩地任一）且不是 downgrade 批**就進清單，標 `needsStar`。賣光的舊杯測、打槍豆仍擋在外
+- **卡片三態膠囊**：`No stock`（紅，在賣沒貨）／**`Needs ★`（琥珀，新）**／`★ On shelf`
+- **needsStar 卡的按鈕組**＝`Add ★ · selling version`（新，`data-pubact="star"` → `starSample(x.s,false)`，**只打★、不碰 Square 也不碰 roasts**）＋`List`（打★＋上架一次到位）＋`Re-cup`；
+  **行銷類（email/social/ig）藏起來**——`announceShelfBean` 對沒★硬擋，列出來只會按了被擋
+- **排序四層**：在賣沒貨 → 有貨沒★（該打星）→ 鎖了沒上架 → 已上架
+- **底部提示改義**：有杯測沒★的已進清單不用點名；那段只剩「上了 Square 卻**連杯測都沒有**」→ 叫你去 QC 杯測
+- **Beans 撞牆自動解除**（不用改 Beans）：May Project 進 Publish 後 `data-bkey="may project|"` 對得上 `key`，點過去直接展開
+- **驗證**：jscheck ✓；假資料——May Project 進清單標 `Needs ★` 排最上、Dark Knight 維持 `★ On shelf`、**賣光的 Gatitu AA 與 downgrade 的 Danche v1 正確排除**；按鈕組 needsStar=[star,list,recup]／已★=[list,sold,email,social,ig,recup]（**回歸原封不動**）；按 Add ★ → 只送 `PATCH samples?id=eq.s-mp {"flavour_locked":true}`，`touchedRoasts=false`／`touchedSquare=false`；Beans Ready to shelf 點 May Project → `landedOnPublish=true`＋卡片自動展開＋Add ★ 鈕在；375px 截圖、console 零錯誤
+
+### 同輪稍早：Publish 卡加 Re-cup（老闆選 A 方案）
+- 老闆要「Publish 的豆子能放回 QC 做品控」→ 確認是 **A＝重新杯測**（豆照賣、★ 不動），非「退回待判」
+- 卡片最下面加 `Re-cup — score this coffee again` → 走既有 `openRecupSheet`，帶原分數風味，存檔 update 同一筆 sample
+- `openRecupSheet` 加 `back` 參數、`saveCupSheet` 依它決定回 Publish 或 QC 台（不打斷上架流程）
+- 賣完沒在庫鍋的豆用 ★ 那筆自組 fallback `r`（re-cup 存檔本就不依賴 roasts），一樣開得起來
+- 驗證：存檔只 PATCH samples、`roastsTouched=false`、`backedToPublish=true`
+
+### ⚠ 老闆待決（我沒動）
+**現在「能不能上架」的硬門檻是 ★，不是 QC pass**（QC pass 只在發 email 時軟提醒，downgrade 才硬擋）。
+老闆若要改成「必須 QC pass 才准上架」，那是另一個改動——會改變現行上架習慣，等他決定。
+
 ## 〇、補記 — 2026-07-23 之十六（庫存單一窗口 STOCK＋Beans 重複修掉 ✅ 待 push）
 
 - **起因**：老闆說 Beans（production line）有豆子重複。查出來是**同一批店面的貨被同日的每一鍋各認領一次**——
