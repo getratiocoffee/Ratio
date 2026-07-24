@@ -12210,6 +12210,7 @@ function runTool(k){
   if(k==='roster'){openRosterSheet();return;}
   if(k==='signout'){
     if(!confirm('Sign out? The app returns to the public shop menu.'))return;
+    closeDrawer(); /* 先收掉 Setting 彈窗——boot() 只重畫底層，不會關浮在上面的抽屜，不關它會黏在店面菜單上 */
     (async function(){try{await sb.auth.signOut();}catch(e){}toast('Signed out');await boot();})();
     return;
   }
